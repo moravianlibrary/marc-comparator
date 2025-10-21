@@ -1,7 +1,9 @@
-from typing import List, Self, Type
+from typing import AsyncGenerator, List, Self, Type
+
+from esorm import es
 
 from adapters.database import DatabaseSession
-from adapters.indexer import IndexerSchema
+from adapters.indexer import IndexerQuery, IndexerSchema
 
 
 class BaseOperationsMixin:
@@ -47,6 +49,53 @@ class BaseOperationsMixin:
             The entity if found, otherwise None.
         """
         return db_session.get(cls, entity_id)
+
+    @classmethod
+    async def get_by_query(
+        cls, db_session: DatabaseSession, query: IndexerQuery
+    ) -> AsyncGenerator[Self, None]:
+        """
+        Yield database entities by running an indexer scroll query.
+
+        Parameters
+        ----------
+        db_session : DatabaseSession
+            The database session to use for retrieving entities.
+        query : IndexerQuery
+            Indexer query body to perform.
+
+        Yields
+        ------
+        AsyncGenerator[Self, None]
+            An async generator yielding database entities.
+        """
+        index_name = cls.__indexer_schema__.ESConfig.index_name
+        id_field = cls.__indexer_schema__.ESConfig.id_field
+
+        scroll_id = None
+
+        while True:
+            response = (
+                await es.scroll(scroll_id=scroll_id, scroll="1m")
+                if scroll_id
+                else await es.search(
+                    index=index_name,
+                    body=query,
+                    scroll="1m",
+                    fields=[id_field],
+                )
+            )
+
+            for hit in response["hits"]["hits"]:
+                yield db_session.query(cls).filter(
+                    id_field == hit["_id"]
+                ).one()
+
+            scroll_id = response.get("_scroll_id")
+            if not scroll_id or not response["hits"]["hits"]:
+                break
+
+        await es.clear_scroll(scroll_id=scroll_id)
 
     def save(self: Self, db_session: DatabaseSession) -> Self:
         """
