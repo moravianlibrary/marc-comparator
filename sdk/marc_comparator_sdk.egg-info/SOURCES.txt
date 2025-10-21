@@ -1,0 +1,14 @@
+README.md
+description.txt
+pyproject.toml
+requirements.txt
+marc_comparator_sdk.egg-info/PKG-INFO
+marc_comparator_sdk.egg-info/SOURCES.txt
+marc_comparator_sdk.egg-info/dependency_links.txt
+marc_comparator_sdk.egg-info/entry_points.txt
+marc_comparator_sdk.egg-info/requires.txt
+marc_comparator_sdk.egg-info/top_level.txt
+marc_comparator_sdk/comparators/__init__.py
+marc_comparator_sdk/validators/__init__.py
+marc_comparator_sdk/validators/_base.py
+marc_comparator_sdk/validators/kramerius_links.py

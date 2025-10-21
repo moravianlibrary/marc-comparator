@@ -1,0 +1,4 @@
+aleph-nought @ git+https://github.com/moravianlibrary/aleph-nought.git@v0.2.4
+kramerius @ git+https://github.com/moravianlibrary/kramerius-client.git@v0.2.0
+pandas
+typer

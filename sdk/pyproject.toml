@@ -1,0 +1,30 @@
+[build-system]
+requires = [
+    "setuptools>=61.0",
+    "wheel"
+]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "marc-comparator-sdk"
+version = "0.0.1"
+authors = [
+    {name = "Robert Randiak", email = "randiak@protonmail.com"}
+]
+requires-python = ">=3.12"
+dynamic = ["dependencies", "description", "readme"]
+
+[project.scripts]
+marc-comparator-sdk = "marc_comparator_sdk.cli:main"
+
+[tool.setuptools]
+packages = [
+    "marc_comparator_sdk",
+    "marc_comparator_sdk.comparators",
+    "marc_comparator_sdk.validators",
+]
+
+[tool.setuptools.dynamic]
+dependencies = {file = "requirements.txt"}
+description = {file = "description.txt"}
+readme = {file = "README.md"}

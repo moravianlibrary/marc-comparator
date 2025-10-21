@@ -1,0 +1,1 @@
+Marc Comparator SDK is a Python library and CLI for parsing, validating, and comparing MARC bibliographic records, supporting MRC and XML formats and configurable comparators and validators.

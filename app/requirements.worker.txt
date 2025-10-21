@@ -1,0 +1,15 @@
+../sdk
+aleph-nought @ git+https://github.com/moravianlibrary/aleph-nought.git@v0.2.4
+asgiref
+celery
+elasticsearch==8.14.0
+email-validator
+kramerius @ git+https://github.com/moravianlibrary/kramerius-client.git@v0.2.0
+pandas
+psycopg2-binary
+pydantic_settings
+pyesorm
+pyyaml
+redis
+requests
+sqlalchemy

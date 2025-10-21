@@ -1,0 +1,9 @@
+base: MZK01
+oai:
+  host: https://aleph.mzk.cz
+  endpoint: OAI
+  base: MZK01
+  system_number_pattern: \\d{9}
+  oai_sets:
+    - MZK01-VDK
+  oai_identifier_template: oai:aleph.mzk.cz:{base}-{doc_number}
