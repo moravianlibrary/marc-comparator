@@ -209,6 +209,23 @@ def records_sync_task(
     )
 
 
+@shared_task(name="authority_linking", bind=True)
+def authority_linking(self: CeleryTask) -> None:
+    """
+    Celery cannot directly run async tasks, so we use asgiref to bridge
+    the gap.
+
+    Importing inside the function to provide separation between
+    app and worker environments.
+    """
+    from asgiref.sync import async_to_sync
+
+    from authority_linking.tasks import authority_linking
+
+    init_tasks_context()
+    return async_to_sync(authority_linking)(str(self.request.id))
+
+
 def dispatch_task(task: Task) -> None:
     """
     Dispatches a task to the Celery based on its type.
@@ -226,6 +243,9 @@ def dispatch_task(task: Task) -> None:
     elif task.type == TaskType.SyncRecords:
         lock_key = f"catalog_sync_{task.data['base']}"
         records_sync_task.apply_async(args=[lock_key, 1], task_id=task_id)
+
+    elif task.type == TaskType.AuthorityLinking:
+        authority_linking.apply_async(task_id=task_id)
 
     else:
         raise ValueError(f"Unknown task type: {task.type}")

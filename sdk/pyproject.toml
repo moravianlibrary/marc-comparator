@@ -20,6 +20,7 @@ marc-comparator-sdk = "marc_comparator_sdk.cli:main"
 [tool.setuptools]
 packages = [
     "marc_comparator_sdk",
+    "marc_comparator_sdk.authority_linkers",
     "marc_comparator_sdk.comparators",
     "marc_comparator_sdk.validators",
 ]

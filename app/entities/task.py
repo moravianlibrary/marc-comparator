@@ -25,6 +25,7 @@ from entities._operations import BaseOperationsMixin
 class TaskType(StrEnum):
     FetchRecord = "FetchRecord"
     SyncRecords = "SyncRecords"
+    AuthorityLinking = "AuthorityLinking"
 
 
 class TaskStatus(StrEnum):

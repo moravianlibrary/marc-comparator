@@ -2,10 +2,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from adapters.logger import LogLevels, configure_logging
+from app_lifespan import lifespan
 from auth.controller import router as auth_router
+from authority_linking.controller import router as authority_linking_router
 from catalog.controller import router as catalog_router
 from config import config
-from app_lifespan import lifespan
 
 configure_logging(LogLevels.info)
 
@@ -22,6 +23,7 @@ app.add_middleware(
 
 # Register routers
 app.include_router(auth_router)
+app.include_router(authority_linking_router)
 app.include_router(catalog_router)
 
 

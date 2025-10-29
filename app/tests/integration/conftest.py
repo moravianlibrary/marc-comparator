@@ -95,6 +95,9 @@ async def db_session(
 ) -> AsyncGenerator[DatabaseSession, None]:
     """Spin up Postgres in a container and yield a SQLAlchemy session."""
     # SQLAlchemy engine + session
+    from entities.authority_link import AuthorityLink  # noqa: F401
+    from entities.catalog_record import CatalogRecord  # noqa: F401
+
     engine = create_engine(postgres_container.get_connection_url())
     SessionLocal = sessionmaker(bind=engine)
     await asyncio.to_thread(Base.metadata.create_all, engine)
