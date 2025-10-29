@@ -29,6 +29,7 @@ COPY app/adapters/ adapters/
 COPY app/auth/ auth/
 COPY app/catalog/ catalog/
 COPY app/entities/ entities/
+COPY app/validation/ validation/
 COPY app/app.py app.py
 COPY app/app_lifespan.py app_lifespan.py
 COPY app/config.py config.py

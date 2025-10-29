@@ -209,6 +209,17 @@ def records_sync_task(
     )
 
 
+@shared_task(bind=True, name="validate_records_task")
+def validate_records_task(self: CeleryTask) -> None:
+
+    from asgiref.sync import async_to_sync
+
+    from validation.task import validate_records_task
+
+    init_tasks_context()
+    return async_to_sync(validate_records_task)(str(self.request.id))
+
+
 def dispatch_task(task: Task) -> None:
     """
     Dispatches a task to the Celery based on its type.
@@ -226,6 +237,9 @@ def dispatch_task(task: Task) -> None:
     elif task.type == TaskType.SyncRecords:
         lock_key = f"catalog_sync_{task.data['base']}"
         records_sync_task.apply_async(args=[lock_key, 1], task_id=task_id)
+
+    elif task.type == TaskType.ValidateRecords:
+        validate_records_task.apply_async(task_id=task_id)
 
     else:
         raise ValueError(f"Unknown task type: {task.type}")

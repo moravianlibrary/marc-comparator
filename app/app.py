@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from adapters.logger import LogLevels, configure_logging
 from auth.controller import router as auth_router
 from catalog.controller import router as catalog_router
+from validation.controller import router as validation_router
 from config import config
 from app_lifespan import lifespan
 
@@ -23,6 +24,7 @@ app.add_middleware(
 # Register routers
 app.include_router(auth_router)
 app.include_router(catalog_router)
+app.include_router(validation_router)
 
 
 if __name__ == "__main__":

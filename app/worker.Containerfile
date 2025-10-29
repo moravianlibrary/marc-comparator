@@ -31,6 +31,7 @@ COPY app/adapters/ adapters/
 COPY app/auth/ auth/
 COPY app/catalog/ catalog/
 COPY app/entities/ entities/
+COPY app/validation/ validation
 COPY app/config.py config.py
 
 # Exclude app-specific files
