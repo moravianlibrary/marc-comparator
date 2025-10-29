@@ -15,7 +15,7 @@ class ValidityStatus(StrEnum):
 
 
 @dataclass
-class ValidationField:
+class ValidationTarget:
     tag: str
     codes: List[str] | None = None
 
@@ -33,7 +33,7 @@ class ValidationResult:
         hint: Optional guidance for fixing the issue.
     """
 
-    target: ValidationField
+    target: ValidationTarget
     status: ValidityStatus
 
     reason: str | None = None

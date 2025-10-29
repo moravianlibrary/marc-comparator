@@ -15,6 +15,19 @@ export type EsHit<T> = {
     _source: z.infer<T>;
 };
 
+export type EsHits<T> = {
+    total: { value: number };
+    hits: EsHit<T>[];
+};
+
+export type EsResponse<T> = {
+    took: number;
+    timed_out: boolean;
+    _shards: unknown;
+    hits: EsHits<T>;
+    aggregations?: Record<string, unknown>;
+};
+
 export const createEsHitsSchema = <T extends ZodType<any>>(sourceSchema: T) =>
     z.object({
         total: z.object({ value: z.number() }),

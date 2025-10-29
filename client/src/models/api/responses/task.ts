@@ -2,7 +2,6 @@ import { z } from "zod";
 import { TaskStatusSchema, TaskTypeSchema } from "../../primitives/task";
 
 export const TaskSchema = z.object({
-    task_id: z.uuidv4(),
     name: z.string(),
     type: TaskTypeSchema,
     status: TaskStatusSchema,
