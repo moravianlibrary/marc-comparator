@@ -7,8 +7,6 @@ from catalog.models import FetchRecordData, SyncRecordsData
 from entities.task import Task, TaskSchema, TaskType
 
 
-
-
 async def fetch_record(
     data: FetchRecordData, created_by: str, db_session: DatabaseSession
 ) -> TaskSchema:

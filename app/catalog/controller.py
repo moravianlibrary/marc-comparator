@@ -1,18 +1,15 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends
-from fastapi.security import OAuth2PasswordRequestForm
+from fastapi import APIRouter, Body
 
+from adapters.dependencies import DatabaseSessionDep, IndexerSessionDep
 from auth.service import CurrentUser
 from catalog.models import FetchRecordData, SyncRecordsData
 from entities.task import TaskSchema
-from adapters.dependencies import DatabaseSessionDep, IndexerSessionDep
 
 from . import service
 
 router = APIRouter(prefix="/catalog", tags=["catalog"])
-
-OAuthFormData = Annotated[OAuth2PasswordRequestForm, Depends()]
 
 
 @router.post("/fetch", response_model=TaskSchema)

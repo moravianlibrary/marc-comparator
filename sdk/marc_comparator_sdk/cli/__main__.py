@@ -7,6 +7,10 @@ import pandas as pd
 import typer
 from marcdantic import MarcRecord
 
+from marc_comparator_sdk.authority_linkers import (
+    AUTHORITY_LINKER_DISPATCHER,
+    AuthorityLinker,
+)
 from marc_comparator_sdk.validators.kramerius_links import (
     KrameriusLinksValidator,
 )
@@ -21,6 +25,24 @@ class Validator(StrEnum):
 VALIDATORS = {
     Validator.KrameriusLinks: KrameriusLinksValidator,
 }
+
+
+def _print_marc_record(record: MarcRecord):
+    typer.echo(f"Leader: {record.leader}")
+    typer.echo("Fixed Fields:")
+    for tag, data in record.fixed_fields.root.items():
+        typer.echo(f"  {tag} {data}")
+    typer.echo("Variable Fields:")
+    for tag, fields in record.variable_fields.root.items():
+        for field in fields:
+            ind1 = field.ind1 or "-"
+            ind2 = field.ind2 or "-"
+            subfields_str = " ".join(
+                f"|{code} {value}"
+                for code, values in field.subfields.items()
+                for value in values
+            )
+            typer.echo(f"  {tag} {ind1}{ind2}  {subfields_str}")
 
 
 @app.command()
@@ -48,23 +70,9 @@ def print(
         with path.open("rb") as f:
             record = MarcRecord.from_mrc(f.read())
 
-        typer.echo("=" * 80)
-        typer.echo(f"File: {path}")
-        typer.echo(f"Leader: {record.leader}")
-        typer.echo("Fixed Fields:")
-        for tag, data in record.fixed_fields.root.items():
-            typer.echo(f"  {tag} {data}")
-        typer.echo("Variable Fields:")
-        for tag, fields in record.variable_fields.root.items():
-            for field in fields:
-                ind1 = field.ind1 or "-"
-                ind2 = field.ind2 or "-"
-                subfields_str = " ".join(
-                    f"|{code} {value}"
-                    for code, values in field.subfields.items()
-                    for value in values
-                )
-                typer.echo(f"  {tag} {ind1}{ind2}  {subfields_str}")
+            typer.echo("=" * 80)
+            typer.echo(f"File: {path}")
+            _print_marc_record(record)
 
 
 @app.command()
@@ -177,6 +185,66 @@ def validate(
 
     report = pd.DataFrame(report_data)
     report.to_csv(output, index=False)
+
+
+@app.command()
+def link(
+    linker: AuthorityLinker = typer.Argument(
+        ..., help="Authority linker to use"
+    ),
+    base: str = typer.Argument(
+        ..., help="Source catalog base or dataset identifier"
+    ),
+    system_number: str = typer.Argument(
+        ..., help="System number of the record"
+    ),
+    mrc_file_path: Path = typer.Argument(
+        ..., help="Paths to MARC record files"
+    ),
+    target_base: str = typer.Argument(..., help="Target authority base"),
+    linker_config: Path | None = typer.Option(
+        None, help="Path to authority linker configuration file"
+    ),
+):
+    linker_cls = AUTHORITY_LINKER_DISPATCHER[linker]
+
+    if linker_cls.config_model is not None and linker_config is not None:
+        if not linker_config.exists():
+            typer.echo(
+                f"Config file does not exist: {linker_config}", err=True
+            )
+            typer.exit(1)
+
+        if not linker_config.is_file():
+            typer.echo(f"Not a file: {linker_config}", err=True)
+            typer.exit(1)
+
+        with linker_config.open("r", encoding="utf-8") as f:
+            config_data = f.read()
+
+        config = linker_cls.config_model.model_validate_json(config_data)
+        linker_inst = linker_cls(config)
+    elif linker_cls.config_model is not None and linker_config is None:
+        linker_inst = linker_cls(linker_cls.config_model())
+    else:
+        linker_inst = linker_cls()
+
+    with mrc_file_path.open("rb") as f:
+        record = MarcRecord.from_mrc(f.read())
+
+    link = asyncio.run(
+        linker_inst.run(base, system_number, record, target_base)
+    )
+
+    if link is not None:
+        typer.echo("Authority link found:")
+        typer.echo(f"  Base: {link.base}")
+        typer.echo(f"  System Number: {link.system_number}")
+        typer.echo(f"  Confidence: {link.confidence}")
+        typer.echo("  Linked Record:")
+        _print_marc_record(link.record)
+    else:
+        typer.echo("No authority link found.")
 
 
 def main():

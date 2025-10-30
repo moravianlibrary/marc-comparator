@@ -1,5 +1,6 @@
 from datetime import datetime
-from typing import Optional
+from enum import StrEnum
+from typing import List, Optional
 
 from esorm.fields import Keyword
 from sqlalchemy import (
@@ -11,10 +12,18 @@ from sqlalchemy import (
     event,
     func,
 )
+from sqlalchemy.orm import Mapped, relationship
 
 from adapters.database import Base, DatabaseSession
 from adapters.indexer import IndexerSchema
 from entities._operations import BaseOperationsMixin
+
+from .authority_link import AuthorityLink, AuthorityLinkSchema
+
+
+class CatalogRecordSource(StrEnum):
+    Main = "Main"
+    AuthorityLinker = "AuthorityLinker"
 
 
 class CatalogRecordSchema(IndexerSchema):
@@ -30,6 +39,8 @@ class CatalogRecordSchema(IndexerSchema):
     last_sync: datetime
     deleted: bool
 
+    authority_links: List[AuthorityLinkSchema]
+
 
 class CatalogRecord(Base, BaseOperationsMixin):
     __indexer_schema__ = CatalogRecordSchema
@@ -43,6 +54,18 @@ class CatalogRecord(Base, BaseOperationsMixin):
 
     last_sync = Column(TIMESTAMP, nullable=False, default=func.now())
     deleted = Column(Boolean, nullable=False, default=False)
+
+    source_type = Column(
+        String, nullable=False, default=CatalogRecordSource.Main
+    )
+    source_name = Column(String, nullable=True)
+
+    authority_links: Mapped[List["AuthorityLink"]] = relationship(
+        "AuthorityLink",
+        foreign_keys=[AuthorityLink.main_record_id],
+        back_populates="main_record",
+        lazy="select",
+    )
 
     @classmethod
     def generate_id(cls, base: str, system_number: str) -> str:

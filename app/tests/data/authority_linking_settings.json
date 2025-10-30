@@ -1,0 +1,23 @@
+{
+    "enabled_linkers": ["knihovny-cz"],
+    "knihovny_cz": {
+        "api_url": "https://api.knihovny.cz/v1/",
+        "mappings": [
+            {
+                "base": "MZK01",
+                "id_template": "mzk.MZK01-{system_number}",
+                "pattern": "^mzk\\.MZK01-(\\d{9})$"
+            },
+            {
+                "base": "MZK03",
+                "id_template": "mzk.MZK03-{system_number}",
+                "pattern": "^mzk\\.MZK03-(\\d{9})$"
+            },
+            {
+                "base": "SKC",
+                "id_template": "caslin.SKC01-{system_number}",
+                "pattern": "^caslin\\.SKC01-(\\d{9})$"
+            }
+        ]
+    }
+}
