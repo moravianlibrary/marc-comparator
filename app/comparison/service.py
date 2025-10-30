@@ -1,11 +1,8 @@
 from adapters.database import DatabaseSession
 from adapters.tasks import enqueue_task
+from common.exceptions import SettingsNotFoundError, SettingsPartNotFoundError
 from entities.settings import Settings, SettingsScope
 from entities.task import Task, TaskSchema, TaskType
-from settings.exceptions import (
-    SettingsNotFoundError,
-    SettingsPartNotFoundError,
-)
 
 from .models import ComparisonSettings, ComparisonTaskData
 

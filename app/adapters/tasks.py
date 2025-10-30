@@ -171,15 +171,17 @@ def init_tasks_context() -> None:
         AlephClientRegistry.load_from_config(config.aleph_config_path)
 
 
+"""
+Celery cannot directly run async tasks, so we use asgiref to bridge
+the gap.
+
+Importing inside the function to provide separation between
+app and worker environments.
+"""
+
+
 @shared_task(name="fetch_record_task", bind=True)
 def fetch_record_task(self: CeleryTask) -> None:
-    """
-    Celery cannot directly run async tasks, so we use asgiref to bridge
-    the gap.
-
-    Importing inside the function to provide separation between
-    app and worker environments.
-    """
     from asgiref.sync import async_to_sync
 
     from catalog.tasks import fetch_record_task
@@ -192,13 +194,6 @@ def fetch_record_task(self: CeleryTask) -> None:
 def records_sync_task(
     self: CeleryTask, lock_key: str, lock_blocking_timeout: int
 ):
-    """
-    Celery cannot directly run async tasks, so we use asgiref to bridge
-    the gap.
-
-    Importing inside the function to provide separation between
-    app and worker environments.
-    """
     from asgiref.sync import async_to_sync
 
     from catalog.tasks import records_sync_task
@@ -209,21 +204,34 @@ def records_sync_task(
     )
 
 
-@shared_task(name="authority_linking", bind=True)
-def authority_linking(self: CeleryTask) -> None:
-    """
-    Celery cannot directly run async tasks, so we use asgiref to bridge
-    the gap.
+@shared_task(name="validate_records", bind=True)
+def validate_records_task(self: CeleryTask) -> None:
+    from asgiref.sync import async_to_sync
 
-    Importing inside the function to provide separation between
-    app and worker environments.
-    """
+    from validation.tasks import validate_records
+
+    init_tasks_context()
+    return async_to_sync(validate_records)(str(self.request.id))
+
+
+@shared_task(name="link_records_to_authorities", bind=True)
+def link_records_to_authorities(self: CeleryTask) -> None:
     from asgiref.sync import async_to_sync
 
     from authority_linking.tasks import authority_linking
 
     init_tasks_context()
     return async_to_sync(authority_linking)(str(self.request.id))
+
+
+@shared_task(name="compare_records", bind=True)
+def compare_records_task(self: CeleryTask) -> None:
+    from asgiref.sync import async_to_sync
+
+    from comparison.tasks import compare_records
+
+    init_tasks_context()
+    return async_to_sync(compare_records)(str(self.request.id))
 
 
 def dispatch_task(task: Task) -> None:
@@ -244,8 +252,14 @@ def dispatch_task(task: Task) -> None:
         lock_key = f"catalog_sync_{task.data['base']}"
         records_sync_task.apply_async(args=[lock_key, 1], task_id=task_id)
 
-    elif task.type == TaskType.AuthorityLinking:
-        authority_linking.apply_async(task_id=task_id)
+    elif task.type == TaskType.ValidateRecords:
+        validate_records_task.apply_async(task_id=task_id)
+
+    elif task.type == TaskType.LinkRecordsToAuthorities:
+        link_records_to_authorities.apply_async(task_id=task_id)
+
+    elif task.type == TaskType.CompareRecords:
+        compare_records_task.apply_async(task_id=task_id)
 
     else:
         raise ValueError(f"Unknown task type: {task.type}")

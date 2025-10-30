@@ -1,5 +1,4 @@
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
 from enum import StrEnum
 from typing import List
 
@@ -14,14 +13,12 @@ class ValidityStatus(StrEnum):
     Info = "Info"
 
 
-@dataclass
-class ValidationField:
+class ValidationTarget(BaseModel):
     tag: str
     codes: List[str] | None = None
 
 
-@dataclass
-class ValidationResult:
+class ValidationResult(BaseModel):
     """
     Single result of validating a MARC record.
 
@@ -33,7 +30,7 @@ class ValidationResult:
         hint: Optional guidance for fixing the issue.
     """
 
-    target: ValidationField
+    target: ValidationTarget
     status: ValidityStatus
 
     reason: str | None = None

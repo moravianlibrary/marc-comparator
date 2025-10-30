@@ -72,7 +72,7 @@ class TestEndpointsRO:
             {
                 "task_id": "IGNORE",
                 "name": "Authority linking for base 'SKC'",
-                "type": "AuthorityLinking",
+                "type": "LinkRecordsToAuthorities",
                 "status": "Pending",
                 "has_data": True,
                 "created_by": "12345678-1234-4678-9abc-1234567890ab",

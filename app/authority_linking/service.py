@@ -1,8 +1,8 @@
 from adapters.database import DatabaseSession
 from adapters.tasks import enqueue_task
+from common.exceptions import SettingsNotFoundError
 from entities.settings import Settings, SettingsScope
 from entities.task import Task, TaskSchema, TaskType
-from settings.exceptions import SettingsNotFoundError
 
 from .models import AuthorityLinkingSettings, AuthorityLinkingTaskData
 
@@ -41,7 +41,7 @@ async def authority_linking(
     return await enqueue_task(
         Task(
             name=f"Authority linking for base '{data.target_base}'",
-            type=TaskType.AuthorityLinking,
+            type=TaskType.LinkRecordsToAuthorities,
             created_by=created_by,
             data=data.model_dump(),
         ),
