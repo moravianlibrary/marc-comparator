@@ -209,15 +209,21 @@ def records_sync_task(
     )
 
 
-@shared_task(bind=True, name="validate_records_task")
-def validate_records_task(self: CeleryTask) -> None:
+@shared_task(name="authority_linking", bind=True)
+def authority_linking(self: CeleryTask) -> None:
+    """
+    Celery cannot directly run async tasks, so we use asgiref to bridge
+    the gap.
 
+    Importing inside the function to provide separation between
+    app and worker environments.
+    """
     from asgiref.sync import async_to_sync
 
-    from validation.task import validate_records_task
+    from authority_linking.tasks import authority_linking
 
     init_tasks_context()
-    return async_to_sync(validate_records_task)(str(self.request.id))
+    return async_to_sync(authority_linking)(str(self.request.id))
 
 
 def dispatch_task(task: Task) -> None:
@@ -238,8 +244,8 @@ def dispatch_task(task: Task) -> None:
         lock_key = f"catalog_sync_{task.data['base']}"
         records_sync_task.apply_async(args=[lock_key, 1], task_id=task_id)
 
-    elif task.type == TaskType.ValidateRecords:
-        validate_records_task.apply_async(task_id=task_id)
+    elif task.type == TaskType.AuthorityLinking:
+        authority_linking.apply_async(task_id=task_id)
 
     else:
         raise ValueError(f"Unknown task type: {task.type}")

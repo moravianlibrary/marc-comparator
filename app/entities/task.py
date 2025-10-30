@@ -25,7 +25,8 @@ from entities._operations import BaseOperationsMixin
 class TaskType(StrEnum):
     FetchRecord = "FetchRecord"
     SyncRecords = "SyncRecords"
-    ValidateRecords = "ValidateRecords"
+    AuthorityLinking = "AuthorityLinking"
+    Comparison = "Comparison"
 
 
 class TaskStatus(StrEnum):
@@ -48,7 +49,7 @@ class TaskSchema(IndexerSchema):
     status: TaskStatus
 
     has_data: bool
-    result: dict | None
+    # result: IndexerText | None
 
     created_by: UUID4
     created_at: datetime
