@@ -10,6 +10,7 @@ from entities._operations import BaseOperationsMixin
 
 
 class SettingsScope(StrEnum):
+    Validation = "Validation"
     AuthorityLinking = "AuthorityLinking"
     Comparison = "Comparison"
 

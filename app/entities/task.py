@@ -24,9 +24,12 @@ from entities._operations import BaseOperationsMixin
 
 class TaskType(StrEnum):
     FetchRecord = "FetchRecord"
+    FetchBatchOfRecords = "FetchBatchOfRecords"
     SyncRecords = "SyncRecords"
-    AuthorityLinking = "AuthorityLinking"
-    Comparison = "Comparison"
+    ValidateRecords = "ValidateRecords"
+    LinkRecordsToAuthorities = "LinkRecordsToAuthorities"
+    CompareRecords = "CompareRecords"
+    ReindexRecords = "ReindexRecords"
 
 
 class TaskStatus(StrEnum):

@@ -9,8 +9,8 @@ from solrify import F, G
 
 from ._base import (
     BaseValidator,
-    ValidationField,
     ValidationResult,
+    ValidationTarget,
     ValidityStatus,
 )
 
@@ -22,7 +22,7 @@ class KrameriusLinksValidatorConfig(BaseModel):
     kramerius_host: str = "https://api.kramerius.mzk.cz/search"
 
 
-VALIDATION_FIELD = ValidationField(tag="856", codes=["u", "y"])
+VALIDATION_FIELD = ValidationTarget(tag="856", codes=["u", "y"])
 
 
 class KrameriusLinksValidator(BaseValidator):

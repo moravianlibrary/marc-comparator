@@ -1,5 +1,4 @@
 import asyncio
-from enum import StrEnum
 from pathlib import Path
 from typing import List, Tuple
 
@@ -12,20 +11,9 @@ from marc_comparator_sdk.authority_linkers import (
     AuthorityLinker,
 )
 from marc_comparator_sdk.comparators import COMPARATOR_DISPATCHER, Comparator
-from marc_comparator_sdk.validators.kramerius_links import (
-    KrameriusLinksValidator,
-)
+from marc_comparator_sdk.validators import VALIDATOR_DISPATCHER, Validator
 
 app = typer.Typer(help="MARC Comparator CLI tool")
-
-
-class Validator(StrEnum):
-    KrameriusLinks = "kramerius-links"
-
-
-VALIDATORS = {
-    Validator.KrameriusLinks: KrameriusLinksValidator,
-}
 
 
 def _print_marc_record(record: MarcRecord):
@@ -112,20 +100,20 @@ def to_json(
 
 def init_validator(validator: Validator, config_path: Path | None):
     if config_path is None:
-        return VALIDATORS[validator]()
+        return VALIDATOR_DISPATCHER[validator]()
 
     if not config_path.exists():
         typer.echo(f"Config file does not exist: {config_path}", err=True)
-        typer.exit(1)
+        exit(1)
 
     if not config_path.is_file():
         typer.echo(f"Not a file: {config_path}", err=True)
-        typer.exit(1)
+        exit(1)
 
     with config_path.open("r", encoding="utf-8") as f:
         config_data = f.read()
 
-    validator_cls = VALIDATORS[validator]
+    validator_cls = VALIDATOR_DISPATCHER[validator]
     return validator_cls(
         validator_cls.config_model.model_validate_json(config_data)
     )
@@ -137,7 +125,7 @@ def validate(
         ..., help="Paths to MARC record files"
     ),
     validators: List[str] = typer.Option(
-        [str(val) for val in VALIDATORS.keys()],
+        [str(val) for val in VALIDATOR_DISPATCHER.keys()],
         "--validator",
         "-v",
         help="Names of validators to apply",
