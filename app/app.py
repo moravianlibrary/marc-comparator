@@ -6,8 +6,9 @@ from app_lifespan import lifespan
 from auth.controller import router as auth_router
 from authority_linking.controller import router as authority_linking_router
 from catalog.controller import router as catalog_router
-from validation.controller import router as validation_router
+from comparison.controller import router as comparison_router
 from config import config
+from validation.controller import router as validation_router
 
 configure_logging(LogLevels.info)
 
@@ -26,6 +27,7 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(authority_linking_router)
 app.include_router(catalog_router)
+app.include_router(comparison_router)
 app.include_router(validation_router)
 
 
