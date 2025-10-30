@@ -2,8 +2,8 @@ from adapters.database import DatabaseSession
 from adapters.tasks import enqueue_task
 from entities.settings import Settings, SettingsScope
 from entities.task import Task, TaskSchema, TaskType
+from settings.exceptions import SettingsNotFoundError
 
-from .exceptions import SettingsNotFoundError
 from .models import AuthorityLinkingSettings, AuthorityLinkingTaskData
 
 

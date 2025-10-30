@@ -26,6 +26,7 @@ class TaskType(StrEnum):
     FetchRecord = "FetchRecord"
     SyncRecords = "SyncRecords"
     AuthorityLinking = "AuthorityLinking"
+    Comparison = "Comparison"
 
 
 class TaskStatus(StrEnum):
