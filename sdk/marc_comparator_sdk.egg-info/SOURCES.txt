@@ -12,6 +12,8 @@ marc_comparator_sdk/authority_linkers/__init__.py
 marc_comparator_sdk/authority_linkers/_base.py
 marc_comparator_sdk/authority_linkers/knihovny_cz_linker.py
 marc_comparator_sdk/comparators/__init__.py
+marc_comparator_sdk/comparators/_base.py
+marc_comparator_sdk/comparators/rule_based.py
 marc_comparator_sdk/validators/__init__.py
 marc_comparator_sdk/validators/_base.py
 marc_comparator_sdk/validators/kramerius_links.py

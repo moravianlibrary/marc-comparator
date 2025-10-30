@@ -288,7 +288,7 @@ def compare(
 
     typer.echo(f"Overall Score: {comparison.overall_score:.4f}")
 
-    for field_comparison in comparison.targets or []:
+    for field_comparison in comparison.field_results or []:
         if field_comparison.explanation:
             typer.echo(
                 f"Tag: {field_comparison.tag}, "
@@ -300,7 +300,7 @@ def compare(
                 f"Tag: {field_comparison.tag}, "
                 f"Score: {field_comparison.score:.4f}"
             )
-            for subfield_comparison in field_comparison.subtargets or []:
+            for subfield_comparison in field_comparison.subfield_results or []:
                 if subfield_comparison.explanation:
                     typer.echo(
                         f"  Codes: {''.join(subfield_comparison.code)}, "

@@ -11,6 +11,7 @@ from entities._operations import BaseOperationsMixin
 
 class SettingsScope(StrEnum):
     AuthorityLinking = "AuthorityLinking"
+    Comparison = "Comparison"
 
 
 SettingsModel = TypeVar("T", bound=BaseModel)
