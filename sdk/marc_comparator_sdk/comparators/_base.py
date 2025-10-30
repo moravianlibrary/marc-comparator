@@ -6,19 +6,19 @@ from marcdantic import MarcRecord
 from pydantic import BaseModel
 
 
-@dataclass()
-class SubfieldComparison:
+@dataclass
+class SubfieldComparisonResult:
     """
-    Represents a target for comparison within a MARC subfield.
+    Represents the result of comparing a MARC subfield.
 
     Attributes
     ----------
     code: str
         The MARC subfield code being compared.
     score: float
-        The similarity score for this subfield (0.0 to 1.0).
+        The similarity score for this subfield.
     explanation: str | None
-        An optional explanation explaining the score.
+        Optional explanation describing the score.
     details: str | None
         Optional additional details about the comparison.
     """
@@ -30,30 +30,33 @@ class SubfieldComparison:
 
 
 @dataclass(slots=True)
-class FieldComparison:
+class FieldComparisonResult:
     """
-    Represents a target for comparison within a MARC record.
+    Represents the result of comparing a MARC field.
 
     Attributes
     ----------
     tag: str
         The MARC field tag being compared.
-    codes: List[str] | None
-        Specific subfield codes within the tag being compared.
     score: float
         The similarity score for this field (0.0 to 1.0).
     explanation: str | None
-        An optional explanation explaining the score.
+        Optional explanation describing the score.
+    details: str | None
+        Optional additional details about the comparison.
+    subfield_results: List[SubfieldResult] | None
+        Detailed comparison results for subfields within this field.
     """
 
     tag: str
     score: float
     explanation: str | None = None
-    subtargets: List[SubfieldComparison] | None = None
+    details: str | None = None
+    subfield_results: List[SubfieldComparisonResult] | None = None
 
 
 @dataclass(slots=True)
-class RecordComparison:
+class RecordComparisonResult:
     """
     Represents the result of comparing two MARC records.
 
@@ -62,15 +65,14 @@ class RecordComparison:
     overall_score: float
         The overall similarity score between the two records (0.0 to 1.0).
     summary: str | None
-        An optional summary of the comparison results.
-    targets: List[FieldComparison]
-        A list of detailed comparison results for individual targets.
-
+        Optional summary of the comparison results.
+    field_results: List[FieldResult] | None
+        Detailed comparison results for individual fields.
     """
 
     overall_score: float
     summary: str | None = None
-    targets: List[FieldComparison] | None = None
+    field_results: List[FieldComparisonResult] | None = None
 
 
 class BaseComparator(ABC):
@@ -83,9 +85,9 @@ class BaseComparator(ABC):
         self,
         record_a: MarcRecord,
         record_b: MarcRecord,
-    ) -> RecordComparison:
+    ) -> RecordComparisonResult:
         """
-        Compare two MARC records and return a RecordComparison.
+        Compare two MARC records and return a RecordComparisonResult.
 
         Parameters
         ----------

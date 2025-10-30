@@ -11,6 +11,7 @@ from marc_comparator_sdk.authority_linkers import (
     AUTHORITY_LINKER_DISPATCHER,
     AuthorityLinker,
 )
+from marc_comparator_sdk.comparators import COMPARATOR_DISPATCHER, Comparator
 from marc_comparator_sdk.validators.kramerius_links import (
     KrameriusLinksValidator,
 )
@@ -245,6 +246,72 @@ def link(
         _print_marc_record(link.record)
     else:
         typer.echo("No authority link found.")
+
+
+@app.command()
+def compare(
+    comparator: Comparator = typer.Argument(..., help="Comparator to use"),
+    config: Path = typer.Argument(
+        ..., help="Path to comparator configuration file"
+    ),
+    mrc_a: Path = typer.Argument(..., help="Paths to MARC record files"),
+    mrc_b: Path = typer.Argument(..., help="Paths to MARC record files"),
+):
+    """
+    Compare two MARC records.
+    """
+
+    comparator_cls = COMPARATOR_DISPATCHER[comparator]
+
+    if not config.exists():
+        typer.echo(f"Config file does not exist: {config}", err=True)
+        typer.exit(1)
+
+    if not config.is_file():
+        typer.echo(f"Not a file: {config}", err=True)
+        typer.exit(1)
+
+    with config.open("r", encoding="utf-8") as f:
+        config_data = f.read()
+
+    comparator_inst = comparator_cls(
+        comparator_cls.config_model.model_validate_json(config_data)
+    )
+
+    with mrc_a.open("rb") as f:
+        record_a = MarcRecord.from_mrc(f.read())
+
+    with mrc_b.open("rb") as f:
+        record_b = MarcRecord.from_mrc(f.read())
+
+    comparison = asyncio.run(comparator_inst.run(record_a, record_b))
+
+    typer.echo(f"Overall Score: {comparison.overall_score:.4f}")
+
+    for field_comparison in comparison.targets or []:
+        if field_comparison.explanation:
+            typer.echo(
+                f"Tag: {field_comparison.tag}, "
+                f"Explanation: {field_comparison.explanation}, "
+                f"Score: {field_comparison.score:.4f}"
+            )
+        else:
+            typer.echo(
+                f"Tag: {field_comparison.tag}, "
+                f"Score: {field_comparison.score:.4f}"
+            )
+            for subfield_comparison in field_comparison.subtargets or []:
+                if subfield_comparison.explanation:
+                    typer.echo(
+                        f"  Codes: {''.join(subfield_comparison.code)}, "
+                        f"Explanation: {subfield_comparison.explanation}, "
+                        f"Score: {subfield_comparison.score:.4f}"
+                    )
+                else:
+                    typer.echo(
+                        f"  Codes: {''.join(subfield_comparison.code)}, "
+                        f"Score: {subfield_comparison.score:.4f}"
+                    )
 
 
 def main():

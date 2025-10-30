@@ -1,15 +1,13 @@
-import re
 import unicodedata
-from collections import Counter
 from enum import StrEnum
 from itertools import product
 from string import punctuation
-from typing import Dict, List, Set
+from typing import Dict, List
 
 from marcdantic import MarcRecord
 from marcdantic.constants import CONTROL_FIELDS
 from marcdantic.fields import VariableField
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field
 
 from ._base import (
     BaseComparator,
@@ -132,7 +130,7 @@ class FieldRuleConfig(BaseModel):
 
 
 class RuleBasedComparatorConfig(BaseModel):
-    field_rules: List[FieldRuleConfig]
+    rules: List[FieldRuleConfig]
 
 
 class RuleBasedComparator(BaseComparator):
@@ -150,35 +148,41 @@ class RuleBasedComparator(BaseComparator):
         record_a: MarcRecord,
         record_b: MarcRecord,
     ):
-        count, score = 0, 0.0
+        scores: List[float] = []
+        weights: List[float] = []
+        results: List[FieldComparison] = []
 
-        for field_rule in self.config.field_rules:
-            if not _has_target(
+        for field_rule in self.config.rules:
+            if not has_target(
                 record_a, field_rule.tag, field_rule.subfield_codes
-            ) and not _has_target(
+            ) and not has_target(
                 record_b, field_rule.tag, field_rule.subfield_codes
             ):
                 continue
 
-            score += _compare_records(record_a, record_b, field_rule)
-            count += 1
+            result = compare_records(record_a, record_b, field_rule)
 
-        overall_score = score / count if count > 0 else 1.0
+            scores.append(
+                sum(r.score for r in result)
+                / len(result)
+                * field_rule.field_weight
+            )
+            weights.append(field_rule.field_weight)
+            results.extend(result)
 
-        return RecordComparison(
-            overall_score=overall_score,
-            summary=f"Compared {count} fields using rule-based comparator.",
-        )
+        overall_score = sum(scores) / sum(weights) if weights else 1.0
+
+        return RecordComparison(overall_score=overall_score, targets=results)
 
 
-def _is_control_field(tag: str) -> bool:
+def is_control_field(tag: str) -> bool:
     return tag in CONTROL_FIELDS
 
 
-def _has_target(
+def has_target(
     record: MarcRecord, tag: str, subfield_codes: List[str] | None = None
 ) -> bool:
-    if _is_control_field(tag):
+    if is_control_field(tag):
         return tag in record.fixed_fields.root
 
     for field in record.variable_fields.root.get(tag, []):
@@ -189,21 +193,42 @@ def _has_target(
     return False
 
 
-def _compare_values(
+def normalize(str: str) -> str:
+    str = (" ".join(str.split())).strip()
+    str = str.translate(str.maketrans("", "", punctuation))
+    str = str.lower()
+    str = unicodedata.normalize("NFKD", str)
+    str = "".join(c for c in str if not unicodedata.combining(c))
+    return str
+
+
+def compare_values(
     code: str,
     value_a: str,
     value_b: str,
     field_rule: FieldRuleConfig,
-) -> List[SubfieldComparison]:
+) -> SubfieldComparison:
     if value_a == value_b:
-        return
+        return SubfieldComparison(code=code, score=field_rule.match_score)
 
-    if 
+    if RuleType.Normalization in field_rule.rule_scores:
+        value_a, value_b = normalize(value_a), normalize(value_b)
 
-    return 0.0, "Values do not match."
+        if value_a == value_b:
+            return SubfieldComparison(
+                code=code,
+                score=field_rule.rule_scores[RuleType.Normalization],
+                explanation="Values match after normalization.",
+            )
+
+    return SubfieldComparison(
+        code=code,
+        score=0.0,
+        explanation="Values do not match.",
+    )
 
 
-def _compare_fixed_fields(
+def compare_fixed_fields(
     record_a: MarcRecord,
     record_b: MarcRecord,
     field_rule: FieldRuleConfig,
@@ -225,23 +250,24 @@ def _compare_fixed_fields(
             explanation="Fixed field missing in record B.",
         )
 
-    score, explanation = _compare_values(value_a, value_b, field_rule)
+    result = compare_values("-", value_a, value_b, field_rule)
     return FieldComparison(
         tag=field_rule.tag,
-        score=score,
-        explanation=explanation,
+        score=result.score,
+        explanation=result.explanation,
     )
 
 
-def _compare_variable_fields(
+def compare_variable_fields(
     field_a: VariableField,
     field_b: VariableField,
     field_rule: FieldRuleConfig,
-) -> List[FieldComparison]:
+) -> FieldComparison:
     subfield_codes = field_rule.subfield_codes or sorted(
         set(field_a.subfields.keys()).union(field_b.subfields.keys())
     )
 
+    scores: List[float] = []
     results: List[SubfieldComparison] = []
 
     for code in subfield_codes:
@@ -254,24 +280,24 @@ def _compare_variable_fields(
         # Compare all pair combinations
         pairs = []
         for v_a, v_b in product(values_a, values_b):
-            score, explanation = _compare_values(v_a, v_b, field_rule)
-            pairs.append((v_a, v_b, score, explanation))
+            result = compare_values(code, v_a, v_b, field_rule)
+            pairs.append((v_a, v_b, result.score, result))
 
         # Sort by best score
         pairs.sort(key=lambda x: x[2], reverse=True)
 
         used_a, used_b = set(), set()
         matched_scores: List[float] = []
-        explanations: List[str] = []
+        matched_results: List[SubfieldComparison] = []
 
         # Greedy best-match selection
-        for v_a, v_b, score, explanation in pairs:
+        for v_a, v_b, score, result in pairs:
             if v_a in used_a or v_b in used_b:
                 continue
             used_a.add(v_a)
             used_b.add(v_b)
             matched_scores.append(score)
-            explanations.append(explanation)
+            matched_results.append(result)
 
         # Handle unmatched values
         unmatched_a = [v for v in values_a if v not in used_a]
@@ -279,99 +305,110 @@ def _compare_variable_fields(
 
         for _ in unmatched_a:
             matched_scores.append(0.0)
-            explanations.append("Missing in record B.")
+            matched_results.append(
+                SubfieldComparison(
+                    code=code,
+                    score=0.0,
+                    explanation="Subfield missing in record B.",
+                )
+            )
         for _ in unmatched_b:
             matched_scores.append(0.0)
-            explanations.append("Missing in record A.")
+            matched_results.append(
+                SubfieldComparison(
+                    code=code,
+                    score=0.0,
+                    explanation="Subfield missing in record A.",
+                )
+            )
 
-        # Aggregate score for this subfield code
-        avg_score = (
+        scores.append(
             sum(matched_scores) / len(matched_scores)
             if matched_scores
             else 0.0
         )
+        results.extend(matched_results)
 
-        results.append(SubfieldComparison(code=code, score=avg_score))
+    return FieldComparison(
+        tag=field_rule.tag,
+        score=sum(scores) / len(scores) if scores else 0.0,
+        subtargets=results,
+    )
 
-    return results
 
-
-def _compare_records(
+def compare_records(
     record_a: MarcRecord,
     record_b: MarcRecord,
     field_rule: FieldRuleConfig,
 ) -> List[FieldComparison]:
-    result = FieldComparison(
-        tag=field_rule.tag,
-        codes=field_rule.subfield_codes,
-        score=0.0,
-    )
-
-    if _is_control_field(field_rule.tag):
-        return [_compare_fixed_fields(record_a, record_b, field_rule)]
+    if is_control_field(field_rule.tag):
+        return [compare_fixed_fields(record_a, record_b, field_rule)]
 
     fields_a = record_a.variable_fields.root.get(field_rule.tag, [])
     fields_b = record_b.variable_fields.root.get(field_rule.tag, [])
 
     if not fields_a:
-        result.explanation = "Variable field missing in record A."
-        return [result]
-
-    if not fields_b:
-        result.explanation = "Variable field missing in record B."
-        return [result]
-
-    # Build score matrix for all possible field pairings
-    field_pair_scores = []
-    for f_a, f_b in product(fields_a, fields_b):
-        subfield_results = _compare_variable_fields(f_a, f_b, field_rule)
-        score = (
-            sum(sf.score for sf in subfield_results) / len(subfield_results)
-            if subfield_results
-            else 0.0
-        )
-        field_pair_scores.append((f_a, f_b, subfield_results, score))
-
-    field_pair_scores.sort(key=lambda x: x[3], reverse=True)
-
-    used_a, used_b = set(), set()
-    results: List[FieldComparison] = []
-
-    for f_a, f_b, subfield_results, score in field_pair_scores:
-        if f_a in used_a or f_b in used_b:
-            continue
-        used_a.add(f_a)
-        used_b.add(f_b)
-
-        explanation = f"Matched with score {score:.2f}"
-        results.append(
+        return [
             FieldComparison(
                 tag=field_rule.tag,
-                score=score,
-                explanation=explanation,
-                subtargets=subfield_results,
+                score=field_rule.missing_field_score,
+                explanation="Variable field missing in record A.",
+            )
+        ]
+
+    if not fields_b:
+        return [
+            FieldComparison(
+                tag=field_rule.tag,
+                score=field_rule.missing_field_score,
+                explanation="Variable field missing in record B.",
+            )
+        ]
+
+    # Compare all pair combinations
+    pairs = []
+    for v_a, v_b in product(fields_a, fields_b):
+        result = compare_variable_fields(v_a, v_b, field_rule)
+        pairs.append((v_a, v_b, result.score, result))
+
+    # Sort by best score
+    pairs.sort(key=lambda x: x[2], reverse=True)
+
+    used_a, used_b = set(), set()
+    matched_scores: List[float] = []
+    matched_results: List[FieldComparison] = []
+
+    # Greedy best-match selection
+    # Use id() to track VariableField instances
+    for v_a, v_b, score, result in pairs:
+        if id(v_a) in used_a or id(v_b) in used_b:
+            continue
+        used_a.add(id(v_a))
+        used_b.add(id(v_b))
+        matched_scores.append(score)
+        matched_results.append(result)
+
+    # Handle unmatched values
+    unmatched_a = [f for f in fields_a if id(f) not in used_a]
+    unmatched_b = [f for f in fields_b if id(f) not in used_b]
+
+    for _ in unmatched_a:
+        matched_scores.append(0.0)
+        matched_results.append(
+            FieldComparison(
+                tag=field_rule.tag,
+                score=field_rule.missing_field_score,
+                explanation="Field missing in record B.",
+            )
+        )
+    for _ in unmatched_b:
+        matched_scores.append(0.0)
+        matched_results.append(
+            FieldComparison(
+                tag=field_rule.tag,
+                score=field_rule.missing_field_score,
+                explanation="Field missing in record A.",
             )
         )
 
-    # Handle unmatched fields on either side
-    for f_a in fields_a:
-        if f_a not in used_a:
-            results.append(
-                FieldComparison(
-                    tag=field_rule.tag,
-                    score=0.0,
-                    explanation="Field missing in record B.",
-                )
-            )
-
-    for f_b in fields_b:
-        if f_b not in used_b:
-            results.append(
-                FieldComparison(
-                    tag=field_rule.tag,
-                    score=0.0,
-                    explanation="Field missing in record A.",
-                )
-            )
-
-    return results
+    return matched_results
