@@ -1,4 +1,6 @@
 import asyncio
+import json
+from pathlib import Path
 from typing import Any, AsyncGenerator, Dict, Optional, Set, Tuple
 
 import pytest
@@ -224,6 +226,14 @@ def fake_task(db_session: DatabaseSession, user: TokenData) -> Task:
     db_session.commit()
 
     return task
+
+
+def load_test_json(filename: str) -> Dict[str, Any]:
+    """Function to load a JSON file from tests/data by filename."""
+
+    path = Path(__file__).parent.parent / "data" / filename
+    with path.open("r", encoding="utf-8") as f:
+        return json.load(f)
 
 
 def assert_response(

@@ -1,16 +1,8 @@
-import json
-
 import pytest
-from aleph_nought import RecordStatus
-from aleph_nought.oai.client import ListRecordResponse
-from esorm import NotFoundError
 from httpx import AsyncClient
 
-from adapters.aleph_client_registry import AlephClientRegistry
 from adapters.database import DatabaseSession
-from entities.catalog_record import CatalogRecord, CatalogRecordSchema
-from entities.task import Task
-from tests.integration.conftest import assert_response
+from tests.integration.conftest import assert_response, load_test_json
 
 
 @pytest.mark.usefixtures(
@@ -23,71 +15,50 @@ from tests.integration.conftest import assert_response
 class TestEndpointsRO:
     @pytest.mark.asyncio
     async def test_get_settings_schema(self, client: AsyncClient):
-        with open(
-            "tests/integration/data/authority_linking_setttings.schema.json",
-            "r",
-        ) as f:
-            expected_schema = json.load(f)
-
         assert_response(
             await client.get("/authority-linking/settings-schema"),
             200,
-            expected_schema,
+            load_test_json("authority_linking_settings.schema.json"),
+        )
+
+    @pytest.mark.asyncio
+    async def test_get_settings_not_found(self, client: AsyncClient):
+        assert_response(
+            await client.get("/authority-linking/settings"),
+            404,
+            {"detail": "Settings for scope 'AuthorityLinking' not found."},
+        )
+
+    @pytest.mark.asyncio
+    async def test_get_settings(
+        self, db_session: DatabaseSession, client: AsyncClient
+    ):
+        from authority_linking.models import AuthorityLinkingSettings
+        from entities.settings import Settings, SettingsScope
+
+        test_settings = load_test_json("authority_linking_settings.json")
+
+        Settings.save(
+            db_session,
+            SettingsScope.AuthorityLinking,
+            AuthorityLinkingSettings.model_validate(test_settings),
+            AuthorityLinkingSettings,
+        )
+
+        assert_response(
+            await client.get("/authority-linking/settings"), 200, test_settings
         )
 
     @pytest.mark.asyncio
     async def test_set_settings(self, client: AsyncClient):
+        test_settings = load_test_json("authority_linking_settings.json")
+
         assert_response(
             await client.post(
-                "/authority-linking/settings",
-                json={
-                    "enabled_linkers": ["knihovny-cz"],
-                    "knihovny_cz": {
-                        "api_url": "https://api.knihovny.cz/v1/",
-                        "mappings": [
-                            {
-                                "base": "MZK01",
-                                "id_template": "mzk.MZK01-{system_number}",
-                                "pattern": r"^mzk\.MZK01-(\d{9})$",
-                            },
-                            {
-                                "base": "MZK03",
-                                "id_template": "mzk.MZK03-{system_number}",
-                                "pattern": r"^mzk\.MZK03-(\d{9})$",
-                            },
-                            {
-                                "base": "SKC",
-                                "id_template": "caslin.SKC01-{system_number}",
-                                "pattern": r"^caslin\.SKC01-(\d{9})$",
-                            },
-                        ],
-                    },
-                },
+                "/authority-linking/settings", json=test_settings
             ),
             200,
-            {
-                "enabled_linkers": ["knihovny-cz"],
-                "knihovny_cz": {
-                    "api_url": "https://api.knihovny.cz/v1/",
-                    "mappings": [
-                        {
-                            "base": "MZK01",
-                            "id_template": "mzk.MZK01-{system_number}",
-                            "pattern": r"^mzk\.MZK01-(\d{9})$",
-                        },
-                        {
-                            "base": "MZK03",
-                            "id_template": "mzk.MZK03-{system_number}",
-                            "pattern": r"^mzk\.MZK03-(\d{9})$",
-                        },
-                        {
-                            "base": "SKC",
-                            "id_template": "caslin.SKC01-{system_number}",
-                            "pattern": r"^caslin\.SKC01-(\d{9})$",
-                        },
-                    ],
-                },
-            },
+            test_settings,
         )
 
     @pytest.mark.asyncio

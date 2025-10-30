@@ -3,17 +3,23 @@ from adapters.tasks import enqueue_task
 from entities.settings import Settings, SettingsScope
 from entities.task import Task, TaskSchema, TaskType
 
+from .exceptions import SettingsNotFoundError
 from .models import AuthorityLinkingSettings, AuthorityLinkingTaskData
 
 
 def get_settings(
     db_session: DatabaseSession,
 ) -> AuthorityLinkingSettings | None:
-    return Settings.get(
+    settings = Settings.get(
         db_session,
         SettingsScope.AuthorityLinking,
         AuthorityLinkingSettings,
     )
+
+    if settings is None:
+        raise SettingsNotFoundError(SettingsScope.AuthorityLinking)
+
+    return settings
 
 
 def set_settings(
