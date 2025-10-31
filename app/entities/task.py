@@ -10,12 +10,10 @@ from sqlalchemy import (
     Column,
     Enum,
     ForeignKey,
-    PickleType,
     String,
     Text,
     func,
 )
-from sqlalchemy.orm import relationship
 
 from adapters.database import Base
 from adapters.indexer import IndexerSchema
@@ -50,7 +48,7 @@ class TaskStatus(StrEnum):
 
 class TaskSchema(IndexerSchema):
     class ESConfig:
-        index = "categories"
+        index = "tasks"
         id_field = "task_id"
 
     task_id: UUID4
@@ -83,30 +81,9 @@ class Task(
     started_at = Column(TIMESTAMP, nullable=True)
     finished_at = Column(TIMESTAMP, nullable=True)
 
-    traceback = Column(Text, nullable=True)
     data = Column(JSON, nullable=True)
-    result = Column(PickleType, nullable=True)
-
-    predecessor_id = Column(
-        UUID(as_uuid=True),
-        ForeignKey("tasks.task_id"),
-        nullable=True,
-        default=None,
-    )
-    predecessor = relationship(
-        "Task", remote_side=[task_id], backref="successors"
-    )
+    traceback = Column(Text, nullable=True)
 
     @property
-    def has_data(self) -> bool:
-        return self.data is not None
-
-    def get_task(self, db_session) -> "Task":
-        task = (
-            db_session.query(Task)
-            .filter(Task.task_id == str(self.task_id))
-            .one_or_none()
-        )
-        if task is None:
-            raise ValueError(f"Task with ID {self.task_id} not found")
-        return task
+    def traceback_lines(self) -> int:
+        return len(self.traceback.splitlines()) if self.traceback else 0

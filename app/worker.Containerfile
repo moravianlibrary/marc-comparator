@@ -34,6 +34,7 @@ COPY app/common/ common/
 COPY app/comparison/ comparison/
 COPY app/entities/ entities/
 COPY app/settings/ settings/
+COPY app/tasks/ tasks/
 COPY app/validation/ validation/
 COPY app/config.py config.py
 

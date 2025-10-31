@@ -292,3 +292,36 @@ async def enqueue_task(task: Task, db_session: DatabaseSession) -> TaskSchema:
     dispatch_task(task)
 
     return task_schema
+
+
+async def revoke_task(task: Task, db_session: DatabaseSession) -> TaskSchema:
+    """
+    Revokes a task if it is in a revocable state.
+
+    Parameters
+    ----------
+    task : Task
+        The task to be revoked.
+    db_session : DatabaseSession
+        The database session used for updating the task.
+    Returns
+    -------
+    TaskSchema
+        The revoked task as a TaskSchema instance.
+    """
+    if task.status in {TaskStatus.Started, TaskStatus.Pending}:
+        raise ValueError(
+            f"Task with status '{task.status}' cannot be revoked."
+        )
+
+    tasks_client.control.revoke(
+        str(task.task_id), terminate=True, signal="SIGTERM"
+    )
+
+    task.status = TaskStatus.Revoked
+    task.finished_at = config.timestamp
+
+    task.save(db_session)
+    await task.index(db_session)
+
+    return TaskSchema.model_validate(task, from_attributes=True)

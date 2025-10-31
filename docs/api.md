@@ -527,7 +527,7 @@ The `TaskSchema` represents tasks in the system:
 ### `GET /tasks/{task_id}/traceback`
 
 **Description:** Retrieve task traceback lines.
-**Permissions Required:** User must have the same permission as the task owner (`ManageTasks`) or global (`ManageAllTasks`)
+**Permissions Required:** If the user is the task owner, `ManageTasks` is sufficient; otherwise, `ManageAllTasks` is required.
 
 **Request Parameters:**
 
@@ -538,10 +538,10 @@ The `TaskSchema` represents tasks in the system:
 
 ---
 
-### `PATCH /tasks/{task_id}/kill`
+### `PATCH /tasks/{task_id}/revoke`
 
-**Description:** Kill a running task.
-**Permissions Required:** User must have the same permission as the task owner (`ManageTasks`) or global (`ManageAllTasks`)
+**Description:** Revoke a task that is pending or currently running. If the task is already finished or failed, revocation will fail.
+**Permissions Required:** If the user is the task owner, `ManageTasks` is sufficient; otherwise, `ManageAllTasks` is required.
 
 **Response:** `200 OK` with updated task info (`TaskSchema`)
 
@@ -550,7 +550,7 @@ The `TaskSchema` represents tasks in the system:
 ### `POST /tasks/delete`
 
 **Description:** Plan deletion of selected tasks based on query.
-**Permissions Required:** User must have the same permission as the task owner (`ManageTasks`) or global (`ManageAllTasks`)
+**Permissions Required:** `ManageAllTasks`
 
 **Request Body:**
 

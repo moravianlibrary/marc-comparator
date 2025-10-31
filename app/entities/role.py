@@ -19,9 +19,11 @@ class Permission(StrEnum):
     SyncRecordsFromCatalog = "SyncRecordsFromCatalog"
     RunRecordTasks = "RunRecordTasks"
     ManageTasks = "ManageTasks"
+    ManageAllTasks = "ManageAllTasks"
     ManageAccessControl = "ManageAccessControl"
     ManageAppSettings = "ManageAppSettings"
     ManageTaskSettings = "ManageTaskSettings"
+    ManageSystem = "ManageSystem"
 
 
 class Role(Base, BaseOperationsMixin, RetrievalOperationsMixin):
