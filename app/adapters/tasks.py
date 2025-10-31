@@ -15,8 +15,10 @@ from config import config
 # Importing entities to register with the ORM
 from entities.catalog_record import CatalogRecord  # noqa: F401
 from entities.role import Role  # noqa: F401
+from entities.settings import Settings, SettingsScope
 from entities.task import Task, TaskSchema, TaskStatus, TaskType
 from entities.user import User  # noqa: F401
+from tasks.models import TaskSettings  # noqa: F401
 
 tasks_client = Celery(
     "tasks",
@@ -61,6 +63,7 @@ class TaskContext:
     db_session: DatabaseSession
     indexer_session: IndexerSession  # TODO: Remove
     task: Task
+    task_settings: TaskSettings
 
 
 class ManagedTask:
@@ -94,6 +97,7 @@ class ManagedTask:
         self.db_session = None
         self.task: Task | None = None
         self.logger = None
+        self.task_settings: TaskSettings | None = None
 
     async def save_and_index_task(self):
         self.task.save(self.db_session)
@@ -115,6 +119,12 @@ class ManagedTask:
 
         # --- Indexer session ---
         self.indexer = await indexer_session().__aenter__()
+
+        # --- Load task settings ---
+        self.task_settings: TaskSettings = (
+            Settings.get(self.db_session, SettingsScope.Task, TaskSettings)
+            or TaskSettings()
+        )
 
         # Mark task as started
         self.logger.info("Task started")
@@ -138,6 +148,7 @@ class ManagedTask:
             db_session=self.db_session,
             indexer_session=self.indexer,
             task=self.task,
+            task_settings=self.task_settings,
         )
 
     async def __aexit__(self, exc_type, exc_value, traceback):

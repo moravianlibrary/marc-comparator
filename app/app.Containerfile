@@ -35,6 +35,7 @@ COPY app/common/ common/
 COPY app/comparison/ comparison/
 COPY app/entities/ entities/
 COPY app/settings/ settings/
+COPY app/system/ system/
 COPY app/tasks/ tasks/
 COPY app/validation/ validation/
 COPY app/app.py app.py
