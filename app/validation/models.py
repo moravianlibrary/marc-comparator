@@ -1,9 +1,6 @@
 from typing import List
 
-from marc_comparator_sdk.validators import (
-    KrameriusLinksValidatorConfig,
-    Validator,
-)
+from marc_comparator.validators import KrameriusLinksValidatorConfig, Validator
 from pydantic import BaseModel, Field
 
 from adapters.indexer import IndexerQuery

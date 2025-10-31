@@ -1,7 +1,4 @@
-from marc_comparator_sdk.comparators import (
-    Comparator,
-    RuleBasedComparatorConfig,
-)
+from marc_comparator.comparators import Comparator, RuleBasedComparatorConfig
 from pydantic import BaseModel, Field
 
 from adapters.indexer import IndexerQuery

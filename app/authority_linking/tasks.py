@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import List
 
-from marc_comparator_sdk.authority_linkers import (
+from marc_comparator.authority_linkers import (
     AUTHORITY_LINKER_DISPATCHER,
     AuthorityLinker,
     BaseAuthorityLinker,

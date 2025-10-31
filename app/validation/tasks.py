@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import List
 
-from marc_comparator_sdk.validators import (
+from marc_comparator.validators import (
     VALIDATOR_DISPATCHER,
     BaseValidator,
     Validator,

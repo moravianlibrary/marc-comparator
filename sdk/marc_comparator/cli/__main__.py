@@ -6,12 +6,12 @@ import pandas as pd
 import typer
 from marcdantic import MarcRecord
 
-from marc_comparator_sdk.authority_linkers import (
+from marc_comparator.authority_linkers import (
     AUTHORITY_LINKER_DISPATCHER,
     AuthorityLinker,
 )
-from marc_comparator_sdk.comparators import COMPARATOR_DISPATCHER, Comparator
-from marc_comparator_sdk.validators import VALIDATOR_DISPATCHER, Validator
+from marc_comparator.comparators import COMPARATOR_DISPATCHER, Comparator
+from marc_comparator.validators import VALIDATOR_DISPATCHER, Validator
 
 app = typer.Typer(help="MARC Comparator CLI tool")
 

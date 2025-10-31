@@ -1,6 +1,6 @@
 from typing import List
 
-from marc_comparator_sdk.comparators import COMPARATOR_DISPATCHER
+from marc_comparator.comparators import COMPARATOR_DISPATCHER
 from marcdantic import MarcRecord
 
 from adapters.tasks import ManagedTask

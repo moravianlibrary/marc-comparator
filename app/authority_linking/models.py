@@ -1,7 +1,7 @@
 from typing import List
 
-from marc_comparator_sdk.authority_linkers import AuthorityLinker
-from marc_comparator_sdk.authority_linkers.knihovny_cz_linker import (
+from marc_comparator.authority_linkers import AuthorityLinker
+from marc_comparator.authority_linkers.knihovny_cz_linker import (
     KnihovnyCZLinkerConfig,
 )
 from pydantic import BaseModel, Field
