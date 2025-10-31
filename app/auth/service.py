@@ -108,11 +108,9 @@ def login_for_access_token(
     return models.Token(access_token=token, token_type="bearer")
 
 
-def get_current_user_data(
-    current_user: models.TokenData, db: Session
-) -> models.UserSchema:
+def get_current_user_data(current_user: models.TokenData, db: Session) -> User:
     user = db.query(User).filter(User.id == UUID(current_user.user_id)).first()
     if not user:
         raise AuthenticationError()
 
-    return models.UserSchema.model_validate(user, from_attributes=True)
+    return user

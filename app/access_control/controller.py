@@ -3,12 +3,12 @@ from typing import Annotated
 from fastapi import APIRouter, Body, Query
 
 from adapters.dependencies import DatabaseSessionDep, WithPermission
+from auth.models import UserSchema
 from common.models import Page, PageRequestParams
 from entities.role import Permission
-from entities.settings import SettingsJsonSchema
 
 from . import service
-from .models import RoleSchema, UsersRequestParams
+from .models import EditRole, RoleSchema, UsersRequestParams
 
 router = APIRouter(
     prefix="/access-control",
@@ -30,7 +30,7 @@ async def get_roles(
 
 @roles_router.post("", response_model=RoleSchema)
 async def create_role(
-    role: Annotated[RoleSchema, Body(...)], db_session: DatabaseSessionDep
+    role: Annotated[EditRole, Body(...)], db_session: DatabaseSessionDep
 ):
     return service.create_role(role, db_session)
 
@@ -38,7 +38,7 @@ async def create_role(
 @roles_router.put("/{role_id}", response_model=RoleSchema)
 async def update_role(
     role_id: int,
-    role: Annotated[RoleSchema, Body(...)],
+    role: Annotated[EditRole, Body(...)],
     db_session: DatabaseSessionDep,
 ):
     return service.update_role(role_id, role, db_session)
@@ -52,7 +52,7 @@ async def delete_role(
     return service.delete_role(role_id, db_session)
 
 
-@users_router.get("", response_model=Page[SettingsJsonSchema])
+@users_router.get("", response_model=Page[UserSchema])
 async def get_users(
     params: Annotated[UsersRequestParams, Query(...)],
     db_session: DatabaseSessionDep,
@@ -60,7 +60,9 @@ async def get_users(
     return service.get_users(params, db_session)
 
 
-@users_router.patch("/{user_id}/assign-role/{role_id}")
+@users_router.patch(
+    "/{user_id}/assign-role/{role_id}", response_model=UserSchema
+)
 async def assign_role_to_user(
     user_id: str,
     role_id: int,

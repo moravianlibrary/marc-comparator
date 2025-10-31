@@ -3,8 +3,7 @@ from uuid import UUID
 
 from pydantic import BaseModel, EmailStr
 
-from access_control.models import RoleSchema
-from entities.role import Permission
+from access_control.models import RoleSummary
 
 
 class RegisterUserRequest(BaseModel):
@@ -33,5 +32,4 @@ class UserSchema(BaseModel):
     email: str
     first_name: str
     last_name: str
-    roles: List[RoleSchema]
-    permissions: List[Permission]
+    roles: List[RoleSummary]

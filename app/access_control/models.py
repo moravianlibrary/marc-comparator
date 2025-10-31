@@ -17,5 +17,10 @@ class RoleSchema(EditRole):
     protected: bool
 
 
+class RoleSummary(BaseModel):
+    id: int
+    name: str
+
+
 class UsersRequestParams(PageRequestParams):
     email: str | None = None

@@ -12,7 +12,7 @@ from tests.integration.conftest import assert_response, load_test_json
     "user",
     "tasks_client",
 )
-class TestEndpointsRO:
+class TestEndpoints:
     @pytest.mark.asyncio
     async def test_get_settings_schema(self, client: AsyncClient):
         assert_response(

@@ -19,7 +19,7 @@ router = APIRouter(
 
 
 @router.post("/recreate-indexes", response_model=TaskSchema)
-async def validate_records(
+async def recreate_indexes(
     current_user: CurrentUser,
     db_session: DatabaseSessionDep,
     _: IndexerSessionDep,
