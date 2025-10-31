@@ -1,6 +1,7 @@
 services:
   postgres:
     image: postgres:17.5-alpine
+    container_name: marc-comparator-postgres
     environment:
       - POSTGRES_DB=marc
       - POSTGRES_USER=marcAdmin
@@ -14,6 +15,7 @@ services:
   
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.14.0
+    container_name: marc-comparator-elasticsearch
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=true
@@ -26,39 +28,34 @@ services:
 
   redis:
     image: redis:7-alpine
+    container_name: marc-comparator-redis
     networks:
       - marc-comparator
     ports:
       - "6379:6379"
 
   app:
-    build:
-      context: .
-      dockerfile: app/app.Containerfile
+    image: marc-comparator-app:${TAG:-local}
+    container_name: marc-comparator-app
     depends_on:
       - postgres
       - elasticsearch
       - redis
     env_file:
-      - config/app-docker.env
-    volumes:
-    - ./config/aleph.yaml:/app/config/aleph.yaml:ro
+      - app.env
     networks:
       - marc-comparator
     ports:
       - "8000:8000"
     
   worker:
-    build:
-      context: .
-      dockerfile: app/worker.Containerfile
+    image: marc-comparator-worker:${TAG:-local}
+    container_name: marc-comparator-worker
     depends_on:
       - postgres
       - redis
     env_file:
-      - config/app-docker.env
-    volumes:
-    - ./config/aleph.yaml:/app/config/aleph.yaml:ro
+      - app.env
     networks:
       - marc-comparator
 
