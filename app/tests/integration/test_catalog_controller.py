@@ -89,6 +89,7 @@ class TestEndpointsRO:
     "db_session",
     "indexer_session",
     "lock_server_client",
+    "user",
     "aleph_client_registry",
 )
 class TestTasks:

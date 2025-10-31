@@ -24,6 +24,7 @@ from app import app
 from auth.models import TokenData
 from auth.service import get_current_user
 from config import config
+from entities.role import Role
 from entities.task import Task, TaskType
 from entities.user import User
 
@@ -165,15 +166,17 @@ FAKE_USER_ID = "12345678-1234-4678-9abc-1234567890ab"
 def user(
     db_session: DatabaseSession, class_mocker: MockerFixture
 ) -> TokenData:
-    db_session.add(
-        User(
-            id=FAKE_USER_ID,
-            first_name="Test",
-            last_name="User",
-            email="test.user@mzk.cz",
-            password_hash="testpasswordhash",
-        )
+    user = User(
+        id=FAKE_USER_ID,
+        first_name="Test",
+        last_name="User",
+        email="test.user@mzk.cz",
+        password_hash="testpasswordhash",
     )
+    user.save(db_session)
+
+    Role.create_default_roles(db_session)
+    user.roles.append(Role.get_by_name(db_session, "Admin"))
     db_session.commit()
 
     token_data = TokenData(user_id=FAKE_USER_ID)

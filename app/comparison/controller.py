@@ -2,15 +2,24 @@ from typing import Annotated
 
 from fastapi import APIRouter, Body
 
-from adapters.dependencies import DatabaseSessionDep, IndexerSessionDep
+from adapters.dependencies import (
+    DatabaseSessionDep,
+    IndexerSessionDep,
+    WithPermission,
+)
 from auth.service import CurrentUser
+from entities.role import Permission
 from entities.settings import SettingsSchema
 from entities.task import TaskSchema
 
 from . import service
 from .models import ComparisonSettings, ComparisonTaskData
 
-router = APIRouter(prefix="/comparison", tags=["Comparison"])
+router = APIRouter(
+    prefix="/comparison",
+    tags=["Comparison"],
+    dependencies=[WithPermission(Permission.RunRecordTasks)],
+)
 
 
 @router.get("/settings-schema", response_model=SettingsSchema)

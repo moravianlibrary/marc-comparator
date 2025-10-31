@@ -29,7 +29,7 @@ class TokenData(BaseModel):
 
 
 class UserSchema(BaseModel):
-    id: str
+    id: UUID
     email: str
     first_name: str
     last_name: str

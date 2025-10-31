@@ -2,14 +2,19 @@ from typing import Annotated
 
 from fastapi import APIRouter, Body, Query
 
-from adapters.dependencies import DatabaseSessionDep
+from adapters.dependencies import DatabaseSessionDep, WithPermission
 from common.models import Page, PageRequestParams
+from entities.role import Permission
 from entities.settings import SettingsSchema
 
 from . import service
 from .models import RoleSchema, UsersRequestParams
 
-router = APIRouter(prefix="/access-control", tags=["Access Control"])
+router = APIRouter(
+    prefix="/access-control",
+    tags=["Access Control"],
+    dependencies=[WithPermission(Permission.ManageAccessControl)],
+)
 
 roles_router = APIRouter(prefix="/roles", tags=["Roles"])
 users_router = APIRouter(prefix="/users", tags=["Users"])
@@ -42,7 +47,7 @@ async def update_role(
     return service.update_role(role_id, role, db_session)
 
 
-@roles_router.delete("/{role_id}")
+@roles_router.delete("/{role_id}", response_model=RoleSchema)
 async def delete_role(
     role_id: int,
     db_session: DatabaseSessionDep,

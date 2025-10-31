@@ -73,18 +73,20 @@ class Role(Base, BaseOperationsMixin, RetrievalOperationsMixin):
         ]
 
         for role_data in default_roles:
-            existing_role = (
+            if (
                 db_session.query(cls)
                 .filter(cls.name == role_data["name"])
-                .one_or_none()
+                .count()
+                > 0
+            ):
+                continue
+
+            role = cls(
+                name=role_data["name"],
+                permissions=role_data["permissions"],
+                immutable=role_data.get("immutable", False),
+                protected=role_data.get("protected", False),
             )
-            if existing_role is None:
-                role = cls(
-                    name=role_data["name"],
-                    permissions=role_data["permissions"],
-                    immutable=role_data["immutable"],
-                    protected=role_data["protected"],
-                )
-                db_session.add(role)
+            db_session.add(role)
 
         db_session.commit()

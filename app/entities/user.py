@@ -27,6 +27,7 @@ class User(Base, BaseOperationsMixin, RetrievalOperationsMixin):
         lazy="select",
     )
 
+    @property
     def permissions(self) -> List[Permission]:
         perms = set()
         for role in self.roles:
