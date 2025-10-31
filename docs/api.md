@@ -7,13 +7,13 @@
 | `ReadRecords`            | View catalog records and search results |
 | `AddRecords`             | Add new records to the catalog          |
 | `SyncRecordsFromCatalog` | Synchronize records from the catalog    |
-| `MarkRecordsAsHidden`    | Hide records that are not relevant      |
 | `RunRecordTasks`         | Execute automated tasks on records      |
 | `ManageTasks`            | Read and manage own tasks               |
 | `ManageAllTasks`         | Read and manage all tasks               |
 | `ManageAccessControl`    | Configure user roles and permissions    |
 | `ManageAppSettings`      | Update global application settings      |
 | `ManageTaskSettings`     | Configure settings for individual tasks |
+| `ManageSystem`           | Manage system resources                 |
 
 ---
 
@@ -137,7 +137,7 @@
 ```json
 {
   "name": "catalog_admin",
-  "permissions": ["ReadRecords", "AddRecords", "MarkRecordsAsHidden"]
+  "permissions": ["ReadRecords", "AddRecords"]
 }
 ```
 
@@ -147,7 +147,7 @@
 {
   "id": 0,
   "name": "catalog_admin",
-  "permissions": ["ReadRecords", "AddRecords", "MarkRecordsAsHidden"],
+  "permissions": ["ReadRecords", "AddRecords"],
   "immutable": false,
   "protected": false
 }
@@ -343,7 +343,7 @@ response returns user
 
 ### `POST /catalog-records/sync`
 
-**Description:** Synchronize MARC records from the Aleph catalog. Only changes from `from_date` are fetched.
+**Description:** Synchronize MARC records from the Aleph catalog. Only changes from `from_date` to `to_date` are fetched.
 **Permissions Required:** `SyncRecordsFromCatalog`
 
 **Request Body:**
@@ -351,7 +351,8 @@ response returns user
 ```json
 {
   "base": "TEST",
-  "from_date": "2025-10-01T00:00:00Z"  // optional
+  "from_date": "2025-10-01T00:00:00Z",  // optional
+  "to_date": "2025-10-01T00:00:00Z",  // optional
 }
 ```
 
@@ -364,11 +365,28 @@ response returns user
 **Description:** Hide catalog records matching a query.
 **Permissions Required:** `RunRecordTasks`
 
-**Request Parameters (optional):**
+**Request Parameters:**
 
-* `reason`: Explanation for hiding records
+* `reason`: Explanation for hiding records (optional)
 
-**Request Body (Elasticsearch DSL query):**
+**Request Body:** 
+
+```json
+{
+  /* Elasticsearch DSL query */
+}
+```
+
+**Response:** `TaskSchema`
+
+---
+
+### `POST /catalog-records/reindex`
+
+**Description:** Reindex catalog records matching a query.
+**Permissions Required:** `RunRecordTasks`
+
+**Request Body:**
 
 ```json
 {
@@ -635,3 +653,14 @@ The `TaskSchema` represents tasks in the system:
 **Request Body:** JSON object containing settings for the specified scope, based on the schema
 
 **Response:** JSON object of the updated settings for that scope
+
+---
+
+## **System**
+
+### `POST /system/recreate-indexes`
+
+**Description:** Start a task to recreate all indexes and reindex all entities.  
+**Permissions Required:** `ManageSystem`
+
+**Response:** `TaskSchema`

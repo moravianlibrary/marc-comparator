@@ -35,6 +35,8 @@ class TaskType(StrEnum):
     LinkRecordsToAuthorities = "LinkRecordsToAuthorities"
     CompareRecords = "CompareRecords"
     ReindexRecords = "ReindexRecords"
+    DeleteTasks = "DeleteTasks"
+    RecreateIndexes = "RecreateIndexes"
 
 
 class TaskStatus(StrEnum):
