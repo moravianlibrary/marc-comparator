@@ -6,6 +6,7 @@ from sqlalchemy.orm import Mapped, relationship
 
 from adapters.database import Base, DatabaseSession
 from adapters.indexer import IndexerNestedModel
+from entities._operations import BaseOperationsMixin
 
 if TYPE_CHECKING:
     from .catalog_record import CatalogRecord
@@ -17,7 +18,7 @@ class AuthorityLinkSchema(IndexerNestedModel):
     confidence: float | None
 
 
-class AuthorityLink(Base):
+class AuthorityLink(Base, BaseOperationsMixin):
     __tablename__ = "authority_links"
 
     main_record_id = Column(
@@ -64,9 +65,3 @@ class AuthorityLink(Base):
             )
             .one_or_none()
         )
-
-    def save(self, db_session: DatabaseSession) -> "AuthorityLink":
-        db_session.add(self)
-        db_session.commit()
-        db_session.refresh(self)
-        return self

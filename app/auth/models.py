@@ -1,6 +1,10 @@
+from typing import List
 from uuid import UUID
 
 from pydantic import BaseModel, EmailStr
+
+from access_control.models import RoleSchema
+from entities.role import Permission
 
 
 class RegisterUserRequest(BaseModel):
@@ -22,3 +26,12 @@ class TokenData(BaseModel):
         if self.user_id:
             return UUID(self.user_id)
         return None
+
+
+class UserSchema(BaseModel):
+    id: str
+    email: str
+    first_name: str
+    last_name: str
+    roles: List[RoleSchema]
+    permissions: List[Permission]

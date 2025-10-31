@@ -5,8 +5,10 @@ from sqlalchemy import Column, ForeignKey, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, relationship
 
-from adapters.database import Base, DatabaseSession
+from adapters.database import Base
 from adapters.indexer import IndexerNestedModel
+
+from ._operations import BaseOperationsMixin
 
 if TYPE_CHECKING:
     from .catalog_record import CatalogRecord
@@ -18,7 +20,7 @@ class AuthorityLinkSchema(IndexerNestedModel):
     confidence: float | None
 
 
-class Comparison(Base):
+class Comparison(Base, BaseOperationsMixin):
     __tablename__ = "comparisons"
 
     main_record_id = Column(
@@ -42,9 +44,3 @@ class Comparison(Base):
         foreign_keys=[other_record_id],
         lazy="select",
     )
-
-    def save(self, db_session: DatabaseSession) -> "Comparison":
-        db_session.add(self)
-        db_session.commit()
-        db_session.refresh(self)
-        return self

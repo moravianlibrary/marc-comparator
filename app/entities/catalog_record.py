@@ -16,8 +16,12 @@ from sqlalchemy.orm import Mapped, relationship
 
 from adapters.database import Base, DatabaseSession
 from adapters.indexer import IndexerSchema
-from entities._operations import BaseOperationsMixin
 
+from ._operations import (
+    BaseOperationsMixin,
+    IndexerOperationsMixin,
+    RetrievalOperationsMixin,
+)
 from .authority_link import AuthorityLink, AuthorityLinkSchema
 
 
@@ -42,7 +46,9 @@ class CatalogRecordSchema(IndexerSchema):
     authority_links: List[AuthorityLinkSchema]
 
 
-class CatalogRecord(Base, BaseOperationsMixin):
+class CatalogRecord(
+    Base, BaseOperationsMixin, RetrievalOperationsMixin, IndexerOperationsMixin
+):
     __indexer_schema__ = CatalogRecordSchema
     __tablename__ = "catalog_records"
 

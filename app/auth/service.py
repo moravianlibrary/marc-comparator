@@ -10,9 +10,10 @@ from jwt import PyJWTError
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
-from config import config
-from entities.user import User
 from auth.exceptions import AuthenticationError
+from config import config
+from entities.role import Role
+from entities.user import User
 
 from . import models
 
@@ -74,6 +75,8 @@ def register_user(
         )
         db.add(create_user_model)
         db.commit()
+        create_user_model.roles.append(Role.get_role_by_name(db, "Guest"))
+        db.commit()
     except Exception as e:
         logging.error(
             f"Failed to register user: {register_user_request.email}. "
@@ -103,3 +106,13 @@ def login_for_access_token(
         timedelta(minutes=config.auth.access_token_expire_minutes),
     )
     return models.Token(access_token=token, token_type="bearer")
+
+
+def get_current_user_data(
+    current_user: models.TokenData, db: Session
+) -> models.Token:
+    user = db.query(User).filter(User.id == UUID(current_user.user_id)).first()
+    if not user:
+        raise AuthenticationError()
+
+    return models.UserSchema.model_validate(user)

@@ -19,7 +19,12 @@ from sqlalchemy.orm import relationship
 
 from adapters.database import Base
 from adapters.indexer import IndexerSchema
-from entities._operations import BaseOperationsMixin
+
+from ._operations import (
+    BaseOperationsMixin,
+    IndexerOperationsMixin,
+    RetrievalOperationsMixin,
+)
 
 
 class TaskType(StrEnum):
@@ -60,7 +65,9 @@ class TaskSchema(IndexerSchema):
     finished_at: datetime | None
 
 
-class Task(Base, BaseOperationsMixin):
+class Task(
+    Base, BaseOperationsMixin, RetrievalOperationsMixin, IndexerOperationsMixin
+):
     __tablename__ = "tasks"
 
     task_id = Column(

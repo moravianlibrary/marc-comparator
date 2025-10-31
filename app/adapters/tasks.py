@@ -14,6 +14,7 @@ from config import config
 
 # Importing entities to register with the ORM
 from entities.catalog_record import CatalogRecord  # noqa: F401
+from entities.role import Role  # noqa: F401
 from entities.task import Task, TaskSchema, TaskStatus, TaskType
 from entities.user import User  # noqa: F401
 

@@ -25,3 +25,10 @@ async def login_for_access_token(
     form_data: OAuthFormData, db: DatabaseSessionDep
 ):
     return service.login_for_access_token(form_data, db)
+
+
+@router.post("/me", response_model=models.Token)
+async def get_current_user(
+    db: DatabaseSessionDep, current_user: models.UserSchema
+):
+    return service.get_current_user_data(current_user, db)
