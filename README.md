@@ -92,7 +92,7 @@ The **Python SDK** provides reusable functionality for MARC record processing, i
 
 The SDK defines clear interfaces and result structures to simplify the creation of custom **validators**, **linkers**, and **comparators**.
 
-> These interfaces are documented in the source code and also described [here](docs/sdk_interfaces.md).
+> These interfaces are documented in the source code and also described [here](docs/sdk_components.md).
 
 ### CLI Commands
 
