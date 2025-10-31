@@ -36,7 +36,7 @@ class FieldComparisonResult(BaseModel):
     tag: str
         The MARC field tag being compared.
     score: float
-        The similarity score for this field (0.0 to 1.0).
+        The similarity score for this field.
     explanation: str | None
         Optional explanation describing the score.
     details: str | None
@@ -59,7 +59,7 @@ class RecordComparisonResult(BaseModel):
     Attributes
     ----------
     overall_score: float
-        The overall similarity score between the two records (0.0 to 1.0).
+        The overall similarity score between the two records.
     summary: str | None
         Optional summary of the comparison results.
     field_results: List[FieldResult] | None

@@ -56,9 +56,6 @@ class TaskSchema(IndexerSchema):
     type: TaskType
     status: TaskStatus
 
-    has_data: bool
-    # result: IndexerText | None
-
     created_by: UUID4
     created_at: datetime
     started_at: datetime | None
