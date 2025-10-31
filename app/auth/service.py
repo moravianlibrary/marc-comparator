@@ -10,12 +10,12 @@ from jwt import PyJWTError
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
-from auth.exceptions import AuthenticationError
+from auth.exceptions import AuthenticationError, RegistrationError
 from config import config
 from entities.role import Role
 from entities.user import User
 
-from . import models
+from .models import RegisterUserRequest, Token, TokenData
 
 oauth2_bearer = OAuth2PasswordBearer(tokenUrl="auth/token")
 bcrypt_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -50,20 +50,20 @@ def create_access_token(
     )
 
 
-def verify_token(token: str) -> models.TokenData:
+def verify_token(token: str) -> TokenData:
     try:
         payload = jwt.decode(
             token, config.auth.secret_key, algorithms=[config.auth.algorithm]
         )
         user_id: str = payload.get("id")
-        return models.TokenData(user_id=user_id)
+        return TokenData(user_id=user_id)
     except PyJWTError as e:
         logging.warning(f"Token verification failed: {str(e)}")
-        raise AuthenticationError()
+        raise AuthenticationError("Invalid token")
 
 
 def register_user(
-    db: Session, register_user_request: models.RegisterUserRequest
+    db: Session, register_user_request: RegisterUserRequest
 ) -> None:
     try:
         create_user_model = User(
@@ -75,28 +75,29 @@ def register_user(
         )
         db.add(create_user_model)
         db.commit()
-        create_user_model.roles.append(Role.get_role_by_name(db, "Guest"))
+        create_user_model.roles.append(Role.get_by_name(db, "Guest"))
         db.commit()
     except Exception as e:
+        db.rollback()
         logging.error(
             f"Failed to register user: {register_user_request.email}. "
             f"Error: {str(e)}"
         )
-        raise
+        raise RegistrationError()
 
 
 def get_current_user(
     token: Annotated[str, Depends(oauth2_bearer)],
-) -> models.TokenData:
+) -> TokenData:
     return verify_token(token)
 
 
-CurrentUser = Annotated[models.TokenData, Depends(get_current_user)]
+CurrentUser = Annotated[TokenData, Depends(get_current_user)]
 
 
 def login_for_access_token(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()], db: Session
-) -> models.Token:
+) -> Token:
     user = authenticate_user(form_data.username, form_data.password, db)
     if not user:
         raise AuthenticationError()
@@ -105,12 +106,8 @@ def login_for_access_token(
         user.id,
         timedelta(minutes=config.auth.access_token_expire_minutes),
     )
-    return models.Token(access_token=token, token_type="bearer")
+    return Token(access_token=token, token_type="bearer")
 
 
-def get_current_user_data(current_user: models.TokenData, db: Session) -> User:
-    user = db.query(User).filter(User.id == UUID(current_user.user_id)).first()
-    if not user:
-        raise AuthenticationError()
-
-    return user
+def get_current_user_data(current_user: TokenData, db: Session) -> User:
+    return db.query(User).filter(User.id == UUID(current_user.user_id)).one()

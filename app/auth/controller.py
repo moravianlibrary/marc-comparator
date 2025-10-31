@@ -6,29 +6,30 @@ from starlette import status
 
 from adapters.dependencies import DatabaseSessionDep
 
-from . import models, service
+from . import service
+from .models import RegisterUserRequest, Token, UserSchema
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 OAuthFormData = Annotated[OAuth2PasswordRequestForm, Depends()]
 
 
-@router.post("/", status_code=status.HTTP_201_CREATED)
+@router.post("/register", status_code=status.HTTP_201_CREATED)
 async def register_user(
-    db: DatabaseSessionDep, register_user_request: models.RegisterUserRequest
+    db: DatabaseSessionDep, register_user_request: RegisterUserRequest
 ):
     service.register_user(db, register_user_request)
 
 
-@router.post("/token", response_model=models.Token)
+@router.post("/token", response_model=Token)
 async def login_for_access_token(
     form_data: OAuthFormData, db: DatabaseSessionDep
 ):
     return service.login_for_access_token(form_data, db)
 
 
-@router.get("/me", response_model=models.Token)
+@router.get("/me", response_model=UserSchema)
 async def get_current_user(
-    db: DatabaseSessionDep, current_user: models.UserSchema
+    current_user: service.CurrentUser, db: DatabaseSessionDep
 ):
     return service.get_current_user_data(current_user, db)

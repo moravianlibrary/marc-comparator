@@ -1,7 +1,7 @@
 import asyncio
 import json
 from pathlib import Path
-from typing import Any, AsyncGenerator, Dict, Optional, Set, Tuple
+from typing import Any, AsyncGenerator, Dict, Generator, Optional, Set, Tuple
 
 import pytest
 import pytest_asyncio
@@ -163,14 +163,12 @@ FAKE_USER_ID = "12345678-1234-4678-9abc-1234567890ab"
 
 
 @pytest.fixture(scope="class")
-def user(
-    db_session: DatabaseSession, class_mocker: MockerFixture
-) -> TokenData:
+def user(db_session: DatabaseSession) -> Generator[TokenData, None, None]:
     user = User(
         id=FAKE_USER_ID,
-        first_name="Test",
+        first_name="Admin",
         last_name="User",
-        email="test.user@mzk.cz",
+        email="admin@example.com",
         password_hash="testpasswordhash",
     )
     user.save(db_session)
@@ -183,7 +181,9 @@ def user(
 
     app.dependency_overrides[get_current_user] = lambda: token_data
 
-    return token_data
+    yield token_data
+
+    app.dependency_overrides.pop(get_current_user, None)
 
 
 @pytest.fixture(scope="class")

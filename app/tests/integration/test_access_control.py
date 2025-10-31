@@ -211,8 +211,8 @@ class TestAccessControlEndpoints:
                 "items": [
                     {
                         "id": "12345678-1234-4678-9abc-1234567890ab",
-                        "email": "test.user@mzk.cz",
-                        "first_name": "Test",
+                        "email": "admin@example.com",
+                        "first_name": "Admin",
                         "last_name": "User",
                         "roles": [
                             {"id": 1, "name": "Admin"},

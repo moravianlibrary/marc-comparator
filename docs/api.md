@@ -19,7 +19,7 @@
 
 ## **Authentication**
 
-### `POST /auth/`
+### `POST /auth/register`
 
 **Description:** Register a new user.
 
