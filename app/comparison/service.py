@@ -1,36 +1,10 @@
 from adapters.database import DatabaseSession
 from adapters.tasks import enqueue_task
-from common.exceptions import SettingsNotFoundError, SettingsPartNotFoundError
-from entities.settings import Settings, SettingsScope
+from entities.settings import SettingsScope
 from entities.task import Task, TaskSchema, TaskType
+from settings.service import get_settings_part
 
-from .models import ComparisonSettings, ComparisonTaskData
-
-
-def get_settings(
-    db_session: DatabaseSession,
-) -> ComparisonSettings | None:
-    settings = Settings.get(
-        db_session,
-        SettingsScope.Comparison,
-        ComparisonSettings,
-    )
-
-    if settings is None:
-        raise SettingsNotFoundError(SettingsScope.Comparison)
-
-    return settings
-
-
-def set_settings(
-    settings: ComparisonSettings, db_session: DatabaseSession
-) -> ComparisonSettings:
-    return Settings.save(
-        db_session,
-        SettingsScope.Comparison,
-        settings,
-        ComparisonSettings,
-    )
+from .models import ComparisonTaskData
 
 
 async def compare(
@@ -39,17 +13,14 @@ async def compare(
     db_session: DatabaseSession,
 ) -> TaskSchema:
     # Ensure settings exist
-    settings = get_settings(db_session)
-
-    if settings[data.comparator.value] is None:
-        raise SettingsPartNotFoundError(
-            SettingsScope.Comparison, data.comparator.value
-        )
+    get_settings_part(
+        SettingsScope.Comparison, data.comparator.value, db_session
+    )
 
     return await enqueue_task(
         Task(
             name=f"Comparing records using {data.comparator.value} comparator",
-            type=TaskType.Comparison,
+            type=TaskType.CompareRecords,
             created_by=created_by,
             data=data.model_dump(),
         ),

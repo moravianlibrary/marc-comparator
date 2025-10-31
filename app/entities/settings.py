@@ -1,5 +1,5 @@
 from enum import StrEnum
-from typing import Any, Dict, Type, TypeVar
+from typing import Any, Dict, Literal, Type
 
 from pydantic import BaseModel, ValidationError
 from sqlalchemy import TIMESTAMP, Column, Enum, func
@@ -10,13 +10,29 @@ from entities._operations import BaseOperationsMixin
 
 
 class SettingsScope(StrEnum):
+    Catalog = "Catalog"
+    Task = "Task"
     Validation = "Validation"
     AuthorityLinking = "AuthorityLinking"
     Comparison = "Comparison"
 
 
-SettingsModel = TypeVar("T", bound=BaseModel)
-SettingsSchema = Dict[str, Any]
+type AppSettingsScope = Literal[
+    SettingsScope.Catalog,
+    SettingsScope.Task,
+]
+type TaskSettingsScope = Literal[
+    SettingsScope.Validation,
+    SettingsScope.AuthorityLinking,
+    SettingsScope.Comparison,
+]
+
+
+class SettingsSchema(BaseModel):
+    pass
+
+
+SettingsJsonSchema = Dict[str, Any]
 
 
 class Settings(Base, BaseOperationsMixin):
@@ -44,8 +60,8 @@ class Settings(Base, BaseOperationsMixin):
         cls,
         db_session: DatabaseSession,
         scope: SettingsScope,
-        model: Type[SettingsModel],
-    ) -> SettingsModel | None:
+        model: Type[SettingsSchema],
+    ) -> SettingsSchema | None:
         """
         Retrieve and validate the settings for the given scope.
 
@@ -58,12 +74,12 @@ class Settings(Base, BaseOperationsMixin):
             The database session to use for the operation.
         scope : SettingsScope
             The scope of the settings to retrieve.
-        model : Type[SettingsModel]
+        model : Type[SettingsSchema]
             The Pydantic model class to validate the settings data against.
 
         Returns
         -------
-        SettingsModel | None
+        SettingsSchema | None
             The validated settings data, or `None` if not found or invalid.
         """
         try:
@@ -81,8 +97,8 @@ class Settings(Base, BaseOperationsMixin):
         db_session: DatabaseSession,
         scope: SettingsScope,
         data: BaseModel,
-        model: Type[SettingsModel],
-    ) -> SettingsModel:
+        model: Type[SettingsSchema],
+    ) -> SettingsSchema:
         """
         Insert or update settings for the given scope.
 
@@ -102,7 +118,7 @@ class Settings(Base, BaseOperationsMixin):
         """
         settings = db_session.get(cls, scope)
 
-        data_jsonb = data.model_dump(mode="json")
+        data_jsonb = data.model_dump(mode="json", by_alias=True)
         if settings:
             settings.data = data_jsonb
         else:

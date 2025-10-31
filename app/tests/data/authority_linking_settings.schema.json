@@ -2,11 +2,6 @@
     "title": "AuthorityLinkingSettings",
     "type": "object",
     "$defs": {
-        "AuthorityLinker": {
-            "enum": ["knihovny-cz"],
-            "title": "AuthorityLinker",
-            "type": "string"
-        },
         "KnihovnyCZBaseMapping": {
             "properties": {
                 "base": { "title": "Base", "type": "string" },
@@ -59,14 +54,7 @@
         }
     },
     "properties": {
-        "enabled_linkers": {
-            "items": {
-                "$ref": "#/$defs/AuthorityLinker"
-            },
-            "title": "Enabled Linkers",
-            "type": "array"
-        },
-        "knihovny_cz": {
+        "knihovny-cz": {
             "anyOf": [
                 {
                     "$ref": "#/$defs/KnihovnyCZLinkerConfig"
@@ -77,6 +65,5 @@
             ],
             "default": null
         }
-    },
-    "required": ["enabled_linkers"]
+    }
 }

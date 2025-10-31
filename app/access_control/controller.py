@@ -5,7 +5,7 @@ from fastapi import APIRouter, Body, Query
 from adapters.dependencies import DatabaseSessionDep, WithPermission
 from common.models import Page, PageRequestParams
 from entities.role import Permission
-from entities.settings import SettingsSchema
+from entities.settings import SettingsJsonSchema
 
 from . import service
 from .models import RoleSchema, UsersRequestParams
@@ -16,11 +16,8 @@ router = APIRouter(
     dependencies=[WithPermission(Permission.ManageAccessControl)],
 )
 
-roles_router = APIRouter(prefix="/roles", tags=["Roles"])
-users_router = APIRouter(prefix="/users", tags=["Users"])
-
-router.include_router(roles_router)
-router.include_router(users_router)
+roles_router = APIRouter(prefix="/roles")
+users_router = APIRouter(prefix="/users")
 
 
 @roles_router.get("", response_model=Page[RoleSchema])
@@ -55,7 +52,7 @@ async def delete_role(
     return service.delete_role(role_id, db_session)
 
 
-@users_router.get("", response_model=Page[SettingsSchema])
+@users_router.get("", response_model=Page[SettingsJsonSchema])
 async def get_users(
     params: Annotated[UsersRequestParams, Query(...)],
     db_session: DatabaseSessionDep,
@@ -70,3 +67,7 @@ async def assign_role_to_user(
     db_session: DatabaseSessionDep,
 ):
     return service.assign_role_to_user(user_id, role_id, db_session)
+
+
+router.include_router(roles_router)
+router.include_router(users_router)

@@ -94,14 +94,8 @@ async def authority_linking(task_id: str) -> None:
         if not settings:
             raise ValueError("Authority linking settings not found")
 
-        if not any(
-            linker_config is not None
-            for linker_config in settings.model_dump().values()
-        ):
-            raise ValueError("No authority linker is configured")
-
         authority_linkers: List[AuthorityLinkerInstance] = []
-        for linker in settings.enabled_linkers:
+        for linker in data.linkers:
             linker_cls = AUTHORITY_LINKER_DISPATCHER.get(linker)
             if not linker_cls:
                 continue

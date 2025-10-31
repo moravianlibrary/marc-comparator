@@ -7,9 +7,10 @@ from marc_comparator_sdk.validators import (
 from pydantic import BaseModel, Field
 
 from adapters.indexer import IndexerQuery
+from entities.settings import SettingsSchema
 
 
-class ValidationSettings(BaseModel):
+class ValidationSettings(SettingsSchema):
     kramerius_links: KrameriusLinksValidatorConfig | None = Field(
         None, alias="kramerius-links"
     )

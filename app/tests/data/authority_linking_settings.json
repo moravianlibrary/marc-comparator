@@ -1,6 +1,5 @@
 {
-    "enabled_linkers": ["knihovny-cz"],
-    "knihovny_cz": {
+    "knihovny-cz": {
         "api_url": "https://api.knihovny.cz/v1/",
         "mappings": [
             {

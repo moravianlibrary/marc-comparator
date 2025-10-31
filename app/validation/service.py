@@ -1,36 +1,10 @@
 from adapters.database import DatabaseSession
 from adapters.tasks import enqueue_task
-from common.exceptions import SettingsNotFoundError, SettingsPartNotFoundError
-from entities.settings import Settings, SettingsScope
+from entities.settings import SettingsScope
 from entities.task import Task, TaskSchema, TaskType
+from settings.service import get_settings_part
 
-from .models import ValidationSettings, ValidationTaskData
-
-
-def get_settings(
-    db_session: DatabaseSession,
-) -> ValidationSettings | None:
-    settings = Settings.get(
-        db_session,
-        SettingsScope.Validation,
-        ValidationSettings,
-    )
-
-    if settings is None:
-        raise SettingsNotFoundError(SettingsScope.Validation)
-
-    return settings
-
-
-def set_settings(
-    settings: ValidationSettings, db_session: DatabaseSession
-) -> ValidationSettings:
-    return Settings.save(
-        db_session,
-        SettingsScope.Validation,
-        settings,
-        ValidationSettings,
-    )
+from .models import ValidationTaskData
 
 
 async def compare(
@@ -39,13 +13,10 @@ async def compare(
     db_session: DatabaseSession,
 ) -> TaskSchema:
     # Ensure settings exist
-    settings = get_settings(db_session)
-
     for validator in data.validators:
-        if settings[validator.value] is None:
-            raise SettingsPartNotFoundError(
-                SettingsScope.Validation, validator.value
-            )
+        get_settings_part(
+            SettingsScope.Validation, validator.value, db_session
+        )
 
     return await enqueue_task(
         Task(

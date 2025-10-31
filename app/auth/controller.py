@@ -8,7 +8,7 @@ from adapters.dependencies import DatabaseSessionDep
 
 from . import models, service
 
-router = APIRouter(prefix="/auth", tags=["auth"])
+router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 OAuthFormData = Annotated[OAuth2PasswordRequestForm, Depends()]
 
@@ -27,7 +27,7 @@ async def login_for_access_token(
     return service.login_for_access_token(form_data, db)
 
 
-@router.post("/me", response_model=models.Token)
+@router.get("/me", response_model=models.Token)
 async def get_current_user(
     db: DatabaseSessionDep, current_user: models.UserSchema
 ):

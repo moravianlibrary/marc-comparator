@@ -5,9 +5,10 @@ from marc_comparator_sdk.comparators import (
 from pydantic import BaseModel, Field
 
 from adapters.indexer import IndexerQuery
+from entities.settings import SettingsSchema
 
 
-class ComparisonSettings(BaseModel):
+class ComparisonSettings(SettingsSchema):
     rule_based: RuleBasedComparatorConfig | None = Field(
         None, alias="rule-based"
     )

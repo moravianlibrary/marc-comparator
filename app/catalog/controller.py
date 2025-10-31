@@ -14,7 +14,7 @@ from entities.task import TaskSchema
 
 from . import service
 
-router = APIRouter(prefix="/catalog", tags=["catalog"])
+router = APIRouter(prefix="/catalog", tags=["Catalog Records"])
 
 
 @router.post(
