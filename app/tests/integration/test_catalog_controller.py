@@ -25,7 +25,7 @@ class TestEndpointsRO:
     async def test_fetch_record_success(self, client: AsyncClient):
         assert_response(
             await client.post(
-                "/catalog/fetch",
+                "/catalog-records/fetch",
                 json={"base": "TEST", "system_number": "123"},
             ),
             200,
@@ -47,7 +47,7 @@ class TestEndpointsRO:
     # @pytest.mark.asyncio
     # async def test_fetch_record_invalid_base(self, client: AsyncClient):
     #     response = await client.post(
-    #         "/catalog/fetch",
+    #         "/catalog-records/fetch",
     #         json={"base": "INVALID", "system_number": "123"},
     #     )
     #     assert response.status_code == 500
@@ -58,7 +58,7 @@ class TestEndpointsRO:
     @pytest.mark.asyncio
     async def test_sync_records_success(self, client: AsyncClient):
         assert_response(
-            await client.post("/catalog/sync", json={"base": "TEST"}),
+            await client.post("/catalog-records/sync", json={"base": "TEST"}),
             200,
             {
                 "task_id": "IGNORE",
@@ -77,7 +77,7 @@ class TestEndpointsRO:
     # TODO: Add check so that invalid base raises error
     # @pytest.mark.asyncio
     # async def test_sync_records_invalid_base(self, client: AsyncClient):
-    #     response = await client.post("/catalog/sync",
+    #     response = await client.post("/catalog-records/sync",
     #       json={"base": "INVALID"})
     #     assert response.status_code == 500
     #     assert response.json() == {
@@ -111,7 +111,7 @@ class TestTasks:
         fake_task.data = {"base": "TEST", "system_number": "123"}
         db_session.commit()
 
-        from catalog.tasks import fetch_record_task
+        from catalog_records.tasks import fetch_record_task
 
         await fetch_record_task(str(fake_task.task_id))
 
@@ -140,7 +140,7 @@ class TestTasks:
         fake_task.data = {"base": "TEST", "system_number": "NOT_FOUND"}
         db_session.commit()
 
-        from catalog.tasks import fetch_record_task
+        from catalog_records.tasks import fetch_record_task
 
         with pytest.raises(Exception) as exc_info:
             await fetch_record_task(str(fake_task.task_id))
@@ -163,7 +163,7 @@ class TestTasks:
         fake_task.data = {"base": "TEST", "system_number": "123"}
         db_session.commit()
 
-        from catalog.tasks import fetch_record_task
+        from catalog_records.tasks import fetch_record_task
 
         with pytest.raises(Exception) as exc_info:
             await fetch_record_task(str(fake_task.task_id))
@@ -200,7 +200,7 @@ class TestTasks:
         fake_task.data = {"base": "TEST"}
         db_session.commit()
 
-        from catalog.tasks import records_sync_task
+        from catalog_records.tasks import records_sync_task
 
         await records_sync_task(str(fake_task.task_id), "catalog_sync_TEST", 1)
 

@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from adapters.aleph_client_registry import AlephClientRegistry
 from adapters.tasks import ManagedTask
-from catalog.models import FetchRecordData, SyncRecordsData
+from catalog_records.models import FetchRecordData, SyncRecordsData
 from config import config
 from entities.catalog_record import CatalogRecord
 

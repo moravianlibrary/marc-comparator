@@ -7,14 +7,31 @@ from adapters.dependencies import (
     IndexerSessionDep,
     WithPermission,
 )
+from adapters.indexer import IndexerRequest, IndexerResponse
 from auth.service import CurrentUser
-from catalog.models import FetchRecordData, SyncRecordsData
+from catalog_records.models import (
+    FetchBatchOfRecordsData,
+    FetchRecordData,
+    SyncRecordsData,
+)
 from entities.role import Permission
 from entities.task import TaskSchema
 
 from . import service
 
-router = APIRouter(prefix="/catalog", tags=["Catalog Records"])
+router = APIRouter(prefix="/catalog-records", tags=["Catalog Records"])
+
+
+@router.post(
+    "/search",
+    dependencies=[WithPermission(Permission.ReadRecords)],
+    response_model=IndexerResponse,
+)
+async def search_records(
+    request: Annotated[IndexerRequest, Body()],
+    _: IndexerSessionDep,
+):
+    return await service.search_records(request)
 
 
 @router.post(
@@ -29,6 +46,22 @@ async def fetch_record(
     _: IndexerSessionDep,
 ):
     return await service.fetch_record(data, current_user.user_id, db_session)
+
+
+@router.post(
+    "/fetch-batch",
+    dependencies=[WithPermission(Permission.AddRecords)],
+    response_model=TaskSchema,
+)
+async def fetch_batch_of_records(
+    data: Annotated[FetchBatchOfRecordsData, Body()],
+    current_user: CurrentUser,
+    db_session: DatabaseSessionDep,
+    _: IndexerSessionDep,
+):
+    return await service.fetch_batch_of_records(
+        data, current_user.user_id, db_session
+    )
 
 
 @router.post(

@@ -7,7 +7,6 @@ from entities.role import Permission
 from entities.settings import (
     AppSettingsScope,
     SettingsJsonSchema,
-    SettingsSchema,
     TaskSettingsScope,
 )
 from settings.models import AppSettingsSchemas, TaskSettingsSchemas

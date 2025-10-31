@@ -185,7 +185,7 @@ app and worker environments.
 def fetch_record_task(self: CeleryTask) -> None:
     from asgiref.sync import async_to_sync
 
-    from catalog.tasks import fetch_record_task
+    from catalog_records.tasks import fetch_record_task
 
     init_tasks_context()
     return async_to_sync(fetch_record_task)(str(self.request.id))
@@ -197,7 +197,7 @@ def records_sync_task(
 ):
     from asgiref.sync import async_to_sync
 
-    from catalog.tasks import records_sync_task
+    from catalog_records.tasks import records_sync_task
 
     init_tasks_context()
     return async_to_sync(records_sync_task)(

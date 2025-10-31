@@ -3,7 +3,12 @@ from typing import AsyncGenerator, List, Self, Type
 from esorm import es
 
 from adapters.database import DatabaseSession
-from adapters.indexer import IndexerQuery, IndexerSchema
+from adapters.indexer import (
+    IndexerQuery,
+    IndexerRequest,
+    IndexerResponse,
+    IndexerSchema,
+)
 
 
 class BaseOperationsMixin:
@@ -179,3 +184,23 @@ class IndexerOperationsMixin:
                 break
 
         await es.clear_scroll(scroll_id=scroll_id)
+
+    @classmethod
+    async def search(cls, request: IndexerRequest) -> IndexerResponse:
+        """
+        Search the indexer for entities matching the request.
+
+        Parameters
+        ----------
+        request : IndexerRequest
+            The indexer request containing query parameters.
+
+        Returns
+        -------
+        IndexerResponse
+            The response containing the search results.
+        """
+        index_name = cls.__indexer_schema__.ESConfig.index_name
+        return (
+            await es.search(index=index_name, body=request.model_dump())
+        ).body
