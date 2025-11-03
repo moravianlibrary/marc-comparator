@@ -17,6 +17,7 @@ from sqlalchemy.orm import Mapped, relationship
 from adapters.database import Base, DatabaseSession
 from adapters.indexer import IndexerSchema
 from entities.comparison import Comparison
+from entities.validation import Validation
 
 from ._operations import (
     BaseOperationsMixin,
@@ -77,6 +78,12 @@ class CatalogRecord(
         "Comparison",
         foreign_keys=[Comparison.main_record_id],
         back_populates="main_record",
+        lazy="select",
+    )
+    validations: Mapped[List[Validation]] = relationship(
+        "Validation",
+        foreign_keys=[Validation.catalog_record_id],
+        back_populates="catalog_record",
         lazy="select",
     )
 

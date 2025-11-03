@@ -7,7 +7,7 @@ from settings.service import get_settings_part
 from .models import ValidationTaskData
 
 
-async def compare(
+async def validate(
     data: ValidationTaskData,
     created_by: str,
     db_session: DatabaseSession,
@@ -20,7 +20,7 @@ async def compare(
 
     return await enqueue_task(
         Task(
-            name=f"Comparing records using {len(data.validators)} validators",
+            name=f"Validating records using {len(data.validators)} validators",
             type=TaskType.ValidateRecords,
             created_by=created_by,
             data=data.model_dump(),

@@ -165,7 +165,7 @@ def comparison(
     db_session: DatabaseSession,
     main_catalog_record: CatalogRecord,
     authority_catalog_record: CatalogRecord,
-) -> ComparisonSettings:
+) -> Comparison:
     return Comparison(
         main_record_id=main_catalog_record.id,
         other_record_id=authority_catalog_record.id,

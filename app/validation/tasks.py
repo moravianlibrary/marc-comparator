@@ -9,15 +9,11 @@ from marc_comparator.validators import (
 from marcdantic import MarcRecord
 
 from adapters.tasks import ManagedTask
-from config import config
 from entities.catalog_record import CatalogRecord
 from entities.settings import Settings, SettingsScope
 from entities.validation import Validation
 
 from .models import ValidationSettings, ValidationTaskData
-
-UPDATE_INTERVAL = 100
-INDEX_BATCH_SIZE = 500
 
 
 @dataclass(slots=True)
@@ -28,6 +24,9 @@ class ValidatorInstance:
 
 async def validate_records(task_id: str) -> None:
     async with ManagedTask(task_id=task_id) as ctx:
+        progress_interval = ctx.task_settings.progress_update_interval
+        batch_size = ctx.task_settings.indexing_batch_size
+
         data = ValidationTaskData.model_validate(ctx.task.data)
         settings = Settings.get(
             ctx.db_session,
@@ -46,7 +45,11 @@ async def validate_records(task_id: str) -> None:
             if not validator_cls:
                 raise ValueError(f"Unknown validator: {validator}")
 
-            validator_config = getattr(settings, validator.value)
+            validator_config = (
+                getattr(settings, validator.value.replace("-", "_"), None)
+                if validator_cls.config_model
+                else None
+            )
 
             validator_instance = (
                 validator_cls(validator_config)
@@ -55,9 +58,7 @@ async def validate_records(task_id: str) -> None:
             )
 
             validator_instances.append(
-                ValidatorInstance(
-                    type=validator_cls, instance=validator_instance
-                )
+                ValidatorInstance(type=validator, instance=validator_instance)
             )
 
         progress = 0
@@ -91,10 +92,10 @@ async def validate_records(task_id: str) -> None:
             reindex_batch.append(catalog_record)
             progress += 1
 
-            if progress % UPDATE_INTERVAL == 0:
+            if progress % progress_interval == 0:
                 ctx.logger.info(f"Processed {progress} records so far")
 
-            if progress % config.index_batch_size == 0:
+            if progress % batch_size == 0:
                 ctx.logger.info(
                     f"Indexing batch of {len(reindex_batch)} records..."
                 )
