@@ -201,6 +201,15 @@ def fetch_record_task(self: CeleryTask) -> None:
     return async_to_sync(fetch_record_task)(str(self.request.id))
 
 
+@shared_task(name="fetch_batch_records_task", bind=True)
+def fetch_batch_of_records_task(self: CeleryTask) -> None:
+    from asgiref.sync import async_to_sync
+
+    from catalog_records.tasks import fetch_batch_of_records_task
+
+    return async_to_sync(fetch_batch_of_records_task)(str(self.request.id))
+
+
 @shared_task(bind=True, name="catalog_sync_task")
 def records_sync_task(
     self: CeleryTask, lock_key: str, lock_blocking_timeout: int
@@ -263,6 +272,9 @@ def dispatch_task(task: Task) -> None:
 
     if task.type == TaskType.FetchRecord:
         fetch_record_task.apply_async(task_id=task_id)
+
+    elif task.type == TaskType.FetchBatchOfRecords:
+        fetch_batch_of_records_task.apply_async(task_id=task_id)
 
     elif task.type == TaskType.SyncRecords:
         lock_key = f"catalog_sync_{task.data['base']}"

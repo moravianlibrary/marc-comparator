@@ -6,16 +6,39 @@ from sqlalchemy.orm import Session
 
 from adapters.aleph_client_registry import AlephClientRegistry
 from adapters.tasks import ManagedTask
-from catalog_records.models import FetchRecordData, SyncRecordsData
+from catalog_records.models import (
+    FetchBatchOfRecordsData,
+    FetchRecordData,
+    SyncRecordsData,
+)
 from config import config
 from entities.catalog_record import CatalogRecord
-
-UPDATE_INTERVAL = 100
-INDEX_BATCH_SIZE = 500
 
 
 class AlephError(Exception):
     pass
+
+
+def _save_record(
+    db_session: Session,
+    base: str,
+    system_number: str,
+    record: MarcRecord,
+) -> CatalogRecord | None:
+    catalog_record = CatalogRecord.find_by_base_and_system_number(
+        db_session, base, system_number
+    )
+
+    if catalog_record:
+        catalog_record.marc = record._marc
+        catalog_record.deleted = False
+        catalog_record.last_sync = config.timestamp
+    else:
+        catalog_record = CatalogRecord(
+            base=base, system_number=system_number, marc=record._marc
+        )
+
+    catalog_record.save(db_session)
 
 
 async def fetch_record_task(task_id: str) -> None:
@@ -32,28 +55,81 @@ async def fetch_record_task(task_id: str) -> None:
         record = client.OAI.get_record(system_number)
 
         if record is None:
-            raise AlephError(
+            ctx.logger.error(
                 f"Record with system number '{system_number}' not found"
             )
+            return
 
-        catalog_record = CatalogRecord.find_by_base_and_system_number(
-            ctx.db_session, base, system_number
+        await _save_record(ctx.db_session, base, system_number, record).index()
+
+
+async def fetch_batch_of_records_task(task_id: str) -> None:
+    async with ManagedTask(task_id=task_id) as ctx:
+        progress_interval = ctx.task_settings.progress_update_interval
+        batch_size = ctx.task_settings.indexing_batch_size
+        data = FetchBatchOfRecordsData.model_validate(ctx.task.data)
+
+        for fetch_base_data in data.per_base:
+            base = fetch_base_data.base
+            client = AlephClientRegistry.get(base)
+
+            if not client.OAI.is_available():
+                raise AlephError(f"OAI service for {base} is not available")
+
+        progress = 0
+        batch: List[CatalogRecord] = []
+
+        for fetch_base_data in data.per_base:
+            base = fetch_base_data.base
+            client = AlephClientRegistry.get(base)
+
+            for system_number in fetch_base_data.system_numbers:
+                try:
+                    record = client.OAI.get_record(system_number)
+
+                    if record is None:
+                        ctx.logger.error(
+                            f"Record with system number '{system_number}' "
+                            f"not found in base '{base}'"
+                        )
+                        continue
+
+                    catalog_record = _save_record(
+                        ctx.db_session, base, system_number, record
+                    )
+
+                    batch.append(catalog_record)
+                    progress += 1
+
+                    if progress % progress_interval == 0:
+                        ctx.logger.info(f"Processed {progress} records so far")
+
+                    if progress % batch_size == 0:
+                        ctx.logger.info(
+                            f"Indexing batch of {len(batch)} records..."
+                        )
+
+                        ctx.db_session.commit()
+                        await CatalogRecord.bulk_index(batch)
+
+                        batch = []
+
+                except Exception as e:
+                    ctx.logger.error(
+                        f"Failed processing record {system_number}:\n{e}"
+                    )
+
+        if batch:
+            ctx.logger.info(f"Indexing final batch of {len(batch)} records...")
+            ctx.db_session.commit()
+            await CatalogRecord.bulk_index(batch)
+
+        ctx.logger.info(
+            f"Finished catalog sync, total records processed: {progress}"
         )
 
-        if catalog_record:
-            catalog_record.marc = record._marc
-            catalog_record.deleted = False
-            catalog_record.last_sync = config.timestamp
-        else:
-            catalog_record = CatalogRecord(
-                base=base, system_number=system_number, marc=record._marc
-            )
 
-        catalog_record.save(ctx.db_session)
-        await catalog_record.index()
-
-
-def _process_record(
+def _process_record_from_sync(
     db_session: Session,
     base: str,
     system_number: str,
@@ -151,6 +227,9 @@ async def records_sync_task(
         lock_key=lock_key,
         lock_blocking_timeout=lock_blocking_timeout,
     ) as ctx:
+        progress_interval = ctx.task_settings.progress_update_interval
+        batch_size = ctx.task_settings.indexing_batch_size
+
         data = SyncRecordsData.model_validate(ctx.task.data)
 
         base = data.base
@@ -170,7 +249,7 @@ async def records_sync_task(
             from_date, None
         ):
             try:
-                record = _process_record(
+                record = _process_record_from_sync(
                     ctx.db_session, base, system_number, status, record
                 )
                 if record is None:
@@ -180,10 +259,10 @@ async def records_sync_task(
                 batch.append(record)
                 progress += 1
 
-                if progress % UPDATE_INTERVAL == 0:
+                if progress % progress_interval == 0:
                     ctx.logger.info(f"Processed {progress} records so far")
 
-                if progress % config.index_batch_size == 0:
+                if progress % batch_size == 0:
                     ctx.logger.info(
                         f"Indexing batch of {len(batch)} records..."
                     )
