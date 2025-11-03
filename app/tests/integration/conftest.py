@@ -25,6 +25,7 @@ from app import app
 from auth.models import TokenData
 from auth.service import get_current_user
 from config import config
+from entities.catalog_record import CatalogRecord
 from entities.role import Role
 from entities.task import Task, TaskType
 from entities.user import User
@@ -137,6 +138,15 @@ async def indexer_session(
     from adapters.indexer import connect
 
     await connect()
+
+    from esorm import es
+
+    for index_name in [
+        CatalogRecord.__indexer_schema__.ESConfig.index,
+        Task.__indexer_schema__.ESConfig.index,
+    ]:
+        if await es.indices.exists(index=index_name):
+            await es.indices.delete(index=index_name)
 
     yield
 

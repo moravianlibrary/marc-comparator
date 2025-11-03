@@ -203,7 +203,7 @@ class IndexerOperationsMixin:
         IndexerResponse
             The response containing the search results.
         """
-        index_name = cls.__indexer_schema__.ESConfig.index_name
+        index_name = cls.__indexer_schema__.ESConfig.index
         return (
             await es.search(index=index_name, body=request.model_dump())
         ).body

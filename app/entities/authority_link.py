@@ -53,7 +53,7 @@ class AuthorityLink(Base, BaseOperationsMixin):
     @classmethod
     def find(
         cls,
-        db_session: "DatabaseSession",
+        db_session: DatabaseSession,
         main_record_id: str,
         authority_record_id: str,
     ) -> Optional["AuthorityLink"]:

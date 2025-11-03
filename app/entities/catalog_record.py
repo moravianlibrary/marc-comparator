@@ -16,6 +16,7 @@ from sqlalchemy.orm import Mapped, relationship
 
 from adapters.database import Base, DatabaseSession
 from adapters.indexer import IndexerSchema
+from entities.comparison import Comparison
 
 from ._operations import (
     BaseOperationsMixin,
@@ -69,6 +70,12 @@ class CatalogRecord(
     authority_links: Mapped[List["AuthorityLink"]] = relationship(
         "AuthorityLink",
         foreign_keys=[AuthorityLink.main_record_id],
+        back_populates="main_record",
+        lazy="select",
+    )
+    comparisons: Mapped[List["Comparison"]] = relationship(
+        "Comparison",
+        foreign_keys=[Comparison.main_record_id],
         back_populates="main_record",
         lazy="select",
     )

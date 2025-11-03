@@ -1,11 +1,11 @@
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from esorm.fields import Keyword
 from sqlalchemy import Column, ForeignKey, String
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, relationship
 
-from adapters.database import Base
+from adapters.database import Base, DatabaseSession
 from adapters.indexer import IndexerNestedModel
 
 from ._operations import BaseOperationsMixin
@@ -44,3 +44,18 @@ class Comparison(Base, BaseOperationsMixin):
         foreign_keys=[other_record_id],
         lazy="select",
     )
+
+    @classmethod
+    def find(
+        cls,
+        db_session: DatabaseSession,
+        main_record_id: str,
+        other_record_id: str,
+    ) -> Optional["Comparison"]:
+        return (
+            db_session.query(cls)
+            .filter_by(
+                main_record_id=main_record_id, other_record_id=other_record_id
+            )
+            .one_or_none()
+        )

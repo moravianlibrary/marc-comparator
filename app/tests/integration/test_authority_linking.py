@@ -33,12 +33,9 @@ from tests.integration.conftest import (
 )
 class TestAuthorityLinkingEndpoints:
     @pytest.mark.asyncio
-    async def test_authority_linking(
+    async def test_authority_linking_task_creation(
         self, db_session: DatabaseSession, client: AsyncClient
     ):
-        from authority_linking.models import AuthorityLinkingSettings
-        from entities.settings import Settings, SettingsScope
-
         test_settings = load_test_json("authority_linking_settings.json")
 
         Settings.save(

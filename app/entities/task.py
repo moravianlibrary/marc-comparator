@@ -65,6 +65,7 @@ class TaskSchema(IndexerSchema):
 class Task(
     Base, BaseOperationsMixin, RetrievalOperationsMixin, IndexerOperationsMixin
 ):
+    __indexer_schema__ = TaskSchema
     __tablename__ = "tasks"
 
     task_id = Column(

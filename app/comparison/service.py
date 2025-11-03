@@ -19,7 +19,11 @@ async def compare(
 
     return await enqueue_task(
         Task(
-            name=f"Comparing records using {data.comparator.value} comparator",
+            name=(
+                "Comparing records "
+                f"against authority records from '{data.target_base}' base "
+                f"using {data.comparator.value} comparator"
+            ),
             type=TaskType.CompareRecords,
             created_by=created_by,
             data=data.model_dump(),

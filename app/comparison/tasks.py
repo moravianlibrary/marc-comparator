@@ -4,19 +4,18 @@ from marc_comparator.comparators import COMPARATOR_DISPATCHER
 from marcdantic import MarcRecord
 
 from adapters.tasks import ManagedTask
-from config import config
 from entities.catalog_record import CatalogRecord
 from entities.comparison import Comparison
 from entities.settings import Settings, SettingsScope
 
 from .models import ComparisonSettings, ComparisonTaskData
 
-UPDATE_INTERVAL = 100
-INDEX_BATCH_SIZE = 500
-
 
 async def compare_records(task_id: str) -> None:
     async with ManagedTask(task_id=task_id) as ctx:
+        progress_interval = ctx.task_settings.progress_update_interval
+        batch_size = ctx.task_settings.indexing_batch_size
+
         data = ComparisonTaskData.model_validate(ctx.task.data)
         settings = Settings.get(
             ctx.db_session,
@@ -25,14 +24,18 @@ async def compare_records(task_id: str) -> None:
         )
 
         if not settings:
-            raise ValueError("Authority linking settings not found")
+            raise ValueError("Comparison settings not found")
 
         comparator_cls = COMPARATOR_DISPATCHER.get(data.comparator)
 
         if not comparator_cls:
             raise ValueError(f"Unknown comparator: {data.comparator}")
 
-        comparator_config = getattr(settings, data.comparator.value)
+        comparator_config = (
+            getattr(settings, data.comparator.value.replace("-", "_"), None)
+            if comparator_cls.config_model
+            else None
+        )
 
         comparator = (
             comparator_cls(comparator_config)
@@ -67,19 +70,28 @@ async def compare_records(task_id: str) -> None:
                 MarcRecord.from_mrc(link.authority_record.marc),
             )
 
-            Comparison(
-                main_record_id=catalog_record.id,
-                other_record_id=link.authority_record.id,
-                result=result.model_dump(),
-            ).save(ctx.db_session)
+            comparison = Comparison.find(
+                ctx.db_session, catalog_record.id, link.authority_record.id
+            )
+
+            if comparison:
+                comparison.result = result.model_dump()
+            else:
+                comparison = Comparison(
+                    main_record_id=catalog_record.id,
+                    other_record_id=link.authority_record.id,
+                    result=result.model_dump(),
+                )
+
+            comparison.save(ctx.db_session)
 
             reindex_batch.append(catalog_record)
             progress += 1
 
-            if progress % UPDATE_INTERVAL == 0:
+            if progress % progress_interval == 0:
                 ctx.logger.info(f"Processed {progress} records so far")
 
-            if progress % config.index_batch_size == 0:
+            if progress % batch_size == 0:
                 ctx.logger.info(
                     f"Indexing batch of {len(reindex_batch)} records..."
                 )
