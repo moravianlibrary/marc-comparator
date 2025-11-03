@@ -251,12 +251,16 @@ def compare_records_task(self: CeleryTask) -> None:
 
 
 @shared_task(name="recreate_indexes_task", bind=True)
-def recreate_indexes_task(self: CeleryTask) -> None:
+def recreate_indexes_task(
+    self: CeleryTask, lock_key: str, lock_blocking_timeout: int
+) -> None:
     from asgiref.sync import async_to_sync
 
     from system.tasks import recreate_indexes
 
-    return async_to_sync(recreate_indexes)(str(self.request.id))
+    return async_to_sync(recreate_indexes)(
+        str(self.request.id), lock_key, lock_blocking_timeout
+    )
 
 
 def dispatch_task(task: Task) -> None:
@@ -290,7 +294,9 @@ def dispatch_task(task: Task) -> None:
         compare_records_task.apply_async(task_id=task_id)
 
     elif task.type == TaskType.RecreateIndexes:
-        recreate_indexes_task.apply_async(task_id=task_id)
+        recreate_indexes_task.apply_async(
+            args=["recreate-indexes", 1], task_id=task_id
+        )
 
     else:
         raise ValueError(f"Unknown task type: {task.type}")
