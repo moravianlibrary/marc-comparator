@@ -81,6 +81,8 @@ async def _link_record_with_linker(
     current_link.save(db_session)
     await current_link.main_record.index()
 
+    return True
+
 
 async def authority_linking(task_id: str) -> None:
     async with ManagedTask(task_id=task_id) as ctx:
@@ -107,7 +109,11 @@ async def authority_linking(task_id: str) -> None:
             )
 
             linker_instance = (
-                linker_cls(config=linker_cls.model_validate(linker_config))
+                linker_cls(
+                    config=linker_cls.config_model.model_validate(
+                        linker_config
+                    )
+                )
                 if linker_config
                 else linker_cls()
             )

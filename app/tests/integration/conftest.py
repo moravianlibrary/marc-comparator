@@ -9,6 +9,7 @@ from aleph_nought import AlephClient
 from celery import Celery
 from esorm import connect, setup_mappings
 from httpx import ASGITransport, AsyncClient, Response
+from marcdantic import MarcRecord
 from pytest_mock import MockerFixture
 from redis import Redis
 from sqlalchemy import create_engine
@@ -133,6 +134,10 @@ async def indexer_session(
         config.elasticsearch, "url", elasticsearch_container.get_url()
     )
 
+    from adapters.indexer import connect
+
+    await connect()
+
     yield
 
 
@@ -237,6 +242,14 @@ def load_test_json(filename: str) -> Dict[str, Any]:
     path = Path(__file__).parent / "data" / filename
     with path.open("r", encoding="utf-8") as f:
         return json.load(f)
+
+
+def load_test_record(filename: str) -> MarcRecord:
+    """Function to load a MARC file from tests/data by filename."""
+
+    path = Path(__file__).parent / "data" / filename
+    with path.open("rb") as f:
+        return MarcRecord.from_mrc(f.read())
 
 
 def assert_response(

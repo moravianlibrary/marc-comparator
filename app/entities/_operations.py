@@ -1,6 +1,7 @@
 from typing import AsyncGenerator, List, Self, Type
 
 from esorm import es
+from sqlalchemy import inspect
 
 from adapters.database import DatabaseSession
 from adapters.indexer import (
@@ -96,7 +97,7 @@ class RetrievalOperationsMixin:
 class IndexerOperationsMixin:
     __indexer_schema__: Type[IndexerSchema] = IndexerSchema
 
-    async def index(self: Self) -> Self:
+    async def index(self: Self, wait_for: bool = False) -> Self:
         """
         Index the entity using the indexer model.
 
@@ -107,7 +108,7 @@ class IndexerOperationsMixin:
         """
         await self.__indexer_schema__.model_validate(
             self, from_attributes=True
-        ).save()
+        ).save(wait_for=wait_for)
         return self
 
     @classmethod
@@ -157,8 +158,10 @@ class IndexerOperationsMixin:
         AsyncGenerator[Self, None]
             An async generator yielding database entities.
         """
-        index_name = cls.__indexer_schema__.ESConfig.index_name
+        index_name = cls.__indexer_schema__.ESConfig.index
         id_field = cls.__indexer_schema__.ESConfig.id_field
+        id_column = inspect(cls).c[id_field]
+        query_body = query.model_dump(mode="python")
 
         scroll_id = None
 
@@ -168,7 +171,7 @@ class IndexerOperationsMixin:
                 if scroll_id
                 else await es.search(
                     index=index_name,
-                    body=query,
+                    body=query_body,
                     scroll="1m",
                     fields=[id_field],
                 )
@@ -176,7 +179,7 @@ class IndexerOperationsMixin:
 
             for hit in response["hits"]["hits"]:
                 yield db_session.query(cls).filter(
-                    id_field == hit["_id"]
+                    id_column == hit["_id"]
                 ).one()
 
             scroll_id = response.get("_scroll_id")
