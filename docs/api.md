@@ -267,6 +267,35 @@
 
 ---
 
+### `PATCH /access-control/users/{user_id}/unassign-role/{role_id}`
+
+**Description:** Unassign a role to a user.
+
+**Required Permission:** `ManageAccessControl`
+
+**Successful Response:** `200 OK`
+
+```json
+{
+  "id": "uuid",
+  "email": "string",
+  "first_name": "string",
+  "last_name": "string",
+  "roles": [
+    {
+      "id": 0,
+      "name": "string",
+      "permissions": ["ReadRecords"],
+      "immutable": false,
+      "protected": false
+    }
+  ],
+  "permissions": ["ReadRecords"]
+}
+```
+
+---
+
 ### `PATCH /access-control/users/{user_id}/assign-role{role_id}`
 
 **Description:** Assign roles to a user.

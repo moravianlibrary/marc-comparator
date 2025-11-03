@@ -93,3 +93,15 @@ def assign_role_to_user(
     user.roles.append(role)
 
     return user.save(db_session)
+
+
+def unassign_role_from_user(
+    user_id: str, role_id: int, db_session: DatabaseSession
+) -> User:
+    user = User.get(db_session, user_id)
+    role = Role.get(db_session, role_id)
+
+    if role in user.roles:
+        user.roles.remove(role)
+
+    return user.save(db_session)

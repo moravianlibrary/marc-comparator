@@ -71,5 +71,16 @@ async def assign_role_to_user(
     return service.assign_role_to_user(user_id, role_id, db_session)
 
 
+@users_router.patch(
+    "/{user_id}/unassign-role/{role_id}", response_model=UserSchema
+)
+async def unassign_role_from_user(
+    user_id: str,
+    role_id: int,
+    db_session: DatabaseSessionDep,
+):
+    return service.unassign_role_from_user(user_id, role_id, db_session)
+
+
 router.include_router(roles_router)
 router.include_router(users_router)

@@ -1,6 +1,13 @@
 from typing import List
 
+from aleph_nought import AlephConfig
 from pydantic import BaseModel
+
+from entities.settings import SettingsSchema
+
+
+class CatalogSettings(SettingsSchema):
+    clients: List[AlephConfig]
 
 
 class FetchRecordData(BaseModel):

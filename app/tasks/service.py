@@ -14,11 +14,31 @@ from tasks.models import TracebackLinesRequestParams
 async def search_own_tasks(
     request: IndexerRequest, user_id: str
 ) -> IndexerResponse:
-    return Task.search(request, user_id=user_id)
+    query_dict = request.model_dump()
+
+    user_filter = {"term": {"created_by": user_id}}
+
+    if "query" in query_dict and query_dict["query"]:
+        q = query_dict["query"]
+        if "bool" in q and "must" in q["bool"]:
+            q["bool"]["must"].append(user_filter)
+        else:
+            query_dict["query"] = {
+                "bool": {
+                    "must": [
+                        q,
+                        user_filter
+                    ]
+                }
+            }
+    else:
+        query_dict["query"] = user_filter
+
+    return await Task.search(IndexerRequest.model_validate(query_dict))
 
 
 async def search_all_tasks(request: IndexerRequest) -> IndexerResponse:
-    return Task.search(request)
+    return await Task.search(request)
 
 
 def get_traceback_lines(

@@ -7,7 +7,7 @@ from adapters.dependencies import (
     IndexerSessionDep,
     WithPermission,
 )
-from adapters.indexer import IndexerRequest
+from adapters.indexer import IndexerRequest, IndexerResponse
 from auth.service import CurrentUser
 from entities.role import Permission
 from entities.task import TaskSchema
@@ -21,7 +21,7 @@ router = APIRouter(prefix="/tasks", tags=["Tasks"])
 @router.post(
     "/search-own",
     dependencies=[WithPermission(Permission.ManageTasks)],
-    response_model=TaskSchema,
+    response_model=IndexerResponse,
 )
 async def search_own(
     request: Annotated[IndexerRequest, Body()],
@@ -34,7 +34,7 @@ async def search_own(
 @router.post(
     "/search-all",
     dependencies=[WithPermission(Permission.ManageAllTasks)],
-    response_model=TaskSchema,
+    response_model=IndexerResponse,
 )
 async def search_all(
     request: Annotated[IndexerRequest, Body()],

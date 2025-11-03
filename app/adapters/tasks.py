@@ -18,6 +18,7 @@ from entities.role import Role  # noqa: F401
 from entities.settings import Settings, SettingsScope
 from entities.task import Task, TaskSchema, TaskStatus, TaskType
 from entities.user import User  # noqa: F401
+from settings.models import CatalogSettings
 from tasks.models import TaskSettings  # noqa: F401
 
 tasks_client = Celery(
@@ -126,6 +127,15 @@ class ManagedTask:
             or TaskSettings()
         )
 
+        # --- Initialize Aleph client registry from config ---
+        catalog_settings: CatalogSettings | None = Settings.get(
+            self.db_session, SettingsScope.Catalog, CatalogSettings
+        )
+        if catalog_settings:
+            from adapters.aleph_client_registry import AlephClientRegistry
+
+            AlephClientRegistry.load_from_settings(catalog_settings)
+
         # Mark task as started
         self.logger.info("Task started")
         self.task.status = TaskStatus.Started
@@ -173,16 +183,6 @@ class ManagedTask:
                 self.db_session.close()
 
 
-def init_tasks_context() -> None:
-    """
-    Initializes any global context needed for tasks.
-    """
-    from adapters.aleph_client_registry import AlephClientRegistry
-
-    if config.aleph_config_path:
-        AlephClientRegistry.load_from_config(config.aleph_config_path)
-
-
 """
 Celery cannot directly run async tasks, so we use asgiref to bridge
 the gap.
@@ -198,7 +198,6 @@ def fetch_record_task(self: CeleryTask) -> None:
 
     from catalog_records.tasks import fetch_record_task
 
-    init_tasks_context()
     return async_to_sync(fetch_record_task)(str(self.request.id))
 
 
@@ -210,7 +209,6 @@ def records_sync_task(
 
     from catalog_records.tasks import records_sync_task
 
-    init_tasks_context()
     return async_to_sync(records_sync_task)(
         str(self.request.id), lock_key, lock_blocking_timeout
     )
@@ -222,7 +220,6 @@ def validate_records_task(self: CeleryTask) -> None:
 
     from validation.tasks import validate_records
 
-    init_tasks_context()
     return async_to_sync(validate_records)(str(self.request.id))
 
 
@@ -232,7 +229,6 @@ def link_records_to_authorities(self: CeleryTask) -> None:
 
     from authority_linking.tasks import authority_linking
 
-    init_tasks_context()
     return async_to_sync(authority_linking)(str(self.request.id))
 
 
@@ -242,8 +238,16 @@ def compare_records_task(self: CeleryTask) -> None:
 
     from comparison.tasks import compare_records
 
-    init_tasks_context()
     return async_to_sync(compare_records)(str(self.request.id))
+
+
+@shared_task(name="recreate_indexes_task", bind=True)
+def recreate_indexes_task(self: CeleryTask) -> None:
+    from asgiref.sync import async_to_sync
+
+    from system.tasks import recreate_indexes
+
+    return async_to_sync(recreate_indexes)(str(self.request.id))
 
 
 def dispatch_task(task: Task) -> None:
@@ -272,6 +276,9 @@ def dispatch_task(task: Task) -> None:
 
     elif task.type == TaskType.CompareRecords:
         compare_records_task.apply_async(task_id=task_id)
+
+    elif task.type == TaskType.RecreateIndexes:
+        recreate_indexes_task.apply_async(task_id=task_id)
 
     else:
         raise ValueError(f"Unknown task type: {task.type}")

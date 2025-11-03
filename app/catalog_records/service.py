@@ -14,7 +14,7 @@ from entities.task import Task, TaskSchema, TaskType
 
 
 async def search_records(request: IndexerRequest) -> IndexerResponse:
-    return CatalogRecord.search(request)
+    return await CatalogRecord.search(request)
 
 
 async def fetch_record(
