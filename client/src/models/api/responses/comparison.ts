@@ -1,19 +1,31 @@
 import { z } from "zod";
 
-export const ComparisonTargetSchema = z.object({
-    tag: z.string().regex(/^\d{3}$/),
-    codes: z.array(z.string()).optional(),
+export const SubfieldComparisonResultSchema = z.object({
+    code: z.string().length(1),
     score: z.number(),
-    reason: z.string().optional(),
+    explanation: z.string().optional(),
     details: z.string().optional(),
 });
-export type ComparisonTarget = z.infer<typeof ComparisonTargetSchema>;
+export type SubfieldComparisonResult = z.infer<
+    typeof SubfieldComparisonResultSchema
+>;
 
-export const ComparisonResultSchema = z.object({
+export const FieldComparisonResultSchema = z.object({
+    tag: z.string().regex(/^\d{3}$/),
+    score: z.number(),
+    explanation: z.string().optional(),
+    details: z.string().optional(),
+    subfield_results: z.array(SubfieldComparisonResultSchema).optional(),
+});
+export type FieldComparisonResult = z.infer<typeof FieldComparisonResultSchema>;
+
+export const ComparisonSchema = z.object({
+    comparator: z.string(),
     base: z.string(),
     system_number: z.string(),
     overall_score: z.number(),
     summary: z.string().optional(),
-    targets: z.array(ComparisonTargetSchema).optional(),
+    field_results: z.array(FieldComparisonResultSchema).optional(),
+    updated_at: z.date(),
 });
-export type ComparisonResult = z.infer<typeof ComparisonResultSchema>;
+export type Comparison = z.infer<typeof ComparisonSchema>;

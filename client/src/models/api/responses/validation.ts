@@ -7,11 +7,13 @@ export const ValidationTargetSchema = z.object({
 });
 export type ValidationTarget = z.infer<typeof ValidationTargetSchema>;
 
-export const ValidationResultSchema = z.object({
+export const ValidationSchema = z.object({
+    validator: z.string(),
     target: ValidationTargetSchema,
     status: ValidityStatusSchema,
     reason: z.string().optional(),
     details: z.string().optional(),
     hints: z.string().optional(),
+    updated_at: z.date(),
 });
-export type ValidationResult = z.infer<typeof ValidationResultSchema>;
+export type Validation = z.infer<typeof ValidationSchema>;

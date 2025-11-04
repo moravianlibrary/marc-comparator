@@ -29,9 +29,11 @@ import { collectionReducer } from "../store/collection/reducer";
 import { buildRequests } from "../store/collection/requests_factory";
 import LocalizedDateTime from "../components/atoms/LocalizedDateTime";
 import MonospaceValue from "../components/atoms/MonospaceValue";
-import { Button } from "@patternfly/react-core";
+import { Button, Label, LabelGroup } from "@patternfly/react-core";
 import { DetailsIcon } from "../components/atoms/Icons";
 import { Link, useNavigate } from "react-router";
+import type { CatalogRecordState } from "../models/primitives/catalog_record";
+import MarcTitle from "../components/atoms/MarcTitle";
 
 // -------------------------
 // Queries
@@ -72,6 +74,24 @@ export const useHideCatalogRecords = (
 // -------------------------
 // Config
 // -------------------------
+const STATE_RANKING: Record<CatalogRecordState, number> = {
+    Active: 1,
+    Deleted: 2,
+    Valid: 3,
+    Invalid: 4,
+    Hidden: 5,
+};
+const STATE_COLOR_MAP: Record<
+    CatalogRecordState,
+    "yellow" | "grey" | "green" | "red" | "blue"
+> = {
+    Active: "yellow",
+    Deleted: "grey",
+    Valid: "green",
+    Invalid: "red",
+    Hidden: "blue",
+};
+
 const config: CollectionConfig = {
     columns: [
         {
@@ -82,17 +102,75 @@ const config: CollectionConfig = {
                 <MonospaceValue value={`${hit.base}-${hit.system_number}`} />
             ),
         },
-        { key: "base", label: "Base" },
+        {
+            key: "base",
+            label: "Base",
+            render: (hit) => <MonospaceValue value={hit.base} />,
+        },
         {
             key: "system_number",
             label: "System Number",
             render: (hit) => <MonospaceValue value={hit.system_number} />,
         },
-        { key: "title", label: "Title" },
+        {
+            key: "title",
+            label: "Title",
+            render: (hit) => (
+                <MarcTitle title={hit.title} subtitle={hit.subtitle} />
+            ),
+        },
         {
             key: "state",
             label: "State",
             alwaysShow: true,
+            render: (hit) => (
+                <LabelGroup>
+                    {hit.state
+                        .sort((a, b) => STATE_RANKING[a] - STATE_RANKING[b])
+                        .map((state: CatalogRecordState, index: number) => (
+                            <Label key={index} color={STATE_COLOR_MAP[state]}>
+                                {state}
+                            </Label>
+                        ))}
+                </LabelGroup>
+            ),
+        },
+        {
+            key: "authority_links",
+            label: "Authority Links",
+            visibleByDefault: true,
+            render: (hit) => (
+                <LabelGroup>
+                    {hit.authority_links.map(
+                        (link: { base: string }, index: number) => (
+                            <Label key={index}>{link.base}</Label>
+                        )
+                    )}
+                </LabelGroup>
+            ),
+        },
+        {
+            key: "comparisons",
+            label: "Comparisons",
+            visibleByDefault: true,
+            render: (hit) => (
+                <LabelGroup>
+                    {hit.comparisons.map(
+                        (
+                            c: {
+                                base: string;
+                                comparator: string;
+                                overall_score: number;
+                            },
+                            index: number
+                        ) => (
+                            <Label key={index}>
+                                {c.base} {c.comparator}: {c.overall_score}
+                            </Label>
+                        )
+                    )}
+                </LabelGroup>
+            ),
         },
         {
             key: "last_sync",
@@ -126,7 +204,38 @@ const config: CollectionConfig = {
             ],
         },
     ],
-    actions: [],
+    actions: [
+        {
+            label: "Run Authority Linking",
+            icon: <></>,
+            onClick: () => {},
+        },
+        {
+            label: "Run Comparisons",
+            icon: <></>,
+            onClick: () => {},
+        },
+        {
+            label: "Run Validations",
+            icon: <></>,
+            onClick: () => {},
+        },
+        {
+            label: "Hide Records",
+            icon: <></>,
+            onClick: () => {},
+        },
+        {
+            label: "Unhide Records",
+            icon: <></>,
+            onClick: () => {},
+        },
+        {
+            label: "Reindex Records",
+            icon: <></>,
+            onClick: () => {},
+        },
+    ],
 };
 
 // -------------------------

@@ -1,6 +1,6 @@
 import { faker } from "@faker-js/faker";
 import type {
-    ValidationResult,
+    Validation,
     ValidationTarget,
 } from "../../models/api/responses/validation";
 import {
@@ -20,17 +20,19 @@ export const fakeValidityStatus = (): ValidityStatus => {
     return faker.helpers.arrayElement(ValidityStatusSchema.options);
 };
 
-export const fakeValidationResult = (): ValidationResult => {
+export const fakeValidationResult = (): Validation => {
     return {
+        validator: faker.lorem.word(),
         target: fakeValidationTarget(),
         status: fakeValidityStatus(),
         reason: faker.datatype.boolean() ? faker.lorem.sentence() : undefined,
         details: faker.datatype.boolean() ? faker.lorem.paragraph() : undefined,
         hints: faker.datatype.boolean() ? faker.lorem.sentence() : undefined,
+        updated_at: faker.date.recent(),
     };
 };
 
-export const fakeValidationResults = (): ValidationResult[] => {
+export const fakeValidationResults = (): Validation[] => {
     return Array.from({ length: faker.number.int({ min: 1, max: 5 }) }, () =>
         fakeValidationResult()
     );

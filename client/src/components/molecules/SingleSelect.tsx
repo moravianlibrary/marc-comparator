@@ -6,7 +6,7 @@ import {
     type MenuToggleElement,
 } from "@patternfly/react-core";
 import { useState } from "react";
-import type { UiText } from "../../models/ui/config";
+import type { UiText } from "../../models/ui/text";
 
 interface SingleSelectProps {
     options: UiText[];

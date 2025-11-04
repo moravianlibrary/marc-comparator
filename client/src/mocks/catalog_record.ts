@@ -5,24 +5,36 @@ import { fakeCatalogBase, fakeSystemNumber } from "./fake/identifiers";
 import { fakeValidationResults } from "./fake/validation";
 import { fakeCatalogRecordState } from "./fake/catalog_record";
 import { buildSearchResponse } from "./es_factories";
-import {
-    fakeAuthorityRecordIds,
-    fakeComparisonResults,
-} from "./fake/comparison";
+import { fakeComparisonResults } from "./fake/comparison";
 import type { MarcRecord } from "../models/api/responses/marc_record";
 import { fakeVariableFields } from "./fake/marc_record";
+import { fakeAuthorityLinks } from "./fake/authority_link";
 
 export const catalogRecordFactory = Factory.extend<CatalogRecord>({
     base: () => fakeCatalogBase(),
     system_number: () => fakeSystemNumber(),
 
+    type_of_record: () => faker.helpers.arrayElement(["bib", "auth", "hold"]),
+    bibliographic_level: () =>
+        faker.helpers.arrayElement(["m", "s", "c", "a", "b", "i", "v"]),
+
+    title: () => faker.lorem.words(faker.number.int({ min: 1, max: 10 })),
+    subtitle: () =>
+        faker.datatype.boolean()
+            ? faker.lorem.words(faker.number.int({ min: 2, max: 20 }))
+            : undefined,
+    authors: () =>
+        faker.datatype.boolean()
+            ? [faker.person.lastName() + ", " + faker.person.firstName()]
+            : [],
+
     last_sync: () => faker.date.recent(),
 
     state: () => fakeCatalogRecordState(),
 
-    validation_results: () => fakeValidationResults(),
-    authority_record_ids: () => fakeAuthorityRecordIds(),
-    comparison_results: () => fakeComparisonResults(),
+    authority_links: () => fakeAuthorityLinks(),
+    comparisons: () => fakeComparisonResults(),
+    validations: () => fakeValidationResults(),
 });
 
 export function catalogRecordSeeds(server: Server) {

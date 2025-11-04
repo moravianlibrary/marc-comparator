@@ -1,39 +1,53 @@
 import { faker } from "@faker-js/faker";
-import type { AuthorityRecordId } from "../../models/api/responses/catalog_record";
 import {
     fakeCatalogBase,
-    fakeSubfieldCodes,
+    fakeSubfieldCode,
     fakeSystemNumber,
     fakeTag,
 } from "./identifiers";
 import type {
-    ComparisonResult,
-    ComparisonTarget,
+    Comparison,
+    FieldComparisonResult,
+    SubfieldComparisonResult,
 } from "../../models/api/responses/comparison";
 
-export const fakeAuthorityRecordIds = (): AuthorityRecordId[] => {
-    return Array.from({ length: faker.number.int({ min: 1, max: 2 }) }, () => {
-        return {
-            base: fakeCatalogBase(),
-            system_number: fakeSystemNumber(),
-        };
-    });
-};
-
-export const fakeComparisonTarget = (): ComparisonTarget => {
+export const fakeSubfieldComparisonResult = (): SubfieldComparisonResult => {
     return {
-        tag: fakeTag(),
-        codes: fakeSubfieldCodes(),
+        code: fakeSubfieldCode(),
         score: faker.number.float({ min: 0, max: 100, fractionDigits: 2 }),
-        reason: faker.datatype.boolean() ? faker.lorem.sentence() : undefined,
+        explanation: faker.datatype.boolean()
+            ? faker.lorem.sentence()
+            : undefined,
         details: faker.datatype.boolean()
             ? faker.lorem.paragraphs(2)
             : undefined,
     };
 };
 
-export const fakeComparisonResult = (): ComparisonResult => {
+export const fakeFieldComparisonResult = (): FieldComparisonResult => {
     return {
+        tag: fakeTag(),
+        score: faker.number.float({ min: 0, max: 100, fractionDigits: 2 }),
+        explanation: faker.datatype.boolean()
+            ? faker.lorem.sentence()
+            : undefined,
+        details: faker.datatype.boolean()
+            ? faker.lorem.paragraphs(2)
+            : undefined,
+        subfield_results: faker.datatype.boolean()
+            ? Array.from(
+                  {
+                      length: faker.number.int({ min: 1, max: 5 }),
+                  },
+                  fakeSubfieldComparisonResult
+              )
+            : undefined,
+    };
+};
+
+export const fakeComparisonResult = (): Comparison => {
+    return {
+        comparator: faker.lorem.word(),
         base: fakeCatalogBase(),
         system_number: fakeSystemNumber(),
         overall_score: faker.number.float({
@@ -42,14 +56,15 @@ export const fakeComparisonResult = (): ComparisonResult => {
             fractionDigits: 2,
         }),
         summary: faker.lorem.sentence(),
-        targets: Array.from(
-            { length: faker.number.int({ min: 1, max: 5 }) },
-            fakeComparisonTarget
+        field_results: Array.from(
+            { length: faker.number.int({ min: 1, max: 10 }) },
+            fakeFieldComparisonResult
         ),
+        updated_at: faker.date.recent(),
     };
 };
 
-export const fakeComparisonResults = (): ComparisonResult[] => {
+export const fakeComparisonResults = (): Comparison[] => {
     return Array.from(
         { length: faker.number.int({ min: 1, max: 7 }) },
         fakeComparisonResult
