@@ -33,6 +33,7 @@ class TaskType(StrEnum):
     LinkRecordsToAuthorities = "LinkRecordsToAuthorities"
     CompareRecords = "CompareRecords"
     ReindexRecords = "ReindexRecords"
+    SetRecordsHiddenState = "SetRecordsHiddenState"
     DeleteTasks = "DeleteTasks"
     RecreateIndexes = "RecreateIndexes"
 
@@ -46,6 +47,13 @@ class TaskStatus(StrEnum):
     Revoked = "Revoked"
 
 
+class TaskSeverity(StrEnum):
+    Info = "Info"
+    Warning = "Warning"
+    Error = "Error"
+    Critical = "Critical"
+
+
 class TaskSchema(IndexerSchema):
     class ESConfig:
         index = "tasks"
@@ -55,6 +63,7 @@ class TaskSchema(IndexerSchema):
     name: IndexerText
     type: TaskType
     status: TaskStatus
+    outcome_severity: TaskSeverity
 
     created_by: UUID4
     created_at: datetime
@@ -73,7 +82,12 @@ class Task(
     )
     name = Column(String(255), nullable=False)
     type = Column(Enum(TaskType), nullable=False)
-    status = Column(Enum(TaskStatus), default=TaskStatus.Pending)
+    status = Column(
+        Enum(TaskStatus), nullable=False, default=TaskStatus.Pending
+    )
+    outcome_severity = Column(
+        Enum(TaskSeverity), nullable=False, default=TaskSeverity.Info
+    )
 
     created_by = Column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=False

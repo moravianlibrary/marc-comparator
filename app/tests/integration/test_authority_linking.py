@@ -60,6 +60,7 @@ class TestAuthorityLinkingEndpoints:
                 "name": "Authority linking for base 'SKC'",
                 "type": "LinkRecordsToAuthorities",
                 "status": "Pending",
+                "outcome_severity": "Info",
                 "created_by": "12345678-1234-4678-9abc-1234567890ab",
                 "created_at": "IGNORE",
                 "started_at": None,
@@ -129,6 +130,8 @@ def authority_link(
 
     AuthorityLinkEntity(
         main_record_id=main_record_id,
+        linker="knihovny-cz",
+        base="SKC",
         authority_record_id=authority_record_id,
         confidence=0.5,
     ).save(db_session)
@@ -283,7 +286,4 @@ class TestAuthorityLinkingTaskNoLinkerSettings:
     ):
         from authority_linking.tasks import authority_linking
 
-        with pytest.raises(
-            ValueError, match="Authority linking settings not found"
-        ):
-            await authority_linking(task.task_id)
+        await authority_linking(task.task_id)

@@ -63,6 +63,7 @@ class TestComparisonEndpoints:
                 ),
                 "type": "CompareRecords",
                 "status": "Pending",
+                "outcome_severity": "Info",
                 "created_by": "12345678-1234-4678-9abc-1234567890ab",
                 "created_at": "IGNORE",
                 "started_at": None,
@@ -105,6 +106,8 @@ def authority_link(
 ) -> AuthorityLink:
     AuthorityLink(
         main_record_id=main_catalog_record.id,
+        linker="knihovny-cz",
+        base="SKC",
         authority_record_id=authority_catalog_record.id,
         confidence=0.5,
     ).save(db_session)
@@ -168,6 +171,7 @@ def comparison(
 ) -> Comparison:
     return Comparison(
         main_record_id=main_catalog_record.id,
+        comparator="rule-based",
         other_record_id=authority_catalog_record.id,
         result={"overall_score": 0.9, "summary": "Mock comparison result"},
     ).save(db_session)
@@ -269,8 +273,7 @@ class TestComparisonTaskNoSettingsFound:
     async def test_no_linker_settings_found(self, task: Task):
         from comparison.tasks import compare_records
 
-        with pytest.raises(ValueError, match="Comparison settings not found"):
-            await compare_records(task.task_id)
+        await compare_records(task.task_id)
 
 
 @pytest.mark.usefixtures(
@@ -285,8 +288,7 @@ class TestComparisonTaskNoComparatorFound:
     async def test_no_linker_settings_found(self, task: Task):
         from comparison.tasks import compare_records
 
-        with pytest.raises(ValueError, match="Unknown comparator: rule-based"):
-            await compare_records(task.task_id)
+        await compare_records(task.task_id)
 
 
 @pytest.mark.usefixtures(

@@ -1,14 +1,14 @@
 import logging
-from dataclasses import dataclass
-from typing import ContextManager, Optional
+from dataclasses import dataclass, field
+from typing import ContextManager, List, Optional, TypeVar
 
 from celery import Celery
 from celery import Task as CeleryTask
 from celery import shared_task
 from sqlalchemy.orm import Session
 
-from adapters.database import DatabaseSession, get_db_session
-from adapters.indexer import IndexerSession, indexer_session
+from adapters.database import Base, DatabaseSession, get_db_session
+from adapters.indexer import IndexerSchema, indexer_session
 from adapters.lock_server import one_at_a_time_lock
 from config import config
 
@@ -16,7 +16,7 @@ from config import config
 from entities.catalog_record import CatalogRecord  # noqa: F401
 from entities.role import Role  # noqa: F401
 from entities.settings import Settings, SettingsScope
-from entities.task import Task, TaskSchema, TaskStatus, TaskType
+from entities.task import Task, TaskSchema, TaskSeverity, TaskStatus, TaskType
 from entities.user import User  # noqa: F401
 from settings.models import CatalogSettings
 from tasks.models import TaskSettings  # noqa: F401
@@ -31,6 +31,13 @@ tasks_client = Celery(
 
 type TasksClient = Celery
 
+LEVEL_NO_TO_SEVERITY = {
+    logging.INFO: TaskSeverity.Info,
+    logging.WARNING: TaskSeverity.Warning,
+    logging.ERROR: TaskSeverity.Error,
+    logging.CRITICAL: TaskSeverity.Critical,
+}
+
 
 class TaskHandler(logging.Handler):
     """
@@ -41,6 +48,7 @@ class TaskHandler(logging.Handler):
         super().__init__(level)
         self.db_session = db
         self.task = task
+        self.current_level = logging.INFO
 
     def emit(self, record: logging.LogRecord):
         msg = self.format(record)
@@ -52,19 +60,37 @@ class TaskHandler(logging.Handler):
         else:
             self.task.traceback = entry
 
+        if record.levelno > self.current_level:
+            self.current_level = record.levelno
+
+            severity = LEVEL_NO_TO_SEVERITY.get(record.levelno)
+            if severity:
+                self.task.outcome_severity = severity
+
         try:
             self.db_session.commit()
         except Exception:
             self.db_session.rollback()
 
 
+class IndexerOperationsBase(Base):
+    __abstract__ = True
+    __indexer_schema__: type[IndexerSchema]
+
+
+IndexerOperationsBaseType = TypeVar(
+    "IndexerOperationsBaseType", bound=IndexerOperationsBase
+)
+
+
 @dataclass
 class TaskContext:
     logger: logging.Logger
     db_session: DatabaseSession
-    indexer_session: IndexerSession  # TODO: Remove
     task: Task
     task_settings: TaskSettings
+    progress: int = 0
+    index_batch: List[IndexerOperationsBaseType] = field(default_factory=list)
 
 
 class ManagedTask:
@@ -136,7 +162,7 @@ class ManagedTask:
 
             AlephClientRegistry.load_from_settings(catalog_settings)
 
-        # Mark task as started
+        # --- Mark task as started ---
         self.logger.info("Task started")
         self.task.status = TaskStatus.Started
         self.task.started_at = config.timestamp
@@ -156,7 +182,6 @@ class ManagedTask:
         return TaskContext(
             logger=self.logger,
             db_session=self.db_session,
-            indexer_session=self.indexer,
             task=self.task,
             task_settings=self.task_settings,
         )
@@ -250,6 +275,33 @@ def compare_records_task(self: CeleryTask) -> None:
     return async_to_sync(compare_records)(str(self.request.id))
 
 
+@shared_task(name="reindex_records_task", bind=True)
+def reindex_records_task(self: CeleryTask) -> None:
+    from asgiref.sync import async_to_sync
+
+    from catalog_records.tasks import reindex_records
+
+    return async_to_sync(reindex_records)(str(self.request.id))
+
+
+@shared_task(name="set_records_hidden_state_task", bind=True)
+def set_records_hidden_state_task(self: CeleryTask) -> None:
+    from asgiref.sync import async_to_sync
+
+    from catalog_records.tasks import set_records_hidden_state
+
+    return async_to_sync(set_records_hidden_state)(str(self.request.id))
+
+
+@shared_task(name="delete_tasks_task", bind=True)
+def delete_tasks_task(self: CeleryTask) -> None:
+    from asgiref.sync import async_to_sync
+
+    from tasks.tasks import delete_tasks
+
+    return async_to_sync(delete_tasks)(str(self.request.id))
+
+
 @shared_task(name="recreate_indexes_task", bind=True)
 def recreate_indexes_task(
     self: CeleryTask, lock_key: str, lock_blocking_timeout: int
@@ -292,6 +344,15 @@ def dispatch_task(task: Task) -> None:
 
     elif task.type == TaskType.CompareRecords:
         compare_records_task.apply_async(task_id=task_id)
+
+    elif task.type == TaskType.ReindexRecords:
+        reindex_records_task.apply_async(task_id=task_id)
+
+    elif task.type == TaskType.SetRecordsHiddenState:
+        set_records_hidden_state_task.apply_async(task_id=task_id)
+
+    elif task.type == TaskType.DeleteTasks:
+        delete_tasks_task.apply_async(task_id=task_id)
 
     elif task.type == TaskType.RecreateIndexes:
         recreate_indexes_task.apply_async(

@@ -112,7 +112,9 @@ class IndexerOperationsMixin:
         return self
 
     @classmethod
-    async def bulk_index(cls, entities: List[Self]) -> None:
+    async def bulk_index(
+        cls, entities: List[Self], wait_for: bool = False
+    ) -> None:
         """
         Bulk index a list of entities using the indexer model.
 
@@ -136,7 +138,35 @@ class IndexerOperationsMixin:
         await cls.__indexer_schema__.call(
             "bulk",
             operations=operations,
-            refresh="wait_for",
+            refresh="wait_for" if wait_for else None,
+        )
+
+    @classmethod
+    async def bulk_delete(
+        cls, entities: List[Self], wait_for: bool = False
+    ) -> None:
+        """
+        Bulk delete a list of entities from the indexer.
+
+        Parameters
+        ----------
+        entities : List[DatabaseEntityType]
+            The list of entities to delete.
+        """
+        operations = []
+        for entity in entities:
+            if entity is None:
+                raise ValueError("Cannot delete None entity")
+            schema: type[IndexerSchema] = (
+                cls.__indexer_schema__.model_validate(
+                    entity, from_attributes=True
+                )
+            )
+            operations.append({"delete": {"_id": schema.__id__}})
+        await cls.__indexer_schema__.call(
+            "bulk",
+            operations=operations,
+            refresh="wait_for" if wait_for else None,
         )
 
     @classmethod

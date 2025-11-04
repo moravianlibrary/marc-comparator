@@ -43,7 +43,7 @@ async def search_all(
     return await service.search_all_tasks(request)
 
 
-@router.post(
+@router.get(
     "/{task_id}/traceback",
     dependencies=[WithPermission(Permission.ManageTasks)],
 )

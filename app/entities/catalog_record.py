@@ -1,8 +1,11 @@
 from datetime import datetime
 from enum import StrEnum
+from functools import cached_property
 from typing import List, Optional
 
-from esorm.fields import Keyword
+from esorm.fields import Keyword, Text
+from marcdantic import MarcRecord
+from marcdantic.selectors import SubtitleJq, TitleJq
 from sqlalchemy import (
     TIMESTAMP,
     Boolean,
@@ -16,8 +19,6 @@ from sqlalchemy.orm import Mapped, relationship
 
 from adapters.database import Base, DatabaseSession
 from adapters.indexer import IndexerSchema
-from entities.comparison import Comparison
-from entities.validation import Validation
 
 from ._operations import (
     BaseOperationsMixin,
@@ -25,6 +26,8 @@ from ._operations import (
     RetrievalOperationsMixin,
 )
 from .authority_link import AuthorityLink, AuthorityLinkSchema
+from .comparison import Comparison, ComparisonSchema
+from .validation import Validation, ValidationSchema
 
 
 class CatalogRecordSource(StrEnum):
@@ -34,7 +37,7 @@ class CatalogRecordSource(StrEnum):
 
 class CatalogRecordSchema(IndexerSchema):
     class ESConfig:
-        index = "catalog_records"
+        index = "catalog-records"
         id_field = "id"
 
     id: str
@@ -42,10 +45,24 @@ class CatalogRecordSchema(IndexerSchema):
     base: Keyword
     system_number: Keyword
 
+    type_of_record: Keyword
+    bibliographic_level: Keyword
+
+    title: List[Text]
+    subtitle: List[Text]
+    authors: List[Text]
+    publication_year: List[Keyword]
+    publisher: List[Text]
+    language: Keyword
+    subjects: List[Keyword]
+
     last_sync: datetime
     deleted: bool
+    hidden: bool
 
     authority_links: List[AuthorityLinkSchema]
+    comparisons: List[ComparisonSchema]
+    validations: List[ValidationSchema]
 
 
 class CatalogRecord(
@@ -58,23 +75,24 @@ class CatalogRecord(
     base = Column(String, nullable=False)
     system_number = Column(String, nullable=False)
 
-    marc = Column(LargeBinary, nullable=False)
+    _marc = Column(LargeBinary, name="marc", nullable=False)
 
     last_sync = Column(TIMESTAMP, nullable=False, default=func.now())
     deleted = Column(Boolean, nullable=False, default=False)
+    hidden = Column(Boolean, nullable=False, default=False)
 
     source_type = Column(
         String, nullable=False, default=CatalogRecordSource.Main
     )
     source_name = Column(String, nullable=True)
 
-    authority_links: Mapped[List["AuthorityLink"]] = relationship(
+    authority_links: Mapped[List[AuthorityLink]] = relationship(
         "AuthorityLink",
         foreign_keys=[AuthorityLink.main_record_id],
         back_populates="main_record",
         lazy="select",
     )
-    comparisons: Mapped[List["Comparison"]] = relationship(
+    comparisons: Mapped[List[Comparison]] = relationship(
         "Comparison",
         foreign_keys=[Comparison.main_record_id],
         back_populates="main_record",
@@ -96,6 +114,71 @@ class CatalogRecord(
         cls, db_session: DatabaseSession, base: str, system_number: str
     ) -> Optional["CatalogRecord"]:
         return cls.find(db_session, cls.generate_id(base, system_number))
+
+    @property
+    def marc(self) -> bytes:
+        return self._marc
+
+    @marc.setter
+    def marc(self, value: bytes):
+        self._marc = value
+        # Invalidate cached property
+        if "record" in self.__dict__:
+            del self.__dict__["record"]
+
+    @cached_property
+    def record(self) -> MarcRecord:
+        return MarcRecord.from_mrc(self._marc)
+
+    @property
+    def type_of_record(self) -> str:
+        return self.record.leader_selector.type_of_record
+
+    @property
+    def bibliographic_level(self) -> str:
+        return self.record.leader_selector.bibliographic_level
+
+    @property
+    def title(self) -> List[str]:
+        return self.record.variable_fields.query_subfield_values(TitleJq)
+
+    @property
+    def subtitle(self) -> List[str]:
+        return self.record.variable_fields.query_subfield_values(SubtitleJq)
+
+    @property
+    def authors(self) -> List[str]:
+        return self.record.variable_fields.query_subfield_values(
+            '.["100"]?[]?.subfields.a[]?'
+        )
+
+    @property
+    def publication_year(self) -> List[str]:
+        return self.record.variable_fields.query_subfield_values(
+            '.["260","264"]?[]?.subfields.c[]?'
+        )
+
+    @property
+    def publisher(self) -> List[str]:
+        return self.record.variable_fields.query_subfield_values(
+            '.["260","264"]?[]?.subfields.b[]?'
+        )
+
+    @property
+    def language(self) -> str | None:
+        return (
+            (
+                self.record.control_fields_selector
+            ).fixed_length_data_elements.language
+            if "008" in self.record.fixed_fields.root
+            else None
+        )
+
+    @property
+    def subjects(self) -> List[str]:
+        return self.record.variable_fields.query_subfield_values(
+            '.["600","610","650","651"]?[]?.subfields.a[]?'
+        )
 
 
 @event.listens_for(CatalogRecord, "before_insert")

@@ -28,11 +28,8 @@ async def _recreate_index(
     order_by_column :
         Column to use for ordering and keyset pagination
     """
-    progress_interval = ctx.task_settings.progress_update_interval
-    batch_size = ctx.task_settings.indexing_batch_size
-
     name = db_model.__name__
-    index_name = indexer_schema.ESConfig.index_name
+    index_name = indexer_schema.ESConfig.index
 
     total = ctx.db_session.query(db_model).count()
 
@@ -43,13 +40,13 @@ async def _recreate_index(
             await es.indices.delete(index=index_name)
         except Exception as e:
             ctx.logger.error(f"Error deleting index for {name}: {e}")
-            raise
+            return
 
     try:
         await setup_mappings()
     except Exception as e:
         ctx.logger.error(f"Error setting up index for {name}: {e}")
-        raise
+        return
 
     offset = 0
     last_reported = 0
@@ -58,7 +55,7 @@ async def _recreate_index(
             ctx.db_session.query(db_model)
             .order_by(order_by_column)
             .offset(offset)
-            .limit(batch_size)
+            .limit(ctx.task_settings.indexing_batch_size)
             .all()
         )
 
@@ -70,18 +67,19 @@ async def _recreate_index(
             break
 
         try:
-            await ctx.indexer_session.bulk_index(
-                [indexer_schema.model_validate(item) for item in batch]
-            )
+            await db_model.bulk_index(batch)
         except Exception as e:
             ctx.logger.error(
                 f"Error indexing batch at offset {offset} for {name}: {e}"
             )
-            raise
+            return
 
         offset += len(batch)
 
-        if offset - last_reported >= progress_interval:
+        if (
+            offset - last_reported
+            >= ctx.task_settings.progress_update_interval
+        ):
             last_reported = offset
             ctx.logger.info(f"Indexed {offset}/{total} catalog records")
 

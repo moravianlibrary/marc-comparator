@@ -1,20 +1,39 @@
-from fastapi import HTTPException, status
+from marcdantic import MarcRecord
 
 from adapters.database import DatabaseSession
-from adapters.indexer import IndexerRequest, IndexerResponse
+from adapters.indexer import IndexerQuery, IndexerRequest, IndexerResponse
 from adapters.lock_server import one_at_a_time_lock
 from adapters.tasks import enqueue_task
-from catalog_records.models import (
-    FetchBatchOfRecordsData,
-    FetchRecordData,
-    SyncRecordsData,
-)
 from entities.catalog_record import CatalogRecord
 from entities.task import Task, TaskSchema, TaskType
+
+from .exceptions import (
+    CatalogRecordNotFoundException,
+    SyncTaskAlreadyRunningException,
+)
+from .models import (
+    FetchBatchOfRecordsData,
+    FetchRecordData,
+    SetRecordsHiddenStateData,
+    SyncRecordsData,
+)
 
 
 async def search_records(request: IndexerRequest) -> IndexerResponse:
     return await CatalogRecord.search(request)
+
+
+def get_marc_record(
+    base: str, system_number: str, db_session: DatabaseSession
+) -> MarcRecord:
+    catalog_record = CatalogRecord.find_by_base_and_system_number(
+        db_session, base, system_number
+    )
+
+    if not catalog_record or catalog_record.deleted:
+        raise CatalogRecordNotFoundException(base, system_number)
+
+    return catalog_record.record
 
 
 async def fetch_record(
@@ -61,10 +80,7 @@ async def sync_records(
         lock_key, blocking_timeout=lock_blocking_timeout
     ) as acquired:
         if not acquired:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=f"Sync task is already running for base {data.base}.",
-            )
+            raise SyncTaskAlreadyRunningException(data.base)
 
         return await enqueue_task(
             Task(
@@ -75,3 +91,33 @@ async def sync_records(
             ),
             db_session,
         )
+
+
+async def reindex_records(
+    query: IndexerQuery, created_by: str, db_session: DatabaseSession
+) -> TaskSchema:
+    return await enqueue_task(
+        Task(
+            name="Reindex catalog records",
+            type=TaskType.ReindexRecords,
+            created_by=created_by,
+            data=query.model_dump(),
+        ),
+        db_session,
+    )
+
+
+async def set_records_hidden_state(
+    data: SetRecordsHiddenStateData,
+    created_by: str,
+    db_session: DatabaseSession,
+) -> TaskSchema:
+    return await enqueue_task(
+        Task(
+            name=f"{'Hide' if data.hide else 'Unhide'} catalog records",
+            type=TaskType.SetRecordsHiddenState,
+            created_by=created_by,
+            data=data.model_dump(),
+        ),
+        db_session,
+    )

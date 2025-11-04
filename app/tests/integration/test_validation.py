@@ -1,3 +1,5 @@
+from typing import List
+
 import pytest
 import pytest_asyncio
 from httpx import AsyncClient
@@ -62,6 +64,7 @@ class TestValidationEndpoints:
                 "name": "Validating records using 1 validators",
                 "type": "ValidateRecords",
                 "status": "Pending",
+                "outcome_severity": "Info",
                 "created_by": "12345678-1234-4678-9abc-1234567890ab",
                 "created_at": "IGNORE",
                 "started_at": None,
@@ -101,12 +104,14 @@ def task(db_session: DatabaseSession, user: TokenData) -> Task:
 @pytest.fixture(scope="class")
 def mock_validator_result(class_mocker: MockerFixture) -> MockerFixture:
     class MockValidator(BaseValidator):
-        async def run(self, record) -> ValidationResult:
-            return ValidationResult(
-                target=ValidationTarget(tag="001"),
-                status=ValidityStatus.Valid,
-                reason="Mock validation passed",
-            )
+        async def run(self, record) -> List[ValidationResult]:
+            return [
+                ValidationResult(
+                    target=ValidationTarget(tag="001"),
+                    status=ValidityStatus.Valid,
+                    reason="Mock validation passed",
+                )
+            ]
 
     return class_mocker.patch(
         "validation.tasks.VALIDATOR_DISPATCHER",
@@ -141,7 +146,7 @@ def validation(
     db_session: DatabaseSession,
     catalog_record: CatalogRecord,
 ) -> Validation:
-    return Validation(
+    validation = Validation(
         catalog_record_id=catalog_record.id,
         validator="kramerius-links",
         result={
@@ -149,7 +154,13 @@ def validation(
             "status": "valid",
             "reason": "Mock validation passed",
         },
-    ).save(db_session)
+    )
+
+    db_session.add(validation)
+    db_session.commit()
+    db_session.refresh(validation)
+
+    return validation
 
 
 @pytest.mark.usefixtures(
@@ -220,8 +231,7 @@ class TestValidationTaskNoSettingsFound:
     async def test_no_validator_settings_found(self, task: Task):
         from validation.tasks import validate_records
 
-        with pytest.raises(ValueError, match="Validation settings not found"):
-            await validate_records(task.task_id)
+        await validate_records(task.task_id)
 
 
 @pytest.mark.usefixtures(
@@ -236,10 +246,7 @@ class TestValidationTaskNoValidatorFound:
     async def test_no_validator_found(self, task: Task):
         from validation.tasks import validate_records
 
-        with pytest.raises(
-            ValueError, match="Unknown validator: kramerius-links"
-        ):
-            await validate_records(task.task_id)
+        await validate_records(task.task_id)
 
 
 @pytest.mark.usefixtures(

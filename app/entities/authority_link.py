@@ -1,7 +1,8 @@
+from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
 from esorm.fields import Keyword
-from sqlalchemy import Column, Float, ForeignKey, String
+from sqlalchemy import TIMESTAMP, Column, Float, ForeignKey, String, func
 from sqlalchemy.orm import Mapped, relationship
 
 from adapters.database import Base, DatabaseSession
@@ -13,9 +14,11 @@ if TYPE_CHECKING:
 
 
 class AuthorityLinkSchema(IndexerNestedModel):
+    linker: Keyword
     base: Keyword
     system_number: Keyword
     confidence: float | None
+    updated_at: datetime
 
 
 class AuthorityLink(Base, BaseOperationsMixin):
@@ -24,10 +27,19 @@ class AuthorityLink(Base, BaseOperationsMixin):
     main_record_id = Column(
         String, ForeignKey("catalog_records.id"), primary_key=True
     )
+    linker = Column(String, nullable=False, primary_key=True)
+    base = Column(String, nullable=False, primary_key=True)
+
     authority_record_id = Column(
-        String, ForeignKey("catalog_records.id"), primary_key=True
+        String,
+        ForeignKey("catalog_records.id"),
+        nullable=False,
     )
+
     confidence = Column(Float, nullable=True)
+    updated_at = Column(
+        TIMESTAMP, nullable=False, default=func.now(), onupdate=func.now()
+    )
 
     main_record: Mapped["CatalogRecord"] = relationship(
         "CatalogRecord",
@@ -43,25 +55,19 @@ class AuthorityLink(Base, BaseOperationsMixin):
     )
 
     @property
-    def base(self) -> str:
-        return self.authority_record.base
-
-    @property
     def system_number(self) -> str:
         return self.authority_record.system_number
 
     @classmethod
-    def find(
+    def find_by_linker_and_base(
         cls,
         db_session: DatabaseSession,
         main_record_id: str,
-        authority_record_id: str,
+        linker: str,
+        base: str,
     ) -> Optional["AuthorityLink"]:
         return (
             db_session.query(cls)
-            .filter_by(
-                main_record_id=main_record_id,
-                authority_record_id=authority_record_id,
-            )
+            .filter_by(main_record_id=main_record_id, linker=linker, base=base)
             .one_or_none()
         )

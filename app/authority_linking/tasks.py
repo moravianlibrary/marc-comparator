@@ -8,8 +8,11 @@ from marc_comparator.authority_linkers import (
 )
 from marcdantic import MarcRecord
 
-from adapters.database import DatabaseSession
 from adapters.tasks import ManagedTask
+from catalog_records.tasks import (
+    handle_batch_progress_snippet,
+    handle_final_batch_snippet,
+)
 from config import config
 from entities.authority_link import AuthorityLink
 from entities.catalog_record import CatalogRecord, CatalogRecordSource
@@ -24,66 +27,6 @@ class AuthorityLinkerInstance:
     instance: BaseAuthorityLinker
 
 
-async def _link_record_with_linker(
-    db_session: DatabaseSession,
-    catalog_record: CatalogRecord,
-    authority_linker: AuthorityLinkerInstance,
-    target_base: str,
-) -> bool:
-    link = await authority_linker.instance.run(
-        catalog_record.base,
-        catalog_record.system_number,
-        MarcRecord.from_mrc(catalog_record.marc),
-        target_base,
-    )
-
-    if link is None:
-        return False
-
-    current_link = AuthorityLink.find(
-        db_session,
-        catalog_record.id,
-        CatalogRecord.generate_id(link.base, link.system_number),
-    )
-
-    if current_link is None:
-        authority_record = CatalogRecord.find_by_base_and_system_number(
-            db_session, link.base, link.system_number
-        )
-
-        if not authority_record:
-            authority_record = CatalogRecord(
-                base=link.base,
-                system_number=link.system_number,
-                marc=link.record._marc,
-                source_type=CatalogRecordSource.AuthorityLinker,
-                source_name=authority_linker.linker.value,
-            )
-        else:
-            authority_record.marc = link.record._marc
-            authority_record.last_sync = config.timestamp
-            authority_record.source_name = authority_linker.linker.value
-        authority_record.save(db_session)
-
-        current_link = AuthorityLink(
-            main_record_id=catalog_record.id,
-            authority_record_id=authority_record.id,
-            confidence=link.confidence,
-        )
-    else:
-        current_link.confidence = link.confidence
-        current_link.authority_record.marc = link.record._marc
-        current_link.authority_record.last_sync = config.timestamp
-        current_link.authority_record.source_name = (
-            authority_linker.linker.value
-        )
-
-    current_link.save(db_session)
-    await current_link.main_record.index()
-
-    return True
-
-
 async def authority_linking(task_id: str) -> None:
     async with ManagedTask(task_id=task_id) as ctx:
         data = AuthorityLinkingTaskData.model_validate(ctx.task.data)
@@ -94,42 +37,164 @@ async def authority_linking(task_id: str) -> None:
         )
 
         if not settings:
-            raise ValueError("Authority linking settings not found")
+            ctx.logger.error("Authority linking settings not found")
+            return
 
         authority_linkers: List[AuthorityLinkerInstance] = []
         for linker in data.linkers:
-            linker_cls = AUTHORITY_LINKER_DISPATCHER.get(linker)
-            if not linker_cls:
-                continue
+            try:
+                linker_cls = AUTHORITY_LINKER_DISPATCHER.get(linker)
+                if not linker_cls:
+                    continue
 
-            linker_config = (
-                getattr(settings, linker.value.replace("-", "_"), None)
-                if linker_cls.config_model
-                else None
-            )
-
-            linker_instance = (
-                linker_cls(
-                    config=linker_cls.config_model.model_validate(
-                        linker_config
-                    )
+                linker_config = (
+                    getattr(settings, linker.value.replace("-", "_"), None)
+                    if linker_cls.config_model
+                    else None
                 )
-                if linker_config
-                else linker_cls()
-            )
 
-            authority_linkers.append(
-                AuthorityLinkerInstance(linker, linker_instance)
-            )
+                linker_instance = (
+                    linker_cls(
+                        config=linker_cls.config_model.model_validate(
+                            linker_config
+                        )
+                    )
+                    if linker_config
+                    else linker_cls()
+                )
+
+                authority_linkers.append(
+                    AuthorityLinkerInstance(linker, linker_instance)
+                )
+
+            except Exception as e:
+                ctx.logger.error(
+                    f"Error initializing authority linker '{linker}':\n{e}"
+                )
 
         async for catalog_record in CatalogRecord.get_by_query(
             ctx.db_session, data.query
         ):
             for authority_linker in authority_linkers:
-                if await _link_record_with_linker(
-                    ctx.db_session,
-                    catalog_record,
-                    authority_linker,
-                    data.target_base,
-                ):
-                    break  # Stop after the first successful linking
+                try:
+                    link = await authority_linker.instance.run(
+                        catalog_record.base,
+                        catalog_record.system_number,
+                        MarcRecord.from_mrc(catalog_record.marc),
+                        data.target_base,
+                    )
+
+                    if link is None:
+                        ctx.logger.info(
+                            f"No authority link found for {catalog_record.id} "
+                            f"to base {data.target_base} "
+                            f"using linker {authority_linker.linker.value}"
+                        )
+                        continue
+
+                    current_link = AuthorityLink.find_by_linker_and_base(
+                        ctx.db_session,
+                        catalog_record.id,
+                        authority_linker.linker.value,
+                        data.target_base,
+                    )
+
+                    if (
+                        current_link is not None
+                        and current_link.system_number == link.system_number
+                    ):
+                        ctx.logger.info(
+                            f"Updating existing authority link for "
+                            f"record {catalog_record.id} "
+                            f"to base {data.target_base} "
+                            f"using linker {authority_linker.linker.value}"
+                        )
+
+                        current_link.confidence = link.confidence
+                        current_link.authority_record.marc = link.record._marc
+                        current_link.authority_record.last_sync = (
+                            config.timestamp
+                        )
+                        current_link.authority_record.source_name = (
+                            authority_linker.linker.value
+                        )
+
+                        current_link.save(ctx.db_session)
+
+                        await handle_batch_progress_snippet(
+                            ctx, catalog_record
+                        )
+
+                        break  # Pair using first found link only
+
+                    elif (
+                        current_link is not None
+                        and current_link.system_number != link.system_number
+                    ):
+                        ctx.logger.info(
+                            f"Conflict detected for authority link for "
+                            f"record {catalog_record.id} "
+                            f"to base {data.target_base} "
+                            f"using linker {authority_linker.linker.value}. "
+                            f"Existing system number "
+                            f"{current_link.system_number} differs from "
+                            f"newly found {link.system_number}. Deleting."
+                        )
+                        current_link.delete(ctx.db_session)
+
+                    authority_record = (
+                        CatalogRecord.find_by_base_and_system_number(
+                            ctx.db_session, link.base, link.system_number
+                        )
+                    )
+
+                    if not authority_record:
+                        ctx.logger.info(
+                            f"Creating new authority record for "
+                            f"link {link.base}-{link.system_number} "
+                            f"using linker {authority_linker.linker.value}"
+                        )
+
+                        authority_record = CatalogRecord(
+                            base=link.base,
+                            system_number=link.system_number,
+                            marc=link.record._marc,
+                            source_type=CatalogRecordSource.AuthorityLinker,
+                            source_name=authority_linker.linker.value,
+                        )
+                    else:
+                        ctx.logger.info(
+                            f"Updating existing authority record for "
+                            f"link {link.base}-{link.system_number} "
+                            f"using linker {authority_linker.linker.value}"
+                        )
+
+                        authority_record.marc = link.record._marc
+                        authority_record.last_sync = config.timestamp
+                        authority_record.source_name = (
+                            authority_linker.linker.value
+                        )
+
+                    authority_record.save(ctx.db_session)
+
+                    current_link = AuthorityLink(
+                        main_record_id=catalog_record.id,
+                        linker=authority_linker.linker.value,
+                        base=data.target_base,
+                        authority_record_id=authority_record.id,
+                        confidence=link.confidence,
+                    )
+                    current_link.save(ctx.db_session)
+
+                    await handle_batch_progress_snippet(ctx, catalog_record)
+
+                    break  # Pair using first found link only
+
+                except Exception as e:
+                    ctx.logger.error(
+                        f"Failed linking authority "
+                        f"with linker {authority_linker.linker.value} "
+                        f"for record {catalog_record.id}:\n{e}"
+                    )
+
+        await handle_final_batch_snippet(ctx)

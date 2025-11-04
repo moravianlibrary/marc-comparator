@@ -1,14 +1,13 @@
-from typing import List
-
 from aleph_nought import RecordStatus
 from marcdantic import MarcRecord
-from sqlalchemy.orm import Session
 
 from adapters.aleph_client_registry import AlephClientRegistry
-from adapters.tasks import ManagedTask
+from adapters.indexer import IndexerQuery
+from adapters.tasks import ManagedTask, TaskContext
 from catalog_records.models import (
     FetchBatchOfRecordsData,
     FetchRecordData,
+    SetRecordsHiddenStateData,
     SyncRecordsData,
 )
 from config import config
@@ -19,14 +18,14 @@ class AlephError(Exception):
     pass
 
 
-def _save_record(
-    db_session: Session,
+def save_record_snippet(
+    ctx: TaskContext,
     base: str,
     system_number: str,
     record: MarcRecord,
-) -> CatalogRecord | None:
+) -> CatalogRecord:
     catalog_record = CatalogRecord.find_by_base_and_system_number(
-        db_session, base, system_number
+        ctx.db_session, base, system_number
     )
 
     if catalog_record:
@@ -38,7 +37,41 @@ def _save_record(
             base=base, system_number=system_number, marc=record._marc
         )
 
-    catalog_record.save(db_session)
+    return catalog_record.save(ctx.db_session)
+
+
+async def handle_batch_progress_snippet(
+    ctx: TaskContext, catalog_record: CatalogRecord | None = None
+):
+    ctx.progress += 1
+
+    if ctx.progress % ctx.task_settings.progress_update_interval == 0:
+        ctx.logger.info(f"Processed {ctx.progress} records so far.")
+
+    if catalog_record is None:
+        return
+
+    ctx.index_batch.append(catalog_record)
+
+    if len(ctx.index_batch) % ctx.task_settings.indexing_batch_size == 0:
+        ctx.logger.info(f"Indexing batch of {len(ctx.index_batch)} records...")
+
+        ctx.db_session.commit()
+        await CatalogRecord.bulk_index(ctx.index_batch)
+        ctx.index_batch.clear()
+
+
+async def handle_final_batch_snippet(ctx: TaskContext):
+    if not ctx.index_batch:
+        return
+
+    ctx.logger.info(
+        f"Indexing final batch of {len(ctx.index_batch)} records..."
+    )
+
+    ctx.db_session.commit()
+    await CatalogRecord.bulk_index(ctx.index_batch)
+    ctx.index_batch.clear()
 
 
 async def fetch_record_task(task_id: str) -> None:
@@ -48,9 +81,9 @@ async def fetch_record_task(task_id: str) -> None:
         system_number = data.system_number
 
         client = AlephClientRegistry.get(base)
-
         if not client.OAI.is_available():
-            raise AlephError("OAI service is not available")
+            ctx.logger.error(f"OAI service for {base} is not available")
+            return
 
         record = client.OAI.get_record(system_number)
 
@@ -60,13 +93,13 @@ async def fetch_record_task(task_id: str) -> None:
             )
             return
 
-        await _save_record(ctx.db_session, base, system_number, record).index()
+        await save_record_snippet(ctx, base, system_number, record).index()
+
+        ctx.logger.info(f"Finished fetching record {base}-{system_number}")
 
 
 async def fetch_batch_of_records_task(task_id: str) -> None:
     async with ManagedTask(task_id=task_id) as ctx:
-        progress_interval = ctx.task_settings.progress_update_interval
-        batch_size = ctx.task_settings.indexing_batch_size
         data = FetchBatchOfRecordsData.model_validate(ctx.task.data)
 
         for fetch_base_data in data.per_base:
@@ -74,14 +107,8 @@ async def fetch_batch_of_records_task(task_id: str) -> None:
             client = AlephClientRegistry.get(base)
 
             if not client.OAI.is_available():
-                raise AlephError(f"OAI service for {base} is not available")
-
-        progress = 0
-        batch: List[CatalogRecord] = []
-
-        for fetch_base_data in data.per_base:
-            base = fetch_base_data.base
-            client = AlephClientRegistry.get(base)
+                ctx.logger.error(f"OAI service for {base} is not available")
+                continue
 
             for system_number in fetch_base_data.system_numbers:
                 try:
@@ -92,107 +119,26 @@ async def fetch_batch_of_records_task(task_id: str) -> None:
                             f"Record with system number '{system_number}' "
                             f"not found in base '{base}'"
                         )
+                        await handle_batch_progress_snippet(ctx)
                         continue
 
-                    catalog_record = _save_record(
-                        ctx.db_session, base, system_number, record
+                    await handle_batch_progress_snippet(
+                        ctx,
+                        save_record_snippet(ctx, base, system_number, record),
                     )
-
-                    batch.append(catalog_record)
-                    progress += 1
-
-                    if progress % progress_interval == 0:
-                        ctx.logger.info(f"Processed {progress} records so far")
-
-                    if progress % batch_size == 0:
-                        ctx.logger.info(
-                            f"Indexing batch of {len(batch)} records..."
-                        )
-
-                        ctx.db_session.commit()
-                        await CatalogRecord.bulk_index(batch)
-
-                        batch = []
 
                 except Exception as e:
                     ctx.logger.error(
                         f"Failed processing record {system_number}:\n{e}"
                     )
+                    await handle_batch_progress_snippet(ctx)
 
-        if batch:
-            ctx.logger.info(f"Indexing final batch of {len(batch)} records...")
-            ctx.db_session.commit()
-            await CatalogRecord.bulk_index(batch)
+        await handle_final_batch_snippet(ctx)
 
         ctx.logger.info(
-            f"Finished catalog sync, total records processed: {progress}"
+            "Finished fetching batch of records, "
+            f"total records processed: {ctx.progress}"
         )
-
-
-def _process_record_from_sync(
-    db_session: Session,
-    base: str,
-    system_number: str,
-    status: RecordStatus,
-    record: MarcRecord | None,
-) -> CatalogRecord | None:
-    """
-    Update or delete a catalog record in the database based on its status.
-
-    Parameters
-    ----------
-    db_session : Session
-        SQLAlchemy database session used for querying and updating records.
-    base : str
-        The identifier of the catalog base.
-    system_number : str
-        The unique system number of the record.
-    status : RecordStatus
-        Status of the record,
-        indicating whether it is Active, Deleted, or Failed.
-    record : object
-        The record object containing MARC data if the status is Active.
-
-    Raises
-    ------
-    ValueError
-        If the record status is Active but no MARC data is available.
-    """
-    if status == RecordStatus.Failed:
-        raise ValueError(
-            f"Failed fetching record {system_number} in base {base}."
-        )
-
-    if status == RecordStatus.Deleted:
-        catalog_record = (
-            db_session.query(CatalogRecord)
-            .filter_by(base=base, system_number=system_number)
-            .first()
-        )
-        if catalog_record:
-            catalog_record.last_sync = config.timestamp
-            catalog_record.deleted = True
-
-        return catalog_record
-
-    if not record:
-        raise ValueError(
-            f"Record {system_number} in base {base} has no MARC data."
-        )
-
-    catalog_record = CatalogRecord.find_by_base_and_system_number(
-        db_session, base, system_number
-    )
-
-    if catalog_record:
-        catalog_record.marc = record._marc
-        catalog_record.last_sync = config.timestamp
-    else:
-        catalog_record = CatalogRecord(
-            base=base, system_number=system_number, marc=record._marc
-        )
-
-    return catalog_record.save(db_session)
 
 
 async def records_sync_task(
@@ -215,21 +161,12 @@ async def records_sync_task(
         The key used for acquiring the distributed lock.
     lock_blocking_timeout : int
         The maximum time to wait for acquiring the lock.
-
-    Raises
-    ------
-    ValueError
-        If a sync task is already running for the given base, or
-        if the OAI service is not available for the base.
     """
     async with ManagedTask(
         task_id=task_id,
         lock_key=lock_key,
         lock_blocking_timeout=lock_blocking_timeout,
     ) as ctx:
-        progress_interval = ctx.task_settings.progress_update_interval
-        batch_size = ctx.task_settings.indexing_batch_size
-
         data = SyncRecordsData.model_validate(ctx.task.data)
 
         base = data.base
@@ -238,50 +175,102 @@ async def records_sync_task(
         ctx.logger.info(f"Starting catalog sync for base '{base}'")
 
         client = AlephClientRegistry.get(base)
-
         if not client.OAI.is_available():
-            raise ValueError(f"OAI service is not available for base {base}")
-
-        progress = 0
-        batch: List[CatalogRecord] = []
+            ctx.logger.error(f"OAI service for {base} is not available")
+            return
 
         for base, system_number, status, record in client.OAI.list_records(
             from_date, None
         ):
             try:
-                record = _process_record_from_sync(
-                    ctx.db_session, base, system_number, status, record
-                )
-                if record is None:
-                    # Record was marked as deleted but did not exist locally
+                if status == RecordStatus.Failed:
+                    ctx.logger.error(
+                        f"Failed fetching record {base}-{system_number}."
+                    )
                     continue
 
-                batch.append(record)
-                progress += 1
+                catalog_record = (
+                    ctx.db_session.query(CatalogRecord)
+                    .filter_by(base=base, system_number=system_number)
+                    .first()
+                )
 
-                if progress % progress_interval == 0:
-                    ctx.logger.info(f"Processed {progress} records so far")
+                if status == RecordStatus.Deleted and catalog_record is None:
+                    pass
 
-                if progress % batch_size == 0:
+                elif status == RecordStatus.Deleted and catalog_record:
+                    catalog_record.last_sync = config.timestamp
+                    catalog_record.deleted = True
                     ctx.logger.info(
-                        f"Indexing batch of {len(batch)} records..."
+                        f"Marking record {base}-{system_number} as deleted."
                     )
 
-                    ctx.db_session.commit()
-                    await CatalogRecord.bulk_index(batch)
+                elif not record:
+                    ctx.logger.error(
+                        f"Record {base}-{system_number} has no MARC data."
+                    )
+                    catalog_record = None
 
-                    batch = []
+                else:
+                    catalog_record = save_record_snippet(
+                        ctx, base, system_number, record
+                    )
+
+                await handle_batch_progress_snippet(ctx, catalog_record)
 
             except Exception as e:
                 ctx.logger.error(
                     f"Failed processing record {system_number}:\n{e}"
                 )
+                await handle_batch_progress_snippet(ctx)
 
-        if batch:
-            ctx.logger.info(f"Indexing final batch of {len(batch)} records...")
-            ctx.db_session.commit()
-            await CatalogRecord.bulk_index(batch)
+        await handle_final_batch_snippet(ctx)
 
         ctx.logger.info(
-            f"Finished catalog sync, total records processed: {progress}"
+            f"Finished catalog sync, total records processed: {ctx.progress}"
+        )
+
+
+async def reindex_records(task_id: str):
+    async with ManagedTask(task_id=task_id) as ctx:
+        query = IndexerQuery.model_validate(ctx.task.data)
+
+        ctx.logger.info("Starting reindexing of catalog records")
+
+        async for catalog_record in CatalogRecord.get_by_query(
+            ctx.db_session, query
+        ):
+            await handle_batch_progress_snippet(ctx, catalog_record)
+
+        await handle_final_batch_snippet(ctx)
+
+        ctx.logger.info(
+            f"Finished reindexing, total records processed: {ctx.progress}"
+        )
+
+
+async def set_records_hidden_state(task_id: str) -> None:
+    async with ManagedTask(task_id=task_id) as ctx:
+        data = SetRecordsHiddenStateData.model_validate(ctx.task.data)
+        query = data.query
+        hide = data.hide
+
+        if hide:
+            ctx.logger.info("Setting records to hidden state")
+        else:
+            ctx.logger.info("Setting records to visible state")
+
+        async for catalog_record in CatalogRecord.get_by_query(
+            ctx.db_session, query
+        ):
+            catalog_record.hidden = hide
+            ctx.db_session.add(catalog_record)
+
+            await handle_batch_progress_snippet(ctx, catalog_record)
+
+        await handle_final_batch_snippet(ctx)
+
+        ctx.logger.info(
+            "Finished setting hidden state, "
+            f"total records processed: {ctx.progress}"
         )

@@ -1,4 +1,4 @@
-aleph-nought @ git+https://github.com/moravianlibrary/aleph-nought.git@v0.2.5
+aleph-nought @ git+https://github.com/moravianlibrary/aleph-nought.git@v0.2.8
 kramerius @ git+https://github.com/moravianlibrary/kramerius-client.git@v0.2.0
 pandas
 typer

@@ -1,23 +1,25 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Body
+from marcdantic import MarcRecord
 
 from adapters.dependencies import (
     DatabaseSessionDep,
     IndexerSessionDep,
     WithPermission,
 )
-from adapters.indexer import IndexerRequest, IndexerResponse
+from adapters.indexer import IndexerQuery, IndexerRequest, IndexerResponse
 from auth.service import CurrentUser
-from catalog_records.models import (
-    FetchBatchOfRecordsData,
-    FetchRecordData,
-    SyncRecordsData,
-)
 from entities.role import Permission
 from entities.task import TaskSchema
 
 from . import service
+from .models import (
+    FetchBatchOfRecordsData,
+    FetchRecordData,
+    SetRecordsHiddenStateData,
+    SyncRecordsData,
+)
 
 router = APIRouter(prefix="/catalog-records", tags=["Catalog Records"])
 
@@ -32,6 +34,19 @@ async def search_records(
     _: IndexerSessionDep,
 ):
     return await service.search_records(request)
+
+
+@router.get(
+    "/{base}/{system_number}/marc",
+    dependencies=[WithPermission(Permission.ReadRecords)],
+    response_model=MarcRecord,
+)
+async def get_marc_record(
+    base: str,
+    system_number: str,
+    db_session: DatabaseSessionDep,
+):
+    return service.get_marc_record(base, system_number, db_session)
 
 
 @router.post(
@@ -76,3 +91,35 @@ async def sync_records(
     _: IndexerSessionDep,
 ):
     return await service.sync_records(data, current_user.user_id, db_session)
+
+
+@router.post(
+    "/reindex",
+    dependencies=[WithPermission(Permission.RunRecordTasks)],
+    response_model=TaskSchema,
+)
+async def reindex_records(
+    query: Annotated[IndexerQuery, Body()],
+    current_user: CurrentUser,
+    db_session: DatabaseSessionDep,
+    _: IndexerSessionDep,
+):
+    return await service.reindex_records(
+        query, current_user.user_id, db_session
+    )
+
+
+@router.post(
+    "/hidden-state",
+    dependencies=[WithPermission(Permission.RunRecordTasks)],
+    response_model=TaskSchema,
+)
+async def set_records_hidden_state(
+    data: Annotated[SetRecordsHiddenStateData, Body()],
+    current_user: CurrentUser,
+    db_session: DatabaseSessionDep,
+    _: IndexerSessionDep,
+):
+    return await service.set_records_hidden_state(
+        data, current_user.user_id, db_session
+    )

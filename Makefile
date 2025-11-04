@@ -19,5 +19,11 @@ restart-clean:
 	docker compose -f $(COMPOSE_FILE) down -v
 	docker compose -f $(COMPOSE_FILE) up -d
 
+rebuild-clean:
+	docker compose -f $(COMPOSE_FILE) down -v
+	docker build -t marc-comparator-app:$(TAG) -f app/app.Containerfile .
+	docker build -t marc-comparator-worker:$(TAG) -f app/worker.Containerfile .
+	docker compose -f $(COMPOSE_FILE) up -d
+
 psql:
 	docker container exec -it marc-comparator-postgres-1 psql -d marc -U marcAdmin

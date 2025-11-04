@@ -296,15 +296,6 @@
 
 ---
 
-### `PATCH /access-control/users/{user_id}/assign-role{role_id}`
-
-**Description:** Assign roles to a user.
-**Permissions Required:** `Admin`
-**Response:** `200 OK`
-response returns user
-
----
-
 ## **Catalog Records**
 
 ---
@@ -323,6 +314,15 @@ response returns user
 ```
 
 **Response:** Raw Elasticsearch response.
+
+---
+
+### `GET /catalog-records/{base}/{system_number}/marc`
+
+**Description:** Return marc of the record in JSON format.
+**Permissions Required:** `ReadRecords`
+
+**Response:** Raw marc record in JSON format.
 
 ---
 
@@ -389,16 +389,12 @@ response returns user
 
 ---
 
-### `POST /catalog-records/hide`
+### `POST /catalog-records/reindex`
 
-**Description:** Hide catalog records matching a query.
+**Description:** Reindex catalog records matching a query.
 **Permissions Required:** `RunRecordTasks`
 
-**Request Parameters:**
-
-* `reason`: Explanation for hiding records (optional)
-
-**Request Body:** 
+**Request Body:**
 
 ```json
 {
@@ -410,16 +406,19 @@ response returns user
 
 ---
 
-### `POST /catalog-records/reindex`
+### `POST /catalog-records/hidden-state`
 
-**Description:** Reindex catalog records matching a query.
+**Description:** Change hidden state of catalog records matching a query.
 **Permissions Required:** `RunRecordTasks`
 
-**Request Body:**
+**Request Body:** 
 
 ```json
 {
-  /* Elasticsearch DSL query */
+  "hide": true,
+  "query":{
+    /* Elasticsearch DSL query */
+  }
 }
 ```
 
