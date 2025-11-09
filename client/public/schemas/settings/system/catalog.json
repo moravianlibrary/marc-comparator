@@ -1,0 +1,225 @@
+{
+    "$defs": {
+        "AlephConfig": {
+            "title": "AlephConfig",
+            "description": "Configuration for accessing Aleph's OAI-PMH service.",
+            "type": "object",
+            "properties": {
+                "base": {
+                    "title": "Base",
+                    "type": "string"
+                },
+                "host": {
+                    "title": "Host",
+                    "type": "string"
+                },
+                "endpoint": {
+                    "title": "Endpoint",
+                    "type": "string"
+                },
+                "oai_sets": {
+                    "title": "Oai Sets",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "default": [],
+                    "minItems": 1
+                },
+                "oai_identifier_template": {
+                    "title": "Oai Identifier Template",
+                    "type": "string"
+                },
+                "system_number_pattern": {
+                    "title": "System Number Pattern",
+                    "type": "string"
+                },
+                "timeout": {
+                    "title": "Timeout",
+                    "type": "integer",
+                    "default": 30
+                },
+                "retry_backoff_factor": {
+                    "title": "Retry Backoff Factor",
+                    "type": "integer",
+                    "default": 1
+                },
+                "total_retry": {
+                    "title": "Total Retry",
+                    "type": "integer",
+                    "default": 5
+                }
+            },
+            "required": [
+                "base",
+                "host",
+                "endpoint",
+                "oai_identifier_template",
+                "system_number_pattern"
+            ]
+        },
+        "MarcFieldSelector": {
+            "title": "MarcFieldSelector",
+            "type": "object",
+            "description": "Selector representing a MARC field and optional subfield.",
+            "properties": {
+                "tag": {
+                    "title": "Tag",
+                    "type": "string",
+                    "pattern": "^\\d{3}$"
+                },
+                "code": {
+                    "anyOf": [
+                        {
+                            "type": "string",
+                            "pattern": "^[a-zA-Z0-9]$"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "title": "Code"
+                }
+            },
+            "required": ["tag"]
+        },
+        "MarcIssueMapping": {
+            "title": "MarcIssueMapping",
+            "type": "object",
+            "description": "Defines the mapping of MARC issue-related fields and subfields.",
+            "properties": {
+                "tag": {
+                    "pattern": "^\\d{3}$",
+                    "title": "Tag",
+                    "type": "string"
+                },
+                "barcode": {
+                    "pattern": "^[a-zA-Z0-9]$",
+                    "title": "Barcode",
+                    "type": "string"
+                },
+                "issuance_type": {
+                    "pattern": "^[a-zA-Z0-9]$",
+                    "title": "Issuance Type",
+                    "type": "string"
+                },
+                "volume_number": {
+                    "anyOf": [
+                        {
+                            "pattern": "^[a-zA-Z0-9]$",
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "title": "Volume Number"
+                },
+                "volume_year": {
+                    "anyOf": [
+                        {
+                            "pattern": "^[a-zA-Z0-9]$",
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "title": "Volume Year"
+                },
+                "bundle": {
+                    "anyOf": [
+                        {
+                            "pattern": "^[a-zA-Z0-9]$",
+                            "type": "string"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ],
+                    "default": null,
+                    "title": "Bundle"
+                }
+            },
+            "required": ["tag", "barcode", "issuance_type"]
+        },
+        "MarcContext": {
+            "title": "MarcContext",
+            "type": "object",
+            "description": "Context configuration for interpreting MARC records.",
+            "properties": {
+                "mrc_encoding": {
+                    "title": "Mrc Encoding",
+                    "type": "string",
+                    "default": "utf-8"
+                },
+                "skip_tags": {
+                    "title": "Skip Tags",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    },
+                    "default": ["LDR"]
+                },
+                "tag_aliases": {
+                    "title": "Tag Aliases",
+                    "type": "object",
+                    "propertyNames": { "type": "string" },
+                    "additionalProperties": {
+                        "$ref": "#/$defs/MarcFieldSelector"
+                    },
+                    "default": {
+                        "FMT": {
+                            "tag": "990",
+                            "code": "a"
+                        },
+                        "MZK": { "tag": "991" }
+                    }
+                },
+                "ignore_unknown_tags": {
+                    "title": "Ignore Unknown Tags",
+                    "type": "boolean",
+                    "default": true
+                },
+                "mandatory_fields": {
+                    "title": "Mandatory Fields",
+                    "type": "array",
+                    "items": {
+                        "pattern": "^\\d{3}$",
+                        "type": "string"
+                    },
+                    "default": ["001", "005", "008"]
+                },
+                "issue_mapping": {
+                    "$ref": "#/$defs/MarcIssueMapping",
+                    "default": {
+                        "tag": "996",
+                        "barcode": "b",
+                        "issuance_type": "s",
+                        "volume_number": "v",
+                        "volume_year": "y",
+                        "bundle": "i"
+                    }
+                }
+            }
+        }
+    },
+    "title": "CatalogSettings",
+    "type": "object",
+    "properties": {
+        "clients": {
+            "title": "Clients",
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/AlephConfig"
+            }
+        },
+        "context": {
+            "$ref": "#/$defs/MarcContext"
+        }
+    },
+    "required": ["clients"]
+}

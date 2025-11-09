@@ -19,7 +19,7 @@ export type SelectionType = Set<string> | "page" | "all";
 
 export interface SortConfig {
     key: string;
-    label: UiText;
+    label: string;
     value: any;
     default?: boolean;
 }

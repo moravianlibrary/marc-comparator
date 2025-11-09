@@ -22,6 +22,9 @@ import { useTranslation } from "react-i18next";
 import RecordsTableSection from "./RecordsTableSection";
 import RecordsDashboardSection from "./RecordsDashboardSection";
 import RecordDetailsSection from "./RecordDetailsSection";
+import SystemSettingsSection from "./SystemSettingsSection";
+import SystemMaintenance from "./SystemMaintenance";
+import RecordsAddition from "./RecordsAddition";
 
 interface NavigationItem {
     key: string;
@@ -41,17 +44,33 @@ const NAVIGATION_CONFIG: (NavigationSection | NavigationItem)[] = [
             { key: "table", to: "/records/table" },
             { key: "dashboard", to: "/records/dashboard" },
             { key: "details", to: "/records/details" },
+            { key: "addition", to: "/records/addition" },
         ],
     },
     {
         section: "tasks",
-        items: [{ key: "overview", to: "/tasks" }],
+        items: [
+            { key: "overview", to: "/tasks" },
+            { key: "settings", to: "/tasks/settings" },
+        ],
+    },
+    {
+        section: "record-tools",
+        items: [
+            { key: "authority-linkers", to: "/record-tools/authority-linkers" },
+            { key: "comparators", to: "/record-tools/comparators" },
+            { key: "validators", to: "/record-tools/validators" },
+        ],
     },
     {
         section: "administration",
         items: [
-            { key: "access", to: "/administration/access" },
+            { key: "access-control", to: "/administration/access-control" },
             { key: "system-settings", to: "/administration/system-settings" },
+            {
+                key: "system-maintenance",
+                to: "/administration/system-maintenance",
+            },
         ],
     },
 ];
@@ -194,6 +213,15 @@ const MainPage = (): ReactElement => {
                 <Route
                     path="/records/details"
                     element={<RecordDetailsSection />}
+                />
+                <Route path="/records/addition" element={<RecordsAddition />} />
+                <Route
+                    path="/administration/system-settings"
+                    element={<SystemSettingsSection />}
+                />
+                <Route
+                    path="/administration/system-maintenance"
+                    element={<SystemMaintenance />}
                 />
             </Routes>
         </Page>

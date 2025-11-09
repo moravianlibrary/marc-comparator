@@ -131,8 +131,12 @@ const HitsTableLayout = ({
 
     const sorting = (
         <SingleSelect
+            placeholder={sortBy.label}
             icon={<SortingIcon />}
-            options={config.sortBy.map((sortOption) => sortOption.label)}
+            options={config.sortBy.map((opt) => ({
+                label: opt.label,
+                value: opt.key,
+            }))}
             selected={sortBy.label}
             onSelect={(label) =>
                 dispatch({

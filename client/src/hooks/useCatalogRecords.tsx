@@ -6,7 +6,12 @@ import {
 } from "@tanstack/react-query";
 import type { EsRequest } from "../models/api/requests/es";
 import type { EsQuery } from "../models/api/requests/es_query";
-import type { HideCatalogRecordsParams } from "../models/api/requests/catalog_record";
+import type {
+    AddBatchOfRecordsData,
+    AddOneRecordData,
+    HideCatalogRecordsParams,
+    SyncRecordsData,
+} from "../models/api/requests/catalog_record";
 import type { SearchCatalogRecordsResponse } from "../models/api/responses/catalog_record";
 import apiClient from "../services/apiClient";
 import type { Task } from "../models/api/responses/task";
@@ -62,6 +67,24 @@ export const useSearchCatalogRecordsBatch = (
 // -------------------------
 // Mutations
 // -------------------------
+export const useAddOneRecord = () =>
+    useMutation<Task, Error, AddOneRecordData>({
+        mutationFn: async (data: AddOneRecordData) =>
+            (await apiClient.post("/records/fetch", data)).data,
+    });
+
+export const useAddBatchOfRecords = () =>
+    useMutation<Task, Error, AddBatchOfRecordsData>({
+        mutationFn: async (data: AddBatchOfRecordsData) =>
+            (await apiClient.post("/records/fetch-batch", data)).data,
+    });
+
+export const useSyncRecords = () =>
+    useMutation<Task, Error, SyncRecordsData>({
+        mutationFn: async (data: SyncRecordsData) =>
+            (await apiClient.post("/records/sync", data)).data,
+    });
+
 export const useHideCatalogRecords = (
     query: EsQuery,
     params: HideCatalogRecordsParams
@@ -91,106 +114,105 @@ const STATE_COLOR_MAP: Record<
     Invalid: "red",
     Hidden: "blue",
 };
+const COLUMNS_CONFIG = [
+    {
+        key: "id",
+        label: "ID",
+        visibleByDefault: true,
+        render: (hit) => (
+            <MonospaceValue value={`${hit.base}-${hit.system_number}`} />
+        ),
+    },
+    {
+        key: "base",
+        label: "Base",
+        render: (hit) => <MonospaceValue value={hit.base} />,
+    },
+    {
+        key: "system_number",
+        label: "System Number",
+        render: (hit) => <MonospaceValue value={hit.system_number} />,
+    },
+    {
+        key: "title",
+        label: "Title",
+        render: (hit) => (
+            <MarcTitle title={hit.title} subtitle={hit.subtitle} />
+        ),
+    },
+    {
+        key: "state",
+        label: "State",
+        alwaysShow: true,
+        render: (hit) => (
+            <LabelGroup>
+                {hit.state
+                    .sort((a, b) => STATE_RANKING[a] - STATE_RANKING[b])
+                    .map((state: CatalogRecordState, index: number) => (
+                        <Label key={index} color={STATE_COLOR_MAP[state]}>
+                            {state}
+                        </Label>
+                    ))}
+            </LabelGroup>
+        ),
+    },
+    {
+        key: "authority_links",
+        label: "Authority Links",
+        visibleByDefault: true,
+        render: (hit) => (
+            <LabelGroup>
+                {hit.authority_links.map(
+                    (link: { base: string }, index: number) => (
+                        <Label key={index}>{link.base}</Label>
+                    )
+                )}
+            </LabelGroup>
+        ),
+    },
+    {
+        key: "comparisons",
+        label: "Comparisons",
+        visibleByDefault: true,
+        render: (hit) => (
+            <LabelGroup>
+                {hit.comparisons.map(
+                    (
+                        c: {
+                            base: string;
+                            comparator: string;
+                            overall_score: number;
+                        },
+                        index: number
+                    ) => (
+                        <Label key={index}>
+                            {c.base} {c.comparator}: {c.overall_score}
+                        </Label>
+                    )
+                )}
+            </LabelGroup>
+        ),
+    },
+    {
+        key: "last_sync",
+        label: "Last Sync",
+        visibleByDefault: true,
+        render: (hit) => <LocalizedDateTime dateString={hit.last_sync} />,
+    },
+    {
+        key: "details",
+        label: "Details",
+        render: (hit) => (
+            <Link to={`/records/details?id=${hit.base}-${hit.system_number}`}>
+                <Button variant="plain" icon={<DetailsIcon />} />
+            </Link>
+        ),
+        alwaysShow: true,
+    },
+];
 
 const config: CollectionConfig = {
-    columns: [
-        {
-            key: "id",
-            label: "ID",
-            visibleByDefault: true,
-            render: (hit) => (
-                <MonospaceValue value={`${hit.base}-${hit.system_number}`} />
-            ),
-        },
-        {
-            key: "base",
-            label: "Base",
-            render: (hit) => <MonospaceValue value={hit.base} />,
-        },
-        {
-            key: "system_number",
-            label: "System Number",
-            render: (hit) => <MonospaceValue value={hit.system_number} />,
-        },
-        {
-            key: "title",
-            label: "Title",
-            render: (hit) => (
-                <MarcTitle title={hit.title} subtitle={hit.subtitle} />
-            ),
-        },
-        {
-            key: "state",
-            label: "State",
-            alwaysShow: true,
-            render: (hit) => (
-                <LabelGroup>
-                    {hit.state
-                        .sort((a, b) => STATE_RANKING[a] - STATE_RANKING[b])
-                        .map((state: CatalogRecordState, index: number) => (
-                            <Label key={index} color={STATE_COLOR_MAP[state]}>
-                                {state}
-                            </Label>
-                        ))}
-                </LabelGroup>
-            ),
-        },
-        {
-            key: "authority_links",
-            label: "Authority Links",
-            visibleByDefault: true,
-            render: (hit) => (
-                <LabelGroup>
-                    {hit.authority_links.map(
-                        (link: { base: string }, index: number) => (
-                            <Label key={index}>{link.base}</Label>
-                        )
-                    )}
-                </LabelGroup>
-            ),
-        },
-        {
-            key: "comparisons",
-            label: "Comparisons",
-            visibleByDefault: true,
-            render: (hit) => (
-                <LabelGroup>
-                    {hit.comparisons.map(
-                        (
-                            c: {
-                                base: string;
-                                comparator: string;
-                                overall_score: number;
-                            },
-                            index: number
-                        ) => (
-                            <Label key={index}>
-                                {c.base} {c.comparator}: {c.overall_score}
-                            </Label>
-                        )
-                    )}
-                </LabelGroup>
-            ),
-        },
-        {
-            key: "last_sync",
-            label: "Last Sync",
-            visibleByDefault: true,
-            render: (hit) => <LocalizedDateTime dateString={hit.last_sync} />,
-        },
-        {
-            key: "details",
-            label: "Details",
-            render: (hit) => (
-                <Link
-                    to={`/records/details?id=${hit.base}-${hit.system_number}`}
-                >
-                    <Button variant="plain" icon={<DetailsIcon />} />
-                </Link>
-            ),
-            alwaysShow: true,
-        },
-    ],
+    columns: COLUMNS_CONFIG,
     perPage: { options: [10, 20, 50, 100], default: 10 },
     search: { fields: [] },
     filter: [],

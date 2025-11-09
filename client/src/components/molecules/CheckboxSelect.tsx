@@ -5,6 +5,7 @@ import {
     SelectOption,
     MenuToggle,
     type MenuToggleElement,
+    Badge,
 } from "@patternfly/react-core";
 
 interface Option<T extends string | number = string> {
@@ -12,21 +13,19 @@ interface Option<T extends string | number = string> {
     label: string;
 }
 
-interface SingleSelectProps<T extends string | number = string> {
+interface CheckboxSelectProps<T extends string | number = string> {
     placeholder: string;
     options: Option<T>[];
-    selected?: Option<T> | null;
-    onChange: (selected: Option<T> | null) => void;
-    icon?: ReactElement;
+    selected: Option<T>[];
+    onChange: (selected: Option<T>[]) => void;
 }
 
-const SingleSelect = <T extends string | number = string>({
+const CheckboxSelect = <T extends string | number = string>({
     placeholder,
     options,
     selected,
     onChange,
-    icon,
-}: SingleSelectProps<T>): ReactElement => {
+}: CheckboxSelectProps<T>): ReactElement => {
     const [isOpen, setIsOpen] = useState(false);
 
     const onSelect = (
@@ -34,39 +33,52 @@ const SingleSelect = <T extends string | number = string>({
         value: string | number | undefined
     ) => {
         if (value === undefined) return;
-        const newSelection =
-            selected?.value === value
-                ? null
-                : options.find((o) => o.value === value) ?? null;
-        onChange(newSelection);
-        setIsOpen(false);
+
+        const isAlreadySelected = selected.some((s) => s.value === value);
+
+        if (isAlreadySelected) {
+            onChange(selected.filter((s) => s.value !== value));
+        } else {
+            const option = options.find((o) => o.value === value);
+            if (option) {
+                onChange([...selected, option]);
+            }
+        }
     };
 
     const toggle = (toggleRef: React.Ref<MenuToggleElement>) => (
         <MenuToggle
             ref={toggleRef}
             onClick={() => setIsOpen((prev) => !prev)}
-            icon={icon}
             isExpanded={isOpen}
         >
-            {selected ? selected.label : placeholder}
+            {placeholder}
+            {selected.length > 0 && (
+                <Badge isRead style={{ marginLeft: 8 }}>
+                    {selected.length}
+                </Badge>
+            )}
         </MenuToggle>
     );
 
     return (
         <Select
-            id="option-select"
+            id="checkbox-select"
+            role="menu"
             isOpen={isOpen}
-            onOpenChange={setIsOpen}
             onSelect={onSelect}
+            onOpenChange={setIsOpen}
             toggle={toggle}
         >
             <SelectList>
                 {options.map((option) => (
                     <SelectOption
                         key={option.value}
+                        hasCheckbox
                         value={option.value}
-                        isSelected={selected?.value === option.value}
+                        isSelected={selected.some(
+                            (s) => s.value === option.value
+                        )}
                     >
                         {option.label}
                     </SelectOption>
@@ -76,4 +88,4 @@ const SingleSelect = <T extends string | number = string>({
     );
 };
 
-export default SingleSelect;
+export default CheckboxSelect;

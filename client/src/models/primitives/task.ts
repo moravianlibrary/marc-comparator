@@ -2,11 +2,15 @@ import { z } from "zod";
 
 export const TaskTypeSchema = z.enum([
     "FetchRecord",
-    "FetchRecordsBatch",
+    "FetchBatchOfRecords",
     "SyncRecords",
     "ValidateRecords",
-    "PairToAuthorities",
-    "CompareToAuthorities",
+    "LinkRecordsToAuthorities",
+    "CompareRecords",
+    "ReindexRecords",
+    "SetRecordsHiddenState",
+    "DeleteTasks",
+    "RecreateIndexes",
 ]);
 export type TaskType = z.infer<typeof TaskTypeSchema>;
 
@@ -18,3 +22,11 @@ export const TaskStatusSchema = z.enum([
     "Revoked",
 ]);
 export type TaskStatus = z.infer<typeof TaskStatusSchema>;
+
+export const TaskSeveritySchema = z.enum([
+    "Info",
+    "Warning",
+    "Error",
+    "Critical",
+]);
+export type TaskSeverity = z.infer<typeof TaskSeveritySchema>;

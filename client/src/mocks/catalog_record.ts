@@ -9,6 +9,7 @@ import { fakeComparisonResults } from "./fake/comparison";
 import type { MarcRecord } from "../models/api/responses/marc_record";
 import { fakeVariableFields } from "./fake/marc_record";
 import { fakeAuthorityLinks } from "./fake/authority_link";
+import { type Task } from "../models/api/responses/task";
 
 export const catalogRecordFactory = Factory.extend<CatalogRecord>({
     base: () => fakeCatalogBase(),
@@ -83,4 +84,52 @@ export function catalogRecordRoutes(this: any) {
             return schema.create("marc-record").attrs;
         }
     );
+
+    this.post("/records/fetch", (schema: any, request: any) => {
+        const attrs = JSON.parse(request.requestBody);
+        const { base, systemNumber } = attrs;
+
+        const task: Task = {
+            task_id: faker.string.uuid(),
+            name: `Fetch record ${base}-${systemNumber}`,
+            type: "FetchRecord",
+            status: "Pending",
+            outcome_severity: "Info",
+            created_by: faker.string.uuid(),
+            created_at: new Date(),
+            started_at: null,
+            finished_at: null,
+        };
+        return new Response(200, {}, task);
+    });
+
+    this.post("/records/fetch-batch", (schema: any, request: any) => {
+        const task: Task = {
+            task_id: faker.string.uuid(),
+            name: `Fetch batch of records`,
+            type: "FetchBatchOfRecords",
+            status: "Pending",
+            outcome_severity: "Info",
+            created_by: faker.string.uuid(),
+            created_at: new Date(),
+            started_at: null,
+            finished_at: null,
+        };
+        return new Response(200, {}, task);
+    });
+
+    this.post("/records/sync", (schema: any, request: any) => {
+        const task: Task = {
+            task_id: faker.string.uuid(),
+            name: `Sync catalog records from catalog`,
+            type: "SyncRecords",
+            status: "Pending",
+            outcome_severity: "Info",
+            created_by: faker.string.uuid(),
+            created_at: new Date(),
+            started_at: null,
+            finished_at: null,
+        };
+        return new Response(200, {}, task);
+    });
 }
