@@ -14,17 +14,16 @@ import {
     PageToggleButton,
     MastheadContent,
     PageSidebarBody,
-    NavExpandable,
-    PageSection,
     NavGroup,
 } from "@patternfly/react-core";
 import { useTranslation } from "react-i18next";
 import RecordsTable from "./RecordsTable";
-import RecordsDashboardSection from "./RecordsDashboardSection";
 import RecordDetailsSection from "./RecordDetailsSection";
 import SystemSettingsSection from "./SystemSettingsSection";
 import SystemMaintenance from "./SystemMaintenance";
 import RecordsAddition from "./RecordsAddition";
+import RoleManagement from "./RoleManagement";
+import UserManagement from "./UserManagement";
 
 interface NavigationItem {
     key: string;
@@ -42,7 +41,7 @@ const NAVIGATION_CONFIG: (NavigationSection | NavigationItem)[] = [
         section: "records",
         items: [
             { key: "table", to: "/records/table" },
-            { key: "dashboard", to: "/records/dashboard" },
+            // { key: "dashboard", to: "/records/dashboard" },
             { key: "details", to: "/records/details" },
             { key: "addition", to: "/records/addition" },
         ],
@@ -51,7 +50,7 @@ const NAVIGATION_CONFIG: (NavigationSection | NavigationItem)[] = [
         section: "tasks",
         items: [
             { key: "overview", to: "/tasks" },
-            { key: "settings", to: "/tasks/settings" },
+            { key: "traceback", to: "/tasks/traceback" },
         ],
     },
     {
@@ -65,7 +64,8 @@ const NAVIGATION_CONFIG: (NavigationSection | NavigationItem)[] = [
     {
         section: "administration",
         items: [
-            { key: "access-control", to: "/administration/access-control" },
+            { key: "role-management", to: "/administration/role-management" },
+            { key: "user-management", to: "/administration/user-management" },
             { key: "system-settings", to: "/administration/system-settings" },
             {
                 key: "system-maintenance",
@@ -204,14 +204,18 @@ const MainPage = (): ReactElement => {
             <Routes>
                 <Route path="/records/table" element={<RecordsTable />} />
                 <Route
-                    path="/records/dashboard"
-                    element={<RecordsDashboardSection />}
-                />
-                <Route
                     path="/records/details"
                     element={<RecordDetailsSection />}
                 />
                 <Route path="/records/addition" element={<RecordsAddition />} />
+                <Route
+                    path="/administration/role-management"
+                    element={<RoleManagement />}
+                />
+                <Route
+                    path="/administration/user-management"
+                    element={<UserManagement />}
+                />
                 <Route
                     path="/administration/system-settings"
                     element={<SystemSettingsSection />}

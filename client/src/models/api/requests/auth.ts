@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { PermissionsSchema } from "../../primitives/auth";
 
 export const RegisterUserSchema = z.object({
     email: z.email(),
@@ -16,9 +15,3 @@ export const LoginUserSchema = z.object({
     password: z.string(),
 });
 export type LoginUser = z.infer<typeof LoginUserSchema>;
-
-export const EditRoleSchema = z.object({
-    name: z.string(),
-    permissions: PermissionsSchema,
-});
-export type EditRole = z.infer<typeof EditRoleSchema>;
