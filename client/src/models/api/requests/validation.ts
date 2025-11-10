@@ -1,8 +1,10 @@
 import { z } from "zod";
+import { EsQuerySchema } from "./es_query";
 
-export const PairToAuthoritiesParamsSchema = z.object({
-    authority_bases: z.array(z.string()),
+export const ValidateRecordsDataSchema = z.object({
+    validators: z
+        .array(z.string())
+        .min(1, "At least one validator must be selected"),
+    query: EsQuerySchema,
 });
-export type PairToAuthoritiesParams = z.infer<
-    typeof PairToAuthoritiesParamsSchema
->;
+export type ValidateRecordsData = z.infer<typeof ValidateRecordsDataSchema>;

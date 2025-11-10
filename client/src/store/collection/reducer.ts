@@ -49,6 +49,12 @@ export function collectionReducer(
         case "toggleTerm": {
             return state;
         }
+        case "setSortBy": {
+            return {
+                ...state,
+                sortBy: action.sortBy,
+            };
+        }
         case "toggleSelection": {
             const { id, pageIds } = action;
 

@@ -10,6 +10,7 @@ import type {
     AddBatchOfRecordsData,
     AddOneRecordData,
     HideCatalogRecordsParams,
+    SetHiddenStateData,
     SyncRecordsData,
 } from "../models/api/requests/catalog_record";
 import type { SearchCatalogRecordsResponse } from "../models/api/responses/catalog_record";
@@ -28,6 +29,7 @@ import {
     useContext,
     useMemo,
     useReducer,
+    useState,
     type ReactNode,
 } from "react";
 import { collectionReducer } from "../store/collection/reducer";
@@ -39,13 +41,19 @@ import { DetailsIcon } from "../components/atoms/Icons";
 import { Link, useNavigate } from "react-router";
 import type { CatalogRecordState } from "../models/primitives/catalog_record";
 import MarcTitle from "../components/atoms/MarcTitle";
+import { useGetSystemInfo } from "./useSystem";
+import {
+    selectSelectedCount,
+    selectSelectionQuery,
+} from "../store/collection/selectors";
+import { useLinkToAuthorities } from "./useAuthorityLinking";
 
 // -------------------------
 // Queries
 // -------------------------
 export const useSearchCatalogRecords = (request: EsRequest, enabled = true) =>
     useQuery<SearchCatalogRecordsResponse>({
-        queryKey: ["documents", "search", request],
+        queryKey: ["catalog-records", "search", request],
         queryFn: async () =>
             (await apiClient.post("/records/search", request)).data,
         enabled,
@@ -57,11 +65,42 @@ export const useSearchCatalogRecordsBatch = (
 ): UseQueryResult<SearchCatalogRecordsResponse, unknown>[] =>
     useQueries({
         queries: requests.map((request, idx) => ({
-            queryKey: ["documents", "search", idx, request],
+            queryKey: ["catalog-records", "search", idx, request],
             queryFn: async () =>
                 (await apiClient.post("/records/search", request)).data,
             enabled,
         })),
+    });
+
+export const useGetAvailableTargetBases = () =>
+    useQuery<string[]>({
+        queryKey: ["catalog-records", "search", "available-target-bases"],
+        queryFn: async () =>
+            (
+                (
+                    await apiClient.post("/records/search", {
+                        query: {
+                            size: 0,
+                            aggs: {
+                                distinct_authority_bases: {
+                                    nested: {
+                                        path: "authority_links",
+                                    },
+                                    aggs: {
+                                        bases: {
+                                            terms: {
+                                                field: "authority_links.base.keyword",
+                                                size: 100,
+                                            },
+                                        },
+                                    },
+                                },
+                            },
+                        },
+                    })
+                ).data.aggregations?.distinct_authority_bases?.bases?.buckets ??
+                []
+            ).map((bucket: { key: string }) => bucket.key),
     });
 
 // -------------------------
@@ -85,15 +124,19 @@ export const useSyncRecords = () =>
             (await apiClient.post("/records/sync", data)).data,
     });
 
-export const useHideCatalogRecords = (
-    query: EsQuery,
-    params: HideCatalogRecordsParams
-) =>
-    useMutation<Task, Error, { query: EsQuery }>({
-        mutationFn: async () =>
-            (await apiClient.post("/records/hide", query, { params })).data,
+export const useReindexRecords = () =>
+    useMutation<Task, Error, EsQuery>({
+        mutationFn: async (data: EsQuery) =>
+            (await apiClient.post("/records/reindex", data)).data,
     });
 
+export const useSetHiddenStateOfRecords = () =>
+    useMutation<Task, Error, SetHiddenStateData>({
+        mutationFn: async (data) =>
+            (await apiClient.post("/records/hide", data)).data,
+    });
+
+// TODO: Remove!
 // -------------------------
 // Config
 // -------------------------
@@ -194,10 +237,10 @@ const COLUMNS_CONFIG = [
         ),
     },
     {
-        key: "last_sync",
+        key: "latest_sync",
         label: "Last Sync",
         visibleByDefault: true,
-        render: (hit) => <LocalizedDateTime dateString={hit.last_sync} />,
+        render: (hit) => <LocalizedDateTime dateString={hit.latest_sync} />,
     },
     {
         key: "details",
@@ -280,6 +323,22 @@ interface CatalogRecordsProviderProps {
 export function CatalogRecordsProvider({
     children,
 }: CatalogRecordsProviderProps) {
+    const { data: systemInfo, isLoading: isSystemInfoLoading } =
+        useGetSystemInfo();
+
+    const authorityLinkers = systemInfo?.enabled_authority_linkers ?? [];
+    const authorityLinkingMutation = useLinkToAuthorities();
+    const [isLinkRecordsModalOpen, setLinkRecordsModalOpen] =
+        useState<boolean>(false);
+    const handleAuthorityLinking = (targetBase: string, linkers: string[]) => {
+        authorityLinkingMutation.mutate({
+            target_base: targetBase,
+            linkers: linkers,
+            query: selectSelectionQuery(state),
+        });
+        setLinkRecordsModalOpen(false);
+    };
+
     const [state, dispatch] = useReducer(
         collectionReducer,
         initCollectionState(config)

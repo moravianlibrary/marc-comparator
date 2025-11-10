@@ -1,8 +1,8 @@
 import type { EsHit } from "../../models/api/responses/es";
 import type { EsAggregation } from "../../models/api/responses/es_aggregations";
-import type { ActionConfig } from "../../models/ui/actions";
 import type { FilterConfig, FilterStates } from "../../models/ui/filters";
 import type {
+    SortBy,
     SortConfig,
     TableColumnConfig,
     TableColumnState,
@@ -16,8 +16,6 @@ export interface CollectionConfig {
     perPage: PerPageConfig;
     search: SearchConfig;
     filter: FilterConfig[];
-    sortBy: SortConfig[];
-    actions: ActionConfig[];
 }
 
 export interface CollectionState {
@@ -30,7 +28,7 @@ export interface CollectionState {
     searchTerm?: string;
     searchFuzziness?: string;
     filterStates?: FilterStates;
-    sortBy: SortConfig;
+    sortBy?: SortBy;
     selectedIds: Set<string>;
     isAllSelected: boolean;
 }
@@ -45,7 +43,7 @@ export type CollectionAction =
     | { type: "setDateRange"; field: string; from?: string; to?: string }
     | { type: "setFieldQuery"; field: string; query: string }
     | { type: "clearFilters"; field?: string }
-    | { type: "setSortBy"; sortBy: SortConfig }
+    | { type: "setSortBy"; sortBy: SortBy }
     | { type: "toggleSelection"; id: string; pageIds: string[] }
     | { type: "selectPage"; pageIds: string[] }
     | { type: "selectAll" }
@@ -75,15 +73,6 @@ export function initCollectionState(
         searchTerm: queryParams?.searchTerm,
         searchFuzziness: queryParams?.searchFuzziness,
         filterStates: queryParams?.filterStates,
-        sortBy:
-            (queryParams &&
-                config.sortBy.find((opt) => opt.key === queryParams.sortBy)) ||
-            (uiPreferences &&
-                config.sortBy.find(
-                    (opt) => opt.key === uiPreferences.sortBy
-                )) ||
-            config.sortBy.find((opt) => opt.default) ||
-            config.sortBy[0],
         selectedIds: new Set<string>(),
         isAllSelected: false,
     };

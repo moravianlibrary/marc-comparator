@@ -4,6 +4,7 @@ export const AuthorityLinkerInfoSchema = z.object({
     name: z.string(),
     target_bases: z.array(z.string()),
 });
+export type AuthorityLinkerInfo = z.infer<typeof AuthorityLinkerInfoSchema>;
 
 export const SystemInfoSchema = z.object({
     system_version: z.string(),

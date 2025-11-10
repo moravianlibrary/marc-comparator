@@ -12,76 +12,33 @@ import {
     DescriptionListTerm,
     FileUpload,
     Gallery,
-    Grid,
-    GridItem,
     PageGroup,
     PageSection,
-    Spinner,
     TextInput,
 } from "@patternfly/react-core";
 import { TimesIcon } from "@patternfly/react-icons";
 import { ReactElement, useState } from "react";
-import SingleSelect from "../components/molecules/SingleSelect";
-import { useGetSystemInfo } from "../hooks/useSystem";
 import {
     useAddBatchOfRecords,
     useAddOneRecord,
     useSyncRecords,
 } from "../hooks/useCatalogRecords";
-
-// ------------------------------------
-// Shared Base Selector Component
-// ------------------------------------
-interface BaseSelectorProps {
-    availableBases: string[];
-    selectedBase: { label: string; value: string } | null;
-    onChange: (base: { label: string; value: string } | null) => void;
-}
-
-const BaseSelector = ({
-    availableBases,
-    selectedBase,
-    onChange,
-}: BaseSelectorProps): ReactElement => (
-    <DescriptionListGroup>
-        <DescriptionListTerm>Select base</DescriptionListTerm>
-        <DescriptionListDescription>
-            <SingleSelect
-                placeholder="Select base"
-                options={availableBases.map((base) => ({
-                    label: base,
-                    value: base,
-                }))}
-                selected={selectedBase}
-                onChange={onChange}
-            />
-        </DescriptionListDescription>
-    </DescriptionListGroup>
-);
+import CatalogBaseSelector from "../components/organisms/CatalogBaseSelector";
 
 // ------------------------------------
 // Add One Record Card
 // ------------------------------------
 const AddOneRecordCard = (): ReactElement => {
-    const { data: systemInfo, isLoading } = useGetSystemInfo();
-    const availableBases = systemInfo?.available_bases ?? [];
-
     const addOneRecord = useAddOneRecord();
 
-    const [selectedBase, setSelectedBase] = useState<{
-        label: string;
-        value: string;
-    } | null>(null);
+    const [base, setBase] = useState<string | null>(null);
     const [systemNumber, setSystemNumber] = useState("");
 
     const isValidSystemNumber = /^\d{9}$/.test(systemNumber);
 
     const handleAddRecord = () => {
-        if (selectedBase && isValidSystemNumber) {
-            addOneRecord.mutate({
-                base: selectedBase.value,
-                systemNumber,
-            });
+        if (base && isValidSystemNumber) {
+            addOneRecord.mutate({ base, systemNumber });
         }
     };
 
@@ -98,46 +55,36 @@ const AddOneRecordCard = (): ReactElement => {
             </CardBody>
 
             <CardBody>
-                {isLoading ? (
-                    <Spinner size="lg" />
-                ) : (
-                    <DescriptionList>
-                        <BaseSelector
-                            availableBases={availableBases}
-                            selectedBase={selectedBase}
-                            onChange={setSelectedBase}
-                        />
-                        <DescriptionListGroup>
-                            <DescriptionListTerm>
-                                Enter system number
-                            </DescriptionListTerm>
-                            <DescriptionListDescription>
-                                <TextInput
-                                    id="system-number-input"
-                                    value={systemNumber}
-                                    type="text"
-                                    placeholder="Enter system number"
-                                    onChange={(_, value) =>
-                                        setSystemNumber(value)
-                                    }
-                                    validated={
-                                        systemNumber
-                                            ? isValidSystemNumber
-                                                ? "success"
-                                                : "error"
-                                            : "default"
-                                    }
-                                />
-                            </DescriptionListDescription>
-                        </DescriptionListGroup>
-                    </DescriptionList>
-                )}
+                <DescriptionList>
+                    <CatalogBaseSelector selected={base} onChange={setBase} />
+                    <DescriptionListGroup>
+                        <DescriptionListTerm>
+                            Enter system number
+                        </DescriptionListTerm>
+                        <DescriptionListDescription>
+                            <TextInput
+                                id="system-number-input"
+                                value={systemNumber}
+                                type="text"
+                                placeholder="Enter system number"
+                                onChange={(_, value) => setSystemNumber(value)}
+                                validated={
+                                    systemNumber
+                                        ? isValidSystemNumber
+                                            ? "success"
+                                            : "error"
+                                        : "default"
+                                }
+                            />
+                        </DescriptionListDescription>
+                    </DescriptionListGroup>
+                </DescriptionList>
             </CardBody>
 
             <CardFooter>
                 <Button
                     variant="primary"
-                    isDisabled={!selectedBase || !isValidSystemNumber}
+                    isDisabled={!base || !isValidSystemNumber}
                     onClick={handleAddRecord}
                 >
                     Add Record
@@ -151,15 +98,9 @@ const AddOneRecordCard = (): ReactElement => {
 // Add Batch of Records Card
 // ------------------------------------
 const AddBatchOfRecordsCard = (): ReactElement => {
-    const { data: systemInfo, isLoading } = useGetSystemInfo();
-    const availableBases = systemInfo?.available_bases ?? [];
-
     const addBatchRecords = useAddBatchOfRecords();
 
-    const [selectedBase, setSelectedBase] = useState<{
-        label: string;
-        value: string;
-    } | null>(null);
+    const [base, setBase] = useState<string | null>(null);
     const [filename, setFilename] = useState("");
     const [value, setValue] = useState("");
     const [isUploading, setIsUploading] = useState(false);
@@ -169,17 +110,14 @@ const AddBatchOfRecordsCard = (): ReactElement => {
         .every((line) => /^\d{9}$/.test(line.trim()) || line.trim() === "");
 
     const handleAddRecords = () => {
-        if (selectedBase && hasValidSystemNumbers) {
+        if (base && hasValidSystemNumbers) {
             const systemNumbers = value
                 .split("\n")
                 .map((line) => line.trim())
                 .filter(Boolean);
 
             addBatchRecords.mutate({
-                per_base: {
-                    base: selectedBase.value,
-                    systemNumbers,
-                },
+                per_base: { base, systemNumbers },
             });
         }
     };
@@ -203,57 +141,47 @@ const AddBatchOfRecordsCard = (): ReactElement => {
             </CardBody>
 
             <CardBody>
-                {isLoading ? (
-                    <Spinner size="lg" />
-                ) : (
-                    <DescriptionList>
-                        <BaseSelector
-                            availableBases={availableBases}
-                            selectedBase={selectedBase}
-                            onChange={setSelectedBase}
-                        />
-                        <DescriptionListGroup>
-                            <DescriptionListTerm>
-                                Upload system numbers file
-                            </DescriptionListTerm>
-                            <DescriptionListDescription>
-                                <FileUpload
-                                    id="batch-upload"
-                                    type="text"
-                                    value={value}
-                                    filename={filename}
-                                    filenamePlaceholder="Drag and drop a file or upload one"
-                                    onFileInputChange={(_, file) =>
-                                        setFilename(file.name)
-                                    }
-                                    onDataChange={(_, val) => setValue(val)}
-                                    onTextChange={(_, val) => setValue(val)}
-                                    onReadStarted={() => setIsUploading(true)}
-                                    onReadFinished={() => setIsUploading(false)}
-                                    onClearClick={clearFile}
-                                    isLoading={isUploading}
-                                    allowEditingUploadedText
-                                    browseButtonText="Upload"
-                                    validated={
-                                        value
-                                            ? hasValidSystemNumbers
-                                                ? "success"
-                                                : "error"
-                                            : "default"
-                                    }
-                                />
-                            </DescriptionListDescription>
-                        </DescriptionListGroup>
-                    </DescriptionList>
-                )}
+                <DescriptionList>
+                    <CatalogBaseSelector selected={base} onChange={setBase} />
+                    <DescriptionListGroup>
+                        <DescriptionListTerm>
+                            Upload system numbers file
+                        </DescriptionListTerm>
+                        <DescriptionListDescription>
+                            <FileUpload
+                                id="batch-upload"
+                                type="text"
+                                value={value}
+                                filename={filename}
+                                filenamePlaceholder="Drag and drop a file or upload one"
+                                onFileInputChange={(_, file) =>
+                                    setFilename(file.name)
+                                }
+                                onDataChange={(_, val) => setValue(val)}
+                                onTextChange={(_, val) => setValue(val)}
+                                onReadStarted={() => setIsUploading(true)}
+                                onReadFinished={() => setIsUploading(false)}
+                                onClearClick={clearFile}
+                                isLoading={isUploading}
+                                allowEditingUploadedText
+                                browseButtonText="Upload"
+                                validated={
+                                    value
+                                        ? hasValidSystemNumbers
+                                            ? "success"
+                                            : "error"
+                                        : "default"
+                                }
+                            />
+                        </DescriptionListDescription>
+                    </DescriptionListGroup>
+                </DescriptionList>
             </CardBody>
 
             <CardFooter>
                 <Button
                     variant="primary"
-                    isDisabled={
-                        !selectedBase || !value || !hasValidSystemNumbers
-                    }
+                    isDisabled={!base || !value || !hasValidSystemNumbers}
                     onClick={handleAddRecords}
                 >
                     Add Records
@@ -267,27 +195,16 @@ const AddBatchOfRecordsCard = (): ReactElement => {
 // Sync Records from Catalog Card
 // ------------------------------------
 const SyncRecordsFromCatalogCard = (): ReactElement => {
-    const { data: systemInfo, isLoading } = useGetSystemInfo();
-    const availableBases = systemInfo?.available_bases ?? [];
-
     const syncRecords = useSyncRecords();
 
-    const [selectedBase, setSelectedBase] = useState<{
-        label: string;
-        value: string;
-    } | null>(null);
+    const [base, setBase] = useState<string | null>(null);
     const [fromDate, setFromDate] = useState<Date | undefined>(undefined);
 
     const validateDate = (selectedDate: Date) =>
         selectedDate > new Date() ? "From date cannot be in the future." : "";
 
     const handleSyncRecords = () => {
-        if (selectedBase) {
-            syncRecords.mutate({
-                base: selectedBase.value,
-                from_date: fromDate,
-            });
-        }
+        if (base) syncRecords.mutate({ base, from_date: fromDate });
     };
 
     return (
@@ -304,55 +221,45 @@ const SyncRecordsFromCatalogCard = (): ReactElement => {
             </CardBody>
 
             <CardBody>
-                {isLoading ? (
-                    <Spinner size="lg" />
-                ) : (
-                    <DescriptionList>
-                        <BaseSelector
-                            availableBases={availableBases}
-                            selectedBase={selectedBase}
-                            onChange={setSelectedBase}
-                        />
-                        <DescriptionListGroup>
-                            <DescriptionListTerm>
-                                From Date (optional)
-                            </DescriptionListTerm>
-                            <DescriptionListDescription>
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        alignItems: "center",
-                                        gap: "8px",
-                                    }}
-                                >
-                                    <DatePicker
-                                        value={fromDate
-                                            ?.toISOString()
-                                            .slice(0, 10)}
-                                        placeholder="Select from date"
-                                        appendTo={() => document.body}
-                                        validators={[validateDate]}
-                                        onChange={(_, __, newDate) =>
-                                            newDate && setFromDate(newDate)
-                                        }
-                                    />
-                                    <Button
-                                        variant="control"
-                                        icon={<TimesIcon />}
-                                        onClick={() => setFromDate(undefined)}
-                                        aria-label="Clear date"
-                                    />
-                                </div>
-                            </DescriptionListDescription>
-                        </DescriptionListGroup>
-                    </DescriptionList>
-                )}
+                <DescriptionList>
+                    <CatalogBaseSelector selected={base} onChange={setBase} />
+                    <DescriptionListGroup>
+                        <DescriptionListTerm>
+                            From Date (optional)
+                        </DescriptionListTerm>
+                        <DescriptionListDescription>
+                            <div
+                                style={{
+                                    display: "flex",
+                                    alignItems: "center",
+                                    gap: "8px",
+                                }}
+                            >
+                                <DatePicker
+                                    value={fromDate?.toISOString().slice(0, 10)}
+                                    placeholder="Select from date"
+                                    appendTo={() => document.body}
+                                    validators={[validateDate]}
+                                    onChange={(_, __, newDate) =>
+                                        newDate && setFromDate(newDate)
+                                    }
+                                />
+                                <Button
+                                    variant="control"
+                                    icon={<TimesIcon />}
+                                    onClick={() => setFromDate(undefined)}
+                                    aria-label="Clear date"
+                                />
+                            </div>
+                        </DescriptionListDescription>
+                    </DescriptionListGroup>
+                </DescriptionList>
             </CardBody>
 
             <CardFooter>
                 <Button
                     variant="primary"
-                    isDisabled={!selectedBase}
+                    isDisabled={!base}
                     onClick={handleSyncRecords}
                 >
                     Sync Records

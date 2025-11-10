@@ -6,13 +6,13 @@ import {
     MenuToggleCheckbox,
 } from "@patternfly/react-core";
 import { useState } from "react";
-import type { DynamicUiText, StaticUiText } from "../../models/ui/text";
+import type { CountUiText, StaticUiText } from "../../models/ui/text";
 
 export interface BulkSelectorTexts {
     selectNone: StaticUiText;
-    selectPage: DynamicUiText;
-    selectAll: DynamicUiText;
-    selectedCount: DynamicUiText;
+    selectPage: CountUiText;
+    selectAll: CountUiText;
+    selectedCount: CountUiText;
 }
 
 interface BulkSelectorProps {

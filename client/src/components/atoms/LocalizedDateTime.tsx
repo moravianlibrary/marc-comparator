@@ -1,9 +1,8 @@
 interface LocalizedDateTimeProps {
-    dateString: string;
+    date: Date;
 }
 
-const LocalizedDateTime = ({ dateString }: LocalizedDateTimeProps) => {
-    const date = new Date(dateString);
+const LocalizedDateTime = ({ date }: LocalizedDateTimeProps) => {
     const locale = "sk-SK";
 
     const formatted = date.toLocaleString(locale, {

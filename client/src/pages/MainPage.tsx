@@ -19,7 +19,7 @@ import {
     NavGroup,
 } from "@patternfly/react-core";
 import { useTranslation } from "react-i18next";
-import RecordsTableSection from "./RecordsTableSection";
+import RecordsTable from "./RecordsTable";
 import RecordsDashboardSection from "./RecordsDashboardSection";
 import RecordDetailsSection from "./RecordDetailsSection";
 import SystemSettingsSection from "./SystemSettingsSection";
@@ -202,10 +202,7 @@ const MainPage = (): ReactElement => {
     return (
         <Page masthead={masthead} sidebar={sidebar} isManagedSidebar>
             <Routes>
-                <Route
-                    path="/records/table"
-                    element={<RecordsTableSection />}
-                />
+                <Route path="/records/table" element={<RecordsTable />} />
                 <Route
                     path="/records/dashboard"
                     element={<RecordsDashboardSection />}

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { EsQuerySchema } from "./es_query";
 
 export const AddOneRecordDataSchema = z.object({
     base: z.string(),
@@ -20,9 +21,8 @@ export const SyncRecordsDataSchema = z.object({
 });
 export type SyncRecordsData = z.infer<typeof SyncRecordsDataSchema>;
 
-export const HideCatalogRecordsParamsSchema = z.object({
-    reason: z.string().optional(),
+export const SetHiddenStateDataSchema = z.object({
+    hide: z.boolean(),
+    query: EsQuerySchema,
 });
-export type HideCatalogRecordsParams = z.infer<
-    typeof HideCatalogRecordsParamsSchema
->;
+export type SetHiddenStateData = z.infer<typeof SetHiddenStateDataSchema>;

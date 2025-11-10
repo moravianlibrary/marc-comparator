@@ -1,8 +1,9 @@
 import { z } from "zod";
+import { EsQuerySchema } from "./es_query";
 
-export const CompareToAuthoritiesParamsSchema = z.object({
-    authority_bases: z.array(z.string()),
+export const CompareRecordsDataSchema = z.object({
+    target_base: z.string(),
+    comparator: z.string(),
+    query: EsQuerySchema,
 });
-export type CompareToAuthoritiesParams = z.infer<
-    typeof CompareToAuthoritiesParamsSchema
->;
+export type CompareRecordsData = z.infer<typeof CompareRecordsDataSchema>;

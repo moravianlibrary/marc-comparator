@@ -29,7 +29,7 @@ export const catalogRecordFactory = Factory.extend<CatalogRecord>({
             ? [faker.person.lastName() + ", " + faker.person.firstName()]
             : [],
 
-    last_sync: () => faker.date.recent(),
+    latest_sync: () => faker.date.recent(),
 
     state: () => fakeCatalogRecordState(),
 

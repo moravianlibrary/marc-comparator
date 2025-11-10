@@ -143,7 +143,7 @@ export function buildRequests(state: CollectionState): EsRequest[] {
         query: { match_all: {} },
         from: (state.page - 1) * state.perPage,
         size: state.perPage,
-        sort: state.sortBy.value,
+        sort: state.sortBy?.value,
         _source: {
             includes: buildFieldIncludes(
                 state.config.columns,

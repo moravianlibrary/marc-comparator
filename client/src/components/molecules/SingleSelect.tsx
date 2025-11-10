@@ -5,6 +5,7 @@ import {
     SelectOption,
     MenuToggle,
     type MenuToggleElement,
+    type PopperOptions,
 } from "@patternfly/react-core";
 
 interface Option<T extends string | number = string> {
@@ -18,6 +19,8 @@ interface SingleSelectProps<T extends string | number = string> {
     selected?: Option<T> | null;
     onChange: (selected: Option<T> | null) => void;
     icon?: ReactElement;
+    isDisabled?: boolean;
+    popperProps?: PopperOptions;
 }
 
 const SingleSelect = <T extends string | number = string>({
@@ -26,6 +29,8 @@ const SingleSelect = <T extends string | number = string>({
     selected,
     onChange,
     icon,
+    isDisabled = false,
+    popperProps,
 }: SingleSelectProps<T>): ReactElement => {
     const [isOpen, setIsOpen] = useState(false);
 
@@ -48,6 +53,7 @@ const SingleSelect = <T extends string | number = string>({
             onClick={() => setIsOpen((prev) => !prev)}
             icon={icon}
             isExpanded={isOpen}
+            isDisabled={isDisabled}
         >
             {selected ? selected.label : placeholder}
         </MenuToggle>
@@ -60,6 +66,7 @@ const SingleSelect = <T extends string | number = string>({
             onOpenChange={setIsOpen}
             onSelect={onSelect}
             toggle={toggle}
+            popperProps={popperProps}
         >
             <SelectList>
                 {options.map((option) => (

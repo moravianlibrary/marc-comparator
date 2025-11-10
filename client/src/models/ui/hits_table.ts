@@ -23,3 +23,8 @@ export interface SortConfig {
     value: any;
     default?: boolean;
 }
+
+export interface SortBy {
+    key: string;
+    value: any;
+}

@@ -1,0 +1,139 @@
+import { Fragment, useState } from "react";
+import { useGetSystemInfo } from "../../hooks/useSystem";
+import {
+    type CollectionData,
+    type CollectionState,
+} from "../../store/collection/domain";
+import {
+    selectSelectedCount,
+    selectSelectionQuery,
+} from "../../store/collection/selectors";
+import ConfirmModal from "../../components/organisms/ConfirmModal";
+import {
+    Content,
+    DescriptionList,
+    DescriptionListDescription,
+    DescriptionListGroup,
+    DescriptionListTerm,
+    Spinner,
+} from "@patternfly/react-core";
+import BaseSelector from "../../components/molecules/BaseSelector";
+import { useGetAvailableTargetBases } from "../../hooks/useCatalogRecords";
+import SingleSelect from "../../components/molecules/SingleSelect";
+import { useCompareRecords } from "../../hooks/useComparison";
+
+interface CompareRecordsModalProps {
+    state: CollectionState;
+    data: CollectionData;
+    isOpen: boolean;
+    onClose: () => void;
+}
+
+const CompareRecordsModal = ({
+    state,
+    data,
+    isOpen,
+    onClose,
+}: CompareRecordsModalProps) => {
+    const { data: availableBases, isLoading: isLoadingBases } =
+        useGetAvailableTargetBases();
+    const selectedItemsCount = selectSelectedCount(state, data);
+
+    const { data: systemInfo, isLoading: isLoadingSystemInfo } =
+        useGetSystemInfo();
+    const comparators = systemInfo?.enabled_comparators ?? [];
+
+    const compareRecordsMutation = useCompareRecords();
+
+    const [targetBase, setTargetBase] = useState<string | null>(null);
+    const [comparator, setComparator] = useState<string | null>(null);
+
+    const handleConfirm = () => {
+        if (!targetBase || !comparator) return;
+
+        compareRecordsMutation.mutate({
+            target_base: targetBase,
+            comparator,
+            query: selectSelectionQuery(state),
+        });
+        onClose();
+    };
+
+    return (
+        <ConfirmModal
+            isOpen={isOpen}
+            onClose={onClose}
+            onConfirm={handleConfirm}
+            isConfirmDisabled={!targetBase || !comparator}
+        >
+            {!availableBases || availableBases.length === 0 ? (
+                <Content>
+                    <p>No available target bases found.</p>
+                </Content>
+            ) : (
+                <Fragment>
+                    <Content>
+                        <p>Selected {selectedItemsCount} items</p>
+                    </Content>
+                    <DescriptionList>
+                        <DescriptionListGroup>
+                            <DescriptionListTerm>
+                                Target base
+                            </DescriptionListTerm>
+                            <DescriptionListDescription>
+                                {isLoadingBases ? (
+                                    <Spinner size="lg" />
+                                ) : (
+                                    <BaseSelector
+                                        availableBases={availableBases}
+                                        selected={targetBase}
+                                        onChange={setTargetBase}
+                                        placeholder="Select target base"
+                                    />
+                                )}
+                            </DescriptionListDescription>
+                        </DescriptionListGroup>
+                        <DescriptionListGroup>
+                            <DescriptionListTerm>
+                                Select comparator
+                            </DescriptionListTerm>
+                            <DescriptionListDescription>
+                                {isLoadingSystemInfo ? (
+                                    <Spinner size="lg" />
+                                ) : (
+                                    <SingleSelect
+                                        placeholder="Select comparator"
+                                        options={comparators.map(
+                                            (comparator) => ({
+                                                label: comparator,
+                                                value: comparator,
+                                            })
+                                        )}
+                                        selected={
+                                            comparator
+                                                ? {
+                                                      label: comparator,
+                                                      value: comparator,
+                                                  }
+                                                : null
+                                        }
+                                        onChange={(option) =>
+                                            setComparator(
+                                                option
+                                                    ? (option.value as string)
+                                                    : null
+                                            )
+                                        }
+                                        isDisabled={availableBases.length === 0}
+                                    />
+                                )}
+                            </DescriptionListDescription>
+                        </DescriptionListGroup>
+                    </DescriptionList>
+                </Fragment>
+            )}
+        </ConfirmModal>
+    );
+};
+
+export default CompareRecordsModal;

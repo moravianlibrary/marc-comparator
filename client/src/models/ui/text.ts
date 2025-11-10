@@ -1,5 +1,3 @@
-export type DynamicUiText = (
-    values?: Record<string, string | number>
-) => string;
+export type CountUiText = (values: { count: number }) => string;
 export type StaticUiText = string;
-export type UiText = StaticUiText | DynamicUiText;
+export type UiText = StaticUiText | CountUiText;

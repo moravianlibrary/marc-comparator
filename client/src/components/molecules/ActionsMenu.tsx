@@ -12,22 +12,17 @@ import type {
     ActionItemConfig,
     ActionSectionConfig,
 } from "../../models/ui/actions";
-import type { StaticUiText } from "../../models/ui/text";
-
-export interface ActionsMenuTexts {
-    label: StaticUiText;
-}
 
 interface ActionsMenuProps {
     config: ActionConfig[];
     disabled?: boolean;
-    texts: ActionsMenuTexts;
+    label: string;
 }
 
 const ActionsMenu: React.FC<ActionsMenuProps> = ({
     config,
     disabled,
-    texts,
+    label,
 }) => {
     const menuRef = useRef<HTMLDivElement>(null);
     const toggleRef = useRef<HTMLButtonElement>(null);
@@ -41,7 +36,7 @@ const ActionsMenu: React.FC<ActionsMenuProps> = ({
             isExpanded={isOpen}
             isDisabled={disabled}
         >
-            {texts.label}
+            {label}
         </MenuToggle>
     );
 
