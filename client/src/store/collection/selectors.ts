@@ -3,7 +3,7 @@ import { type CollectionData, type CollectionState } from "./domain";
 
 export const selectSelectedCount = (
     state: CollectionState,
-    data: CollectionData
+    data: CollectionData<any>
 ): number =>
     state.isAllSelected ? data.totalItems ?? 0 : state.selectedIds.size;
 
