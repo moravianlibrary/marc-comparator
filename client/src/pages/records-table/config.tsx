@@ -1,12 +1,19 @@
 import { Button, Label, LabelGroup } from "@patternfly/react-core";
 import MarcTitle from "../../components/atoms/MarcTitle";
 import MonospaceValue from "../../components/atoms/MonospaceValue";
-import { type CatalogRecordState } from "../../models/primitives/catalog_record";
+import {
+    CatalogRecordStateSchema,
+    type CatalogRecordState,
+} from "../../models/primitives/catalog_record";
 import LocalizedDateTime from "../../components/atoms/LocalizedDateTime";
 import { DetailsIcon } from "../../components/atoms/Icons";
 import { Link } from "react-router";
 import { type CatalogRecord } from "../../models/api/responses/catalog_record";
 import { type CollectionConfig } from "../../store/collection/domain";
+import {
+    type ValidityStatus,
+    ValidityStatusSchema,
+} from "../../models/primitives/validation";
 
 const STATE_RANKING: Record<CatalogRecordState, number> = {
     Active: 1,
@@ -25,6 +32,16 @@ const STATE_COLOR_MAP: Record<
     Valid: "green",
     Invalid: "red",
     Hidden: "blue",
+};
+
+const VALIDITY_STATUS_MAP: Record<
+    ValidityStatus,
+    "success" | "danger" | "warning" | "info"
+> = {
+    Valid: "success",
+    Invalid: "danger",
+    Warning: "warning",
+    Info: "info",
 };
 
 function generateColumnsConfig() {
@@ -59,9 +76,13 @@ function generateColumnsConfig() {
             ),
         },
         {
+            key: "authors",
+            label: "Authors",
+        },
+        {
             key: "state",
             label: "State",
-            alwaysShow: true,
+            visibleByDefault: true,
             render: (hit: Partial<CatalogRecord>) => (
                 <LabelGroup>
                     {hit
@@ -82,7 +103,7 @@ function generateColumnsConfig() {
             visibleByDefault: true,
             render: (hit: Partial<CatalogRecord>) => (
                 <LabelGroup>
-                    {hit.authority_links!.map(
+                    {(hit.authority_links || []).map(
                         (link: { base: string }, index: number) => (
                             <Label key={index}>{link.base}</Label>
                         )
@@ -96,7 +117,7 @@ function generateColumnsConfig() {
             visibleByDefault: true,
             render: (hit: Partial<CatalogRecord>) => (
                 <LabelGroup>
-                    {hit.comparisons!.map(
+                    {(hit.comparisons || []).map(
                         (
                             c: {
                                 base: string;
@@ -114,12 +135,48 @@ function generateColumnsConfig() {
             ),
         },
         {
+            key: "validations",
+            label: "Validations",
+            visibleByDefault: true,
+            render: (hit: Partial<CatalogRecord>) => (
+                <LabelGroup>
+                    {(hit.validations || []).map(
+                        (
+                            v: {
+                                validator: string;
+                                status: string;
+                            },
+                            index: number
+                        ) => (
+                            <Label
+                                key={index}
+                                status={
+                                    VALIDITY_STATUS_MAP[
+                                        v.status as ValidityStatus
+                                    ]
+                                }
+                            >
+                                {v.validator}
+                            </Label>
+                        )
+                    )}
+                </LabelGroup>
+            ),
+        },
+        {
             key: "latest_sync",
             label: "Last Sync",
             visibleByDefault: true,
-            render: (hit: Partial<CatalogRecord>) => (
-                <LocalizedDateTime date={hit.latest_sync!} />
-            ),
+            render: (hit: Partial<CatalogRecord>) =>
+                hit.latest_sync && <LocalizedDateTime date={hit.latest_sync} />,
+        },
+        {
+            key: "latest_transaction",
+            label: "Last Transaction",
+            render: (hit: Partial<CatalogRecord>) =>
+                hit.latest_transaction && (
+                    <LocalizedDateTime date={hit.latest_transaction} />
+                ),
         },
         {
             key: "details",
@@ -141,6 +198,100 @@ export function generateCatalogRecordsConfig(): CollectionConfig {
         columns: generateColumnsConfig(),
         perPage: { options: [10, 20, 50, 100], default: 10 },
         search: { fields: [] },
-        filter: [],
+        filter: [
+            {
+                type: "terms",
+                field: "state",
+                sizeOptions: [10],
+                labelProps: (bucketKey: string) => ({
+                    color: STATE_COLOR_MAP[bucketKey as CatalogRecordState],
+                }),
+                displayOrder: CatalogRecordStateSchema.options,
+            },
+            {
+                type: "terms",
+                field: "authority_links.base",
+                sizeOptions: [10, 20, 50],
+            },
+            {
+                type: "terms",
+                field: "comparisons.base",
+                sizeOptions: [10, 50],
+            },
+            {
+                type: "terms",
+                field: "comparisons.comparator",
+                sizeOptions: [10, 50],
+            },
+            {
+                type: "terms",
+                field: "comparisons.status",
+                sizeOptions: [4],
+            },
+            {
+                type: "histogram",
+                field: "comparisons.overall_score",
+                interval: 1,
+                min: 0,
+                max: 100,
+            },
+            {
+                type: "terms",
+                field: "comparisons.field_results.explanation",
+                sizeOptions: [10, 50],
+            },
+            {
+                type: "terms",
+                field: "comparisons.field_results.subfield_results.explanation",
+                sizeOptions: [10, 50],
+            },
+            {
+                type: "terms",
+                field: "validations.validator",
+                sizeOptions: [10, 50],
+            },
+            {
+                type: "terms",
+                field: "validations.status",
+                sizeOptions: [4],
+                labelProps: (bucketKey: string) => ({
+                    status: VALIDITY_STATUS_MAP[bucketKey as ValidityStatus],
+                }),
+                displayOrder: ValidityStatusSchema.options,
+            },
+            {
+                type: "terms",
+                field: "validations.target.tag",
+                sizeOptions: [10, 50],
+            },
+            {
+                type: "terms",
+                field: "validations.target.codes",
+                sizeOptions: [10, 50],
+            },
+            {
+                type: "terms",
+                field: "validations.reason",
+                sizeOptions: [10, 50],
+            },
+            {
+                type: "terms",
+                field: "type_of_record",
+                sizeOptions: [10, 50],
+            },
+            {
+                type: "terms",
+                field: "bibliographic_level",
+                sizeOptions: [10, 50],
+            },
+            {
+                type: "date-range",
+                field: "latest_sync",
+            },
+            {
+                type: "date-range",
+                field: "latest_transaction",
+            },
+        ],
     };
 }

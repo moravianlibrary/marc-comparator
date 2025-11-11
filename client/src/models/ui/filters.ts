@@ -1,21 +1,30 @@
+import { type LabelProps } from "@patternfly/react-core";
+
 // Filter Configs
 export interface TermsFilterConfig {
     type: "terms";
     field: string;
-    displayType?: "labels" | "tree";
-    size?: number;
-    sizeOptions?: number[];
+    displayType?: "chips" | "tree";
+    sizeOptions: number[];
     include?: string[] | string;
     exclude?: string[] | string;
     order?: { _count: "asc" | "desc" };
     searchable?: boolean;
-    renderBucketKey?: (key: string) => React.ReactNode;
+    labelProps?: (bucketKey: string) => LabelProps;
     displayOrder?: string[];
 }
 
 export interface RangeFilterConfig {
     type: "range";
     field: string;
+    min?: number;
+    max?: number;
+}
+
+export interface HistogramFilterConfig {
+    type: "histogram";
+    field: string;
+    interval: number;
     min?: number;
     max?: number;
 }
@@ -33,6 +42,7 @@ export interface SearchFilterConfig {
 export type FilterConfig =
     | TermsFilterConfig
     | RangeFilterConfig
+    | HistogramFilterConfig
     | DateRangeFilterConfig
     | SearchFilterConfig;
 
@@ -43,6 +53,11 @@ export interface TermsFilterState {
 }
 
 export interface RangeFilterState {
+    from?: number;
+    to?: number;
+}
+
+export interface HistogramFilterState {
     from?: number;
     to?: number;
 }
@@ -59,6 +74,7 @@ export interface SearchFilterState {
 export type FilterState =
     | TermsFilterState
     | RangeFilterState
+    | HistogramFilterState
     | DateRangeFilterState
     | SearchFilterState;
 

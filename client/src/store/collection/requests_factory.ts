@@ -1,3 +1,4 @@
+import { base } from "@faker-js/faker";
 import type { EsRequest } from "../../models/api/requests/es";
 import type { FilterConfig, FilterState } from "../../models/ui/filters";
 import type {
@@ -66,6 +67,15 @@ function buildFilterQuery(config: FilterConfig, state: FilterState) {
                     },
                 },
             };
+        case "histogram":
+            return {
+                range: {
+                    [config.field]: {
+                        gte: (state as any).from,
+                        lte: (state as any).to,
+                    },
+                },
+            };
         case "date-range":
             return {
                 range: {
@@ -94,6 +104,13 @@ function buildAggs(configs: FilterConfig[]): Record<string, any> {
                 range: {
                     field: filter.field,
                     ranges: [{ from: filter.min, to: filter.max }],
+                },
+            };
+        } else if (filter.type === "histogram") {
+            acc[filter.field] = {
+                histogram: {
+                    field: filter.field,
+                    interval: filter.interval,
                 },
             };
         } else if (filter.type === "date-range") {
@@ -126,21 +143,32 @@ export function buildRequests(state: CollectionState): EsRequest[] {
               state.searchFuzziness
           )
         : [];
-    const filterQueries = state.config.filter
-        .filter(
-            (config) => state.filterStates && state.filterStates[config.field]
-        )
-        .reduce((acc, config) => {
-            acc[config.field] = buildFilterQuery(
-                config,
-                state.filterStates![config.field]
-            );
-            return acc;
-        }, {} as Record<string, any>);
-    const aggs = buildAggs(state.config.filter);
 
+    const activeFilterQueries: Record<string, any> = {};
+    state.config.filter.forEach((config) => {
+        const filterState = state.filterStates?.[config.field];
+        if (filterState) {
+            activeFilterQueries[config.field] = buildFilterQuery(
+                config,
+                filterState
+            );
+        }
+    });
+
+    const buildBoolQuery = (must: any[], filter: any[]) => {
+        const bool: Record<string, any> = {};
+        if (must.length > 0) bool.must = must.length === 1 ? must[0] : must;
+        if (filter.length > 0)
+            bool.filter = filter.length === 1 ? filter[0] : filter;
+        return Object.keys(bool).length > 0 ? { bool } : { match_all: {} };
+    };
+
+    // Main hits request
     const hitsRequest: EsRequest = {
-        query: { match_all: {} },
+        query: buildBoolQuery(
+            searchQueries,
+            Object.values(activeFilterQueries)
+        ),
         from: (state.page - 1) * state.perPage,
         size: state.perPage,
         sort: state.sortBy?.value,
@@ -150,8 +178,23 @@ export function buildRequests(state: CollectionState): EsRequest[] {
                 state.columnStates
             ),
         },
-        aggs: aggs,
+        aggs: buildAggs(state.config.filter),
     };
 
-    return [hitsRequest];
+    // Per-filter aggs requests (omit its own filter from the agg query)
+    const filterAggsRequests: EsRequest[] = state.config.filter
+        .filter((config) => activeFilterQueries[config.field])
+        .map((config) => {
+            const filtersExcludingSelf = Object.entries(activeFilterQueries)
+                .filter(([field]) => field !== config.field)
+                .map(([, q]) => q);
+
+            return {
+                query: buildBoolQuery(searchQueries, filtersExcludingSelf),
+                size: 0,
+                aggs: buildAggs([config]),
+            } as EsRequest;
+        });
+
+    return [hitsRequest, ...filterAggsRequests];
 }

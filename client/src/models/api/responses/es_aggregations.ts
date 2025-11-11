@@ -14,8 +14,15 @@ export type EsTermsBucket = z.infer<typeof EsTermsBucketSchema>;
 export const EsRangeBucketSchema = z.object({
     from: z.number().nullable().optional(),
     to: z.number().nullable().optional(),
+    doc_count: z.number(),
 });
 export type EsRangeBucket = z.infer<typeof EsRangeBucketSchema>;
+
+export const EsHistogramBucketSchema = z.object({
+    key: z.number(),
+    doc_count: z.number(),
+});
+export type EsHistogramBucket = z.infer<typeof EsHistogramBucketSchema>;
 
 export const EsDateRangeBucketSchema = z.object({
     from: z.union([z.string(), z.number()]).nullable().optional(),
@@ -42,6 +49,13 @@ export const EsRangeAggregationSchema = z.object({
 });
 export type EsRangeAggregation = z.infer<typeof EsRangeAggregationSchema>;
 
+export const EsHistogramAggregationSchema = z.object({
+    buckets: z.array(EsHistogramBucketSchema),
+});
+export type EsHistogramAggregation = z.infer<
+    typeof EsHistogramAggregationSchema
+>;
+
 export const EsDateRangeAggregationSchema = z.object({
     buckets: z.array(EsDateRangeBucketSchema),
 });
@@ -52,6 +66,7 @@ export type EsDateRangeAggregation = z.infer<
 export const EsAggregationSchema = z.union([
     EsTermsAggregationSchema,
     EsRangeAggregationSchema,
+    EsHistogramAggregationSchema,
     EsDateRangeAggregationSchema,
 ]);
 export type EsAggregation = z.infer<typeof EsAggregationSchema>;

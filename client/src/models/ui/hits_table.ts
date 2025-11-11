@@ -5,7 +5,7 @@ export interface TableColumnConfig {
     key: string;
     fields?: string[];
     label: string;
-    render?: (data: any) => ReactElement;
+    render?: (data: any) => ReactElement | undefined;
     visibleByDefault?: boolean;
     alwaysShow?: boolean;
 }

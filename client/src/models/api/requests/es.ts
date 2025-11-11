@@ -24,6 +24,19 @@ export const EsRangeAggRequestSchema = z.object({
 });
 export type EsRangeAggRequest = z.infer<typeof EsRangeAggRequestSchema>;
 
+export const EsHistogramAggRequestSchema = z.object({
+    field: z.string(),
+    interval: z.number(),
+    min_doc_count: z.number().optional(),
+    extended_bounds: z
+        .object({
+            min: z.number().optional(),
+            max: z.number().optional(),
+        })
+        .optional(),
+});
+export type EsHistogramAggRequest = z.infer<typeof EsHistogramAggRequestSchema>;
+
 export const EsDateRangeAggRequestSchema = z.object({
     field: z.string(),
     format: z.string().optional(),

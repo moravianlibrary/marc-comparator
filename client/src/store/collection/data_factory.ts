@@ -1,23 +1,36 @@
 import type { UseQueryResult } from "@tanstack/react-query";
-import type { EsResponse } from "../../models/api/responses/es";
+import type { EsHit, EsResponse } from "../../models/api/responses/es";
+import type { CollectionData } from "./domain";
 
 export function buildCollectionData<T>(
-    responses: UseQueryResult<EsResponse<T>, unknown>[]
-) {
+    responses: UseQueryResult<EsResponse<T>>[],
+    prevData?: CollectionData<T>
+): CollectionData<T> {
     const isLoading = responses.some((r) => r.isLoading);
     const isError = responses.some((r) => r.isError);
-    const error = responses.find((r) => r.isError)?.error;
+    const error = responses.find((r) => r.isError)?.error || null;
 
-    const hits = responses
-        .filter((r) => r.isSuccess && r.data)
-        .map((r) => r.data?.hits || [])
-        .flat()
-        .map((hits) => hits.hits || [])
-        .flat();
+    if (isLoading) {
+        return prevData || { isLoading, isError, error };
+    }
 
-    const totalItems = responses
-        .filter((r) => r.isSuccess && r.data)
-        .reduce((sum, r) => sum + (r.data?.hits.total.value || 0), 0);
+    // Extract hits and totalItems only from the main hits response
+    const mainHitsResponse = responses.find(
+        (r) => r.isSuccess && r.data && r.data.hits?.hits?.length
+    );
 
-    return { isLoading, isError, error, hits, totalItems };
+    const hits: EsHit<T>[] = mainHitsResponse
+        ? mainHitsResponse.data!.hits.hits.map((hit: any) => hit)
+        : [];
+
+    const totalItems = mainHitsResponse?.data?.hits?.total?.value || 0;
+
+    // Merge aggregations from all responses (including per-filter agg queries)
+    const aggregations = responses
+        .filter((r) => r.isSuccess && r.data && r.data.aggregations)
+        .reduce((acc, r) => {
+            return { ...acc, ...r.data!.aggregations };
+        }, {} as Record<string, any>);
+
+    return { isLoading, isError, error, hits, totalItems, aggregations };
 }

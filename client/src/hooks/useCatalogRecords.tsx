@@ -62,7 +62,7 @@ export const useSearchCatalogRecords = (request: EsRequest, enabled = true) =>
 export const useSearchCatalogRecordsBatch = (
     requests: EsRequest[],
     enabled = true
-): UseQueryResult<SearchCatalogRecordsResponse, unknown>[] =>
+): UseQueryResult<SearchCatalogRecordsResponse>[] =>
     useQueries({
         queries: requests.map((request, idx) => ({
             queryKey: ["catalog-records", "search", idx, request],

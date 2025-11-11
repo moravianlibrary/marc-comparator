@@ -1,5 +1,5 @@
 import { z, type ZodType } from "zod";
-import { EsAggregationSchema } from "./es_aggregations";
+import { type EsAggregation, EsAggregationSchema } from "./es_aggregations";
 
 export const createEsHitSchema = <T extends ZodType<any>>(sourceSchema: T) =>
     z.object({
@@ -25,7 +25,7 @@ export type EsResponse<T> = {
     timed_out: boolean;
     _shards: unknown;
     hits: EsHits<T>;
-    aggregations?: Record<string, unknown>;
+    aggregations?: Record<string, EsAggregation>;
 };
 
 export const createEsHitsSchema = <T extends ZodType<any>>(sourceSchema: T) =>

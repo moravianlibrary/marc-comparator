@@ -3,7 +3,6 @@ import type { EsAggregation } from "../../models/api/responses/es_aggregations";
 import type { FilterConfig, FilterStates } from "../../models/ui/filters";
 import type {
     SortBy,
-    SortConfig,
     TableColumnConfig,
     TableColumnState,
 } from "../../models/ui/hits_table";
@@ -40,6 +39,7 @@ export type CollectionAction =
     | { type: "setSearchTerm"; value: string }
     | { type: "toggleTerm"; field: string; bucketKey: string }
     | { type: "setRange"; field: string; from?: number; to?: number }
+    | { type: "setHistogramRange"; field: string; from?: number; to?: number }
     | { type: "setDateRange"; field: string; from?: string; to?: string }
     | { type: "setFieldQuery"; field: string; query: string }
     | { type: "clearFilters"; field?: string }
@@ -78,13 +78,13 @@ export function initCollectionState(
     };
 }
 
-export interface CollectionData {
+export interface CollectionData<T> {
     // Results
     isLoading?: boolean;
     isError?: boolean;
-    error?: any;
+    error: Error | null;
     // Parsed results
-    hits?: Array<EsHit<any>>;
+    hits?: Array<EsHit<T>>;
     totalItems?: number;
     aggregations?: Record<string, EsAggregation>;
 }

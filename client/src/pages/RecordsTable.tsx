@@ -2,6 +2,7 @@ import {
     Fragment,
     useMemo,
     useReducer,
+    useRef,
     useState,
     type ReactElement,
 } from "react";
@@ -17,16 +18,20 @@ import {
     ActionListGroup,
     ActionListItem,
     Button,
-    Page,
     PageGroup,
     PageSection,
     Pagination,
 } from "@patternfly/react-core";
 import { collectionReducer } from "../store/collection/reducer";
-import { initCollectionState } from "../store/collection/domain";
+import {
+    initCollectionState,
+    type CollectionData,
+} from "../store/collection/domain";
 import { generateCatalogRecordsConfig } from "./records-table/config";
 import { buildRequests } from "../store/collection/requests_factory";
 import { buildCollectionData } from "../store/collection/data_factory";
+import RecordsTableFilters from "./records-table/Filters";
+import type { CatalogRecord } from "../models/api/responses/catalog_record";
 
 const RecordsTable = (): ReactElement => {
     const [state, dispatch] = useReducer(
@@ -48,22 +53,33 @@ const RecordsTable = (): ReactElement => {
 
     const queryResponses = useSearchCatalogRecordsBatch(requests || []);
 
-    const data = useMemo(
-        () =>
-            (queryResponses && buildCollectionData(queryResponses)) || {
-                isLoading: true,
-                isError: false,
-                error: undefined,
-                hits: [],
-                totalItems: 0,
-            },
-        [queryResponses]
-    );
+    const prevDataRef = useRef<CollectionData<CatalogRecord>>({
+        isLoading: true,
+        isError: false,
+        error: null,
+        hits: [],
+        totalItems: 0,
+        aggregations: {},
+    });
+    const data: CollectionData<CatalogRecord> = useMemo(() => {
+        if (!queryResponses || queryResponses.length === 0) {
+            return prevDataRef.current;
+        }
+
+        const newData = buildCollectionData<CatalogRecord>(
+            queryResponses,
+            prevDataRef.current
+        );
+
+        prevDataRef.current = newData;
+
+        return newData;
+    }, [queryResponses]);
 
     const { config, columnStates, page, perPage, selectedIds, isAllSelected } =
         state;
 
-    const { isLoading, isError, error, hits, totalItems } = data;
+    const { isLoading, isError, error, hits, totalItems, aggregations } = data;
 
     const { columns } = config;
 
@@ -77,6 +93,10 @@ const RecordsTable = (): ReactElement => {
             page: newPage,
             perPage: newPerPage || perPage || 0,
         });
+    };
+
+    const handleClearFilters = () => {
+        dispatch({ type: "clearFilters" });
     };
 
     const toolbar = (
@@ -95,7 +115,13 @@ const RecordsTable = (): ReactElement => {
                     <PageSection>{toolbar}</PageSection>
                 </PageGroup>
                 <PageGroup>
-                    <PageSection></PageSection>
+                    <PageSection>
+                        <RecordsTableFilters
+                            state={state}
+                            dispatch={dispatch}
+                            aggregations={aggregations || {}}
+                        />
+                    </PageSection>
                 </PageGroup>
                 <PageGroup stickyOnBreakpoint={{ default: "bottom" }}>
                     <PageSection>
@@ -112,9 +138,9 @@ const RecordsTable = (): ReactElement => {
                                 <ActionListItem>
                                     <Button
                                         variant="link"
-                                        onClick={() => setShowFilters(false)}
+                                        onClick={handleClearFilters}
                                     >
-                                        Cancel
+                                        Clear
                                     </Button>
                                 </ActionListItem>
                             </ActionListGroup>
