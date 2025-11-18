@@ -1,11 +1,10 @@
 import type { ReactElement } from "react";
-import type { UiText } from "./text";
 
-export interface TableColumnConfig {
+export interface TableColumnConfig<T> {
     key: string;
     fields?: string[];
     label: string;
-    render?: (data: any) => ReactElement | undefined;
+    render?: (data: T) => ReactElement | undefined;
     visibleByDefault?: boolean;
     alwaysShow?: boolean;
 }

@@ -1,20 +1,16 @@
 import { BrowserRouter, Routes, Route } from "react-router";
-import LoginPage from "./pages/LoginPage";
 import MainPage from "./pages/MainPage";
 import type { ReactElement } from "react";
+import AuthPage from "./pages/AuthPage";
+import SignUpPage from "./pages/SignUpPage";
 
 const App = (): ReactElement => {
-    const isAuthenticated = true;
-
     return (
         <BrowserRouter>
             <Routes>
-                <Route
-                    path="*"
-                    element={isAuthenticated ? <MainPage /> : <LoginPage />}
-                />
-                {/* other public routes */}
-                <Route path="*" element={<div>404 Not Found</div>} />
+                <Route path="/login" element={<AuthPage />} />
+                <Route path="/signup" element={<SignUpPage />} />
+                <Route path="*" element={<MainPage />} />
             </Routes>
         </BrowserRouter>
     );

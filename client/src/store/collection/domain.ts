@@ -10,16 +10,16 @@ import type { CollectionUiPreferences } from "../../models/ui/preferences";
 import type { CollectionQueryParams } from "../../models/ui/query_params";
 import type { PerPageConfig, SearchConfig } from "../../models/ui/search";
 
-export interface CollectionConfig {
-    columns: TableColumnConfig[];
+export interface CollectionConfig<T> {
+    columns: TableColumnConfig<T>[];
     perPage: PerPageConfig;
-    search: SearchConfig;
-    filter: FilterConfig[];
+    search?: SearchConfig;
+    filter?: FilterConfig[];
 }
 
-export interface CollectionState {
+export interface CollectionState<T> {
     // Config
-    config: CollectionConfig;
+    config: CollectionConfig<T>;
     // State
     columnStates: Record<string, TableColumnState>;
     page: number;
@@ -49,11 +49,11 @@ export type CollectionAction =
     | { type: "selectAll" }
     | { type: "clearSelection" };
 
-export function initCollectionState(
-    config: CollectionConfig,
+export function initCollectionState<T>(
+    config: CollectionConfig<T>,
     uiPreferences?: CollectionUiPreferences,
     queryParams?: CollectionQueryParams
-): CollectionState {
+): CollectionState<T> {
     return {
         config,
         columnStates:

@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { RoleSummarySchema } from "./roles";
 
 export const TokenSchema = z.object({
     access_token: z.string(),
@@ -11,6 +12,6 @@ export const UserInfoSchema = z.object({
     email: z.email(),
     first_name: z.string(),
     last_name: z.string(),
-    roles: z.array(z.string()),
+    roles: z.array(RoleSummarySchema),
 });
 export type UserInfo = z.infer<typeof UserInfoSchema>;

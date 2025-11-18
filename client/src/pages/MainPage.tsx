@@ -4,17 +4,14 @@ import "@patternfly/react-core/dist/styles/base.css";
 import { Routes, Route, useNavigate, useLocation } from "react-router";
 import {
     Page,
-    Masthead,
     PageSidebar,
     Nav,
     NavList,
     NavItem,
-    MastheadMain,
-    MastheadToggle,
-    PageToggleButton,
-    MastheadContent,
     PageSidebarBody,
     NavGroup,
+    Bullseye,
+    Spinner,
 } from "@patternfly/react-core";
 import { useTranslation } from "react-i18next";
 import RecordsTable from "./RecordsTable";
@@ -24,206 +21,255 @@ import SystemMaintenance from "./SystemMaintenance";
 import RecordsAddition from "./RecordsAddition";
 import RoleManagement from "./RoleManagement";
 import UserManagement from "./UserManagement";
+import TasksTable from "./TasksTable";
+import type { EnforcedPermission } from "../models/ui/permissions";
+import AccessGuard from "../components/atoms/AccessGuard";
+import ProtectedRoute from "../components/atoms/ProtectedRoute";
+import MainPageMasthead from "./main-page/Masthead";
+import { useGetMe } from "../hooks/useAuth";
+import AuthPage from "./AuthPage";
+import { useNotification } from "../hooks/useNotifications";
+import AppNotificationDrawer from "./main-page/NotificationDrawer";
 
 interface NavigationItem {
-    key: string;
+    itemId: string;
     to: string;
+    permission?: EnforcedPermission;
+    element: ReactElement;
 }
 
-interface NavigationSection {
-    section: string;
+interface NavigationGroup {
+    groupId: string;
+    permission?: EnforcedPermission;
     items: NavigationItem[];
 }
 
-const NAVIGATION_CONFIG: (NavigationSection | NavigationItem)[] = [
-    { key: "home", to: "/" },
+const NAVIGATION_CONFIG: (NavigationGroup | NavigationItem)[] = [
+    { itemId: "home", to: "/", element: <div>Home</div> },
     {
-        section: "records",
+        groupId: "records",
+        permission: "ReadRecords",
         items: [
-            { key: "table", to: "/records/table" },
-            // { key: "dashboard", to: "/records/dashboard" },
-            { key: "details", to: "/records/details" },
-            { key: "addition", to: "/records/addition" },
-        ],
-    },
-    {
-        section: "tasks",
-        items: [
-            { key: "overview", to: "/tasks" },
-            { key: "traceback", to: "/tasks/traceback" },
-        ],
-    },
-    {
-        section: "record-tools",
-        items: [
-            { key: "authority-linkers", to: "/record-tools/authority-linkers" },
-            { key: "comparators", to: "/record-tools/comparators" },
-            { key: "validators", to: "/record-tools/validators" },
-        ],
-    },
-    {
-        section: "administration",
-        items: [
-            { key: "role-management", to: "/administration/role-management" },
-            { key: "user-management", to: "/administration/user-management" },
-            { key: "system-settings", to: "/administration/system-settings" },
             {
-                key: "system-maintenance",
+                itemId: "table",
+                to: "/records/table",
+                element: <RecordsTable />,
+            },
+            // TODO: Low priority - implement dashboard page
+            // { itemId: "dashboard", to: "/records/dashboard" },
+            {
+                itemId: "details",
+                to: "/records/details",
+                element: <RecordDetailsSection />,
+            },
+            {
+                itemId: "addition",
+                to: "/records/addition",
+                permission: "AddRecords",
+                element: <RecordsAddition />,
+            },
+        ],
+    },
+    {
+        groupId: "tasks",
+        permission: "RunRecordTasks",
+        items: [
+            { itemId: "table", to: "/tasks/table", element: <TasksTable /> },
+            // TODO: Medium priority - implement task traceback page
+            // { itemId: "traceback", to: "/tasks/traceback" },
+        ],
+    },
+    {
+        groupId: "record-tools",
+        permission: "ManageTaskSettings",
+        // TODO: High priority - implement record tools pages
+        items: [
+            {
+                itemId: "authority-linkers",
+                to: "/record-tools/authority-linkers",
+                element: <div>Authority Linkers</div>,
+            },
+            {
+                itemId: "comparators",
+                to: "/record-tools/comparators",
+                element: <div>Comparators</div>,
+            },
+            {
+                itemId: "validators",
+                to: "/record-tools/validators",
+                element: <div>Validators</div>,
+            },
+        ],
+    },
+    {
+        groupId: "administration",
+        permission: {
+            any: ["ManageAccessControl", "ManageAppSettings", "ManageSystem"],
+        },
+        items: [
+            {
+                itemId: "role-management",
+                to: "/administration/role-management",
+                permission: "ManageAccessControl",
+                element: <RoleManagement />,
+            },
+            {
+                itemId: "user-management",
+                to: "/administration/user-management",
+                permission: "ManageAccessControl",
+                element: <UserManagement />,
+            },
+            {
+                itemId: "system-settings",
+                to: "/administration/system-settings",
+                permission: "ManageAppSettings",
+                element: <SystemSettingsSection />,
+            },
+            {
+                itemId: "system-maintenance",
                 to: "/administration/system-maintenance",
+                permission: "ManageSystem",
+                element: <SystemMaintenance />,
             },
         ],
     },
 ];
 
-interface NavigationItemReverse extends NavigationItem {
-    section: string;
-}
-
-const NAVIGATION_ITEMS: NavigationItemReverse[] = NAVIGATION_CONFIG.flatMap(
-    (section) =>
-        "items" in section
-            ? section.items.map((item) => ({
-                  ...item,
-                  section: section.section,
+const NAVIGATION_ITEMS_LOOKUP: Record<string, NavigationItem> =
+    NAVIGATION_CONFIG.flatMap((entry) =>
+        "items" in entry
+            ? entry.items.map((i) => ({
+                  ...i,
+                  itemId: `${entry.groupId}.${i.itemId}`,
               }))
-            : [{ ...section, section: "n/a" }]
-).filter((item) => item.key !== "home");
+            : [entry]
+    ).reduce((acc, item) => {
+        acc[item.to] = item;
+        return acc;
+    }, {} as Record<string, NavigationItem>);
 
-interface NavOnSelectProps {
-    groupId: number | string;
-    itemId: number | string;
-    to: string;
-}
+const DEFAULT_ITEM_ID = "home";
 
 const MainPage = (): ReactElement => {
     const { t } = useTranslation();
+    const { data: me, isLoading } = useGetMe();
+    const { drawerExpanded } = useNotification();
     const navigate = useNavigate();
     const location = useLocation();
 
-    const initItem = NAVIGATION_ITEMS.filter((item) =>
-        location.pathname.startsWith(item.to)
-    ).sort((a, b) => b.to.length - a.to.length)[0];
-
-    const [activeGroup, setActiveGroup] = useState<string>(
-        initItem?.section || "n/a"
-    );
-    const [activeItem, setActiveItem] = useState<string>(
-        initItem?.key || "home"
+    const [activeItem, setActiveItem] = useState<string | number>(
+        DEFAULT_ITEM_ID
     );
 
     useEffect(() => {
-        const currentItem = NAVIGATION_ITEMS.filter((item) =>
-            location.pathname.startsWith(item.to)
-        ).sort((a, b) => b.to.length - a.to.length)[0];
-        if (currentItem) {
-            setActiveItem(currentItem.key);
-            setActiveGroup(currentItem.section);
-        }
+        const current = NAVIGATION_ITEMS_LOOKUP[location.pathname];
+
+        if (current) setActiveItem(current.itemId);
     }, [location.pathname]);
 
+    useEffect(() => {
+        if (!me && !isLoading) {
+            if (location.pathname !== "/login") {
+                navigate(
+                    "/login?redirect=" + encodeURIComponent(location.pathname)
+                );
+            } else {
+                navigate("/login");
+            }
+        }
+    }, [me, isLoading, navigate]);
+
     const onNavSelect = (
-        _event: React.FormEvent<HTMLInputElement>,
-        selectedItem: NavOnSelectProps
+        event: React.FormEvent<HTMLInputElement>,
+        { itemId, to }: { itemId: string | number; to: string }
     ) => {
-        _event.preventDefault();
-        setActiveItem(selectedItem.itemId as string);
-        navigate(selectedItem.to);
+        event.preventDefault();
+        setActiveItem(itemId);
+        navigate(to);
     };
 
-    const masthead = (
-        <Masthead>
-            <MastheadMain>
-                <MastheadToggle>
-                    <PageToggleButton
-                        isHamburgerButton
-                        aria-label="Global navigation"
-                    />
-                </MastheadToggle>
-                {/* <MastheadBrand>
-                    <MastheadLogo>
-                        <Brand
-                            src={pfLogo}
-                            alt="PatternFly"
-                            heights={{ default: "36px" }}
-                        />
-                    </MastheadLogo>
-                </MastheadBrand> */}
-            </MastheadMain>
-            <MastheadContent>
-                <a>Content</a>
-            </MastheadContent>
-        </Masthead>
-    );
-
-    const navItem = (item: NavigationItem, section?: string) => {
+    const navItem = (item: NavigationItem, groupId?: string) => {
+        const itemId = groupId ? `${groupId}.${item.itemId}` : item.itemId;
         return (
-            <NavItem
-                key={item.key}
-                itemId={item.key}
-                to={item.to}
-                isActive={activeItem === item.key}
-            >
-                {section
-                    ? t(`navbar:${section}.${item.key}`)
-                    : t(`navbar:${item.key}`)}
-            </NavItem>
+            <AccessGuard key={itemId} permission={item.permission}>
+                <NavItem
+                    key={itemId}
+                    itemId={itemId}
+                    to={item.to}
+                    isActive={activeItem === itemId}
+                >
+                    {t(`navbar:${itemId}`)}
+                </NavItem>
+            </AccessGuard>
         );
     };
 
-    const navSection = (section: NavigationSection) => {
+    const navSection = (group: NavigationGroup) => {
         return (
-            <NavGroup
-                key={section.section}
-                title={t(`navbar:${section.section}.section-title`)}
-            >
-                {section.items.map((item) => navItem(item, section.section))}
-            </NavGroup>
+            <AccessGuard key={group.groupId} permission={group.permission}>
+                <NavGroup
+                    key={group.groupId}
+                    title={t(`navbar:${group.groupId}.group-title`)}
+                >
+                    {group.items.map((item) => navItem(item, group.groupId))}
+                </NavGroup>
+            </AccessGuard>
         );
     };
-
-    // TODO: This is compact version of sidebar, make also expanded version and toggle between them
-    // Expanded version should have Sections instead of Expandables
-    const pageNav = (
-        <Nav onSelect={onNavSelect}>
-            <NavList>
-                {NAVIGATION_CONFIG.map((entry) =>
-                    "section" in entry ? navSection(entry) : navItem(entry)
-                )}
-            </NavList>
-        </Nav>
-    );
 
     const sidebar = (
         <PageSidebar>
-            <PageSidebarBody>{pageNav}</PageSidebarBody>
+            <PageSidebarBody>
+                <Nav onSelect={onNavSelect}>
+                    <NavList>
+                        {NAVIGATION_CONFIG.map((entry) =>
+                            "groupId" in entry
+                                ? navSection(entry)
+                                : navItem(entry)
+                        )}
+                    </NavList>
+                </Nav>
+            </PageSidebarBody>
         </PageSidebar>
     );
 
+    if (isLoading) {
+        return (
+            <div style={{ height: "100vh" }}>
+                <Bullseye>
+                    <Spinner size="xl" />
+                </Bullseye>
+            </div>
+        );
+    }
+
+    if (!me) {
+        return <AuthPage />;
+    }
+
     return (
-        <Page masthead={masthead} sidebar={sidebar} isManagedSidebar>
+        <Page
+            masthead={<MainPageMasthead />}
+            sidebar={sidebar}
+            notificationDrawer={<AppNotificationDrawer />}
+            isNotificationDrawerExpanded={drawerExpanded}
+            isManagedSidebar
+        >
             <Routes>
-                <Route path="/records/table" element={<RecordsTable />} />
-                <Route
-                    path="/records/details"
-                    element={<RecordDetailsSection />}
-                />
-                <Route path="/records/addition" element={<RecordsAddition />} />
-                <Route
-                    path="/administration/role-management"
-                    element={<RoleManagement />}
-                />
-                <Route
-                    path="/administration/user-management"
-                    element={<UserManagement />}
-                />
-                <Route
-                    path="/administration/system-settings"
-                    element={<SystemSettingsSection />}
-                />
-                <Route
-                    path="/administration/system-maintenance"
-                    element={<SystemMaintenance />}
-                />
+                {NAVIGATION_CONFIG.flatMap((entry) =>
+                    "groupId" in entry ? entry.items : [entry]
+                ).map((item, index) => (
+                    <Route
+                        key={index}
+                        path={item.to}
+                        element={
+                            <ProtectedRoute
+                                permission={item.permission}
+                                element={item.element}
+                            />
+                        }
+                    />
+                ))}
             </Routes>
         </Page>
     );

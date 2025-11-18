@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { createPageSchema } from "./pagination";
 import { RoleSummarySchema } from "./roles";
+import { PermissionSchema } from "../../primitives/permissions";
 
 export const UserIdSchema = z.uuidv4();
 export type UserId = z.infer<typeof UserIdSchema>;
@@ -16,3 +17,8 @@ export type User = z.infer<typeof UserSchema>;
 
 export const UsersPageSchema = createPageSchema(UserSchema);
 export type UsersPage = z.infer<typeof UsersPageSchema>;
+
+export const MeSchema = UserSchema.extend({
+    permissions: PermissionSchema,
+});
+export type Me = z.infer<typeof MeSchema>;

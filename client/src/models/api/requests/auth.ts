@@ -11,7 +11,7 @@ export const RegisterUserSchema = z.object({
 export type RegisterUser = z.infer<typeof RegisterUserSchema>;
 
 export const LoginUserSchema = z.object({
-    email: z.email(),
+    username: z.email(),
     password: z.string(),
 });
 export type LoginUser = z.infer<typeof LoginUserSchema>;

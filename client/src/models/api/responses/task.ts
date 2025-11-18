@@ -4,6 +4,7 @@ import {
     TaskStatusSchema,
     TaskTypeSchema,
 } from "../../primitives/task";
+import { createEsResponseSchema } from "./es";
 
 export const TaskSchema = z.object({
     task_id: z.uuidv4(),
@@ -12,8 +13,13 @@ export const TaskSchema = z.object({
     status: TaskStatusSchema,
     outcome_severity: TaskSeveritySchema,
     created_by: z.uuidv4(),
-    created_at: z.date(),
-    started_at: z.date().nullable(),
-    finished_at: z.date().nullable(),
+    created_at: z.coerce.date(),
+    started_at: z.coerce.date().nullable(),
+    finished_at: z.coerce.date().nullable(),
 });
 export type Task = z.infer<typeof TaskSchema>;
+
+export const SearchTasksResponseSchema = createEsResponseSchema(
+    TaskSchema.partial()
+);
+export type SearchTasksResponse = z.infer<typeof SearchTasksResponseSchema>;

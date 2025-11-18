@@ -12,7 +12,7 @@ export type EsHit<T> = {
     _index: string;
     _id: string;
     _score?: number;
-    _source: z.infer<T>;
+    _source: Partial<T>;
 };
 
 export type EsHits<T> = {

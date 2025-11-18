@@ -5,6 +5,7 @@ import WithProviders from "./components/atoms/WithProviders.tsx";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./services/queryClient.ts";
 import { makeServer } from "./mocks/server.ts";
+import NotificationProvider from "./hooks/useNotifications.tsx";
 
 if (import.meta.env.DEV) {
     makeServer();
@@ -19,6 +20,7 @@ createRoot(document.getElementById("root")!).render(
                         {children}
                     </QueryClientProvider>
                 ),
+                NotificationProvider,
             ]}
         >
             <App />

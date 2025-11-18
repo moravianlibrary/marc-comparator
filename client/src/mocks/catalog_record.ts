@@ -43,8 +43,8 @@ export function catalogRecordSeeds(server: Server) {
 }
 
 export const marcRecordFactory = Factory.extend<MarcRecord>({
-    leader: "00000nam a2200000 a 4500",
-    fixed_fields: {
+    leader: () => "00000nam a2200000 a 4500",
+    fixed_fields: () => ({
         "001": faker.string.uuid(),
         "005": new Date().toISOString(),
         "008": `${faker.date
@@ -55,8 +55,8 @@ export const marcRecordFactory = Factory.extend<MarcRecord>({
             min: 1980,
             max: 2025,
         })}    xxu           000 0 eng d`,
-    },
-    variable_fields: fakeVariableFields(),
+    }),
+    variable_fields: () => fakeVariableFields(),
 });
 
 export function catalogRecordRoutes(this: any) {
@@ -81,7 +81,24 @@ export function catalogRecordRoutes(this: any) {
                 );
             }
 
-            return schema.create("marc-record").attrs;
+            const marc = {
+                leader: "00000nam a2200000 a 4500",
+                fixed_fields: {
+                    "001": faker.string.uuid(),
+                    "005": new Date().toISOString(),
+                    "008": `${faker.date
+                        .past({ years: 1 })
+                        .toISOString()
+                        .slice(2, 10)
+                        .replace(/-/g, "")}s${faker.number.int({
+                        min: 1980,
+                        max: 2025,
+                    })}    xxu           000 0 eng d`,
+                },
+                variable_fields: fakeVariableFields(),
+            };
+
+            return new Response(200, {}, marc);
         }
     );
 

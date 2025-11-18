@@ -14,14 +14,13 @@ import type {
 import { useState } from "react";
 import { RecordsActionsMenu } from "./RecordsActionsMenu";
 import BulkSelector from "../../components/molecules/BulkSelector";
-import { SortingIcon } from "../../components/atoms/Icons";
-import SingleSelect from "../../components/molecules/SingleSelect";
 import RecordsTableSortBy from "./SortBy";
+import type { CatalogRecord } from "../../models/api/responses/catalog_record";
 
 interface RecordsTableToolbarProps {
     state: CollectionState;
     dispatch: React.Dispatch<CollectionAction>;
-    data: CollectionData;
+    data: CollectionData<CatalogRecord>;
     onShowFilters: () => void;
 }
 const RecordsTableToolbar = ({
@@ -30,7 +29,7 @@ const RecordsTableToolbar = ({
     data,
     onShowFilters,
 }: RecordsTableToolbarProps) => {
-    const { config, sortBy, selectedIds, isAllSelected } = state;
+    const { selectedIds, isAllSelected } = state;
     const { hits, totalItems } = data;
 
     const pageIds = hits?.map((hit) => hit._id) || [];

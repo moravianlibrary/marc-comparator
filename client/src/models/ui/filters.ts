@@ -2,7 +2,7 @@ import { type LabelProps } from "@patternfly/react-core";
 
 // Filter Configs
 export interface TermsFilterConfig {
-    type: "terms";
+    type: "term";
     field: string;
     displayType?: "chips" | "tree";
     sizeOptions: number[];

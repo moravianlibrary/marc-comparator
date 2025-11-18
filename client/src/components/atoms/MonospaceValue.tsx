@@ -1,13 +1,15 @@
 interface MonospaceValueProps {
     value: string;
+    bold?: boolean;
 }
 
-const MonospaceValue = ({ value }: MonospaceValueProps) => {
+const MonospaceValue = ({ value, bold }: MonospaceValueProps) => {
     return (
         <span
             style={{
                 fontFamily: "monospace",
                 whiteSpace: "nowrap",
+                fontWeight: bold ? "bold" : "normal",
             }}
         >
             {value}

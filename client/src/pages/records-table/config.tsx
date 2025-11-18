@@ -14,65 +14,47 @@ import {
     type ValidityStatus,
     ValidityStatusSchema,
 } from "../../models/primitives/validation";
+import type { TableColumnConfig } from "../../models/ui/hits_table";
+import type { EsHit } from "../../models/api/responses/es";
+import { stateColor, stateOrder } from "../../models/ui/catalog_record";
+import { validityColor } from "../../models/ui/validation";
+import AuthorityLinkLabel from "../../components/atoms/AuthorityLinkLabel";
+import ComparisonLabel from "../../components/atoms/ComparisonLabel";
+import ValidationLabel from "../../components/atoms/ValidationLabel";
 
-const STATE_RANKING: Record<CatalogRecordState, number> = {
-    Active: 1,
-    Deleted: 2,
-    Valid: 3,
-    Invalid: 4,
-    Hidden: 5,
-};
-
-const STATE_COLOR_MAP: Record<
-    CatalogRecordState,
-    "yellow" | "grey" | "green" | "red" | "blue"
-> = {
-    Active: "yellow",
-    Deleted: "grey",
-    Valid: "green",
-    Invalid: "red",
-    Hidden: "blue",
-};
-
-const VALIDITY_STATUS_MAP: Record<
-    ValidityStatus,
-    "success" | "danger" | "warning" | "info"
-> = {
-    Valid: "success",
-    Invalid: "danger",
-    Warning: "warning",
-    Info: "info",
-};
-
-function generateColumnsConfig() {
+export function generateColumnsConfig(): TableColumnConfig<
+    EsHit<CatalogRecord>
+>[] {
     return [
         {
             key: "id",
             label: "ID",
             visibleByDefault: true,
-            render: (hit: Partial<CatalogRecord>) => (
-                <MonospaceValue value={`${hit.base}-${hit.system_number}`} />
+            render: ({ _id }: EsHit<CatalogRecord>) => (
+                <MonospaceValue value={_id} />
             ),
         },
         {
             key: "base",
             label: "Base",
-            render: (hit: Partial<CatalogRecord>) => (
-                <MonospaceValue value={hit.base!} />
-            ),
+            render: ({ _source: { base } }: EsHit<CatalogRecord>) =>
+                base ? <MonospaceValue value={base} /> : undefined,
         },
         {
             key: "system_number",
             label: "System Number",
-            render: (hit: Partial<CatalogRecord>) => (
-                <MonospaceValue value={hit.system_number!} />
-            ),
+            render: ({ _source: { system_number } }: EsHit<CatalogRecord>) =>
+                system_number ? (
+                    <MonospaceValue value={system_number} />
+                ) : undefined,
         },
         {
             key: "title",
             label: "Title",
-            render: (hit: Partial<CatalogRecord>) => (
-                <MarcTitle title={hit.title!} subtitle={hit.subtitle} />
+            render: ({
+                _source: { title, subtitle },
+            }: EsHit<CatalogRecord>) => (
+                <MarcTitle title={title || "N/A"} subtitle={subtitle} />
             ),
         },
         {
@@ -83,14 +65,12 @@ function generateColumnsConfig() {
             key: "state",
             label: "State",
             visibleByDefault: true,
-            render: (hit: Partial<CatalogRecord>) => (
+            render: ({ _source: { state } }: EsHit<CatalogRecord>) => (
                 <LabelGroup>
-                    {hit
-                        .state!.sort(
-                            (a, b) => STATE_RANKING[a] - STATE_RANKING[b]
-                        )
+                    {(state || [])
+                        .sort(stateOrder)
                         .map((state: CatalogRecordState, index: number) => (
-                            <Label key={index} color={STATE_COLOR_MAP[state]}>
+                            <Label key={index} color={stateColor(state)}>
                                 {state}
                             </Label>
                         ))}
@@ -101,13 +81,18 @@ function generateColumnsConfig() {
             key: "authority_links",
             label: "Authority Links",
             visibleByDefault: true,
-            render: (hit: Partial<CatalogRecord>) => (
+            render: ({
+                _id,
+                _source: { authority_links },
+            }: EsHit<CatalogRecord>) => (
                 <LabelGroup>
-                    {(hit.authority_links || []).map(
-                        (link: { base: string }, index: number) => (
-                            <Label key={index}>{link.base}</Label>
-                        )
-                    )}
+                    {(authority_links || []).map((link, index) => (
+                        <AuthorityLinkLabel
+                            key={index}
+                            recordId={_id}
+                            authorityLink={link}
+                        />
+                    ))}
                 </LabelGroup>
             ),
         },
@@ -115,22 +100,18 @@ function generateColumnsConfig() {
             key: "comparisons",
             label: "Comparisons",
             visibleByDefault: true,
-            render: (hit: Partial<CatalogRecord>) => (
+            render: ({
+                _id,
+                _source: { comparisons },
+            }: EsHit<CatalogRecord>) => (
                 <LabelGroup>
-                    {(hit.comparisons || []).map(
-                        (
-                            c: {
-                                base: string;
-                                comparator: string;
-                                overall_score: number;
-                            },
-                            index: number
-                        ) => (
-                            <Label key={index}>
-                                {c.base} {c.comparator}: {c.overall_score}
-                            </Label>
-                        )
-                    )}
+                    {(comparisons || []).map((comparison, index) => (
+                        <ComparisonLabel
+                            key={index}
+                            recordId={_id}
+                            comparison={comparison}
+                        />
+                    ))}
                 </LabelGroup>
             ),
         },
@@ -138,28 +119,18 @@ function generateColumnsConfig() {
             key: "validations",
             label: "Validations",
             visibleByDefault: true,
-            render: (hit: Partial<CatalogRecord>) => (
+            render: ({
+                _id,
+                _source: { validations },
+            }: EsHit<CatalogRecord>) => (
                 <LabelGroup>
-                    {(hit.validations || []).map(
-                        (
-                            v: {
-                                validator: string;
-                                status: string;
-                            },
-                            index: number
-                        ) => (
-                            <Label
-                                key={index}
-                                status={
-                                    VALIDITY_STATUS_MAP[
-                                        v.status as ValidityStatus
-                                    ]
-                                }
-                            >
-                                {v.validator}
-                            </Label>
-                        )
-                    )}
+                    {(validations || []).map((validation, index) => (
+                        <ValidationLabel
+                            key={index}
+                            recordId={_id}
+                            validation={validation}
+                        />
+                    ))}
                 </LabelGroup>
             ),
         },
@@ -167,24 +138,24 @@ function generateColumnsConfig() {
             key: "latest_sync",
             label: "Last Sync",
             visibleByDefault: true,
-            render: (hit: Partial<CatalogRecord>) =>
-                hit.latest_sync && <LocalizedDateTime date={hit.latest_sync} />,
+            render: ({ _source: { latest_sync } }: EsHit<CatalogRecord>) =>
+                latest_sync && <LocalizedDateTime date={latest_sync} />,
         },
         {
             key: "latest_transaction",
             label: "Last Transaction",
-            render: (hit: Partial<CatalogRecord>) =>
-                hit.latest_transaction && (
-                    <LocalizedDateTime date={hit.latest_transaction} />
+            render: ({
+                _source: { latest_transaction },
+            }: EsHit<CatalogRecord>) =>
+                latest_transaction && (
+                    <LocalizedDateTime date={latest_transaction} />
                 ),
         },
         {
             key: "details",
             label: "Details",
-            render: (hit: Partial<CatalogRecord>) => (
-                <Link
-                    to={`/records/details?id=${hit.base}-${hit.system_number}`}
-                >
+            render: ({ _id }: EsHit<CatalogRecord>) => (
+                <Link to={`/records/details?id=${_id}`}>
                     <Button variant="plain" icon={<DetailsIcon />} />
                 </Link>
             ),
@@ -193,38 +164,38 @@ function generateColumnsConfig() {
     ];
 }
 
-export function generateCatalogRecordsConfig(): CollectionConfig {
+export function generateCatalogRecordsConfig<T>(): CollectionConfig<T> {
     return {
         columns: generateColumnsConfig(),
         perPage: { options: [10, 20, 50, 100], default: 10 },
         search: { fields: [] },
         filter: [
             {
-                type: "terms",
+                type: "term",
                 field: "state",
                 sizeOptions: [10],
                 labelProps: (bucketKey: string) => ({
-                    color: STATE_COLOR_MAP[bucketKey as CatalogRecordState],
+                    color: stateColor(bucketKey as CatalogRecordState),
                 }),
                 displayOrder: CatalogRecordStateSchema.options,
             },
             {
-                type: "terms",
+                type: "term",
                 field: "authority_links.base",
                 sizeOptions: [10, 20, 50],
             },
             {
-                type: "terms",
+                type: "term",
                 field: "comparisons.base",
                 sizeOptions: [10, 50],
             },
             {
-                type: "terms",
+                type: "term",
                 field: "comparisons.comparator",
                 sizeOptions: [10, 50],
             },
             {
-                type: "terms",
+                type: "term",
                 field: "comparisons.status",
                 sizeOptions: [4],
             },
@@ -236,51 +207,51 @@ export function generateCatalogRecordsConfig(): CollectionConfig {
                 max: 100,
             },
             {
-                type: "terms",
+                type: "term",
                 field: "comparisons.field_results.explanation",
                 sizeOptions: [10, 50],
             },
             {
-                type: "terms",
+                type: "term",
                 field: "comparisons.field_results.subfield_results.explanation",
                 sizeOptions: [10, 50],
             },
             {
-                type: "terms",
+                type: "term",
                 field: "validations.validator",
                 sizeOptions: [10, 50],
             },
             {
-                type: "terms",
+                type: "term",
                 field: "validations.status",
                 sizeOptions: [4],
                 labelProps: (bucketKey: string) => ({
-                    status: VALIDITY_STATUS_MAP[bucketKey as ValidityStatus],
+                    color: validityColor(bucketKey as ValidityStatus),
                 }),
                 displayOrder: ValidityStatusSchema.options,
             },
             {
-                type: "terms",
+                type: "term",
                 field: "validations.target.tag",
                 sizeOptions: [10, 50],
             },
             {
-                type: "terms",
+                type: "term",
                 field: "validations.target.codes",
                 sizeOptions: [10, 50],
             },
             {
-                type: "terms",
+                type: "term",
                 field: "validations.reason",
                 sizeOptions: [10, 50],
             },
             {
-                type: "terms",
+                type: "term",
                 field: "type_of_record",
                 sizeOptions: [10, 50],
             },
             {
-                type: "terms",
+                type: "term",
                 field: "bibliographic_level",
                 sizeOptions: [10, 50],
             },

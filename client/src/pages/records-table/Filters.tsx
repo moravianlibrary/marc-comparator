@@ -181,7 +181,7 @@ const RecordsTableFilters = ({
             return null;
         }
 
-        if (filterConfig.type === "terms") {
+        if (filterConfig.type === "term") {
             const parsed = EsTermsAggregationSchema.safeParse(aggregation);
             if (!parsed.success) {
                 return null;

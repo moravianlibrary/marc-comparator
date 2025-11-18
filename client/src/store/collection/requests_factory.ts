@@ -1,4 +1,3 @@
-import { base } from "@faker-js/faker";
 import type { EsRequest } from "../../models/api/requests/es";
 import type { FilterConfig, FilterState } from "../../models/ui/filters";
 import type {
@@ -125,8 +124,8 @@ function buildAggs(configs: FilterConfig[]): Record<string, any> {
     }, {} as Record<string, any>);
 }
 
-function buildFieldIncludes(
-    columnConfigs: TableColumnConfig[],
+function buildFieldIncludes<T>(
+    columnConfigs: TableColumnConfig<T>[],
     columnStates: Record<string, TableColumnState>
 ): string[] {
     return columnConfigs
@@ -135,17 +134,18 @@ function buildFieldIncludes(
         .flat();
 }
 
-export function buildRequests(state: CollectionState): EsRequest[] {
-    const searchQueries = state.searchTerm
-        ? buildSearchQueries(
-              state.config.search,
-              state.searchTerm,
-              state.searchFuzziness
-          )
-        : [];
+export function buildRequests<T>(state: CollectionState<T>): EsRequest[] {
+    const searchQueries =
+        state.config.search && state.searchTerm
+            ? buildSearchQueries(
+                  state.config.search,
+                  state.searchTerm,
+                  state.searchFuzziness
+              )
+            : [];
 
     const activeFilterQueries: Record<string, any> = {};
-    state.config.filter.forEach((config) => {
+    state.config.filter?.forEach((config) => {
         const filterState = state.filterStates?.[config.field];
         if (filterState) {
             activeFilterQueries[config.field] = buildFilterQuery(
@@ -178,23 +178,24 @@ export function buildRequests(state: CollectionState): EsRequest[] {
                 state.columnStates
             ),
         },
-        aggs: buildAggs(state.config.filter),
+        aggs: state.config.filter ? buildAggs(state.config.filter) : undefined,
     };
 
     // Per-filter aggs requests (omit its own filter from the agg query)
-    const filterAggsRequests: EsRequest[] = state.config.filter
-        .filter((config) => activeFilterQueries[config.field])
-        .map((config) => {
-            const filtersExcludingSelf = Object.entries(activeFilterQueries)
-                .filter(([field]) => field !== config.field)
-                .map(([, q]) => q);
+    const filterAggsRequests: EsRequest[] =
+        state.config.filter
+            ?.filter((config) => activeFilterQueries[config.field])
+            .map((config) => {
+                const filtersExcludingSelf = Object.entries(activeFilterQueries)
+                    .filter(([field]) => field !== config.field)
+                    .map(([, q]) => q);
 
-            return {
-                query: buildBoolQuery(searchQueries, filtersExcludingSelf),
-                size: 0,
-                aggs: buildAggs([config]),
-            } as EsRequest;
-        });
+                return {
+                    query: buildBoolQuery(searchQueries, filtersExcludingSelf),
+                    size: 0,
+                    aggs: buildAggs([config]),
+                } as EsRequest;
+            }) || [];
 
     return [hitsRequest, ...filterAggsRequests];
 }

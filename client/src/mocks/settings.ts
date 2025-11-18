@@ -28,7 +28,6 @@ export function settingsRoutes(this: any) {
     // POST updated Catalog settings
     this.post("/settings/system/catalog", (schema: any, request: any) => {
         const newSettings = JSON.parse(request.requestBody);
-        console.log("Saved settings:", newSettings);
         return new Response(200, {}, newSettings);
     });
 }

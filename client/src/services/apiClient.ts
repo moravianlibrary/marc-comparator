@@ -5,9 +5,26 @@ const apiClient = axios.create({
     headers: { "Content-Type": "application/json" },
 });
 
+export const setAuthToken = (token: string | null) => {
+    if (token) {
+        localStorage.setItem("auth_token", token);
+        apiClient.defaults.headers.common["Authorization"] = `Bearer ${token}`;
+    } else {
+        localStorage.removeItem("auth_token");
+        delete apiClient.defaults.headers.common["Authorization"];
+    }
+};
+
+setAuthToken(localStorage.getItem("auth_token"));
+
 apiClient.interceptors.response.use(
     (response) => response,
     (error: AxiosError) => {
+        if (error.status === 401) {
+            setAuthToken(null);
+            window.location.href = "/login";
+            return Promise.reject(error);
+        }
         if (error.response) {
             console.error(
                 "Server error:",

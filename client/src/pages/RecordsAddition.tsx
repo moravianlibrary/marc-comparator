@@ -17,7 +17,7 @@ import {
     TextInput,
 } from "@patternfly/react-core";
 import { TimesIcon } from "@patternfly/react-icons";
-import { ReactElement, useState } from "react";
+import { type ReactElement, useState } from "react";
 import {
     useAddBatchOfRecords,
     useAddOneRecord,

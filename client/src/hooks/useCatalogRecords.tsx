@@ -1,5 +1,4 @@
 import {
-    useMutation,
     useQueries,
     useQuery,
     type UseQueryResult,
@@ -12,9 +11,14 @@ import type {
     SetHiddenStateData,
     SyncRecordsData,
 } from "../models/api/requests/catalog_record";
-import type { SearchCatalogRecordsResponse } from "../models/api/responses/catalog_record";
+import type {
+    CatalogRecord,
+    SearchCatalogRecordsResponse,
+} from "../models/api/responses/catalog_record";
 import apiClient from "../services/apiClient";
-import type { Task } from "../models/api/responses/task";
+import type { EsHit } from "../models/api/responses/es";
+import type { MarcRecord } from "../models/api/responses/marc_record";
+import { useCreateTask } from "./useTasks";
 
 // -------------------------
 // Queries
@@ -71,35 +75,56 @@ export const useGetAvailableTargetBases = () =>
             ).map((bucket: { key: string }) => bucket.key),
     });
 
+export const useGetCatalogRecordById = (id: string | null, enabled = true) =>
+    useQuery<EsHit<CatalogRecord> | null>({
+        queryKey: ["catalog-records", "get-by-id", id],
+        queryFn: async () => {
+            if (!id) return null;
+
+            const response = await apiClient.post<SearchCatalogRecordsResponse>(
+                "/records/search",
+                {
+                    query: {
+                        term: { _id: id },
+                    },
+                }
+            );
+
+            return response.data.hits.hits.length === 1
+                ? (response.data.hits.hits[0] as EsHit<CatalogRecord>)
+                : null;
+        },
+        enabled,
+    });
+
+export const useGetMarcRecord = (
+    base: string,
+    systemNumber: string,
+    enabled = true
+) =>
+    useQuery<MarcRecord>({
+        queryKey: ["catalog-records", "get-marc-by-id", base, systemNumber],
+        queryFn: async () =>
+            apiClient
+                .get<MarcRecord>(`/records/marc/${base}/${systemNumber}`)
+                .then((res) => res.data),
+        enabled,
+    });
+
 // -------------------------
 // Mutations
 // -------------------------
 export const useAddOneRecord = () =>
-    useMutation<Task, Error, AddOneRecordData>({
-        mutationFn: async (data: AddOneRecordData) =>
-            (await apiClient.post("/records/fetch", data)).data,
-    });
+    useCreateTask<AddOneRecordData>("/records/fetch");
 
 export const useAddBatchOfRecords = () =>
-    useMutation<Task, Error, AddBatchOfRecordsData>({
-        mutationFn: async (data: AddBatchOfRecordsData) =>
-            (await apiClient.post("/records/fetch-batch", data)).data,
-    });
+    useCreateTask<AddBatchOfRecordsData>("/records/fetch-batch");
 
 export const useSyncRecords = () =>
-    useMutation<Task, Error, SyncRecordsData>({
-        mutationFn: async (data: SyncRecordsData) =>
-            (await apiClient.post("/records/sync", data)).data,
-    });
+    useCreateTask<SyncRecordsData>("/records/sync");
 
 export const useReindexRecords = () =>
-    useMutation<Task, Error, EsQuery>({
-        mutationFn: async (data: EsQuery) =>
-            (await apiClient.post("/records/reindex", data)).data,
-    });
+    useCreateTask<EsQuery>("/records/reindex");
 
 export const useSetHiddenStateOfRecords = () =>
-    useMutation<Task, Error, SetHiddenStateData>({
-        mutationFn: async (data) =>
-            (await apiClient.post("/records/hide", data)).data,
-    });
+    useCreateTask<SetHiddenStateData>("/records/hide");

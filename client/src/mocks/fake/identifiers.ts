@@ -13,7 +13,20 @@ export const fakeCatalogRecordId = (): string => {
 };
 
 export const fakeTag = (): string => {
-    return faker.string.numeric({ length: 3 });
+    return faker.helpers.arrayElement([
+        "008",
+        "020",
+        "041",
+        "100",
+        "245",
+        "250",
+        "260",
+        "300",
+        "500",
+        "650",
+        "700",
+        "856",
+    ]);
 };
 
 export const fakeSubfieldCode = (): string => {

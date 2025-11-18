@@ -129,6 +129,57 @@ export function buildHistogramAggregation(
     return { buckets };
 }
 
+function matchQuery(
+    model: any,
+    query: any,
+    idFunc?: (model: any) => string
+): boolean {
+    if (query.match_all) return true;
+
+    if (query.term) {
+        return Object.entries(query.term).every(([field, value]) => {
+            const fieldValue =
+                field === "_id"
+                    ? idFunc
+                        ? idFunc(model)
+                        : model.attrs["id"]
+                    : model.attrs[field] ?? model[field];
+            return fieldValue === value;
+        });
+    }
+
+    if (query.bool) {
+        let must = query.bool.must ?? [];
+        let filter = query.bool.filter ?? [];
+
+        // Ensure arrays
+        must = Array.isArray(must) ? must : [must];
+        filter = Array.isArray(filter) ? filter : [filter];
+
+        const mustPass = must.every((q: any) => matchQuery(model, q));
+        const filterPass = filter.every((q: any) => matchQuery(model, q));
+
+        return mustPass && filterPass;
+    }
+
+    if (query.range) {
+        return Object.entries(query.range).every(([field, condRaw]) => {
+            const cond = condRaw as {
+                gte?: number | string;
+                lte?: number | string;
+                gt?: number | string;
+                lt?: number | string;
+            };
+            const val = model.attrs[field] ?? model[field];
+            if (cond.gte !== undefined && val < cond.gte) return false;
+            if (cond.lte !== undefined && val > cond.lte) return false;
+            return true;
+        });
+    }
+
+    return false;
+}
+
 export function buildSearchResponse(
     schema: any,
     request: any,
@@ -138,9 +189,11 @@ export function buildSearchResponse(
     const esRequest = JSON.parse(request.requestBody) as EsRequest;
     const { query, from, size, aggs } = esRequest;
 
-    const hits = schema
+    const models = schema
         .all(collection)
-        .models.filter((p: any) => query.match_all)
+        .models.filter((m: any) => matchQuery(m, query, idFunc));
+
+    const hits = models
         .slice(from || 0, (from || 0) + (size || 10))
         .map((p: any) => {
             const { id, ...rest } = p.attrs;
@@ -151,7 +204,7 @@ export function buildSearchResponse(
             };
         });
 
-    const totalItems = schema.all(collection).length;
+    const totalItems = models.length;
 
     const aggregationResults: Record<string, any> = {};
     if (aggs) {
@@ -160,14 +213,14 @@ export function buildSearchResponse(
                 const field = (aggDef as any).terms.field;
                 aggregationResults[aggName] = buildTermsAggregation(
                     field,
-                    schema.all(collection).models
+                    models
                 );
             } else if ("range" in (aggDef as any)) {
                 const field = (aggDef as any).range.field;
                 const ranges = (aggDef as any).range.ranges;
                 aggregationResults[aggName] = buildRangeAggregation(
                     field,
-                    schema.all(collection).models,
+                    models,
                     ranges
                 );
             } else if ("histogram" in (aggDef as any)) {
@@ -175,7 +228,7 @@ export function buildSearchResponse(
                 const interval = (aggDef as any).histogram.interval;
                 aggregationResults[aggName] = buildHistogramAggregation(
                     field,
-                    schema.all(collection).models,
+                    models,
                     interval
                 );
             }
