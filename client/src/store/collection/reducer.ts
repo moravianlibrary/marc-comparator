@@ -1,10 +1,10 @@
 import { type TermsFilterState } from "../../models/ui/filters";
 import type { CollectionAction, CollectionState } from "./domain";
 
-export function collectionReducer(
-    state: CollectionState,
+export function collectionReducer<T>(
+    state: CollectionState<T>,
     action: CollectionAction
-): CollectionState {
+): CollectionState<T> {
     switch (action.type) {
         case "setColumnOrder": {
             const newColumnStates = { ...state.columnStates };
@@ -51,12 +51,12 @@ export function collectionReducer(
             const filterState = state.filterStates?.[action.field] as
                 | TermsFilterState
                 | undefined;
-            const filterConfig = state.config.filter.find(
+            const filterConfig = state.config.filter?.find(
                 (f) => f.field === action.field
             );
 
             // Guard clauses
-            if (!filterConfig || filterConfig.type !== "terms") {
+            if (!filterConfig || filterConfig.type !== "term") {
                 return state;
             }
 
@@ -116,7 +116,7 @@ export function collectionReducer(
             const filterState = state.filterStates?.[action.field] as
                 | { from?: number; to?: number }
                 | undefined;
-            const filterConfig = state.config.filter.find(
+            const filterConfig = state.config.filter?.find(
                 (f) => f.field === action.field
             );
 

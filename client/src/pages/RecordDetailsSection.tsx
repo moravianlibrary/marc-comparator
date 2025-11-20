@@ -25,6 +25,7 @@ import MarcRecordTable from "../components/organisms/MarcRecordTable";
 import MarcValidationTable from "../components/organisms/MarcValidationTable";
 import { z } from "zod";
 import { useSearchParamsState } from "../hooks/useSearchParamsState";
+import MarcComparisonTable from "../components/organisms/MarcComparisonTable";
 
 type TabKey =
     | "description"
@@ -303,7 +304,7 @@ const RecordDetailsSection = (): ReactElement => {
                                                     params.authorityLinks?.base
                                             )?.system_number
                                         }
-                                        noDataMessage="No authority records available"
+                                        noRecordMessage="No authority records available"
                                     />
                                 </TabContent>
                             )}
@@ -313,7 +314,25 @@ const RecordDetailsSection = (): ReactElement => {
                                     eventKey="comparisons"
                                     id="comparisons-content"
                                     ref={comparisonsRef}
-                                ></TabContent>
+                                >
+                                    <MarcComparisonTable
+                                        base={record._source.base}
+                                        systemNumber={
+                                            record._source.system_number
+                                        }
+                                        comparison={
+                                            record._source.comparisons.find(
+                                                (comp) =>
+                                                    comp.base ===
+                                                        params.comparisons
+                                                            ?.base &&
+                                                    comp.comparator ===
+                                                        params.comparisons
+                                                            ?.comparator
+                                            )!
+                                        }
+                                    />
+                                </TabContent>
                             )}
                         {params.tab === "validations" &&
                             record._source.validations && (

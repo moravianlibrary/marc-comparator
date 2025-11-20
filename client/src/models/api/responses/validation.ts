@@ -4,6 +4,7 @@ import { ValidityStatusSchema } from "../../primitives/validation";
 export const ValidationTargetSchema = z.object({
     tag: z.string().regex(/^\d{3}$/),
     codes: z.array(z.string()).optional(),
+    idx: z.number().optional(),
 });
 export type ValidationTarget = z.infer<typeof ValidationTargetSchema>;
 

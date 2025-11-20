@@ -27,12 +27,14 @@ export type EsHistogramBucket = z.infer<typeof EsHistogramBucketSchema>;
 export const EsDateRangeBucketSchema = z.object({
     from: z.union([z.string(), z.number()]).nullable().optional(),
     to: z.union([z.string(), z.number()]).nullable().optional(),
+    doc_count: z.number(),
 });
 export type EsDateRangeBucket = z.infer<typeof EsDateRangeBucketSchema>;
 
 export const EsAggregationBucketSchema = z.union([
     EsTermsBucketSchema,
     EsRangeBucketSchema,
+    EsHistogramBucketSchema,
     EsDateRangeBucketSchema,
 ]);
 export type EsAggregationBucket = z.infer<typeof EsAggregationBucketSchema>;

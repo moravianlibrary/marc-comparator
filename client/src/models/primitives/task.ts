@@ -4,11 +4,11 @@ export const TaskTypeSchema = z.enum([
     "FetchRecord",
     "FetchBatchOfRecords",
     "SyncRecords",
-    "ValidateRecords",
     "LinkRecordsToAuthorities",
     "CompareRecords",
-    "ReindexRecords",
+    "ValidateRecords",
     "SetRecordsHiddenState",
+    "ReindexRecords",
     "DeleteTasks",
     "RecreateIndexes",
 ]);

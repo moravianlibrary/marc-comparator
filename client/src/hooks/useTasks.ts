@@ -12,6 +12,7 @@ import {
     TaskSchema,
     type SearchTasksResponse,
     type Task,
+    type TracebackLinesRequestParams,
 } from "../models/api/responses/task";
 import type { EsRequest } from "../models/api/requests/es";
 import { useNotification } from "./useNotifications";
@@ -43,6 +44,51 @@ export const useSearchTasksBatch = (
             enabled,
         })),
     });
+
+export const useGetTraceback = (
+    id: string,
+    params: TracebackLinesRequestParams | null = null,
+    enabled = true
+) =>
+    useQuery<string[]>({
+        queryKey: ["tasks", "traceback", id, params],
+        queryFn: async () =>
+            (
+                await apiClient.get<string[]>(`/tasks/${id}/traceback`, {
+                    params,
+                })
+            ).data,
+        enabled,
+    });
+
+export const useDownloadTraceback = (
+    id: string,
+    params: TracebackLinesRequestParams | null = null,
+    enabled = true
+) => {
+    const query = useGetTraceback(id, params, enabled);
+
+    const download = async () => {
+        const data = await query.refetch().then((res) => {
+            if (!res.data) {
+                throw new Error("No traceback data available");
+            }
+            return res.data;
+        });
+
+        const blob = new Blob([data.join("\n")], { type: "text/plain" });
+        const url = window.URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.setAttribute("download", `${id}.task-traceback.txt`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(url);
+    };
+
+    return { ...query, download };
+};
 
 // -------------------------
 // Mutations Templates

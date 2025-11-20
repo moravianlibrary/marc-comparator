@@ -55,7 +55,7 @@ function buildSearchQueries(
 
 function buildFilterQuery(config: FilterConfig, state: FilterState) {
     switch (config.type) {
-        case "terms":
+        case "term":
             return { terms: { [config.field]: state } };
         case "range":
             return {
@@ -96,7 +96,7 @@ function buildFilterQuery(config: FilterConfig, state: FilterState) {
 
 function buildAggs(configs: FilterConfig[]): Record<string, any> {
     return configs.reduce((acc, filter) => {
-        if (filter.type === "terms") {
+        if (filter.type === "term") {
             acc[filter.field] = { terms: { field: filter.field } };
         } else if (filter.type === "range") {
             acc[filter.field] = {

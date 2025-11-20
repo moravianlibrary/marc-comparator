@@ -141,6 +141,15 @@ export const fakeVariableFields = () => {
             },
         ],
 
+        // General Note
+        "500": [
+            {
+                ind1: " ",
+                ind2: " ",
+                subfields: { a: [faker.lorem.sentence()] },
+            },
+        ],
+
         // Subject Headings
         "650": Array.from(
             { length: faker.number.int({ min: 2, max: 4 }) },
@@ -168,15 +177,6 @@ export const fakeVariableFields = () => {
                 },
             })
         ),
-
-        // General Note
-        "500": [
-            {
-                ind1: " ",
-                ind2: " ",
-                subfields: { a: [faker.lorem.sentence()] },
-            },
-        ],
 
         // Added Entry – Personal Name
         "700": [

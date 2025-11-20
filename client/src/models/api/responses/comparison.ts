@@ -2,6 +2,8 @@ import { z } from "zod";
 
 export const SubfieldComparisonResultSchema = z.object({
     code: z.string().length(1),
+    idxA: z.number().optional(),
+    idxB: z.number().optional(),
     score: z.number(),
     explanation: z.string().optional(),
     details: z.string().optional(),
@@ -12,6 +14,8 @@ export type SubfieldComparisonResult = z.infer<
 
 export const FieldComparisonResultSchema = z.object({
     tag: z.string().regex(/^\d{3}$/),
+    idxA: z.number().optional(),
+    idxB: z.number().optional(),
     score: z.number(),
     explanation: z.string().optional(),
     details: z.string().optional(),

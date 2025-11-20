@@ -88,3 +88,10 @@ export interface CollectionData<T> {
     totalItems?: number;
     aggregations?: Record<string, EsAggregation>;
 }
+
+export interface CollectionContext<T> {
+    config: CollectionConfig<T>;
+    state: CollectionState<T>;
+    data: CollectionData<T>;
+    dispatch: React.Dispatch<CollectionAction>;
+}

@@ -39,6 +39,115 @@ export const catalogRecordFactory = Factory.extend<CatalogRecord>({
 });
 
 export function catalogRecordSeeds(server: Server) {
+    server.create("catalog-record", {
+        id: "MZK01-000000001",
+        base: "MZK01",
+        system_number: "000000001",
+        type_of_record: "bib",
+        bibliographic_level: "m",
+        title: "Special Test Record",
+        authoers: "Test Author",
+        latest_sync: new Date(),
+        state: ["Valid"],
+        authority_links: [
+            {
+                linker: "TestLinker",
+                base: "SKC",
+                system_number: "000123456",
+                confidence: 0.95,
+                updated_at: new Date(),
+            },
+        ],
+        comparisons: [
+            {
+                comparator: "TestComparator",
+                base: "SKC",
+                system_number: "000123456",
+                overall_score: 0.9,
+                summary: "Very long text summary of the comparison result.",
+                updated_at: new Date(),
+                field_results: [
+                    {
+                        tag: "008",
+                        score: 1.0,
+                        explanation: "Fields match exactly.",
+                    },
+                    {
+                        tag: "100",
+                        score: 0.8,
+                        explanation: "Minor differences found.",
+                        details: "Subfield 'a' differs slightly.",
+                        subfield_results: [
+                            {
+                                code: "a",
+                                score: 0.8,
+                                explanation: "Subfield has minor differences.",
+                            },
+                        ],
+                    },
+                    {
+                        tag: "105",
+                        score: 0.0,
+                        explanation: "Field missing in target record.",
+                    },
+                    {
+                        tag: "106",
+                        score: 0.0,
+                        explanation: "Subfield missing in target record.",
+                        subfield_results: [
+                            {
+                                code: "b",
+                                score: 0.0,
+                                explanation:
+                                    "Subfield 'b' is missing in target record.",
+                            },
+                        ],
+                    },
+                    {
+                        tag: "650",
+                        idxA: 1,
+                        idxB: 0,
+                        score: 0.5,
+                        explanation: "Significant differences found.",
+                        details: "Multiple subfields differ.",
+                        subfield_results: [
+                            {
+                                code: "a",
+                                idxA: 0,
+                                idxB: 0,
+                                score: 0.6,
+                                explanation:
+                                    "Subfield 'a' has significant differences.",
+                            },
+                            {
+                                code: "a",
+                                idxA: 1,
+                                idxB: 1,
+                                score: 0.4,
+                                explanation: "Subfield 'a' differs greatly.",
+                            },
+                        ],
+                    },
+                    {
+                        tag: "650",
+                        idxA: 0,
+                        idxB: 1,
+                        score: 0.7,
+                        explanation: "Some differences found.",
+                        details: "Subfields differ in content.",
+                        subfield_results: [
+                            {
+                                code: "a",
+                                score: 0.7,
+                                explanation:
+                                    "Subfield 'a' has some differences.",
+                            },
+                        ],
+                    },
+                ],
+            },
+        ],
+    });
     server.createList("catalog-record", 72);
 }
 
@@ -95,7 +204,45 @@ export function catalogRecordRoutes(this: any) {
                         max: 2025,
                     })}    xxu           000 0 eng d`,
                 },
-                variable_fields: fakeVariableFields(),
+                variable_fields:
+                    request.params.system_number === "000123456"
+                        ? {
+                              ...fakeVariableFields(),
+                              "105": [
+                                  {
+                                      ind1: " ",
+                                      ind2: " ",
+                                      subfields: {
+                                          a: [request.params.base],
+                                      },
+                                  },
+                              ],
+                              "106": [
+                                  {
+                                      ind1: " ",
+                                      ind2: " ",
+                                      subfields: {
+                                          a: [request.params.base],
+                                          b: ["Additional data"],
+                                      },
+                                  },
+                              ],
+                          }
+                        : request.params.system_number === "000000001"
+                        ? {
+                              ...fakeVariableFields(),
+                              "106": [
+                                  {
+                                      ind1: " ",
+                                      ind2: " ",
+                                      subfields: {
+                                          a: [request.params.base, "Extra"],
+                                          // missing 'b' subfield
+                                      },
+                                  },
+                              ],
+                          }
+                        : fakeVariableFields(),
             };
 
             return new Response(200, {}, marc);
@@ -116,6 +263,7 @@ export function catalogRecordRoutes(this: any) {
             created_at: new Date(),
             started_at: null,
             finished_at: null,
+            traceback_lines: null,
         };
         return new Response(200, {}, task);
     });
@@ -131,6 +279,7 @@ export function catalogRecordRoutes(this: any) {
             created_at: new Date(),
             started_at: null,
             finished_at: null,
+            traceback_lines: null,
         };
         return new Response(200, {}, task);
     });
@@ -146,6 +295,7 @@ export function catalogRecordRoutes(this: any) {
             created_at: new Date(),
             started_at: null,
             finished_at: null,
+            traceback_lines: null,
         };
         return new Response(200, {}, task);
     });

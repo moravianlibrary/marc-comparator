@@ -1,147 +1,147 @@
-import { Table, Tbody, Td, Tr } from "@patternfly/react-table";
-import { type ReactElement } from "react";
+import { Table, Tbody } from "@patternfly/react-table";
+import { Fragment, type ReactElement } from "react";
 import { useGetMarcRecord } from "../../hooks/useCatalogRecords";
-import {
-    Bullseye,
-    EmptyState,
-    Spinner,
-    Stack,
-    StackItem,
-} from "@patternfly/react-core";
-import MonospaceValue from "../atoms/MonospaceValue";
+import TableLoadingBody from "../molecules/TableLoadingBody";
+import TableMessageBody from "../molecules/TableMessageBody";
+import MarcFixedFieldRow from "../molecules/MarcFixedFieldRow";
+import MarcVariableFieldRow from "../molecules/MarcVariableFieldRow";
+import type { MarcRecord } from "../../models/api/responses/marc_record";
 
 interface MarcRecordTableProps {
     base?: string;
     systemNumber?: string;
-    noDataMessage?: string;
+    record?: MarcRecord;
+    isLoading?: boolean;
+    noRecordMessage?: string;
+    includeOnlyFields?: string[];
+    renderFieldDetail?: (tag: string, fieldIdx: number) => React.ReactNode;
+    renderSubfieldDetail?: (
+        tag: string,
+        fieldIdx: number,
+        code: string,
+        subfieldIdx: number,
+        value: string
+    ) => React.ReactNode;
+    getHighlightedCodes?: (tag: string, fieldIdx: number) => string[];
 }
 
 const MarcRecordTable = ({
     base,
+    record: recordInput,
+    isLoading: isLoadingInput,
     systemNumber,
-    noDataMessage = "No data available",
+    noRecordMessage = "No record available",
+    includeOnlyFields,
+    renderFieldDetail,
+    renderSubfieldDetail,
+    getHighlightedCodes,
 }: MarcRecordTableProps): ReactElement => {
-    const { data, isLoading } = useGetMarcRecord(
+    const { data, isLoading: isLoadingHook } = useGetMarcRecord(
         base || "",
         systemNumber || "",
         !!base && !!systemNumber
     );
 
+    const record = recordInput || data;
+    const isLoading = isLoadingInput || isLoadingHook;
+
+    const renderFixedField = (tag: string, index: number, value: string) => {
+        if (includeOnlyFields && !includeOnlyFields.includes(tag)) return null;
+
+        const fixedField = (
+            <MarcFixedFieldRow
+                key={`${tag}-${index}`}
+                term={tag}
+                value={value}
+            />
+        );
+
+        return renderFieldDetail ? (
+            <Fragment key={`${tag}-${index}-fragment`}>
+                {fixedField}
+                {renderFieldDetail(tag, index)}
+            </Fragment>
+        ) : (
+            fixedField
+        );
+    };
+
+    const renderVariableField = (
+        tag: string,
+        ind1: string,
+        ind2: string,
+        subfields: Record<string, string[]>,
+        index: number
+    ) => {
+        if (includeOnlyFields && !includeOnlyFields.includes(tag)) return null;
+
+        const variableField = (
+            <MarcVariableFieldRow
+                tag={tag}
+                ind1={ind1}
+                ind2={ind2}
+                subfields={subfields}
+                index={index}
+                highlightedCodes={
+                    getHighlightedCodes
+                        ? getHighlightedCodes(tag, index)
+                        : undefined
+                }
+                renderSubfieldDetail={
+                    renderSubfieldDetail
+                        ? (code, idx, value) =>
+                              renderSubfieldDetail(tag, index, code, idx, value)
+                        : undefined
+                }
+            />
+        );
+        if (renderFieldDetail) {
+            return (
+                <Fragment key={`${tag}-${index}-fragment`}>
+                    {variableField}
+                    {renderFieldDetail(tag, index)}
+                </Fragment>
+            );
+        }
+        return variableField;
+    };
+
     return (
         <Table variant="compact">
             {isLoading ? (
-                <Tbody>
-                    <Tr>
-                        <Td colSpan={4}>
-                            <Bullseye>
-                                <Spinner size="xl" />
-                            </Bullseye>
-                        </Td>
-                    </Tr>
-                </Tbody>
-            ) : !data ? (
-                <Tbody>
-                    <Tr>
-                        <Td colSpan={4}>
-                            <Bullseye>
-                                <EmptyState>{noDataMessage}</EmptyState>
-                            </Bullseye>
-                        </Td>
-                    </Tr>
-                </Tbody>
+                <TableLoadingBody colSpan={3} />
+            ) : !record ? (
+                <TableMessageBody colSpan={3} message={noRecordMessage} />
             ) : (
                 <Tbody isEvenStriped>
-                    <Tr key="id">
-                        <Td>
-                            <MonospaceValue value="System Number" />
-                        </Td>
-                        <Td></Td>
-                        <Td></Td>
-                        <Td>
-                            <MonospaceValue value={systemNumber || ""} />
-                        </Td>
-                    </Tr>
-                    <Tr key="leader">
-                        <Td>
-                            <MonospaceValue value="Leader" />
-                        </Td>
-                        <Td></Td>
-                        <Td></Td>
-                        <Td>
-                            <MonospaceValue value={data.leader} />
-                        </Td>
-                    </Tr>
-                    {Object.entries(data.fixed_fields)
-                        .sort(([tagA], [tagB]) => tagA.localeCompare(tagB))
-                        .map(([tag, value], index) => (
-                            <Tr key={index}>
-                                <Td>
-                                    <MonospaceValue value={tag} />
-                                </Td>
-                                <Td></Td>
-                                <Td></Td>
-                                <Td>
-                                    <MonospaceValue value={value} />
-                                </Td>
-                            </Tr>
-                        ))}
-                    {Object.entries(data.variable_fields)
-                        .sort(([tagA], [tagB]) => tagA.localeCompare(tagB))
+                    <MarcFixedFieldRow
+                        key="id"
+                        term="System Number"
+                        value={systemNumber || ""}
+                    />
+                    {includeOnlyFields &&
+                    !includeOnlyFields.includes("leader") ? null : (
+                        <MarcFixedFieldRow
+                            key="leader"
+                            term="Leader"
+                            value={record.leader}
+                        />
+                    )}
+                    {Object.entries(record.fixed_fields)
+                        .sort(([a], [b]) => a.localeCompare(b))
+                        .map(([tag, value], index) =>
+                            renderFixedField(tag, index, value)
+                        )}
+                    {Object.entries(record.variable_fields)
+                        .sort(([a], [b]) => a.localeCompare(b))
                         .map(([tag, fields]) =>
-                            fields.map(
-                                ({ ind1, ind2, subfields }, subIndex) => (
-                                    <Tr key={`var-${tag}-${subIndex}`}>
-                                        <Td>
-                                            <MonospaceValue value={tag} />
-                                        </Td>
-                                        <Td>
-                                            <MonospaceValue
-                                                value={`${
-                                                    ind1?.trim() !== ""
-                                                        ? ind1
-                                                        : "-"
-                                                }${
-                                                    ind2?.trim() !== ""
-                                                        ? ind2
-                                                        : "-"
-                                                }`}
-                                            />
-                                        </Td>
-
-                                        <Td>
-                                            <Stack>
-                                                {Object.entries(subfields).map(
-                                                    ([key], index) => (
-                                                        <StackItem key={index}>
-                                                            <MonospaceValue
-                                                                value={key}
-                                                            />
-                                                        </StackItem>
-                                                    )
-                                                )}
-                                            </Stack>
-                                        </Td>
-
-                                        <Td>
-                                            <Stack>
-                                                {Object.values(subfields).map(
-                                                    (values, index) =>
-                                                        values.map(
-                                                            (
-                                                                value,
-                                                                subIndex
-                                                            ) => (
-                                                                <StackItem
-                                                                    key={`subfield-${index}-${subIndex}`}
-                                                                >
-                                                                    {value}
-                                                                </StackItem>
-                                                            )
-                                                        )
-                                                )}
-                                            </Stack>
-                                        </Td>
-                                    </Tr>
+                            fields.map(({ ind1, ind2, subfields }, subIndex) =>
+                                renderVariableField(
+                                    tag,
+                                    ind1,
+                                    ind2,
+                                    subfields,
+                                    subIndex
                                 )
                             )
                         )}

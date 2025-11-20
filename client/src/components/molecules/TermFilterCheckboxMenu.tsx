@@ -1,102 +1,165 @@
-import { useState, type ReactElement } from "react";
+import { useEffect, useRef, useState, type ReactElement } from "react";
 import type { CollectionFilterProps } from "../atoms/CollectionFilterProps";
 import {
-    Select,
     MenuToggle,
-    SelectList,
-    SelectOption,
-    type MenuToggleElement,
     Badge,
+    Popper,
+    Menu,
+    MenuContent,
+    MenuList,
+    MenuItem,
+    Split,
+    SplitItem,
 } from "@patternfly/react-core";
-import type { TermsFilterState } from "../../models/ui/filters";
+import type {
+    TermsFilterConfig,
+    TermsFilterState,
+} from "../../models/ui/filters";
+import { FilterIcon } from "@patternfly/react-icons";
+import type { EsTermsBucket } from "../../models/api/responses/es_aggregations";
 
 interface TermFilterCheckboxMenuProps<T> extends CollectionFilterProps<T> {}
 
 const TermFilterCheckboxMenu = <T,>({
     field,
-    config: { filter },
-    state: { filterStates },
-    data: { aggregations },
-    dispatch,
+    context: {
+        config: { filter },
+        state: { filterStates },
+        data: { aggregations },
+        dispatch,
+    },
 }: TermFilterCheckboxMenuProps<T>): ReactElement => {
     const [isOpen, setIsOpen] = useState<boolean>(false);
+    const toggleRef = useRef<HTMLButtonElement>(null);
+    const menuRef = useRef<HTMLDivElement>(null);
 
     const selectedItems: string[] =
-        (filterStates?.[field] as TermsFilterState).include ?? [];
+        (filterStates?.[field] as TermsFilterState)?.include ?? [];
 
-    const onToggleClick = () => setIsOpen(!isOpen);
-
-    const onSelect = (
-        _event: React.MouseEvent<Element, MouseEvent> | undefined,
-        value: string | number
-    ) => {
-        if (selectedItems.includes(String(value))) {
-            dispatch({ type: "toggleTerm", field, bucketKey: String(value) });
-        } else {
-            dispatch({ type: "toggleTerm", field, bucketKey: String(value) });
+    const handleMenuKeys = (event: KeyboardEvent) => {
+        if (isOpen && menuRef.current?.contains(event.target as Node)) {
+            if (event.key === "Escape" || event.key === "Tab") {
+                setIsOpen(!isOpen);
+                toggleRef.current?.focus();
+            }
         }
     };
 
-    const toggle = (toggleRef: React.Ref<MenuToggleElement>) => (
-        <MenuToggle
-            ref={toggleRef}
-            onClick={onToggleClick}
-            isExpanded={isOpen}
-            style={
-                {
-                    width: "200px",
-                } as React.CSSProperties
+    const handleClickOutside = (event: MouseEvent) => {
+        if (isOpen && !menuRef.current?.contains(event.target as Node)) {
+            setIsOpen(false);
+        }
+    };
+
+    useEffect(() => {
+        window.addEventListener("keydown", handleMenuKeys);
+        window.addEventListener("click", handleClickOutside);
+        return () => {
+            window.removeEventListener("keydown", handleMenuKeys);
+            window.removeEventListener("click", handleClickOutside);
+        };
+    }, [isOpen, menuRef]);
+
+    const onToggleClick = (ev: React.MouseEvent) => {
+        ev.stopPropagation();
+        setTimeout(() => {
+            if (menuRef.current) {
+                const firstElement = menuRef.current.querySelector(
+                    "li > button:not(:disabled)"
+                );
+                firstElement && (firstElement as HTMLElement).focus();
             }
-        >
-            Filter by status
-            {selectedItems.length > 0 && (
-                <Badge isRead>{selectedItems.length}</Badge>
-            )}
-        </MenuToggle>
-    );
+        }, 0);
+        setIsOpen(!isOpen);
+    };
+
+    function onSelect(
+        _event: React.MouseEvent | undefined,
+        itemId: string | number | undefined
+    ) {
+        if (typeof itemId === "undefined") {
+            return;
+        }
+
+        const itemIdStr = itemId.toString();
+        if (selectedItems.includes(itemIdStr)) {
+            dispatch({ type: "toggleTerm", field, bucketKey: itemIdStr });
+        } else {
+            dispatch({ type: "toggleTerm", field, bucketKey: itemIdStr });
+        }
+    }
+
+    const filterConfig = filter!.find(
+        (f) => f.field === field
+    )! as TermsFilterConfig;
+    const buckets = (aggregations?.[field]?.buckets || []) as EsTermsBucket[];
 
     return (
-        <Select
-            role="menu"
-            id="checkbox-select"
-            isOpen={isOpen}
-            selected={selectedItems}
-            onSelect={onSelect}
-            onOpenChange={(nextOpen: boolean) => setIsOpen(nextOpen)}
-            toggle={toggle}
-        >
-            <SelectList>
-                <SelectOption
-                    hasCheckbox
-                    value={0}
-                    isSelected={selectedItems.includes(0)}
+        <Popper
+            triggerRef={toggleRef}
+            trigger={
+                <MenuToggle
+                    ref={toggleRef}
+                    onClick={onToggleClick}
+                    isExpanded={isOpen}
+                    icon={<FilterIcon />}
+                    {...(selectedItems.length > 0 && {
+                        badge: (
+                            <Badge isRead={false}>{selectedItems.length}</Badge>
+                        ),
+                    })}
                 >
-                    Debug
-                </SelectOption>
-                <SelectOption
-                    hasCheckbox
-                    value={1}
-                    isSelected={selectedItems.includes(1)}
+                    Filter placeholder
+                </MenuToggle>
+            }
+            popperRef={menuRef}
+            popper={
+                <Menu
+                    ref={menuRef}
+                    id="checkbox-select-menu"
+                    onSelect={onSelect}
+                    selected={selectedItems}
+                    role="listbox"
                 >
-                    Info
-                </SelectOption>
-                <SelectOption
-                    hasCheckbox
-                    value={2}
-                    isSelected={selectedItems.includes(2)}
-                >
-                    Warn
-                </SelectOption>
-                <SelectOption
-                    hasCheckbox
-                    isDisabled
-                    value={4}
-                    isSelected={selectedItems.includes(4)}
-                >
-                    Error
-                </SelectOption>
-            </SelectList>
-        </Select>
+                    <MenuContent>
+                        <MenuList>
+                            {(filterConfig.orderBucketBy
+                                ? buckets.sort(filterConfig.orderBucketBy)
+                                : buckets.sort(
+                                      (a, b) => b.doc_count - a.doc_count
+                                  )
+                            ).map((bucket) => (
+                                <MenuItem
+                                    key={bucket.key}
+                                    isSelected={selectedItems.includes(
+                                        bucket.key.toString()
+                                    )}
+                                    itemId={bucket.key}
+                                >
+                                    <Split hasGutter>
+                                        <SplitItem isFilled>
+                                            {bucket.key}
+                                        </SplitItem>
+                                        <SplitItem>
+                                            <Badge
+                                                isRead={
+                                                    !selectedItems.includes(
+                                                        bucket.key.toString()
+                                                    )
+                                                }
+                                            >
+                                                {bucket.doc_count}
+                                            </Badge>
+                                        </SplitItem>
+                                    </Split>
+                                </MenuItem>
+                            ))}
+                        </MenuList>
+                    </MenuContent>
+                </Menu>
+            }
+            isVisible={isOpen}
+        />
     );
 };
 

@@ -14,6 +14,7 @@ import {
     type UseFormStateReturn,
     get,
     type FieldErrors,
+    type Resolver,
 } from "react-hook-form";
 import {
     ZodObject,
@@ -50,7 +51,7 @@ export interface ZodFormProps<T extends FieldValues> {
     onSubmit?: (data: T) => void;
 }
 
-type AnyZod = ZodType<any, any, any>;
+type AnyZod = ZodType<unknown>;
 
 interface FieldProps<T extends FieldValues, S extends AnyZod>
     extends UseControllerProps<T> {
@@ -197,7 +198,7 @@ const RenderField = <T extends FieldValues>(props: FieldProps<T, AnyZod>) => {
         schema instanceof ZodNullable ||
         schema instanceof ZodDefault
     ) {
-        schema = schema.def.innerType;
+        schema = schema.def.innerType as AnyZod;
     }
 
     // Primitive values
@@ -332,7 +333,7 @@ export const ZodForm = <T extends FieldValues>({
         handleSubmit,
         formState: { errors },
     } = useForm<T>({
-        resolver: zodResolver(schema),
+        resolver: zodResolver(schema) as Resolver<T>,
         defaultValues,
         mode: "onChange",
     });

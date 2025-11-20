@@ -1,4 +1,5 @@
 import { type LabelProps } from "@patternfly/react-core";
+import type { EsAggregationBucket } from "../api/responses/es_aggregations";
 
 // Filter Configs
 export interface TermsFilterConfig {
@@ -12,6 +13,7 @@ export interface TermsFilterConfig {
     searchable?: boolean;
     labelProps?: (bucketKey: string) => LabelProps;
     displayOrder?: string[];
+    orderBucketBy?: (a: EsAggregationBucket, b: EsAggregationBucket) => number;
 }
 
 export interface RangeFilterConfig {

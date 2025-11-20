@@ -11,10 +11,8 @@ import {
 } from "@patternfly/react-table";
 import HitsTable from "../components/organisms/HitsTable";
 import {
-    ActionList,
-    ActionListGroup,
-    ActionListItem,
     Button,
+    Icon,
     PageGroup,
     PageSection,
     Pagination,
@@ -34,11 +32,35 @@ import { buildCollectionData } from "../store/collection/data_factory";
 import type { Task } from "../models/api/responses/task";
 import { useSearchTasksBatch } from "../hooks/useTasks";
 import type { EsHit } from "../models/api/responses/es";
-import MonospaceValue from "../components/atoms/MonospaceValue";
-import { Link } from "react-router";
-import { CodeIcon } from "@patternfly/react-icons";
 import TaskSeverityLabel from "../components/atoms/TaskSeverityLabel";
 import TaskStatusLabel from "../components/atoms/TaskStatusLabel";
+import TermFilterCheckboxMenu from "../components/molecules/TermFilterCheckboxMenu";
+import {
+    TaskSeveritySchema,
+    TaskStatusSchema,
+    TaskTypeSchema,
+} from "../models/primitives/task";
+import RuntimeValue from "../components/atoms/RuntimeValue";
+import DownloadTracebackButton from "../components/atoms/DonwloadTracebackButton";
+import { TimesIcon } from "@patternfly/react-icons";
+
+const TASK_TYPE_ORDER: Record<string, number> = TaskTypeSchema.options.reduce(
+    (acc, type, index) => {
+        acc[type] = index;
+        return acc;
+    },
+    {} as Record<string, number>
+);
+const TASK_STATUS_ORDER: Record<string, number> =
+    TaskStatusSchema.options.reduce((acc, status, index) => {
+        acc[status] = index;
+        return acc;
+    }, {} as Record<string, number>);
+const TASK_OUTCOME_SEVERITY_ORDER: Record<string, number> =
+    TaskSeveritySchema.options.reduce((acc, severity, index) => {
+        acc[severity] = index;
+        return acc;
+    }, {} as Record<string, number>);
 
 const CONFIG: CollectionConfig<EsHit<Task>> = {
     columns: [
@@ -77,34 +99,48 @@ const CONFIG: CollectionConfig<EsHit<Task>> = {
         {
             key: "run_time",
             label: "Run Time",
-            render: ({ _source: { started_at, finished_at } }) => {
-                if (!started_at) return;
-
-                const runTimeMs =
-                    (finished_at ?? new Date()).getTime() -
-                    started_at.getTime();
-                const seconds = Math.floor((runTimeMs / 1000) % 60);
-                const minutes = Math.floor((runTimeMs / (1000 * 60)) % 60);
-                const hours = Math.floor(runTimeMs / (1000 * 60 * 60));
-                return (
-                    <MonospaceValue
-                        value={`${hours}h ${minutes}m ${seconds}s`}
+            render: ({ _source: { started_at, finished_at } }) =>
+                started_at ? (
+                    <RuntimeValue
+                        startedAt={started_at}
+                        finishedAt={finished_at ?? null}
                     />
-                );
-            },
+                ) : undefined,
             alwaysShow: true,
         },
         {
             key: "traceback",
             label: "Traceback",
+            render: ({ _id, _source: { status, traceback_lines } }) => (
+                <DownloadTracebackButton
+                    task_id={_id}
+                    status={status!}
+                    traceback_lines={traceback_lines ?? null}
+                />
+            ),
+            alwaysShow: true,
+        },
+        {
+            key: "revoke",
+            label: "Revoke",
             render: ({ _id, _source: { status } }) => (
-                <Link to={`/tasks/traceback?id=${_id}`}>
-                    <Button
-                        variant="plain"
-                        disabled={status === "Pending"}
-                        icon={<CodeIcon />}
-                    />
-                </Link>
+                <Button
+                    variant="plain"
+                    isDanger
+                    isDisabled={status !== "Pending" && status !== "Started"}
+                    icon={
+                        <Icon
+                            status={
+                                status !== "Pending" && status !== "Started"
+                                    ? undefined
+                                    : "danger"
+                            }
+                            isInline
+                        >
+                            <TimesIcon />
+                        </Icon>
+                    }
+                />
             ),
             alwaysShow: true,
         },
@@ -115,16 +151,23 @@ const CONFIG: CollectionConfig<EsHit<Task>> = {
             type: "term",
             field: "type",
             sizeOptions: [5, 10, 20],
+            orderBucketBy: (a, b) =>
+                TASK_TYPE_ORDER[a.key] - TASK_TYPE_ORDER[b.key],
         },
         {
             type: "term",
             field: "status",
             sizeOptions: [5, 10, 20],
+            orderBucketBy: (a, b) =>
+                TASK_STATUS_ORDER[a.key] - TASK_STATUS_ORDER[b.key],
         },
         {
             type: "term",
             field: "outcome_severity",
             sizeOptions: [5, 10, 20],
+            orderBucketBy: (a, b) =>
+                TASK_OUTCOME_SEVERITY_ORDER[a.key] -
+                TASK_OUTCOME_SEVERITY_ORDER[b.key],
         },
     ],
 };
@@ -174,7 +217,9 @@ const TasksTable = (): ReactElement => {
 
     const { config, columnStates, page, perPage } = state;
 
-    const { isLoading, isError, error, hits, totalItems, aggregations } = data;
+    const { isLoading, isError, error, hits, totalItems } = data;
+
+    const context = { config, state, data, dispatch };
 
     const { columns } = config;
 
@@ -201,7 +246,35 @@ const TasksTable = (): ReactElement => {
                                     key="filters"
                                     align={{ default: "alignStart" }}
                                 >
-                                    <ToolbarItem></ToolbarItem>
+                                    <ToolbarItem>
+                                        <TermFilterCheckboxMenu
+                                            field="type"
+                                            context={context}
+                                        />
+                                    </ToolbarItem>
+                                    <ToolbarItem>
+                                        <TermFilterCheckboxMenu
+                                            field="status"
+                                            context={context}
+                                        />
+                                    </ToolbarItem>
+                                    <ToolbarItem>
+                                        <TermFilterCheckboxMenu
+                                            field="outcome_severity"
+                                            context={context}
+                                        />
+                                    </ToolbarItem>
+                                    {Object.keys(state.filterStates || {})
+                                        .length > 0 && (
+                                        <ToolbarItem>
+                                            <Button
+                                                variant="link"
+                                                onClick={handleClearFilters}
+                                            >
+                                                Clear
+                                            </Button>
+                                        </ToolbarItem>
+                                    )}
                                 </ToolbarGroup>
                             </ToolbarContent>
                         </Toolbar>

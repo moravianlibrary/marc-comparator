@@ -19,6 +19,10 @@ export const taskFactory = Factory.extend<Task>({
     created_at: () => faker.date.past(),
     started_at: () => (faker.datatype.boolean() ? faker.date.recent() : null),
     finished_at: () => (faker.datatype.boolean() ? faker.date.recent() : null),
+    traceback_lines: () =>
+        faker.datatype.boolean()
+            ? faker.number.int({ min: 5, max: 2000 })
+            : null,
 });
 
 export function taskSeeds(server: Server) {
@@ -34,6 +38,21 @@ export function tasksRoutes(this: any) {
             (task: Task) => task.task_id
         )
     );
+
+    this.get("/tasks/:id/traceback", (schema: any, request: any) => {
+        const { id } = request.params;
+        const task = schema.tasks.findBy({ task_id: id }) as Task;
+        if (!task) {
+            return new Response(404, {}, { error: "Task not found" });
+        }
+
+        const lines: string[] = [];
+        const totalLines = task.traceback_lines || 100;
+        for (let i = 0; i < totalLines; i++) {
+            lines.push(`Traceback line ${i + 1} for task ${id}`);
+        }
+        return new Response(200, {}, lines);
+    });
 
     // POST init deletion of tasks
     this.post("/tasks/delete", (schema: any, request: any) => {
