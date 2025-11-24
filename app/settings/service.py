@@ -1,22 +1,13 @@
 from typing import Any
 
 from adapters.database import DatabaseSession
-from entities.settings import (
-    Settings,
-    SettingsJsonSchema,
-    SettingsSchema,
-    SettingsScope,
-)
+from entities.settings import Settings, SettingsSchema, SettingsScope
 from settings.exceptions import (
     SettingsNotFoundError,
     SettingsPartNotFoundError,
 )
 
 from .models import SETTINGS_MODEL_DISPATCHER
-
-
-def get_settings_schema(scope: SettingsScope) -> SettingsJsonSchema:
-    return SETTINGS_MODEL_DISPATCHER.get(scope).model_json_schema()
 
 
 def get_settings(

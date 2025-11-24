@@ -6,7 +6,7 @@ from typing import Any, Callable, Dict, Generic, List, TypeVar, Union
 
 from aiohttp import ClientSession
 from elasticsearch import AsyncElasticsearch
-from esorm import ESBaseModel, ESModel, aggs, es
+from esorm import ESBaseModel, ESModel, es
 from esorm.fields import Keyword
 from pydantic import BaseModel, Field
 
@@ -75,7 +75,7 @@ class IndexerResponse(BaseModel):
     """ The number of shards the query was executed on. """
     hits: Hits
     """ The hits section of the response. """
-    aggregations: aggs.ESAggsResponse | None = None
+    aggregations: Any | None = None
     """ The aggregations section of the response. """
 
 

@@ -9,7 +9,7 @@ from validation.models import ValidationSettings
 
 SETTINGS_MODEL_DISPATCHER: Dict[SettingsScope, type[SettingsSchema]] = {
     SettingsScope.Catalog: CatalogSettings,
-    SettingsScope.Task: TaskSettings,
+    SettingsScope.Tasks: TaskSettings,
     SettingsScope.Validation: ValidationSettings,
     SettingsScope.AuthorityLinking: AuthorityLinkingSettings,
     SettingsScope.Comparison: ComparisonSettings,

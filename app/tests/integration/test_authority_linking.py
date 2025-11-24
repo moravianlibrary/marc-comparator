@@ -140,6 +140,9 @@ def authority_link(
 @pytest.fixture(scope="function")
 def mock_linker_with_link(mocker: MockerFixture) -> MockerFixture:
     class MockLinker(BaseAuthorityLinker):
+        async def get_target_bases(self, config):
+            return ["SKC"]
+
         async def run(self, base, system_number, record, target_base):
             return AuthorityLink(
                 base=target_base, system_number="001217729", record=record
@@ -229,17 +232,17 @@ class TestAuthorityLinkingTaskExistingRecord:
         authority_catalog_record: CatalogRecord,
         mock_linker_with_link: MockerFixture,
     ):
-        last_sync = authority_catalog_record.last_sync
+        latest_sync = authority_catalog_record.latest_sync
 
         from authority_linking.tasks import authority_linking
 
         await authority_linking(task.task_id)
 
         assert (
-            last_sync
+            latest_sync
             != CatalogRecord.find_by_base_and_system_number(
                 db_session, "SKC", "001217729"
-            ).last_sync
+            ).latest_sync
         )
 
 
@@ -260,17 +263,17 @@ class TestAuthorityLinkingTaskExistingRecordExistingLink:
         authority_catalog_record: CatalogRecord,
         mock_linker_with_link: MockerFixture,
     ):
-        last_sync = authority_catalog_record.last_sync
+        latest_sync = authority_catalog_record.latest_sync
 
         from authority_linking.tasks import authority_linking
 
         await authority_linking(task.task_id)
 
         assert (
-            last_sync
+            latest_sync
             != CatalogRecord.find_by_base_and_system_number(
                 db_session, "SKC", "001217729"
-            ).last_sync
+            ).latest_sync
         )
 
 

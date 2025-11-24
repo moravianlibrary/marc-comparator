@@ -3,14 +3,14 @@ import { EsQuerySchema } from "./es_query";
 
 export const AddOneRecordDataSchema = z.object({
     base: z.string(),
-    systemNumber: z.string(),
+    system_number: z.string(),
 });
 export type AddOneRecordData = z.infer<typeof AddOneRecordDataSchema>;
 
 export const AddBatchOfRecordsDataSchema = z.object({
     per_base: z.object({
         base: z.string(),
-        systemNumbers: z.array(z.string()),
+        system_numbers: z.array(z.string()),
     }),
 });
 export type AddBatchOfRecordsData = z.infer<typeof AddBatchOfRecordsDataSchema>;

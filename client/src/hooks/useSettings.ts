@@ -100,21 +100,27 @@ export const useGetSettings = (
     useQuery<Settings>({
         queryKey: ["settings", domain, scope],
         queryFn: async () =>
-            (await apiClient.get<Settings>(`/settings/${domain}/${scope}`))
-                .data,
+            apiClient
+                .get<Settings>(`/settings/${domain}/${scope}`)
+                .then((res) => res.data)
+                .catch((err) => {
+                    if (err.status === 404) {
+                        console.warn(
+                            "Settings not found, returning empty object"
+                        );
+                        return {};
+                    }
+                    throw err;
+                }),
         enabled,
     });
 
 // -------------------------
 // Mutations
 // -------------------------
-export const useSetSettings = (
-    domain: SettingsDomain,
-    scope: SettingsScope,
-    settings: Settings
-) =>
-    useMutation<Settings, Error, void>({
-        mutationFn: async () =>
+export const useSetSettings = (domain: SettingsDomain, scope: SettingsScope) =>
+    useMutation<Settings, Error, Settings>({
+        mutationFn: async (settings: Settings) =>
             (
                 await apiClient.post<Settings>(
                     `/settings/${domain}/${scope}`,

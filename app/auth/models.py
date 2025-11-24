@@ -4,6 +4,7 @@ from uuid import UUID
 from pydantic import BaseModel, EmailStr
 
 from access_control.models import RoleSummary
+from entities.role import Permission
 
 
 class RegisterUserRequest(BaseModel):
@@ -28,3 +29,7 @@ class UserSchema(BaseModel):
     first_name: str
     last_name: str
     roles: List[RoleSummary]
+
+
+class MeSchema(UserSchema):
+    permissions: List[Permission]

@@ -55,8 +55,19 @@ export const useLogin = () => {
     const { addNotification } = useNotification();
 
     return useMutation<Token, Error, LoginUser>({
-        mutationFn: async (data) =>
-            (await apiClient.post<Token>("/auth/login", data)).data,
+        mutationFn: async ({ username, password }) => {
+            const formData = new URLSearchParams();
+            formData.append("username", username);
+            formData.append("password", password);
+
+            return (
+                await apiClient.post<Token>("/auth/login", formData, {
+                    headers: {
+                        "Content-Type": "application/x-www-form-urlencoded",
+                    },
+                })
+            ).data;
+        },
         onSuccess: (tokenData) => {
             localStorage.setItem("auth_token", tokenData.access_token);
             apiClient.defaults.headers.common[

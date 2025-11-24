@@ -137,54 +137,60 @@ class ManagedTask:
         # --- Load task ---
         self.task = Task.get(self.db_session, self.task_id)
 
-        # --- Logger ---
-        self.logger = logging.getLogger(f"task-{self.task_id}")
-        handler = TaskHandler(self.db_session, self.task)
-        formatter = logging.Formatter("%(message)s")
-        handler.setFormatter(formatter)
-        self.logger.addHandler(handler)
+        try:
+            # --- Logger ---
+            self.logger = logging.getLogger(f"task-{self.task_id}")
+            handler = TaskHandler(self.db_session, self.task)
+            formatter = logging.Formatter("%(message)s")
+            handler.setFormatter(formatter)
+            self.logger.addHandler(handler)
 
-        # --- Indexer session ---
-        self.indexer = await indexer_session().__aenter__()
+            # --- Indexer session ---
+            self.indexer = await indexer_session().__aenter__()
 
-        # --- Load task settings ---
-        self.task_settings: TaskSettings = (
-            Settings.get(self.db_session, SettingsScope.Task, TaskSettings)
-            or TaskSettings()
-        )
-
-        # --- Initialize Aleph client registry from config ---
-        catalog_settings: CatalogSettings | None = Settings.get(
-            self.db_session, SettingsScope.Catalog, CatalogSettings
-        )
-        if catalog_settings:
-            from adapters.aleph_client_registry import AlephClientRegistry
-
-            AlephClientRegistry.load_from_settings(catalog_settings)
-
-        # --- Mark task as started ---
-        self.logger.info("Task started")
-        self.task.status = TaskStatus.Started
-        self.task.started_at = config.timestamp
-        await self.save_and_index_task()
-
-        # --- Acquire lock if needed ---
-        if self.lock_key:
-            self.lock = one_at_a_time_lock(
-                self.lock_key, self.lock_blocking_timeout
-            )
-            lock_acquired = self.lock.__enter__()
-            if not lock_acquired:
-                raise ValueError(
-                    f"Task lock '{self.lock_key}' is already acquired"
+            # --- Load task settings ---
+            self.task_settings: TaskSettings = (
+                Settings.get(
+                    self.db_session, SettingsScope.Tasks, TaskSettings
                 )
+                or TaskSettings()
+            )
 
-        return TaskContext(
-            logger=self.logger,
-            db_session=self.db_session,
-            task=self.task,
-            task_settings=self.task_settings,
-        )
+            # --- Initialize Aleph client registry from config ---
+            catalog_settings: CatalogSettings | None = Settings.get(
+                self.db_session, SettingsScope.Catalog, CatalogSettings
+            )
+            if catalog_settings:
+                from adapters.aleph_client_registry import AlephClientRegistry
+
+                AlephClientRegistry.load_from_settings(catalog_settings)
+
+            # --- Mark task as started ---
+            self.logger.info("Task started")
+            self.task.status = TaskStatus.Started
+            self.task.started_at = config.timestamp
+            await self.save_and_index_task()
+
+            # --- Acquire lock if needed ---
+            if self.lock_key:
+                self.lock = one_at_a_time_lock(
+                    self.lock_key, self.lock_blocking_timeout
+                )
+                lock_acquired = self.lock.__enter__()
+                if not lock_acquired:
+                    raise ValueError(
+                        f"Task lock '{self.lock_key}' is already acquired"
+                    )
+
+            return TaskContext(
+                logger=self.logger,
+                db_session=self.db_session,
+                task=self.task,
+                task_settings=self.task_settings,
+            )
+        except Exception:
+            await self.__aexit__(None, None, None)
+            raise
 
     async def __aexit__(self, exc_type, exc_value, traceback):
         # --- Set final task status ---
@@ -406,7 +412,7 @@ async def revoke_task(task: Task, db_session: DatabaseSession) -> TaskSchema:
     TaskSchema
         The revoked task as a TaskSchema instance.
     """
-    if task.status in {TaskStatus.Started, TaskStatus.Pending}:
+    if task.status not in {TaskStatus.Started, TaskStatus.Pending}:
         raise ValueError(
             f"Task with status '{task.status}' cannot be revoked."
         )

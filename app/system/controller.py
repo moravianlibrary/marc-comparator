@@ -18,6 +18,13 @@ router = APIRouter(
 )
 
 
+@router.get("/info")
+async def get_system_info(
+    db_session: DatabaseSessionDep,
+):
+    return await service.get_system_info(db_session)
+
+
 @router.post("/recreate-indexes", response_model=TaskSchema)
 async def recreate_indexes(
     current_user: CurrentUser,

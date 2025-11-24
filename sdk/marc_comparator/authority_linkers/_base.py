@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import List
 
 from marcdantic import MarcRecord
 from pydantic import BaseModel
@@ -38,6 +39,19 @@ class BaseAuthorityLinker(ABC):
     """
 
     config_model: type[BaseModel] | None = None
+
+    @classmethod
+    @abstractmethod
+    async def get_target_bases(cls, config: BaseModel) -> List[str]:
+        """
+        Returns a list of authority bases that this linker can target.
+
+        Returns
+        -------
+        List[str]
+            A list of authority base identifiers (e.g., "KNAV", "SKC").
+        """
+        raise NotImplementedError
 
     @abstractmethod
     async def run(

@@ -19,6 +19,7 @@ const DownloadTracebackButton = ({
     return (
         <DownloadButton
             variant="plain"
+            aria-label="Download traceback"
             isDisabled={status === "Pending" || !traceback_lines}
             icon={<DownloadIcon />}
             download={download}

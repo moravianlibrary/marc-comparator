@@ -22,6 +22,8 @@ if TYPE_CHECKING:
 
 class SubfieldComparisonResult(IndexerNestedModel):
     code: Keyword
+    idxA: int | None = None
+    idxB: int | None = None
     score: float
     explanation: Keyword | None = None
     details: Text | None = None
@@ -29,6 +31,8 @@ class SubfieldComparisonResult(IndexerNestedModel):
 
 class FieldComparisonResult(IndexerNestedModel):
     tag: Keyword
+    idxA: int | None = None
+    idxB: int | None = None
     score: float
     explanation: Keyword | None = None
     details: Text | None = None

@@ -135,7 +135,7 @@ def task_settings_one_by_one(db_session: DatabaseSession) -> TaskSettings:
     )
     return Settings.save(
         db_session,
-        SettingsScope.Task,
+        SettingsScope.Tasks,
         settings,
         TaskSettings,
     )

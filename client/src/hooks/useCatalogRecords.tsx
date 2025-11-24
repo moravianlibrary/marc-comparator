@@ -27,7 +27,7 @@ export const useSearchCatalogRecords = (request: EsRequest, enabled = true) =>
     useQuery<SearchCatalogRecordsResponse>({
         queryKey: ["catalog-records", "search", request],
         queryFn: async () =>
-            (await apiClient.post("/records/search", request)).data,
+            (await apiClient.post("/catalog-records/search", request)).data,
         enabled,
     });
 
@@ -39,7 +39,7 @@ export const useSearchCatalogRecordsBatch = (
         queries: requests.map((request, idx) => ({
             queryKey: ["catalog-records", "search", idx, request],
             queryFn: async () =>
-                (await apiClient.post("/records/search", request)).data,
+                (await apiClient.post("/catalog-records/search", request)).data,
             enabled,
         })),
     });
@@ -50,20 +50,21 @@ export const useGetAvailableTargetBases = () =>
         queryFn: async () =>
             (
                 (
-                    await apiClient.post("/records/search", {
+                    await apiClient.post("/catalog-records/search", {
                         query: {
-                            size: 0,
-                            aggs: {
-                                distinct_authority_bases: {
-                                    nested: {
-                                        path: "authority_links",
-                                    },
-                                    aggs: {
-                                        bases: {
-                                            terms: {
-                                                field: "authority_links.base.keyword",
-                                                size: 100,
-                                            },
+                            match_all: {},
+                        },
+                        size: 0,
+                        aggs: {
+                            distinct_authority_bases: {
+                                nested: {
+                                    path: "authority_links",
+                                },
+                                aggs: {
+                                    bases: {
+                                        terms: {
+                                            field: "authority_links.base.keyword",
+                                            size: 100,
                                         },
                                     },
                                 },
@@ -82,7 +83,7 @@ export const useGetCatalogRecordById = (id: string | null, enabled = true) =>
             if (!id) return null;
 
             const response = await apiClient.post<SearchCatalogRecordsResponse>(
-                "/records/search",
+                "/catalog-records/search",
                 {
                     query: {
                         term: { _id: id },
@@ -106,7 +107,9 @@ export const useGetMarcRecord = (
         queryKey: ["catalog-records", "get-marc-by-id", base, systemNumber],
         queryFn: async () =>
             apiClient
-                .get<MarcRecord>(`/records/marc/${base}/${systemNumber}`)
+                .get<MarcRecord>(
+                    `/catalog-records/${base}/${systemNumber}/marc`
+                )
                 .then((res) => res.data),
         enabled,
     });
@@ -115,16 +118,16 @@ export const useGetMarcRecord = (
 // Mutations
 // -------------------------
 export const useAddOneRecord = () =>
-    useCreateTask<AddOneRecordData>("/records/fetch");
+    useCreateTask<AddOneRecordData>("/catalog-records/fetch");
 
 export const useAddBatchOfRecords = () =>
-    useCreateTask<AddBatchOfRecordsData>("/records/fetch-batch");
+    useCreateTask<AddBatchOfRecordsData>("/catalog-records/fetch-batch");
 
 export const useSyncRecords = () =>
-    useCreateTask<SyncRecordsData>("/records/sync");
+    useCreateTask<SyncRecordsData>("/catalog-records/sync");
 
 export const useReindexRecords = () =>
-    useCreateTask<EsQuery>("/records/reindex");
+    useCreateTask<EsQuery>("/catalog-records/reindex");
 
 export const useSetHiddenStateOfRecords = () =>
-    useCreateTask<SetHiddenStateData>("/records/hide");
+    useCreateTask<SetHiddenStateData>("/catalog-records/hide");

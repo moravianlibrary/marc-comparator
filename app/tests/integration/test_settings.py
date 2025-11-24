@@ -14,19 +14,11 @@ from tests.integration.conftest import assert_response, load_test_json
 )
 class TestTasksSettingsEndpoints:
     @pytest.mark.asyncio
-    async def test_get_settings_schema(self, client: AsyncClient):
-        assert_response(
-            await client.get("/settings/tasks/AuthorityLinking/schema"),
-            200,
-            load_test_json("authority_linking_settings.schema.json"),
-        )
-
-    @pytest.mark.asyncio
     async def test_get_settings_not_found(self, client: AsyncClient):
         assert_response(
-            await client.get("/settings/tasks/AuthorityLinking"),
+            await client.get("/settings/record-tools/authority-linkers"),
             404,
-            {"detail": "Settings for scope 'AuthorityLinking' not found."},
+            {"detail": "Settings for scope 'authority-linkers' not found."},
         )
 
     @pytest.mark.asyncio
@@ -46,7 +38,7 @@ class TestTasksSettingsEndpoints:
         )
 
         assert_response(
-            await client.get("/settings/tasks/AuthorityLinking"),
+            await client.get("/settings/record-tools/authority-linkers"),
             200,
             test_settings,
         )
@@ -57,7 +49,7 @@ class TestTasksSettingsEndpoints:
 
         assert_response(
             await client.post(
-                "/settings/tasks/AuthorityLinking", json=test_settings
+                "/settings/record-tools/authority-linkers", json=test_settings
             ),
             200,
             test_settings,

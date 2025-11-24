@@ -87,7 +87,7 @@ async def sync_records(
                 name=f"Sync records from catalog for base {data.base}",
                 type=TaskType.SyncRecords,
                 created_by=created_by,
-                data=data.model_dump(),
+                data=data.model_dump(mode="json"),
             ),
             db_session,
         )

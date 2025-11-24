@@ -5,13 +5,13 @@ export const createEsHitSchema = <T extends ZodType<any>>(sourceSchema: T) =>
     z.object({
         _index: z.string(),
         _id: z.string(),
-        _score: z.number().optional(),
+        _score: z.number().optional().nullable(),
         _source: sourceSchema,
     });
 export type EsHit<T> = {
     _index: string;
     _id: string;
-    _score?: number;
+    _score?: number | null;
     _source: Partial<T>;
 };
 
@@ -25,7 +25,7 @@ export type EsResponse<T> = {
     timed_out: boolean;
     _shards: unknown;
     hits: EsHits<T>;
-    aggregations?: Record<string, EsAggregation>;
+    aggregations?: Record<string, EsAggregation> | null;
 };
 
 export const createEsHitsSchema = <T extends ZodType<any>>(sourceSchema: T) =>
@@ -42,5 +42,8 @@ export const createEsResponseSchema = <T extends ZodType<any>>(
         timed_out: z.boolean(),
         _shards: z.any(),
         hits: createEsHitsSchema(sourceSchema),
-        aggregations: z.record(z.string(), EsAggregationSchema).optional(),
+        aggregations: z
+            .record(z.string(), EsAggregationSchema)
+            .nullable()
+            .optional(),
     });

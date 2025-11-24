@@ -67,7 +67,7 @@ class TestAuthenticationEndpoints:
     async def test_user_login(self, client: AsyncClient):
         assert_response(
             await client.post(
-                "/auth/token",
+                "/auth/login",
                 data={
                     "username": "test.user@example.com",
                     "password": "password123",
@@ -85,7 +85,7 @@ class TestAuthenticationEndpoints:
     async def test_user_login_invalid_username(self, client: AsyncClient):
         assert_response(
             await client.post(
-                "/auth/token",
+                "/auth/login",
                 data={
                     "username": "invalid@example.com",
                     "password": "wrongpassword",
@@ -99,7 +99,7 @@ class TestAuthenticationEndpoints:
     async def test_user_login_invalid_password(self, client: AsyncClient):
         assert_response(
             await client.post(
-                "/auth/token",
+                "/auth/login",
                 data={
                     "username": "test.user@example.com",
                     "password": get_password_hash("wrongpassword"),
@@ -113,7 +113,7 @@ class TestAuthenticationEndpoints:
     async def test_user_login_invalid_hash(self, client: AsyncClient):
         assert_response(
             await client.post(
-                "/auth/token",
+                "/auth/login",
                 data={
                     "username": "test.user@example.com",
                     "password": "wrongpassword",
@@ -139,7 +139,20 @@ class TestAuthenticationEndpoints:
                         "name": "Admin",
                     },
                 ],
+                "permissions": [
+                    "ManageAllTasks",
+                    "ReadRecords",
+                    "ManageTasks",
+                    "ManageAccessControl",
+                    "SyncRecordsFromCatalog",
+                    "RunRecordTasks",
+                    "ManageSystem",
+                    "ManageTaskSettings",
+                    "ManageAppSettings",
+                    "AddRecords",
+                ],
             },
+            exclude_field_paths={("permissions",)},
         )
 
 
@@ -154,7 +167,7 @@ class TestAuthenticationEndpointsUnauthenticated:
     @pytest.mark.asyncio
     async def test_get_current_user(self, client: AsyncClient):
         response = await client.post(
-            "/auth/token",
+            "/auth/login",
             data={
                 "username": "test.user@example.com",
                 "password": "password123",
@@ -173,6 +186,7 @@ class TestAuthenticationEndpointsUnauthenticated:
                 "first_name": "Test",
                 "last_name": "User",
                 "roles": [{"id": 2, "name": "Guest"}],
+                "permissions": ["ReadRecords"],
             },
             {("id",)},
         )

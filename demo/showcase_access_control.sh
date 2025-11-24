@@ -48,11 +48,11 @@ pause
 ###############################################################################
 print_step "Logging in as test user"
 
-http --form POST "$APP_URL/auth/token" \
+http --form POST "$APP_URL/auth/login" \
     username="$TEST_EMAIL" \
     password="$TEST_PASSWORD"
 
-TEST_TOKEN=$(http --form --print=b POST "$APP_URL/auth/token" \
+TEST_TOKEN=$(http --form --print=b POST "$APP_URL/auth/login" \
     username="$TEST_EMAIL" \
     password="$TEST_PASSWORD" | jq -r .access_token)
 
@@ -75,11 +75,11 @@ pause
 ###############################################################################
 print_step "Logging in as admin"
 
-http --form POST "$APP_URL/auth/token" \
+http --form POST "$APP_URL/auth/login" \
     username="$ADMIN_EMAIL" \
     password="$ADMIN_PASSWORD"
 
-ADMIN_TOKEN=$(http --form --print=b POST "$APP_URL/auth/token" \
+ADMIN_TOKEN=$(http --form --print=b POST "$APP_URL/auth/login" \
     username="$ADMIN_EMAIL" \
     password="$ADMIN_PASSWORD" | jq -r .access_token)
 

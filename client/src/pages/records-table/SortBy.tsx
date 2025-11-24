@@ -23,8 +23,8 @@ const RecordsTableSortBy = ({ state, dispatch }: RecordsTableSortByProps) => {
             key: "relevance",
             label: "Relevance",
             value: [
-                { field: "_score", order: "desc" },
-                { field: "latest_transaction", order: "desc" },
+                { _score: { order: "desc" } },
+                { latest_transaction: { order: "desc" } },
             ],
         },
         {

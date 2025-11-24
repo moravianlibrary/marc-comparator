@@ -18,7 +18,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, relationship
 
 from adapters.database import Base, DatabaseSession
-from adapters.indexer import IndexerSchema
+from adapters.indexer import EnumList, IndexerSchema
 
 from ._operations import (
     BaseOperationsMixin,
@@ -33,6 +33,12 @@ from .validation import Validation, ValidationSchema
 class CatalogRecordSource(StrEnum):
     Main = "Main"
     AuthorityLinker = "AuthorityLinker"
+
+
+class CatalogRecordState(StrEnum):
+    Active = "Active"
+    Deleted = "Deleted"
+    Hidden = "Hidden"
 
 
 class CatalogRecordSchema(IndexerSchema):
@@ -51,14 +57,10 @@ class CatalogRecordSchema(IndexerSchema):
     title: List[Text]
     subtitle: List[Text]
     authors: List[Text]
-    publication_year: List[Keyword]
-    publisher: List[Text]
-    language: Keyword
-    subjects: List[Keyword]
+    latest_transaction: datetime
+    latest_sync: datetime
 
-    last_sync: datetime
-    deleted: bool
-    hidden: bool
+    state: EnumList[CatalogRecordState]
 
     authority_links: List[AuthorityLinkSchema]
     comparisons: List[ComparisonSchema]
@@ -77,7 +79,7 @@ class CatalogRecord(
 
     _marc = Column(LargeBinary, name="marc", nullable=False)
 
-    last_sync = Column(TIMESTAMP, nullable=False, default=func.now())
+    latest_sync = Column(TIMESTAMP, nullable=False, default=func.now())
     deleted = Column(Boolean, nullable=False, default=False)
     hidden = Column(Boolean, nullable=False, default=False)
 
@@ -153,32 +155,19 @@ class CatalogRecord(
         )
 
     @property
-    def publication_year(self) -> List[str]:
-        return self.record.variable_fields.query_subfield_values(
-            '.["260","264"]?[]?.subfields.c[]?'
-        )
+    def latest_transaction(self) -> datetime | None:
+        return self.record.control_fields_selector.latest_transaction
 
     @property
-    def publisher(self) -> List[str]:
-        return self.record.variable_fields.query_subfield_values(
-            '.["260","264"]?[]?.subfields.b[]?'
-        )
-
-    @property
-    def language(self) -> str | None:
-        return (
-            (
-                self.record.control_fields_selector
-            ).fixed_length_data_elements.language
-            if "008" in self.record.fixed_fields.root
-            else None
-        )
-
-    @property
-    def subjects(self) -> List[str]:
-        return self.record.variable_fields.query_subfield_values(
-            '.["600","610","650","651"]?[]?.subfields.a[]?'
-        )
+    def state(self) -> List[CatalogRecordState]:
+        states = []
+        if not self.deleted:
+            states.append(CatalogRecordState.Active)
+        if self.deleted:
+            states.append(CatalogRecordState.Deleted)
+        if self.hidden:
+            states.append(CatalogRecordState.Hidden)
+        return states
 
 
 @event.listens_for(CatalogRecord, "before_insert")

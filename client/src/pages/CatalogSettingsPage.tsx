@@ -1,6 +1,10 @@
 import type { ReactElement } from "react";
 import ZodFormPageLayout from "../components/templates/ZodFormPageLayout";
-import { useGetSettings, useGetSettingsZodSchema } from "../hooks/useSettings";
+import {
+    useGetSettings,
+    useGetSettingsZodSchema,
+    useSetSettings,
+} from "../hooks/useSettings";
 
 const CatalogSettingsPage = (): ReactElement => {
     const { zodSchema, isLoading: isLoadingSchema } = useGetSettingsZodSchema(
@@ -11,14 +15,15 @@ const CatalogSettingsPage = (): ReactElement => {
         "system",
         "catalog"
     );
+    const { mutate, isPending } = useSetSettings("system", "catalog");
 
     return (
         <ZodFormPageLayout
             schema={zodSchema}
             initValues={settings}
             isLoading={isLoadingSchema || isLoadingSettings}
-            onSubmit={(data) => console.log(data)}
-            isSubmitting={false}
+            onSubmit={(data) => mutate(data)}
+            isSubmitting={isPending}
             title="Catalog Settings"
         />
     );

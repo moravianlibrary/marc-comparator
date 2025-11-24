@@ -15,6 +15,7 @@ export interface CollectionConfig<T> {
     perPage: PerPageConfig;
     search?: SearchConfig;
     filter?: FilterConfig[];
+    sortBy?: any;
 }
 
 export interface CollectionState<T> {
@@ -73,6 +74,9 @@ export function initCollectionState<T>(
         searchTerm: queryParams?.searchTerm,
         searchFuzziness: queryParams?.searchFuzziness,
         filterStates: queryParams?.filterStates,
+        sortBy: config.sortBy
+            ? { key: "default", value: config.sortBy }
+            : undefined,
         selectedIds: new Set<string>(),
         isAllSelected: false,
     };
@@ -90,8 +94,8 @@ export interface CollectionData<T> {
 }
 
 export interface CollectionContext<T> {
-    config: CollectionConfig<T>;
-    state: CollectionState<T>;
+    config: CollectionConfig<EsHit<T>>;
+    state: CollectionState<EsHit<T>>;
     data: CollectionData<T>;
     dispatch: React.Dispatch<CollectionAction>;
 }

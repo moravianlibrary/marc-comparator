@@ -70,6 +70,8 @@ class TaskSchema(IndexerSchema):
     started_at: datetime | None
     finished_at: datetime | None
 
+    traceback_lines: int
+
 
 class Task(
     Base, BaseOperationsMixin, RetrievalOperationsMixin, IndexerOperationsMixin

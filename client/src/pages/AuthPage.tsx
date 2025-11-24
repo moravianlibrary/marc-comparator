@@ -64,6 +64,7 @@ const AuthPage = (): ReactElement => {
         }
 
         setErrors({});
+        console.log("Submitting login data:", loginData);
         login(loginData);
     };
 

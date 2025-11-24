@@ -112,7 +112,7 @@ async def authority_linking(task_id: str) -> None:
 
                         current_link.confidence = link.confidence
                         current_link.authority_record.marc = link.record._marc
-                        current_link.authority_record.last_sync = (
+                        current_link.authority_record.latest_sync = (
                             config.timestamp
                         )
                         current_link.authority_record.source_name = (
@@ -170,7 +170,7 @@ async def authority_linking(task_id: str) -> None:
                         )
 
                         authority_record.marc = link.record._marc
-                        authority_record.last_sync = config.timestamp
+                        authority_record.latest_sync = config.timestamp
                         authority_record.source_name = (
                             authority_linker.linker.value
                         )

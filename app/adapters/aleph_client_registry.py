@@ -10,12 +10,12 @@ class AlephClientRegistry:
 
     @classmethod
     def load_from_settings(cls, settings: CatalogSettings) -> None:
-        for config in settings.clients:
-            cls._client_map = build_aleph_client_map(
-                [AlephConfig.model_validate(item) for item in config]
-                if isinstance(config, list)
-                else [AlephConfig.model_validate(config)]
-            )
+        cls._client_map = build_aleph_client_map(
+            [
+                AlephConfig(base=config.base, oai=config)
+                for config in settings.clients
+            ]
+        )
 
     @classmethod
     def get(cls, base: str) -> AlephClient:

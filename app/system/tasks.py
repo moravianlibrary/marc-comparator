@@ -103,7 +103,7 @@ async def recreate_indexes(
             ctx,
             CatalogRecord,
             CatalogRecord.__indexer_schema__,
-            CatalogRecord.last_sync,
+            CatalogRecord.latest_sync,
         )
 
         await _recreate_index(

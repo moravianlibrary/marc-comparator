@@ -14,7 +14,7 @@ export const ValidationSchema = z.object({
     status: ValidityStatusSchema,
     reason: z.string().optional(),
     details: z.string().optional(),
-    hints: z.string().optional(),
+    hint: z.string().optional(),
     updated_at: z.date(),
 });
 export type Validation = z.infer<typeof ValidationSchema>;

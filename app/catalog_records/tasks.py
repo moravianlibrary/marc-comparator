@@ -31,7 +31,7 @@ def save_record_snippet(
     if catalog_record:
         catalog_record.marc = record._marc
         catalog_record.deleted = False
-        catalog_record.last_sync = config.timestamp
+        catalog_record.latest_sync = config.timestamp
     else:
         catalog_record = CatalogRecord(
             base=base, system_number=system_number, marc=record._marc
@@ -170,9 +170,19 @@ async def records_sync_task(
         data = SyncRecordsData.model_validate(ctx.task.data)
 
         base = data.base
-        from_date = data.from_date
+        from_date = (
+            data.from_date.strftime("%Y-%m-%dT%H:%M:%SZ")
+            if data.from_date
+            else None
+        )
 
-        ctx.logger.info(f"Starting catalog sync for base '{base}'")
+        if from_date is None:
+            ctx.logger.info(f"Starting catalog sync for base '{base}'")
+        else:
+            ctx.logger.info(
+                f"Starting catalog sync for base '{base}' "
+                f"from date '{from_date}'"
+            )
 
         client = AlephClientRegistry.get(base)
         if not client.OAI.is_available():
@@ -199,7 +209,7 @@ async def records_sync_task(
                     pass
 
                 elif status == RecordStatus.Deleted and catalog_record:
-                    catalog_record.last_sync = config.timestamp
+                    catalog_record.latest_sync = config.timestamp
                     catalog_record.deleted = True
                     ctx.logger.info(
                         f"Marking record {base}-{system_number} as deleted."

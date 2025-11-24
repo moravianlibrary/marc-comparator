@@ -1,5 +1,13 @@
 import type { EsRequest } from "../../models/api/requests/es";
-import type { FilterConfig, FilterState } from "../../models/ui/filters";
+import type {
+    DateRangeFilterState,
+    FilterConfig,
+    FilterState,
+    HistogramFilterState,
+    RangeFilterState,
+    SearchFilterState,
+    TermsFilterState,
+} from "../../models/ui/filters";
 import type {
     TableColumnConfig,
     TableColumnState,
@@ -54,43 +62,39 @@ function buildSearchQueries(
 }
 
 function buildFilterQuery(config: FilterConfig, state: FilterState) {
+    console.log("buildFilterQuery", config, state);
     switch (config.type) {
         case "term":
-            return { terms: { [config.field]: state } };
-        case "range":
             return {
-                range: {
-                    [config.field]: {
-                        gte: (state as any).from,
-                        lte: (state as any).to,
-                    },
-                },
+                terms: { [config.field]: (state as TermsFilterState).include },
             };
+        case "range":
         case "histogram":
+            const { from, to } = state as
+                | RangeFilterState
+                | HistogramFilterState;
             return {
                 range: {
                     [config.field]: {
-                        gte: (state as any).from,
-                        lte: (state as any).to,
+                        ...(from !== undefined ? { gte: from } : {}),
+                        ...(to !== undefined ? { lte: to } : {}),
                     },
                 },
             };
         case "date-range":
+            const dateState = state as DateRangeFilterState;
             return {
                 range: {
                     [config.field]: {
-                        gte: (state as any).from,
-                        lte: (state as any).to,
+                        ...(dateState.from ? { gte: dateState.from } : {}),
+                        ...(dateState.to ? { lte: dateState.to } : {}),
                         format: "yyyy-MM-dd||yyyy-MM-dd'T'HH:mm:ss||epoch_millis",
                     },
                 },
             };
         case "search":
-            return {
-                match: {
-                    [config.field]: state as unknown as string,
-                },
-            };
+            const searchState = state as SearchFilterState;
+            return { match: { [config.field]: searchState.value } };
     }
 }
 
@@ -116,6 +120,34 @@ function buildAggs(configs: FilterConfig[]): Record<string, any> {
             acc[filter.field] = {
                 date_range: {
                     field: filter.field,
+                    // TODO: make ranges configurable
+                    ranges: [
+                        {
+                            from: "2018-01-01T00:00:00Z",
+                            to: "2019-01-01T00:00:00Z",
+                        },
+                        {
+                            from: "2019-01-01T00:00:00Z",
+                            to: "2020-01-01T00:00:00Z",
+                        },
+                        {
+                            from: "2021-01-01T00:00:00Z",
+                            to: "2022-01-01T00:00:00Z",
+                        },
+                        {
+                            from: "2022-01-01T00:00:00Z",
+                            to: "2023-01-01T00:00:00Z",
+                        },
+                        {
+                            from: "2023-01-01T00:00:00Z",
+                            to: "2024-01-01T00:00:00Z",
+                        },
+                        {
+                            from: "2024-01-01T00:00:00Z",
+                            to: "2025-01-01T00:00:00Z",
+                        },
+                        { from: "2025-01-01T00:00:00Z" },
+                    ],
                     // ranges: [{ min: filter., max: filter.max }],
                 },
             };
@@ -192,7 +224,6 @@ export function buildRequests<T>(state: CollectionState<T>): EsRequest[] {
 
                 return {
                     query: buildBoolQuery(searchQueries, filtersExcludingSelf),
-                    size: 0,
                     aggs: buildAggs([config]),
                 } as EsRequest;
             }) || [];

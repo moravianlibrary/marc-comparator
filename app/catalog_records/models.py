@@ -1,7 +1,7 @@
+from datetime import datetime
 from typing import List
 
-from aleph_nought import AlephConfig
-from marcdantic.context import MarcContext
+from aleph_nought import AlephOAIConfig
 from pydantic import BaseModel
 
 from adapters.indexer import IndexerQuery
@@ -9,8 +9,7 @@ from entities.settings import SettingsSchema
 
 
 class CatalogSettings(SettingsSchema):
-    clients: List[AlephConfig]
-    context: MarcContext = MarcContext()
+    clients: List[AlephOAIConfig]
 
 
 class FetchRecordData(BaseModel):
@@ -29,7 +28,7 @@ class FetchBatchOfRecordsData(BaseModel):
 
 class SyncRecordsData(BaseModel):
     base: str
-    from_date: str | None = None
+    from_date: datetime | None = None
 
 
 class SetRecordsHiddenStateData(BaseModel):

@@ -87,7 +87,7 @@ const VALUE_FIELD_RENDERER_MAP: Record<
             id={field.name}
             type="text"
             value={field.value ?? ""}
-            onChange={(_, v) => field.onChange((v as unknown) ?? "")}
+            onChange={(_, v) => field.onChange(v === "" ? undefined : v)}
             validated={fieldState.error ? "error" : "success"}
         />
     ),
@@ -97,10 +97,9 @@ const VALUE_FIELD_RENDERER_MAP: Record<
             id={field.name}
             type="number"
             value={field.value ?? ""}
-            onChange={(_, v) => {
-                const asNum = (v as unknown) === "" ? undefined : Number(v);
-                field.onChange(asNum);
-            }}
+            onChange={(_, v) =>
+                field.onChange(v === "" ? undefined : Number(v))
+            }
             validated={fieldState.error ? "error" : "success"}
         />
     ),
@@ -191,7 +190,7 @@ function getNewItemValue(schema: AnyZod): any {
 }
 
 const RenderField = <T extends FieldValues>(props: FieldProps<T, AnyZod>) => {
-    const { name, control, register } = props;
+    const { name, control, register, errors } = props;
 
     let schema = props.schema;
 
@@ -276,6 +275,7 @@ const RenderField = <T extends FieldValues>(props: FieldProps<T, AnyZod>) => {
             name: name as any,
             control,
         });
+        const error = get(props.errors, props.name);
 
         return (
             <FormFieldGroupExpandable
@@ -285,6 +285,17 @@ const RenderField = <T extends FieldValues>(props: FieldProps<T, AnyZod>) => {
                             text: normalizeToI18nKey(props.name) + ".title",
                             id: `${name}-header`,
                         }}
+                        titleDescription={
+                            error?.message && (
+                                <FormHelperText>
+                                    <HelperText>
+                                        <HelperTextItem variant="error">
+                                            {String(error.message)}
+                                        </HelperTextItem>
+                                    </HelperText>
+                                </FormHelperText>
+                            )
+                        }
                         actions={
                             <>
                                 <Button
@@ -354,10 +365,13 @@ export const ZodForm = <T extends FieldValues>({
     });
 
     const handleFormSubmit = (data: T) => {
+        console.log("Form submitted", data);
         if (!isSubmitting) {
             onSubmit(data);
         }
     };
+
+    console.log("Form errors", errors);
 
     return (
         <Form onSubmit={handleSubmit(handleFormSubmit)}>
@@ -371,7 +385,11 @@ export const ZodForm = <T extends FieldValues>({
                     errors={errors}
                 />
             ))}
-            <Button type="submit" variant="primary" isDisabled={isSubmitting}>
+            <Button
+                type="submit"
+                variant="primary"
+                isDisabled={Object.keys(errors).length > 0 || isSubmitting}
+            >
                 Submit
             </Button>
         </Form>

@@ -56,7 +56,7 @@ const ZodFormPageLayout = <T extends FieldValues>({
                 </PageSection>
             </PageGroup>
             <PageSection>
-                {schema && dataEdit ? (
+                {schema ? (
                     <ZodForm
                         schema={schema}
                         defaultValues={dataEdit}

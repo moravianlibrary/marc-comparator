@@ -20,26 +20,32 @@ import { useNotification } from "./useNotifications";
 // -------------------------
 // Queries
 // -------------------------
-export const useSearchTasks = (request: EsRequest, enabled = true) =>
+export const useSearchTasks = (
+    request: EsRequest,
+    enabled = true,
+    target: "all" | "own" = "own"
+) =>
     useQuery<SearchTasksResponse>({
         queryKey: ["tasks", "search", request],
         queryFn: async () =>
             SearchTasksResponseSchema.parse(
-                (await apiClient.post("/tasks/search", request)).data
+                (await apiClient.post(`/tasks/search-${target}`, request)).data
             ),
         enabled,
     });
 
 export const useSearchTasksBatch = (
     requests: EsRequest[],
-    enabled = true
+    enabled = true,
+    target: "all" | "own" = "own"
 ): UseQueryResult<SearchTasksResponse>[] =>
     useQueries({
         queries: requests.map((request, idx) => ({
             queryKey: ["tasks", "search", idx, request],
             queryFn: async () =>
                 SearchTasksResponseSchema.parse(
-                    (await apiClient.post("/tasks/search", request)).data
+                    (await apiClient.post(`/tasks/search-${target}`, request))
+                        .data
                 ),
             enabled,
         })),
@@ -50,11 +56,11 @@ export const useGetTraceback = (
     params: TracebackLinesRequestParams | null = null,
     enabled = true
 ) =>
-    useQuery<string[]>({
+    useQuery<string>({
         queryKey: ["tasks", "traceback", id, params],
         queryFn: async () =>
             (
-                await apiClient.get<string[]>(`/tasks/${id}/traceback`, {
+                await apiClient.get<string>(`/tasks/${id}/traceback`, {
                     params,
                 })
             ).data,
@@ -76,7 +82,7 @@ export const useDownloadTraceback = (
             return res.data;
         });
 
-        const blob = new Blob([data.join("\n")], { type: "text/plain" });
+        const blob = new Blob([data], { type: "text/plain" });
         const url = window.URL.createObjectURL(blob);
         const link = document.createElement("a");
         link.href = url;
@@ -105,7 +111,7 @@ export const useCreateTask = <T>(path: string) => {
             // Invalidate
             useQueryClient().invalidateQueries({
                 queryKey: ["tasks"],
-                exact: true,
+                exact: false,
             });
         },
     });
@@ -114,6 +120,19 @@ export const useCreateTask = <T>(path: string) => {
 // -------------------------
 // Mutations
 // -------------------------
+export const useRevokeTask = () =>
+    useMutation<Task, Error, string>({
+        mutationFn: async (id: string) =>
+            (await apiClient.patch<Task>(`/tasks/${id}/revoke`)).data,
+        onSuccess: () => {
+            useQueryClient().invalidateQueries({
+                queryKey: ["tasks"],
+                exact: false,
+            });
+            useQueryClient().refetchQueries({ queryKey: ["tasks", "search"] });
+        },
+    });
+
 export const useDeleteTasks = () =>
     useMutation<Task, Error, EsQuery>({
         mutationFn: async (query: EsQuery) =>
@@ -121,7 +140,7 @@ export const useDeleteTasks = () =>
         onSuccess: () => {
             useQueryClient().invalidateQueries({
                 queryKey: ["tasks"],
-                exact: true,
+                exact: false,
             });
             // TODO: Show notification
         },

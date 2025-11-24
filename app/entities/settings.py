@@ -1,5 +1,5 @@
 from enum import StrEnum
-from typing import Any, Dict, Literal, Type
+from typing import Literal, Type
 
 from pydantic import BaseModel, ValidationError
 from sqlalchemy import TIMESTAMP, Column, Enum, func
@@ -10,18 +10,18 @@ from entities._operations import BaseOperationsMixin
 
 
 class SettingsScope(StrEnum):
-    Catalog = "Catalog"
-    Task = "Task"
-    Validation = "Validation"
-    AuthorityLinking = "AuthorityLinking"
-    Comparison = "Comparison"
+    Catalog = "catalog"
+    Tasks = "tasks"
+    Validation = "validators"
+    AuthorityLinking = "authority-linkers"
+    Comparison = "comparators"
 
 
-type AppSettingsScope = Literal[
+type SystemSettingsScope = Literal[
     SettingsScope.Catalog,
-    SettingsScope.Task,
+    SettingsScope.Tasks,
 ]
-type TaskSettingsScope = Literal[
+type RecordToolsSettingsScope = Literal[
     SettingsScope.Validation,
     SettingsScope.AuthorityLinking,
     SettingsScope.Comparison,
@@ -30,9 +30,6 @@ type TaskSettingsScope = Literal[
 
 class SettingsSchema(BaseModel):
     pass
-
-
-SettingsJsonSchema = Dict[str, Any]
 
 
 class Settings(Base, BaseOperationsMixin):

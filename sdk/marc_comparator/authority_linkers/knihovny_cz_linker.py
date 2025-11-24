@@ -56,6 +56,12 @@ class KnihovnyCZLinker(BaseAuthorityLinker):
             mapping.pattern: mapping.base for mapping in config.mappings
         }
 
+    @classmethod
+    async def get_target_bases(
+        cls, config: KnihovnyCZLinkerConfig
+    ) -> List[str]:
+        return [mapping.base for mapping in config.mappings]
+
     def _get_dedup_ids(self, id: str):
         response = self.session.get(
             f"{self.config.api_url}/record",

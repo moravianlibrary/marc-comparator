@@ -26,4 +26,4 @@ rebuild-clean:
 	docker compose -f $(COMPOSE_FILE) up -d
 
 psql:
-	docker container exec -it marc-comparator-postgres-1 psql -d marc -U marcAdmin
+	docker container exec -it marc-comparator-postgres psql -d marc -U marcAdmin

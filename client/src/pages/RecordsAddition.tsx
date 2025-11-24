@@ -38,7 +38,7 @@ const AddOneRecordCard = (): ReactElement => {
 
     const handleAddRecord = () => {
         if (base && isValidSystemNumber) {
-            addOneRecord.mutate({ base, systemNumber });
+            addOneRecord.mutate({ base, system_number: systemNumber });
         }
     };
 
@@ -117,7 +117,7 @@ const AddBatchOfRecordsCard = (): ReactElement => {
                 .filter(Boolean);
 
             addBatchRecords.mutate({
-                per_base: { base, systemNumbers },
+                per_base: { base, system_numbers: systemNumbers },
             });
         }
     };

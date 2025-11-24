@@ -30,7 +30,7 @@ import {
 import { buildRequests } from "../store/collection/requests_factory";
 import { buildCollectionData } from "../store/collection/data_factory";
 import type { Task } from "../models/api/responses/task";
-import { useSearchTasksBatch } from "../hooks/useTasks";
+import { useRevokeTask, useSearchTasksBatch } from "../hooks/useTasks";
 import type { EsHit } from "../models/api/responses/es";
 import TaskSeverityLabel from "../components/atoms/TaskSeverityLabel";
 import TaskStatusLabel from "../components/atoms/TaskStatusLabel";
@@ -43,6 +43,34 @@ import {
 import RuntimeValue from "../components/atoms/RuntimeValue";
 import DownloadTracebackButton from "../components/atoms/DonwloadTracebackButton";
 import { TimesIcon } from "@patternfly/react-icons";
+import { useGetMe } from "../hooks/useAuth";
+import type { EsTermsBucket } from "../models/api/responses/es_aggregations";
+
+const RevokeTaskButton = ({ _id, status }: { _id: string; status: string }) => {
+    const { mutate, isPending } = useRevokeTask();
+    return (
+        <Button
+            variant="plain"
+            isDanger
+            isDisabled={
+                isPending || (status !== "Pending" && status !== "Started")
+            }
+            icon={
+                <Icon
+                    status={
+                        status !== "Pending" && status !== "Started"
+                            ? undefined
+                            : "danger"
+                    }
+                    isInline
+                >
+                    <TimesIcon />
+                </Icon>
+            }
+            onClick={() => mutate(_id)}
+        />
+    );
+};
 
 const TASK_TYPE_ORDER: Record<string, number> = TaskTypeSchema.options.reduce(
     (acc, type, index) => {
@@ -98,6 +126,7 @@ const CONFIG: CollectionConfig<EsHit<Task>> = {
         // },
         {
             key: "run_time",
+            fields: ["started_at", "finished_at"],
             label: "Run Time",
             render: ({ _source: { started_at, finished_at } }) =>
                 started_at ? (
@@ -109,7 +138,7 @@ const CONFIG: CollectionConfig<EsHit<Task>> = {
             alwaysShow: true,
         },
         {
-            key: "traceback",
+            key: "traceback_lines",
             label: "Traceback",
             render: ({ _id, _source: { status, traceback_lines } }) => (
                 <DownloadTracebackButton
@@ -124,23 +153,7 @@ const CONFIG: CollectionConfig<EsHit<Task>> = {
             key: "revoke",
             label: "Revoke",
             render: ({ _id, _source: { status } }) => (
-                <Button
-                    variant="plain"
-                    isDanger
-                    isDisabled={status !== "Pending" && status !== "Started"}
-                    icon={
-                        <Icon
-                            status={
-                                status !== "Pending" && status !== "Started"
-                                    ? undefined
-                                    : "danger"
-                            }
-                            isInline
-                        >
-                            <TimesIcon />
-                        </Icon>
-                    }
-                />
+                <RevokeTaskButton _id={_id} status={status!} />
             ),
             alwaysShow: true,
         },
@@ -152,24 +165,27 @@ const CONFIG: CollectionConfig<EsHit<Task>> = {
             field: "type",
             sizeOptions: [5, 10, 20],
             orderBucketBy: (a, b) =>
-                TASK_TYPE_ORDER[a.key] - TASK_TYPE_ORDER[b.key],
+                TASK_TYPE_ORDER[(a as EsTermsBucket).key] -
+                TASK_TYPE_ORDER[(b as EsTermsBucket).key],
         },
         {
             type: "term",
             field: "status",
             sizeOptions: [5, 10, 20],
             orderBucketBy: (a, b) =>
-                TASK_STATUS_ORDER[a.key] - TASK_STATUS_ORDER[b.key],
+                TASK_STATUS_ORDER[(a as EsTermsBucket).key] -
+                TASK_STATUS_ORDER[(b as EsTermsBucket).key],
         },
         {
             type: "term",
             field: "outcome_severity",
             sizeOptions: [5, 10, 20],
             orderBucketBy: (a, b) =>
-                TASK_OUTCOME_SEVERITY_ORDER[a.key] -
-                TASK_OUTCOME_SEVERITY_ORDER[b.key],
+                TASK_OUTCOME_SEVERITY_ORDER[(a as EsTermsBucket).key] -
+                TASK_OUTCOME_SEVERITY_ORDER[(b as EsTermsBucket).key],
         },
     ],
+    sortBy: { created_at: { order: "desc" } },
 };
 
 const TasksTable = (): ReactElement => {
@@ -177,6 +193,7 @@ const TasksTable = (): ReactElement => {
         collectionReducer,
         initCollectionState(CONFIG)
     );
+    const { data: me } = useGetMe();
 
     const requests = useMemo(
         () => buildRequests(state),
@@ -190,7 +207,11 @@ const TasksTable = (): ReactElement => {
         ]
     );
 
-    const queryResponses = useSearchTasksBatch(requests || []);
+    const queryResponses = useSearchTasksBatch(
+        requests || [],
+        !!me,
+        me?.permissions.includes("ManageTasks") ? "all" : "own"
+    );
 
     const prevDataRef = useRef<CollectionData<Task>>({
         isLoading: true,

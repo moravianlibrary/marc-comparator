@@ -8,7 +8,7 @@ import { makeServer } from "./mocks/server.ts";
 import NotificationProvider from "./hooks/useNotifications.tsx";
 
 if (import.meta.env.DEV) {
-    makeServer();
+    // makeServer();
 }
 
 createRoot(document.getElementById("root")!).render(
