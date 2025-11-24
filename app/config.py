@@ -92,7 +92,6 @@ class AppConfig(BaseSettings):
     broker: BrokerConfig = BrokerConfig()
     auth: AuthConfig = AuthConfig()
 
-    aleph_config_path: str | None = Field(default=None)
     index_batch_size: int = Field(default=1000)
 
     @property

@@ -1,0 +1,66 @@
+services:
+  postgres:
+    image: postgres:17.5-alpine
+    container_name: marc-comparator-postgres
+    environment:
+      - POSTGRES_DB=marc
+      - POSTGRES_USER=marcAdmin
+      - POSTGRES_PASSWORD=marcAdmin
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - marc-comparator
+    ports:
+      - '5432:5432'
+  
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.14.0
+    container_name: marc-comparator-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=true
+      - ELASTIC_PASSWORD=replaceMe
+      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    networks:
+      - marc-comparator
+    ports:
+      - "9200:9200"
+
+  redis:
+    image: redis:7-alpine
+    container_name: marc-comparator-redis
+    networks:
+      - marc-comparator
+    ports:
+      - "6379:6379"
+
+  app:
+    image: marc-comparator-app:${TAG:-local}
+    container_name: marc-comparator-app
+    depends_on:
+      - postgres
+      - elasticsearch
+      - redis
+    env_file:
+      - app.env
+    networks:
+      - marc-comparator
+    ports:
+      - "8000:8000"
+    
+  worker:
+    image: marc-comparator-worker:${TAG:-local}
+    container_name: marc-comparator-worker
+    depends_on:
+      - postgres
+      - redis
+    env_file:
+      - app.env
+    networks:
+      - marc-comparator
+
+volumes:
+  postgres_data:
+
+networks:
+  marc-comparator:

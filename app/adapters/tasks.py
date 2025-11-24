@@ -1,21 +1,25 @@
 import logging
-from dataclasses import dataclass
-from typing import ContextManager, Optional
+from dataclasses import dataclass, field
+from typing import ContextManager, List, Optional, TypeVar
 
 from celery import Celery
 from celery import Task as CeleryTask
 from celery import shared_task
 from sqlalchemy.orm import Session
 
-from adapters.database import DatabaseSession, get_db_session
-from adapters.indexer import IndexerSession, indexer_session
+from adapters.database import Base, DatabaseSession, get_db_session
+from adapters.indexer import IndexerSchema, indexer_session
 from adapters.lock_server import one_at_a_time_lock
 from config import config
 
 # Importing entities to register with the ORM
 from entities.catalog_record import CatalogRecord  # noqa: F401
-from entities.task import Task, TaskSchema, TaskStatus, TaskType
+from entities.role import Role  # noqa: F401
+from entities.settings import Settings, SettingsScope
+from entities.task import Task, TaskSchema, TaskSeverity, TaskStatus, TaskType
 from entities.user import User  # noqa: F401
+from settings.models import CatalogSettings
+from tasks.models import TaskSettings  # noqa: F401
 
 tasks_client = Celery(
     "tasks",
@@ -27,6 +31,13 @@ tasks_client = Celery(
 
 type TasksClient = Celery
 
+LEVEL_NO_TO_SEVERITY = {
+    logging.INFO: TaskSeverity.Info,
+    logging.WARNING: TaskSeverity.Warning,
+    logging.ERROR: TaskSeverity.Error,
+    logging.CRITICAL: TaskSeverity.Critical,
+}
+
 
 class TaskHandler(logging.Handler):
     """
@@ -37,6 +48,7 @@ class TaskHandler(logging.Handler):
         super().__init__(level)
         self.db_session = db
         self.task = task
+        self.current_level = logging.INFO
 
     def emit(self, record: logging.LogRecord):
         msg = self.format(record)
@@ -48,18 +60,37 @@ class TaskHandler(logging.Handler):
         else:
             self.task.traceback = entry
 
+        if record.levelno > self.current_level:
+            self.current_level = record.levelno
+
+            severity = LEVEL_NO_TO_SEVERITY.get(record.levelno)
+            if severity:
+                self.task.outcome_severity = severity
+
         try:
             self.db_session.commit()
         except Exception:
             self.db_session.rollback()
 
 
+class IndexerOperationsBase(Base):
+    __abstract__ = True
+    __indexer_schema__: type[IndexerSchema]
+
+
+IndexerOperationsBaseType = TypeVar(
+    "IndexerOperationsBaseType", bound=IndexerOperationsBase
+)
+
+
 @dataclass
 class TaskContext:
     logger: logging.Logger
     db_session: DatabaseSession
-    indexer_session: IndexerSession  # TODO: Remove
     task: Task
+    task_settings: TaskSettings
+    progress: int = 0
+    index_batch: List[IndexerOperationsBaseType] = field(default_factory=list)
 
 
 class ManagedTask:
@@ -93,6 +124,7 @@ class ManagedTask:
         self.db_session = None
         self.task: Task | None = None
         self.logger = None
+        self.task_settings: TaskSettings | None = None
 
     async def save_and_index_task(self):
         self.task.save(self.db_session)
@@ -115,7 +147,22 @@ class ManagedTask:
         # --- Indexer session ---
         self.indexer = await indexer_session().__aenter__()
 
-        # Mark task as started
+        # --- Load task settings ---
+        self.task_settings: TaskSettings = (
+            Settings.get(self.db_session, SettingsScope.Task, TaskSettings)
+            or TaskSettings()
+        )
+
+        # --- Initialize Aleph client registry from config ---
+        catalog_settings: CatalogSettings | None = Settings.get(
+            self.db_session, SettingsScope.Catalog, CatalogSettings
+        )
+        if catalog_settings:
+            from adapters.aleph_client_registry import AlephClientRegistry
+
+            AlephClientRegistry.load_from_settings(catalog_settings)
+
+        # --- Mark task as started ---
         self.logger.info("Task started")
         self.task.status = TaskStatus.Started
         self.task.started_at = config.timestamp
@@ -135,8 +182,8 @@ class ManagedTask:
         return TaskContext(
             logger=self.logger,
             db_session=self.db_session,
-            indexer_session=self.indexer,
             task=self.task,
+            task_settings=self.task_settings,
         )
 
     async def __aexit__(self, exc_type, exc_value, traceback):
@@ -161,50 +208,109 @@ class ManagedTask:
                 self.db_session.close()
 
 
-def init_tasks_context() -> None:
-    """
-    Initializes any global context needed for tasks.
-    """
-    from adapters.aleph_client_registry import AlephClientRegistry
+"""
+Celery cannot directly run async tasks, so we use asgiref to bridge
+the gap.
 
-    if config.aleph_config_path:
-        AlephClientRegistry.load_from_config(config.aleph_config_path)
+Importing inside the function to provide separation between
+app and worker environments.
+"""
 
 
 @shared_task(name="fetch_record_task", bind=True)
 def fetch_record_task(self: CeleryTask) -> None:
-    """
-    Celery cannot directly run async tasks, so we use asgiref to bridge
-    the gap.
-
-    Importing inside the function to provide separation between
-    app and worker environments.
-    """
     from asgiref.sync import async_to_sync
 
-    from catalog.tasks import fetch_record_task
+    from catalog_records.tasks import fetch_record_task
 
-    init_tasks_context()
     return async_to_sync(fetch_record_task)(str(self.request.id))
+
+
+@shared_task(name="fetch_batch_records_task", bind=True)
+def fetch_batch_of_records_task(self: CeleryTask) -> None:
+    from asgiref.sync import async_to_sync
+
+    from catalog_records.tasks import fetch_batch_of_records_task
+
+    return async_to_sync(fetch_batch_of_records_task)(str(self.request.id))
 
 
 @shared_task(bind=True, name="catalog_sync_task")
 def records_sync_task(
     self: CeleryTask, lock_key: str, lock_blocking_timeout: int
 ):
-    """
-    Celery cannot directly run async tasks, so we use asgiref to bridge
-    the gap.
-
-    Importing inside the function to provide separation between
-    app and worker environments.
-    """
     from asgiref.sync import async_to_sync
 
-    from catalog.tasks import records_sync_task
+    from catalog_records.tasks import records_sync_task
 
-    init_tasks_context()
     return async_to_sync(records_sync_task)(
+        str(self.request.id), lock_key, lock_blocking_timeout
+    )
+
+
+@shared_task(name="validate_records", bind=True)
+def validate_records_task(self: CeleryTask) -> None:
+    from asgiref.sync import async_to_sync
+
+    from validation.tasks import validate_records
+
+    return async_to_sync(validate_records)(str(self.request.id))
+
+
+@shared_task(name="link_records_to_authorities", bind=True)
+def link_records_to_authorities(self: CeleryTask) -> None:
+    from asgiref.sync import async_to_sync
+
+    from authority_linking.tasks import authority_linking
+
+    return async_to_sync(authority_linking)(str(self.request.id))
+
+
+@shared_task(name="compare_records", bind=True)
+def compare_records_task(self: CeleryTask) -> None:
+    from asgiref.sync import async_to_sync
+
+    from comparison.tasks import compare_records
+
+    return async_to_sync(compare_records)(str(self.request.id))
+
+
+@shared_task(name="reindex_records_task", bind=True)
+def reindex_records_task(self: CeleryTask) -> None:
+    from asgiref.sync import async_to_sync
+
+    from catalog_records.tasks import reindex_records
+
+    return async_to_sync(reindex_records)(str(self.request.id))
+
+
+@shared_task(name="set_records_hidden_state_task", bind=True)
+def set_records_hidden_state_task(self: CeleryTask) -> None:
+    from asgiref.sync import async_to_sync
+
+    from catalog_records.tasks import set_records_hidden_state
+
+    return async_to_sync(set_records_hidden_state)(str(self.request.id))
+
+
+@shared_task(name="delete_tasks_task", bind=True)
+def delete_tasks_task(self: CeleryTask) -> None:
+    from asgiref.sync import async_to_sync
+
+    from tasks.tasks import delete_tasks
+
+    return async_to_sync(delete_tasks)(str(self.request.id))
+
+
+@shared_task(name="recreate_indexes_task", bind=True)
+def recreate_indexes_task(
+    self: CeleryTask, lock_key: str, lock_blocking_timeout: int
+) -> None:
+    from asgiref.sync import async_to_sync
+
+    from system.tasks import recreate_indexes
+
+    return async_to_sync(recreate_indexes)(
         str(self.request.id), lock_key, lock_blocking_timeout
     )
 
@@ -223,9 +329,35 @@ def dispatch_task(task: Task) -> None:
     if task.type == TaskType.FetchRecord:
         fetch_record_task.apply_async(task_id=task_id)
 
+    elif task.type == TaskType.FetchBatchOfRecords:
+        fetch_batch_of_records_task.apply_async(task_id=task_id)
+
     elif task.type == TaskType.SyncRecords:
         lock_key = f"catalog_sync_{task.data['base']}"
         records_sync_task.apply_async(args=[lock_key, 1], task_id=task_id)
+
+    elif task.type == TaskType.ValidateRecords:
+        validate_records_task.apply_async(task_id=task_id)
+
+    elif task.type == TaskType.LinkRecordsToAuthorities:
+        link_records_to_authorities.apply_async(task_id=task_id)
+
+    elif task.type == TaskType.CompareRecords:
+        compare_records_task.apply_async(task_id=task_id)
+
+    elif task.type == TaskType.ReindexRecords:
+        reindex_records_task.apply_async(task_id=task_id)
+
+    elif task.type == TaskType.SetRecordsHiddenState:
+        set_records_hidden_state_task.apply_async(task_id=task_id)
+
+    elif task.type == TaskType.DeleteTasks:
+        delete_tasks_task.apply_async(task_id=task_id)
+
+    elif task.type == TaskType.RecreateIndexes:
+        recreate_indexes_task.apply_async(
+            args=["recreate-indexes", 1], task_id=task_id
+        )
 
     else:
         raise ValueError(f"Unknown task type: {task.type}")
@@ -257,3 +389,36 @@ async def enqueue_task(task: Task, db_session: DatabaseSession) -> TaskSchema:
     dispatch_task(task)
 
     return task_schema
+
+
+async def revoke_task(task: Task, db_session: DatabaseSession) -> TaskSchema:
+    """
+    Revokes a task if it is in a revocable state.
+
+    Parameters
+    ----------
+    task : Task
+        The task to be revoked.
+    db_session : DatabaseSession
+        The database session used for updating the task.
+    Returns
+    -------
+    TaskSchema
+        The revoked task as a TaskSchema instance.
+    """
+    if task.status in {TaskStatus.Started, TaskStatus.Pending}:
+        raise ValueError(
+            f"Task with status '{task.status}' cannot be revoked."
+        )
+
+    tasks_client.control.revoke(
+        str(task.task_id), terminate=True, signal="SIGTERM"
+    )
+
+    task.status = TaskStatus.Revoked
+    task.finished_at = config.timestamp
+
+    task.save(db_session)
+    await task.index(db_session)
+
+    return TaskSchema.model_validate(task, from_attributes=True)

@@ -10,21 +10,32 @@ from sqlalchemy import (
     Column,
     Enum,
     ForeignKey,
-    PickleType,
     String,
     Text,
     func,
 )
-from sqlalchemy.orm import relationship
 
 from adapters.database import Base
 from adapters.indexer import IndexerSchema
-from entities._operations import BaseOperationsMixin
+
+from ._operations import (
+    BaseOperationsMixin,
+    IndexerOperationsMixin,
+    RetrievalOperationsMixin,
+)
 
 
 class TaskType(StrEnum):
     FetchRecord = "FetchRecord"
+    FetchBatchOfRecords = "FetchBatchOfRecords"
     SyncRecords = "SyncRecords"
+    ValidateRecords = "ValidateRecords"
+    LinkRecordsToAuthorities = "LinkRecordsToAuthorities"
+    CompareRecords = "CompareRecords"
+    ReindexRecords = "ReindexRecords"
+    SetRecordsHiddenState = "SetRecordsHiddenState"
+    DeleteTasks = "DeleteTasks"
+    RecreateIndexes = "RecreateIndexes"
 
 
 class TaskStatus(StrEnum):
@@ -36,18 +47,23 @@ class TaskStatus(StrEnum):
     Revoked = "Revoked"
 
 
+class TaskSeverity(StrEnum):
+    Info = "Info"
+    Warning = "Warning"
+    Error = "Error"
+    Critical = "Critical"
+
+
 class TaskSchema(IndexerSchema):
     class ESConfig:
-        index = "categories"
+        index = "tasks"
         id_field = "task_id"
 
     task_id: UUID4
     name: IndexerText
     type: TaskType
     status: TaskStatus
-
-    has_data: bool
-    # result: IndexerText | None
+    outcome_severity: TaskSeverity
 
     created_by: UUID4
     created_at: datetime
@@ -55,7 +71,10 @@ class TaskSchema(IndexerSchema):
     finished_at: datetime | None
 
 
-class Task(Base, BaseOperationsMixin):
+class Task(
+    Base, BaseOperationsMixin, RetrievalOperationsMixin, IndexerOperationsMixin
+):
+    __indexer_schema__ = TaskSchema
     __tablename__ = "tasks"
 
     task_id = Column(
@@ -63,7 +82,12 @@ class Task(Base, BaseOperationsMixin):
     )
     name = Column(String(255), nullable=False)
     type = Column(Enum(TaskType), nullable=False)
-    status = Column(Enum(TaskStatus), default=TaskStatus.Pending)
+    status = Column(
+        Enum(TaskStatus), nullable=False, default=TaskStatus.Pending
+    )
+    outcome_severity = Column(
+        Enum(TaskSeverity), nullable=False, default=TaskSeverity.Info
+    )
 
     created_by = Column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
@@ -72,30 +96,9 @@ class Task(Base, BaseOperationsMixin):
     started_at = Column(TIMESTAMP, nullable=True)
     finished_at = Column(TIMESTAMP, nullable=True)
 
-    traceback = Column(Text, nullable=True)
     data = Column(JSON, nullable=True)
-    result = Column(PickleType, nullable=True)
-
-    predecessor_id = Column(
-        UUID(as_uuid=True),
-        ForeignKey("tasks.task_id"),
-        nullable=True,
-        default=None,
-    )
-    predecessor = relationship(
-        "Task", remote_side=[task_id], backref="successors"
-    )
+    traceback = Column(Text, nullable=True)
 
     @property
-    def has_data(self) -> bool:
-        return self.data is not None
-
-    def get_task(self, db_session) -> "Task":
-        task = (
-            db_session.query(Task)
-            .filter(Task.task_id == str(self.task_id))
-            .one_or_none()
-        )
-        if task is None:
-            raise ValueError(f"Task with ID {self.task_id} not found")
-        return task
+    def traceback_lines(self) -> int:
+        return len(self.traceback.splitlines()) if self.traceback else 0

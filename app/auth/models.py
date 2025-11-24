@@ -1,6 +1,9 @@
+from typing import List
 from uuid import UUID
 
 from pydantic import BaseModel, EmailStr
+
+from access_control.models import RoleSummary
 
 
 class RegisterUserRequest(BaseModel):
@@ -18,7 +21,10 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     user_id: str | None = None
 
-    def get_uuid(self) -> UUID | None:
-        if self.user_id:
-            return UUID(self.user_id)
-        return None
+
+class UserSchema(BaseModel):
+    id: UUID
+    email: str
+    first_name: str
+    last_name: str
+    roles: List[RoleSummary]

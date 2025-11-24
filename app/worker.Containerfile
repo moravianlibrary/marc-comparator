@@ -28,9 +28,15 @@ RUN rm -rf /sdk/
 
 # Copy application code
 COPY app/adapters/ adapters/
-COPY app/auth/ auth/
-COPY app/catalog/ catalog/
+COPY app/authority_linking/ authority_linking/
+COPY app/catalog_records/ catalog_records/
+COPY app/common/ common/
+COPY app/comparison/ comparison/
 COPY app/entities/ entities/
+COPY app/settings/ settings/
+COPY app/system/ system/
+COPY app/tasks/ tasks/
+COPY app/validation/ validation/
 COPY app/config.py config.py
 
 # Exclude app-specific files

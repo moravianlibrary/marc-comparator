@@ -29,7 +29,7 @@ They implement an asynchronous `run(record: MarcRecord)` method, which returns a
 #### Validation Results
 
 * **ValidityStatus**: `Valid`, `Invalid`, `Warning`, or `Info`
-* **ValidationField**: Target field (tag and optional subfields)
+* **ValidationTarget**: Target field (tag and optional subfields)
 * **ValidationResult**: Includes status, reason, details, and hints for corrections.
 
 #### Example Validator: `KrameriusLinksValidator`

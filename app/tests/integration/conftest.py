@@ -1,5 +1,7 @@
 import asyncio
-from typing import Any, AsyncGenerator, Dict, Optional, Set, Tuple
+import json
+from pathlib import Path
+from typing import Any, AsyncGenerator, Dict, Generator, Optional, Set, Tuple
 
 import pytest
 import pytest_asyncio
@@ -7,6 +9,7 @@ from aleph_nought import AlephClient
 from celery import Celery
 from esorm import connect, setup_mappings
 from httpx import ASGITransport, AsyncClient, Response
+from marcdantic import MarcRecord
 from pytest_mock import MockerFixture
 from redis import Redis
 from sqlalchemy import create_engine
@@ -22,6 +25,8 @@ from app import app
 from auth.models import TokenData
 from auth.service import get_current_user
 from config import config
+from entities.catalog_record import CatalogRecord
+from entities.role import Role
 from entities.task import Task, TaskType
 from entities.user import User
 
@@ -95,6 +100,9 @@ async def db_session(
 ) -> AsyncGenerator[DatabaseSession, None]:
     """Spin up Postgres in a container and yield a SQLAlchemy session."""
     # SQLAlchemy engine + session
+    from entities.authority_link import AuthorityLink  # noqa: F401
+    from entities.catalog_record import CatalogRecord  # noqa: F401
+
     engine = create_engine(postgres_container.get_connection_url())
     SessionLocal = sessionmaker(bind=engine)
     await asyncio.to_thread(Base.metadata.create_all, engine)
@@ -127,6 +135,19 @@ async def indexer_session(
         config.elasticsearch, "url", elasticsearch_container.get_url()
     )
 
+    from adapters.indexer import connect
+
+    await connect()
+
+    from esorm import es
+
+    for index_name in [
+        CatalogRecord.__indexer_schema__.ESConfig.index,
+        Task.__indexer_schema__.ESConfig.index,
+    ]:
+        if await es.indices.exists(index=index_name):
+            await es.indices.delete(index=index_name)
+
     yield
 
 
@@ -157,25 +178,27 @@ FAKE_USER_ID = "12345678-1234-4678-9abc-1234567890ab"
 
 
 @pytest.fixture(scope="class")
-def user(
-    db_session: DatabaseSession, class_mocker: MockerFixture
-) -> TokenData:
-    db_session.add(
-        User(
-            id=FAKE_USER_ID,
-            first_name="Test",
-            last_name="User",
-            email="test.user@mzk.cz",
-            password_hash="testpasswordhash",
-        )
+def user(db_session: DatabaseSession) -> Generator[TokenData, None, None]:
+    user = User(
+        id=FAKE_USER_ID,
+        first_name="Admin",
+        last_name="User",
+        email="admin@example.com",
+        password_hash="testpasswordhash",
     )
+    user.save(db_session)
+
+    Role.create_default_roles(db_session)
+    user.roles.append(Role.get_by_name(db_session, "Admin"))
     db_session.commit()
 
     token_data = TokenData(user_id=FAKE_USER_ID)
 
     app.dependency_overrides[get_current_user] = lambda: token_data
 
-    return token_data
+    yield token_data
+
+    app.dependency_overrides.pop(get_current_user, None)
 
 
 @pytest.fixture(scope="class")
@@ -221,6 +244,22 @@ def fake_task(db_session: DatabaseSession, user: TokenData) -> Task:
     db_session.commit()
 
     return task
+
+
+def load_test_json(filename: str) -> Dict[str, Any]:
+    """Function to load a JSON file from tests/data by filename."""
+
+    path = Path(__file__).parent / "data" / filename
+    with path.open("r", encoding="utf-8") as f:
+        return json.load(f)
+
+
+def load_test_record(filename: str) -> MarcRecord:
+    """Function to load a MARC file from tests/data by filename."""
+
+    path = Path(__file__).parent / "data" / filename
+    with path.open("rb") as f:
+        return MarcRecord.from_mrc(f.read())
 
 
 def assert_response(

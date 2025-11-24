@@ -1,0 +1,26 @@
+{
+    "rule-based": {
+        "rules": [
+            {
+                "tag": "20",
+                "subfields": ["a"],
+                "rule_scores": {}
+            },
+            {
+                "tag": "100",
+                "subfields": ["a", "b", "c"],
+                "rule_scores": {}
+            },
+            {
+                "tag": "245",
+                "subfields": ["a", "b", "c"],
+                "rule_scores": {}
+            },
+            {
+                "tag": "650",
+                "subfields": ["a", "2", "7"],
+                "rule_scores": {}
+            }
+        ]
+    }
+}

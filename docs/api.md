@@ -1,28 +1,28 @@
-Here’s a revised version of your API endpoints spec with fixes, added missing details, consistent formatting, and clarified permission lists:
-
----
-
 # API Endpoints
 
 ## **Permissions**
 
-| Permission | Description                                    |
-| ---------- | ---------------------------------------------- |
-| Read       | View catalog records and search results        |
-| Write      | Fetch and synchronize records                  |
-| Hide       | Mark records as hidden                         |
-| Validate   | Start validation tasks                         |
-| Pair       | Pair catalog records with authority records    |
-| Compare    | Compare catalog records with authority records |
-| Admin      | Manage users, roles, and permissions           |
+| Permission               | Description                             |
+| ------------------------ | --------------------------------------- |
+| `ReadRecords`            | View catalog records and search results |
+| `AddRecords`             | Add new records to the catalog          |
+| `SyncRecordsFromCatalog` | Synchronize records from the catalog    |
+| `RunRecordTasks`         | Execute automated tasks on records      |
+| `ManageTasks`            | Read and manage own tasks               |
+| `ManageAllTasks`         | Read and manage all tasks               |
+| `ManageAccessControl`    | Configure user roles and permissions    |
+| `ManageAppSettings`      | Update global application settings      |
+| `ManageTaskSettings`     | Configure settings for individual tasks |
+| `ManageSystem`           | Manage system resources                 |
 
 ---
 
-## **Auth**
+## **Authentication**
 
-### `POST /auth/`
+### `POST /auth/register`
 
 **Description:** Register a new user.
+
 **Request Body:**
 
 ```json
@@ -34,19 +34,29 @@ Here’s a revised version of your API endpoints spec with fixes, added missing 
 }
 ```
 
-**Response:** `201 Created`
+**Successful Response:** `201 Created`
+
+```json
+{
+  "id": "uuid",
+  "email": "string",
+  "first_name": "string",
+  "last_name": "string"
+}
+```
 
 ---
 
 ### `POST /auth/token`
 
-**Description:** Obtain access token.
+**Description:** Obtain an access token.
+
 **Request Form:**
 
-* `email` (string)
+* `username` (string)
 * `password` (string)
 
-**Response:**
+**Successful Response:**
 
 ```json
 {
@@ -57,64 +67,270 @@ Here’s a revised version of your API endpoints spec with fixes, added missing 
 
 ---
 
-## **Roles and Permissions Management** *(Admin only)*
+### `GET /auth/me`
 
-### `GET /auth/roles`
+**Description:** Retrieve current user details.
 
-**Description:** List all roles and their permissions.
-**Permissions Required:** `Admin`
-**Response:** List of roles with associated permissions
+**Successful Response:**
+
+```json
+{
+  "id": "uuid",
+  "email": "string",
+  "first_name": "string",
+  "last_name": "string",
+  "roles": [
+    {
+      "id": 0,
+      "name": "string",
+      "permissions": ["ReadRecords"],
+      "immutable": true,
+      "protected": true
+    }
+  ],
+  "permissions": ["ReadRecords"]
+}
+```
 
 ---
 
-### `POST /auth/roles`
+## **Roles and Permissions Management**
 
-**Description:** Create a new role with permissions.
-**Permissions Required:** `Admin`
+**Required Permission:** `ManageAccessControl`
+
+---
+
+### `GET /access-control/roles`
+
+**Description:** List all roles with their permissions.
+
+**Request Parameters (optional):**
+
+* `page` (integer)
+* `page_size` (integer)
+
+**Successful Response:**
+
+```json
+{
+  "items": [
+    {
+      "id": 0,
+      "name": "string",
+      "permissions": ["ReadRecords"],
+      "immutable": true,
+      "protected": true
+    }
+  ],
+  "num_found": 0
+}
+```
+
+---
+
+### `POST /access-control/roles`
+
+**Description:** Create a new role with specific permissions.
+
 **Request Body:**
 
 ```json
 {
   "name": "catalog_admin",
-  "permissions": ["Read", "Write", "Validate"]
+  "permissions": ["ReadRecords", "AddRecords"]
 }
 ```
 
-**Response:** `201 Created`
+**Successful Response:**
+
+```json
+{
+  "id": 0,
+  "name": "catalog_admin",
+  "permissions": ["ReadRecords", "AddRecords"],
+  "immutable": false,
+  "protected": false
+}
+```
 
 ---
 
-### `GET /auth/users`
+### `PUT /access-control/roles/{id}`
 
-**Description:** List all users with their roles.
-**Permissions Required:** `Admin`
-**Request Parameters:** `page`, `page_size`
-**Response:** Paginated list of users
+**Description:** Update an existing role.
 
----
-
-### `POST /auth/users/{user_id}/roles`
-
-**Description:** Assign roles to a user.
-**Permissions Required:** `Admin`
 **Request Body:**
 
 ```json
 {
-  "roles": ["catalog_admin"]
+  "name": "string",
+  "permissions": ["ReadRecords", "AddRecords"]
 }
 ```
 
-**Response:** `200 OK`
+**Successful Response:**
+
+```json
+{
+  "id": 0,
+  "name": "string",
+  "permissions": ["ReadRecords", "AddRecords"],
+  "immutable": false,
+  "protected": false
+}
+```
 
 ---
 
-## **Catalog**
+### `DELETE /access-control/roles/{id}`
 
-### `POST /catalog/fetch`
+**Description:** Delete a role.
 
-**Description:** Fetch a single MARC record.
-**Permissions Required:** `Write`
+**Successful Response:**
+
+```json
+{
+  "id": 0,
+  "name": "string",
+  "permissions": ["ReadRecords"],
+  "immutable": false,
+  "protected": false
+}
+```
+
+---
+
+### `GET /access-control/users`
+
+**Description:** List users with their roles.
+
+**Request Parameters (optional):**
+
+* `page` (integer)
+* `page_size` (integer)
+* `email` (string, filter by email)
+
+**Successful Response:** JSON schema
+
+```json
+{
+  "items": [
+    {
+      "id": "uuid",
+      "email": "string",
+      "first_name": "string",
+      "last_name": "string",
+      "roles": [
+        {
+          "id": 0,
+          "name": "string",
+          "permissions": ["ReadRecords"],
+          "immutable": false,
+          "protected": false
+        }
+      ],
+      "permissions": ["ReadRecords"]
+    }
+  ],
+  "num_found": 0
+}
+```
+
+---
+
+### `PATCH /access-control/users/{user_id}/assign-role/{role_id}`
+
+**Description:** Assign a role to a user.
+
+**Required Permission:** `ManageAccessControl`
+
+**Successful Response:** `200 OK`
+
+```json
+{
+  "id": "uuid",
+  "email": "string",
+  "first_name": "string",
+  "last_name": "string",
+  "roles": [
+    {
+      "id": 0,
+      "name": "string",
+      "permissions": ["ReadRecords"],
+      "immutable": false,
+      "protected": false
+    }
+  ],
+  "permissions": ["ReadRecords"]
+}
+```
+
+---
+
+### `PATCH /access-control/users/{user_id}/unassign-role/{role_id}`
+
+**Description:** Unassign a role to a user.
+
+**Required Permission:** `ManageAccessControl`
+
+**Successful Response:** `200 OK`
+
+```json
+{
+  "id": "uuid",
+  "email": "string",
+  "first_name": "string",
+  "last_name": "string",
+  "roles": [
+    {
+      "id": 0,
+      "name": "string",
+      "permissions": ["ReadRecords"],
+      "immutable": false,
+      "protected": false
+    }
+  ],
+  "permissions": ["ReadRecords"]
+}
+```
+
+---
+
+## **Catalog Records**
+
+---
+
+### `POST /catalog-records/search`
+
+**Description:** Search catalog records using a custom query.
+**Permissions Required:** `ReadRecords`
+
+**Request Body (Elasticsearch DSL query):**
+
+```json
+{
+  /* Elasticsearch DSL query */
+}
+```
+
+**Response:** Raw Elasticsearch response.
+
+---
+
+### `GET /catalog-records/{base}/{system_number}/marc`
+
+**Description:** Return marc of the record in JSON format.
+**Permissions Required:** `ReadRecords`
+
+**Response:** Raw marc record in JSON format.
+
+---
+
+### `POST /catalog-records/fetch`
+
+**Description:** Fetch a single MARC record by system number.
+**Permissions Required:** `AddRecords`
+
 **Request Body:**
 
 ```json
@@ -128,26 +344,44 @@ Here’s a revised version of your API endpoints spec with fixes, added missing 
 
 ---
 
-### `POST /catalog/fetch-batch`
+### `POST /catalog-records/fetch-batch`
 
-**Description:** Fetch multiple records from a file.
-**Permissions Required:** `Write`
-**Request Parameters:** `base` - optional, provided if the file contains only system numbers.
-**Request Body:** Multipart file containing either `base-system_number` lines or just `system_number` lines (then the base is passed by parameter).
+**Description:** Fetch multiple MARC records in batch by system numbers.
+**Permissions Required:** `AddRecords`
+
+**Request Body (example JSON based on `FetchBatchOfRecordsData`):**
+
+```json
+{
+  "per_base": [
+    {
+      "base": "TEST",
+      "system_numbers": ["123", "124", "125"]
+    },
+    {
+      "base": "MAIN",
+      "system_numbers": ["456", "457"]
+    }
+  ]
+}
+```
+
 **Response:** `TaskSchema`
 
 ---
 
-### `POST /catalog/sync`
+### `POST /catalog-records/sync`
 
-**Description:** Synchronize MARC records from Aleph catalog, with changes starting from `from_date`.
-**Permissions Required:** `Write`
+**Description:** Synchronize MARC records from the Aleph catalog. Only changes from `from_date` to `to_date` are fetched.
+**Permissions Required:** `SyncRecordsFromCatalog`
+
 **Request Body:**
 
 ```json
 {
   "base": "TEST",
-  "from_date": "Optional date"
+  "from_date": "2025-10-01T00:00:00Z",  // optional
+  "to_date": "2025-10-01T00:00:00Z",  // optional
 }
 ```
 
@@ -155,12 +389,11 @@ Here’s a revised version of your API endpoints spec with fixes, added missing 
 
 ---
 
-## **Records**
+### `POST /catalog-records/reindex`
 
-### `POST /records/search`
+**Description:** Reindex catalog records matching a query.
+**Permissions Required:** `RunRecordTasks`
 
-**Description:** Search catalog records via Elasticsearch proxy.
-**Permissions Required:** `Read`
 **Request Body:**
 
 ```json
@@ -169,44 +402,47 @@ Here’s a revised version of your API endpoints spec with fixes, added missing 
 }
 ```
 
-**Response:** Elasticsearch response - unchanged.
+**Response:** `TaskSchema`
 
 ---
 
-### `POST /records/hide`
+### `POST /catalog-records/hidden-state`
 
-**Description:** Hide records matching a query.
-**Permissions Required:** `Hide`
-**Request Parameters:** `reason` - optional explanation
-**Request Body:**
+**Description:** Change hidden state of catalog records matching a query.
+**Permissions Required:** `RunRecordTasks`
 
-```json
-{
-  /* Elasticsearch DSL query */
-}
-```
-
-**Response:**
+**Request Body:** 
 
 ```json
 {
-  "hidden_count": 10
+  "hide": true,
+  "query":{
+    /* Elasticsearch DSL query */
+  }
 }
 ```
+
+**Response:** `TaskSchema`
 
 ---
 
 ## **Validation**
 
-### `POST /validation`
+### `POST /validation/task`
 
-**Description:** Start validation task for records matching a query.
-**Permissions Required:** `Validate`
+**Description:** Start a validation task for catalog records that match a query, using the specified validators.
+**Permissions Required:** `RunRecordTasks`
+
 **Request Body:**
 
 ```json
 {
-  /* Elasticsearch DSL query */
+  "validators": [
+    "kramerius-links"
+  ],
+  "query": {
+    /* Elasticsearch DSL query */
+  }
 }
 ```
 
@@ -214,18 +450,24 @@ Here’s a revised version of your API endpoints spec with fixes, added missing 
 
 ---
 
-## **Authorities**
+## **Authority Linking**
 
-### `POST /authorities/pair`
+### `POST /authority-linking/task`
 
-**Description:** Pair catalog records with authority records from a selected base.
-**Permissions Required:** `Pair`
-**Request Parameters:** `authority_base`
+**Description:** Start a task to link catalog records with authority records from the specified authority base.
+**Permissions Required:** `RunRecordTasks`
+
 **Request Body:**
 
 ```json
 {
-  /* Elasticsearch DSL query */
+  "linkers": [
+    "knihovny-cz"
+  ],
+  "target_base": "string",
+  "query": {
+    /* Elasticsearch DSL query */
+  }
 }
 ```
 
@@ -235,11 +477,52 @@ Here’s a revised version of your API endpoints spec with fixes, added missing 
 
 ## **Comparison**
 
-### `POST /comparison`
+### `POST /comparison/task`
 
-**Description:** Compare catalog records with authority records from a selected base.
-**Permissions Required:** `Compare`
-**Request Parameters:** `authority_base`
+**Description:** Start a task to compare catalog records with linked authority records from the specified base.
+**Permissions Required:** `RunRecordTasks`
+
+**Request Body:**
+
+```json
+{
+  "comparator": "rule-based",
+  "target_base": "string",
+  "query": {
+    /* Elasticsearch DSL query */
+  }
+}
+```
+
+**Response:** `TaskSchema`
+
+---
+
+## **Tasks**
+
+The `TaskSchema` represents tasks in the system:
+
+```json
+{
+  "task_id": "uuid",
+  "name": "string",
+  "type": "FetchRecord | FetchBatchOfRecords | SyncRecords | ValidateRecords | LinkRecordsToAuthorities | CompareRecords | ReindexRecords | DeleteTasks",
+  "status": "Pending | Started | Success | Failure | Revoked",
+  "traceback_lines": 0,
+  "created_by": "uuid",
+  "created_at": "2025-10-31T12:00:00Z",
+  "started_at": "2025-10-31T12:01:00Z",
+  "finished_at": "2025-10-31T12:05:00Z"
+}
+```
+
+---
+
+### `POST /tasks/search-own`
+
+**Description:** Search your own tasks using index queries.
+**Permissions Required:** `ManageTasks`
+
 **Request Body:**
 
 ```json
@@ -247,5 +530,165 @@ Here’s a revised version of your API endpoints spec with fixes, added missing 
   /* Elasticsearch DSL query */
 }
 ```
+
+**Response:** Raw Elasticsearch response.
+
+---
+
+### `POST /tasks/search-all`
+
+**Description:** Search all tasks in the system.
+**Permissions Required:** `ManageAllTasks`
+
+**Request Body:**
+
+```json
+{
+  /* Elasticsearch DSL query */
+}
+```
+
+**Response:** Raw Elasticsearch response.
+
+---
+
+### `GET /tasks/{task_id}/traceback`
+
+**Description:** Retrieve task traceback lines.
+**Permissions Required:** If the user is the task owner, `ManageTasks` is sufficient; otherwise, `ManageAllTasks` is required.
+
+**Request Parameters:**
+
+* `from` (integer, optional) — starting line number
+* `to` (integer, optional) — ending line number
+
+**Response:** Plain text of traceback lines
+
+---
+
+### `PATCH /tasks/{task_id}/revoke`
+
+**Description:** Revoke a task that is pending or currently running. If the task is already finished or failed, revocation will fail.
+**Permissions Required:** If the user is the task owner, `ManageTasks` is sufficient; otherwise, `ManageAllTasks` is required.
+
+**Response:** `200 OK` with updated task info (`TaskSchema`)
+
+---
+
+### `POST /tasks/delete`
+
+**Description:** Plan deletion of selected tasks based on query.
+**Permissions Required:** `ManageAllTasks`
+
+**Request Body:**
+
+```json
+{
+  /* Elasticsearch DSL query */
+}
+```
+
+**Response:** Raw Elasticsearch response.
+
+---
+
+## **App Settings**
+
+### `GET /settings/app/{scope}/schema`
+
+**Description:** Retrieve the schema for application settings of the specified scope.
+**Permissions Required:** `ManageAppSettings`
+
+**Path Parameters:**
+
+* `scope` (string, required) — Scope of the app settings
+  *Available values:* `Catalog`, `Task`
+
+**Response:** JSON schema describing the structure of the settings for the specified scope
+
+---
+
+### `GET /settings/app/{scope}`
+
+**Description:** Retrieve the current application settings for the specified scope.
+**Permissions Required:** `ManageAppSettings`
+
+**Path Parameters:**
+
+* `scope` (string, required) — Scope of the app settings
+  *Available values:* `Catalog`, `Task`
+
+**Response:** JSON object containing the current settings for the specified scope
+
+---
+
+### `POST /settings/app/{scope}`
+
+**Description:** Update or set application settings for the specified scope.
+**Permissions Required:** `ManageAppSettings`
+
+**Path Parameters:**
+
+* `scope` (string, required) — Scope of the app settings
+  *Available values:* `Catalog`, `Task`
+
+**Request Body:** JSON object containing settings for the specified scope, based on the schema
+
+**Response:** JSON object of the updated settings for that scope
+
+---
+
+## **Task Settings**
+
+### `GET /settings/tasks/{scope}/schema`
+
+**Description:** Retrieve the schema for task settings of the specified scope.
+**Permissions Required:** `ManageTaskSettings`
+
+**Path Parameters:**
+
+* `scope` (string, required) — Scope of the task settings
+  *Available values:* `Validation`, `AuthorityLinking`, `Comparison`
+
+**Response:** JSON schema describing the structure of the settings for the specified scope
+
+---
+
+### `GET /settings/tasks/{scope}`
+
+**Description:** Retrieve the current task settings for the specified scope.
+**Permissions Required:** `ManageTaskSettings`
+
+**Path Parameters:**
+
+* `scope` (string, required) — Scope of the task settings
+  *Available values:* `Validation`, `AuthorityLinking`, `Comparison`
+
+**Response:** JSON object containing the current settings for the specified scope
+
+---
+
+### `POST /settings/tasks/{scope}`
+
+**Description:** Update or set task settings for the specified scope.
+**Permissions Required:** `ManageTaskSettings`
+
+**Path Parameters:**
+
+* `scope` (string, required) — Scope of the task settings
+  *Available values:* `Validation`, `AuthorityLinking`, `Comparison`
+
+**Request Body:** JSON object containing settings for the specified scope, based on the schema
+
+**Response:** JSON object of the updated settings for that scope
+
+---
+
+## **System**
+
+### `POST /system/recreate-indexes`
+
+**Description:** Start a task to recreate all indexes and reindex all entities.  
+**Permissions Required:** `ManageSystem`
 
 **Response:** `TaskSchema`

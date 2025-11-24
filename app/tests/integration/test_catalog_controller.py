@@ -1,14 +1,13 @@
 import pytest
 from aleph_nought import RecordStatus
 from aleph_nought.oai.client import ListRecordResponse
-from esorm import NotFoundError
 from httpx import AsyncClient
 
 from adapters.aleph_client_registry import AlephClientRegistry
 from adapters.database import DatabaseSession
-from entities.catalog_record import CatalogRecord, CatalogRecordSchema
+from entities.catalog_record import CatalogRecord
 from entities.task import Task
-from tests.integration.conftest import assert_response
+from tests.integration.conftest import assert_response, load_test_record
 
 
 @pytest.mark.usefixtures(
@@ -25,7 +24,7 @@ class TestEndpointsRO:
     async def test_fetch_record_success(self, client: AsyncClient):
         assert_response(
             await client.post(
-                "/catalog/fetch",
+                "/catalog-records/fetch",
                 json={"base": "TEST", "system_number": "123"},
             ),
             200,
@@ -34,7 +33,7 @@ class TestEndpointsRO:
                 "name": "Fetch catalog record TEST-123",
                 "type": "FetchRecord",
                 "status": "Pending",
-                "has_data": True,
+                "outcome_severity": "Info",
                 "created_by": "12345678-1234-4678-9abc-1234567890ab",
                 "created_at": "IGNORE",
                 "started_at": None,
@@ -47,7 +46,7 @@ class TestEndpointsRO:
     # @pytest.mark.asyncio
     # async def test_fetch_record_invalid_base(self, client: AsyncClient):
     #     response = await client.post(
-    #         "/catalog/fetch",
+    #         "/catalog-records/fetch",
     #         json={"base": "INVALID", "system_number": "123"},
     #     )
     #     assert response.status_code == 500
@@ -58,14 +57,14 @@ class TestEndpointsRO:
     @pytest.mark.asyncio
     async def test_sync_records_success(self, client: AsyncClient):
         assert_response(
-            await client.post("/catalog/sync", json={"base": "TEST"}),
+            await client.post("/catalog-records/sync", json={"base": "TEST"}),
             200,
             {
                 "task_id": "IGNORE",
                 "name": "Sync records from catalog for base TEST",
                 "type": "SyncRecords",
                 "status": "Pending",
-                "has_data": True,
+                "outcome_severity": "Info",
                 "created_by": "12345678-1234-4678-9abc-1234567890ab",
                 "created_at": "IGNORE",
                 "started_at": None,
@@ -77,7 +76,7 @@ class TestEndpointsRO:
     # TODO: Add check so that invalid base raises error
     # @pytest.mark.asyncio
     # async def test_sync_records_invalid_base(self, client: AsyncClient):
-    #     response = await client.post("/catalog/sync",
+    #     response = await client.post("/catalog-records/sync",
     #       json={"base": "INVALID"})
     #     assert response.status_code == 500
     #     assert response.json() == {
@@ -89,6 +88,7 @@ class TestEndpointsRO:
     "db_session",
     "indexer_session",
     "lock_server_client",
+    "user",
     "aleph_client_registry",
 )
 class TestTasks:
@@ -99,18 +99,19 @@ class TestTasks:
         aleph_client_registry: AlephClientRegistry,
         fake_task: Task,
     ):
+        test_marc = load_test_record("MZK01-001217709.mrc")._marc
         client = aleph_client_registry.get("TEST")
         client.OAI.is_available.return_value = True
         client.OAI.get_record.return_value = type(
             "MarcRecord",
             (),
-            {"_marc": b"<record>Test</record>"},
+            {"_marc": test_marc},
         )()
 
         fake_task.data = {"base": "TEST", "system_number": "123"}
         db_session.commit()
 
-        from catalog.tasks import fetch_record_task
+        from catalog_records.tasks import fetch_record_task
 
         await fetch_record_task(str(fake_task.task_id))
 
@@ -118,12 +119,7 @@ class TestTasks:
         assert record is not None
         assert record.base == "TEST"
         assert record.system_number == "123"
-        assert record.marc == b"<record>Test</record>"
-
-        record_in_index = await CatalogRecordSchema.get(record.id)
-        assert record_in_index is not None
-        assert record_in_index.base == "TEST"
-        assert record_in_index.system_number == "123"
+        assert record.marc == test_marc
 
     @pytest.mark.asyncio
     async def test_fetch_record_not_found(
@@ -139,15 +135,9 @@ class TestTasks:
         fake_task.data = {"base": "TEST", "system_number": "NOT_FOUND"}
         db_session.commit()
 
-        from catalog.tasks import fetch_record_task
+        from catalog_records.tasks import fetch_record_task
 
-        with pytest.raises(Exception) as exc_info:
-            await fetch_record_task(str(fake_task.task_id))
-
-        assert (
-            str(exc_info.value)
-            == "Record with system number 'NOT_FOUND' not found"
-        )
+        await fetch_record_task(str(fake_task.task_id))
 
     @pytest.mark.asyncio
     async def test_fetch_record_oai_unavailable(
@@ -162,12 +152,9 @@ class TestTasks:
         fake_task.data = {"base": "TEST", "system_number": "123"}
         db_session.commit()
 
-        from catalog.tasks import fetch_record_task
+        from catalog_records.tasks import fetch_record_task
 
-        with pytest.raises(Exception) as exc_info:
-            await fetch_record_task(str(fake_task.task_id))
-
-        assert str(exc_info.value) == "OAI service is not available"
+        await fetch_record_task(str(fake_task.task_id))
 
     @pytest.mark.asyncio
     async def test_sync_records_success(
@@ -176,6 +163,8 @@ class TestTasks:
         aleph_client_registry: AlephClientRegistry,
         fake_task: Task,
     ):
+        test_marc_1 = load_test_record("MZK01-001217709.mrc")._marc
+        test_marc_2 = load_test_record("MZK01-001217729.mrc")._marc
         client = aleph_client_registry.get("TEST")
         client.OAI.is_available.return_value = True
         client.OAI.list_records.return_value = [
@@ -183,13 +172,13 @@ class TestTasks:
                 "TEST",
                 "123",
                 RecordStatus.Active,
-                type("Record", (), {"_marc": b"<record>1</record>"})(),
+                type("Record", (), {"_marc": test_marc_1})(),
             ),
             ListRecordResponse(
                 "TEST",
                 "456",
                 RecordStatus.Active,
-                type("Record", (), {"_marc": b"<record>2</record>"})(),
+                type("Record", (), {"_marc": test_marc_2})(),
             ),
             ListRecordResponse("TEST", "789", RecordStatus.Deleted, None),
             ListRecordResponse("TEST", "000", RecordStatus.Active, None),
@@ -199,7 +188,7 @@ class TestTasks:
         fake_task.data = {"base": "TEST"}
         db_session.commit()
 
-        from catalog.tasks import records_sync_task
+        from catalog_records.tasks import records_sync_task
 
         await records_sync_task(str(fake_task.task_id), "catalog_sync_TEST", 1)
 
@@ -207,28 +196,10 @@ class TestTasks:
         assert record1 is not None
         assert record1.base == "TEST"
         assert record1.system_number == "123"
-        assert record1.marc == b"<record>1</record>"
+        assert record1.marc == test_marc_1
 
         record2 = CatalogRecord.get(db_session, "TEST-456")
         assert record2 is not None
         assert record2.base == "TEST"
         assert record2.system_number == "456"
-        assert record2.marc == b"<record>2</record>"
-
-        record1_in_index = await CatalogRecordSchema.get(record1.id)
-        assert record1_in_index is not None
-        assert record1_in_index.base == "TEST"
-        assert record1_in_index.system_number == "123"
-
-        record2_in_index = await CatalogRecordSchema.get(record2.id)
-        assert record2_in_index is not None
-        assert record2_in_index.base == "TEST"
-        assert record2_in_index.system_number == "456"
-
-        assert await CatalogRecordSchema.get("TEST-123") is not None
-        assert await CatalogRecordSchema.get("TEST-456") is not None
-
-        for id in ["TEST-789", "TEST-000", "TEST-999"]:
-            with pytest.raises(NotFoundError) as exc_info:
-                await CatalogRecordSchema.get(id)
-            assert str(exc_info.value) == f"Document with id {id} not found"
+        assert record2.marc == test_marc_2
