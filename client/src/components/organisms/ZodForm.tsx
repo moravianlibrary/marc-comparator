@@ -1,13 +1,20 @@
+import React from "react";
 import {
     useForm,
+    Controller,
     useFieldArray,
-    type Control,
     type FieldValues,
     type UseFormRegister,
-    type FieldErrors,
     type DefaultValues,
-    Controller,
+    type Path,
+    type UseControllerProps,
     type UseFieldArrayRemove,
+    type ControllerRenderProps,
+    type ControllerFieldState,
+    type UseFormStateReturn,
+    get,
+    type FieldErrors,
+    type Resolver,
 } from "react-hook-form";
 import {
     ZodObject,
@@ -19,6 +26,9 @@ import {
     ZodString,
     ZodNumber,
     ZodBoolean,
+    ZodDefault,
+    ZodUnion,
+    ZodNull,
 } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
 import {
@@ -26,522 +36,344 @@ import {
     FormGroup,
     HelperText,
     HelperTextItem,
-    MenuToggle,
-    type MenuToggleElement,
-    Select,
-    SelectOption,
     Form,
     Switch,
     TextInput,
     FormFieldGroupExpandable,
     FormFieldGroupHeader,
+    FormHelperText,
+    Split,
+    SplitItem,
 } from "@patternfly/react-core";
-import { useState } from "react";
-import React from "react";
+import { TrashIcon } from "@patternfly/react-icons";
 
 export interface ZodFormProps<T extends FieldValues> {
     schema: ZodType<T, any, any>;
     defaultValues?: DefaultValues<T>;
-    onSubmit?: (data: T) => void;
+    onSubmit: (data: T) => void;
+    isSubmitting?: boolean;
 }
 
-interface AnyFormFieldProps<T extends FieldValues, S extends ZodType> {
-    name: string;
+type AnyZod = ZodType<unknown>;
+
+interface FieldProps<T extends FieldValues, S extends AnyZod>
+    extends UseControllerProps<T> {
     schema: S;
-    control: Control<T>;
-    register: UseFormRegister<T>;
+    register?: UseFormRegister<T>;
     errors: FieldErrors<T>;
     isRequired?: boolean;
     remove?: UseFieldArrayRemove;
 }
 
-const FieldError = <T extends FieldValues>(props: {
-    errors?: FieldErrors<T>;
-}) =>
-    props.errors?.message ? (
-        <HelperText>
-            <HelperTextItem variant="error">
-                {String(props.errors.message)}
-            </HelperTextItem>
-        </HelperText>
-    ) : null;
-
-const FieldContainer = <T extends FieldValues, S extends ZodType>({
-    name,
-    schema,
-    isRequired,
-    children,
-}: AnyFormFieldProps<T, S>) => (
-    <FormGroup
-        label={name}
-        fieldId={name}
-        helperText={schema.description}
-        isRequired={isRequired}
-    >
-        {children}
-    </FormGroup>
+const RemoveButton = ({ onClick }: { onClick: () => void }) => (
+    <Button variant="link" isDanger icon={<TrashIcon />} onClick={onClick} />
 );
 
-const StringField = <T extends FieldValues>(
-    props: AnyFormFieldProps<T, ZodString>
-) => (
-    <FieldContainer {...props}>
-        <Controller
-            name={props.name as any}
-            control={props.control}
-            render={({ field }) => (
-                <TextInput
-                    {...field}
-                    type="text"
-                    validated={props.errors?.message ? "error" : "success"}
-                />
-            )}
-        />
-        <FieldError {...props} />
-    </FieldContainer>
-);
-
-const NumberField = <T extends FieldValues>(
-    props: AnyFormFieldProps<T, ZodNumber>
-) => (
-    <FieldContainer {...props}>
-        <Controller
-            {...props}
-            render={({ field }) => (
-                <TextInput
-                    {...field}
-                    type="number"
-                    validated={props.errors?.message ? "error" : "success"}
-                />
-            )}
-        />
-        <FieldError {...props} />
-    </FieldContainer>
-);
-
-const BooleanField = <T extends FieldValues>(
-    props: AnyFormFieldProps<T, ZodBoolean>
-) => (
-    <FieldContainer {...props}>
-        <Controller
-            {...props}
-            render={({ field }) => (
-                <Switch
-                    {...field}
-                    isChecked={field.value}
-                    onChange={field.onChange}
-                    label={props.name}
-                />
-            )}
-        />
-        <FieldError {...props} />
-    </FieldContainer>
-);
-
-const EnumField = <T extends FieldValues>(
-    props: AnyFormFieldProps<T, ZodEnum<any>>
-) => {
-    const [isOpen, setIsOpen] = useState(false);
-
-    const toggle = (toggleRef: React.Ref<MenuToggleElement>) => (
-        <MenuToggle
-            ref={toggleRef}
-            // onClick={onToggleClick}
-            isExpanded={isOpen}
-            style={
-                {
-                    width: "200px",
-                } as React.CSSProperties
-            }
-        >
-            {/* {selected} */}
-        </MenuToggle>
-    );
-
-    return (
-        <FieldContainer {...props}>
-            <Controller
-                {...props}
-                render={({ field }) => (
-                    <Select
-                        {...field}
-                        isOpen={isOpen}
-                        onOpenChange={setIsOpen}
-                        toggle={toggle}
-                    >
-                        {props.schema.options.map((opt) => (
-                            <SelectOption key={opt} value={opt}>
-                                {opt}
-                            </SelectOption>
-                        ))}
-                    </Select>
-                )}
-            />
-            <FieldError {...props} />
-        </FieldContainer>
-    );
-};
-
-// const ObjectField = <T extends FieldValues>({
-//     name,
-//     schema,
-//     control,
-//     register,
-//     errors,
-// }: FieldRendererProps<T, ZodObject<any>>) => (
-//     <SectionContainer name={name}>
-//         <DescriptionList>
-//             {Object.entries(schema.shape).map(([key, subschema]) => (
-//                 <RenderField
-//                     key={key}
-//                     name={`${name}.${key}`}
-//                     schema={subschema}
-//                     control={control}
-//                     register={register}
-//                     errors={errors?.[key] || ({} as any)}
-//                 />
-//             ))}
-//         </DescriptionList>
-//     </SectionContainer>
-// );
-
-// const RecordField = <T extends FieldValues>({
-//     name,
-//     schema,
-//     control,
-//     register,
-//     errors,
-// }: FieldRendererProps<T, ZodRecord<any, any>>) => {
-//     const { fields, append, remove } = useFieldArray({
-//         control,
-//         name: name as any,
-//     });
-
-//     const keyType = schema.def.valueType ? schema.def.keyType : z.string();
-//     const valueType = schema.def.valueType ?? schema.def.keyType;
-
-//     if (
-//         !(
-//             keyType instanceof ZodString ||
-//             keyType instanceof ZodNumber ||
-//             keyType instanceof ZodEnum
-//         )
-//     ) {
-//         return (
-//             <HelperText>
-//                 <HelperTextItem variant="error">
-//                     Unsupported record key type: {keyType.constructor.name} for
-//                     field "{name}"
-//                 </HelperTextItem>
-//             </HelperText>
-//         );
-//     }
-
-//     return (
-//         <FieldContainer name={name} schema={schema}>
-//             {fields.map((field, index) => (
-//                 <SectionContainer key={field.id} name={`Item ${index + 1}`}>
-//                     <RenderField
-//                         key={field.id}
-//                         name={`${name}[${index}]`}
-//                         schema={valueType as ZodType<any>}
-//                         control={control}
-//                         register={register}
-//                         errors={errors?.[index] || ({} as any)}
-//                     />
-//                 </SectionContainer>
-//             ))}
-//             <Label
-//                 color="blue"
-//                 onClick={() =>
-//                     append(
-//                         (valueType instanceof ZodObject
-//                             ? {}
-//                             : valueType instanceof ZodArray
-//                             ? []
-//                             : "") as any
-//                     )
-//                 }
-//             >
-//                 Add item
-//             </Label>
-//         </FieldContainer>
-//     );
-// };
-
-// const InnerField = <T extends FieldValues>({
-//     schema,
-//     ...rest
-// }: ZodFormFieldProps<T, ZodNullable | ZodOptional | ZodDefault>) => {
-//     return <RenderField schema={schema.def.innerType} {...rest} />;
-// };
-
-// const UnionField = <T extends FieldValues>({
-//     name,
-//     schema,
-//     control,
-//     register,
-//     errors,
-// }: FieldRendererProps<T, ZodUnion<any>>) => {
-//     if (
-//         schema.options.length === 2 &&
-//         schema.options.some((opt) => opt instanceof ZodNull)
-//     ) {
-//         return (
-//             <RenderField
-//                 name={name}
-//                 schema={
-//                     schema.options.find(
-//                         (opt) => !(opt instanceof ZodNull)
-//                     ) as ZodType
-//                 }
-//                 control={control}
-//                 register={register}
-//                 errors={errors}
-//             />
-//         );
-//     }
-// };
-function getNewItemValue(schema: ZodType): any {
-    if (schema instanceof ZodObject) {
-        const shape = schema.shape;
-        const obj: any = {};
-        for (const key in shape) {
-            obj[key] = getNewItemValue(shape[key]);
-        }
-        return obj;
-    } else if (schema instanceof ZodArray) {
-        return [];
-    } else if (schema instanceof ZodString) {
-        return "";
-    } else if (schema instanceof ZodNumber) {
-        return 0;
-    } else if (schema instanceof ZodBoolean) {
-        return false;
-    } else if (schema instanceof ZodEnum) {
-        return schema.options[0];
-    } else if (schema instanceof ZodOptional || schema instanceof ZodNullable) {
-        return null;
-    }
-    return null;
+function normalizeToI18nKey(name: string): string {
+    return `form.${name.replace(/\.\d+\./g, ".").replace(/\.\d+$/g, "")}`;
 }
 
-const ObjectFormField = <T extends FieldValues>(
-    props: AnyFormFieldProps<T, ZodObject<any>>
-) => {
-    return (
-        <FormFieldGroupExpandable>
-            {Object.entries(props.schema.shape).map(([key, subschema]) => (
-                <RenderField {...props} />
-            ))}
-        </FormFieldGroupExpandable>
-    );
-};
-
-const ArrayFormField = <T extends FieldValues>(
-    props: AnyFormFieldProps<T, ZodArray<any>>
-) => {
-    const { fields, append, remove } = useFieldArray({
-        name: props.name,
-        control: props.control,
-    });
-
-    return (
-        <FormFieldGroupExpandable
-            header={
-                <FormFieldGroupHeader
-                    titleText={{ text: props.name, id: `${props.name}-header` }}
-                    actions={
-                        <>
-                            <Button variant="link" isDanger>
-                                Delete all
-                            </Button>
-                            <Button
-                                variant="secondary"
-                                onClick={() =>
-                                    append(
-                                        getNewItemValue(props.schema.element)
-                                    )
-                                }
-                            >
-                                Add item
-                            </Button>
-                        </>
-                    }
-                />
-            }
-        >
-            {fields.map((field, index) => (
-                <RenderField
-                    {...props}
-                    name={`${props.name}[${index}]`}
-                    schema={props.schema.element as ZodType<any>}
-                    errors={props.errors?.[index] || ({} as any)}
-                    remove={remove}
-                />
-            ))}
-        </FormFieldGroupExpandable>
-    );
-};
-
-const VALUE_FIELD_RENDERERS = {
-    ZodString: StringField,
-    ZodNumber: NumberField,
-    ZodBoolean: BooleanField,
-    ZodEnum: EnumField,
-    ZodObject: ObjectFormField,
-    ZodArray: ArrayFormField,
-    // ZodRecord: RecordField,
-    // ZodNullable: InnerField,
-    // ZodOptional: InnerField,
-    // ZodDefault: InnerField,
-    // ZodUnion: UnionField,
-} satisfies Record<string, React.FC<FieldRendererProps<any, any>>>;
-
-const RenderField = <T extends FieldValues>({
-    name,
-    schema,
-    control,
-    register,
-    errors,
-    arrayItem,
-}: ZodFormFieldProps<T, ZodType>) => {
-    const Renderer =
-        VALUE_FIELD_RENDERERS[
-            schema.constructor.name as keyof typeof VALUE_FIELD_RENDERERS
-        ];
-
-    if (!Renderer) {
-        return (
-            <HelperText>
-                <HelperTextItem variant="error">
-                    Unsupported field type: {schema.constructor.name} for field
-                    "{name}"
-                </HelperTextItem>
-            </HelperText>
-        );
-    }
-
-    return (
-        <Renderer
-            name={name}
-            schema={schema}
-            control={control}
-            register={register}
-            errors={errors}
+const VALUE_FIELD_RENDERER_MAP: Record<
+    string,
+    <T extends FieldValues>(props: {
+        field: ControllerRenderProps<T, Path<T>>;
+        fieldState: ControllerFieldState;
+        formState: UseFormStateReturn<T>;
+    }) => React.ReactElement
+> = {
+    ZodString: ({ field, fieldState }) => (
+        <TextInput
+            {...field}
+            id={field.name}
+            type="text"
+            value={field.value ?? ""}
+            onChange={(_, v) => field.onChange((v as unknown) ?? "")}
+            validated={fieldState.error ? "error" : "success"}
         />
-    );
+    ),
+    ZodNumber: ({ field, fieldState }) => (
+        <TextInput
+            {...field}
+            id={field.name}
+            type="number"
+            value={field.value ?? ""}
+            onChange={(_, v) => {
+                const asNum = (v as unknown) === "" ? undefined : Number(v);
+                field.onChange(asNum);
+            }}
+            validated={fieldState.error ? "error" : "success"}
+        />
+    ),
+    ZodBoolean: ({ field }) => (
+        <Switch
+            id={field.name}
+            isChecked={!!field.value}
+            onChange={(_, v: boolean) => field.onChange(v)}
+            label={String(field.value)}
+        />
+    ),
 };
 
-// const ArrayFormField = <T extends FieldValues>({
-//     name,
-//     schema,
-//     control,
-//     register,
-//     errors,
-// }: ZodFormFieldProps<T, ZodArray<any>>) => {
-//     const { fields, append, remove } = useFieldArray({
-//         name,
-//         control,
-//     });
-// };
-
-const RootObjectFormField = <T extends FieldValues>({
-    schema,
-    control,
-    register,
-    errors,
-}: ZodFormFieldProps<T, ZodObject<any>>) => {
+const ValueField = <
+    T extends FieldValues,
+    S extends ZodString | ZodNumber | ZodBoolean
+>(
+    props: FieldProps<T, S>
+) => {
+    const error = get(props.errors, props.name);
     return (
-        <FormGroup>
-            {Object.entries(schema.shape).map(([key, subschema]) => (
-                <RenderField
-                    key={key}
-                    name={key}
-                    schema={subschema}
-                    control={control}
-                    register={register}
-                    errors={errors?.[key] || ({} as any)}
-                />
-            ))}
+        <FormGroup
+            label={normalizeToI18nKey(props.name)}
+            fieldId={props.name}
+            isRequired={props.isRequired}
+        >
+            <Split>
+                <SplitItem isFilled>
+                    <Controller
+                        {...props}
+                        render={
+                            VALUE_FIELD_RENDERER_MAP[
+                                props.schema.constructor.name
+                            ]
+                        }
+                    />
+                </SplitItem>
+                <SplitItem>
+                    {props.remove && (
+                        <RemoveButton
+                            onClick={() =>
+                                props.remove!(
+                                    Number(props.name.split(".").pop())
+                                )
+                            }
+                        />
+                    )}
+                </SplitItem>
+            </Split>
+            {error?.message && (
+                <FormHelperText>
+                    <HelperText>
+                        <HelperTextItem variant="error">
+                            {String(error.message)}
+                        </HelperTextItem>
+                    </HelperText>
+                </FormHelperText>
+            )}
         </FormGroup>
     );
 };
 
-const AnyFormField = <T extends FieldValues>({
-    name,
-    schema,
-    control,
-    register,
-    errors,
-}: ZodFormFieldProps<T, ZodType>) => {
+function getNewItemValue(schema: AnyZod): any {
+    if (schema instanceof ZodDefault) {
+        return schema.def.defaultValue;
+    }
     if (schema instanceof ZodObject) {
-        return (
-            <ObjectFormField
-                name={name}
-                schema={schema}
-                control={control}
-                register={register}
-                errors={errors}
-            />
-        );
+        const shape = (schema as ZodObject<any>).shape;
+        const obj: any = {};
+        for (const key in shape) {
+            obj[key] = getNewItemValue((shape as any)[key]);
+        }
+        return obj;
     }
     if (schema instanceof ZodArray) {
-        return (
-            <ArrayFormField
-                name={name}
-                schema={schema}
-                control={control}
-                register={register}
-                errors={errors}
-            />
-        );
+        return [];
     }
+    if (schema instanceof ZodString) return "";
+    if (schema instanceof ZodNumber) return 0;
+    if (schema instanceof ZodBoolean) return false;
+    if (schema instanceof ZodEnum) return (schema as any).options?.[0] ?? "";
     if (schema instanceof ZodOptional || schema instanceof ZodNullable) {
-        return (
-            <AnyFormField
-                name={name}
-                schema={schema.def.innerType}
-                control={control}
-                register={register}
-                errors={errors}
-            />
+        return getNewItemValue(
+            (schema as any)._def?.innerType ?? (schema as any)._def?.innerType
         );
     }
-    console.log("Unsupported AnyFormField schema:", schema);
+    return null;
+}
+
+const RenderField = <T extends FieldValues>(props: FieldProps<T, AnyZod>) => {
+    const { name, control, register } = props;
+
+    let schema = props.schema;
+
+    // Unwrap wrappers
+    if (
+        schema instanceof ZodOptional ||
+        schema instanceof ZodNullable ||
+        schema instanceof ZodDefault
+    ) {
+        schema = schema.def.innerType as AnyZod;
+    }
+
+    if (
+        schema instanceof ZodUnion &&
+        schema.def.options.length === 2 &&
+        schema.def.options.some((opt) => opt instanceof ZodNull)
+    ) {
+        const nonNullType = schema.def.options.find(
+            (opt) => !(opt instanceof ZodNull)
+        )!;
+        schema = nonNullType as AnyZod;
+    }
+
+    // Primitive values
+    if (
+        schema instanceof ZodString ||
+        schema instanceof ZodNumber ||
+        schema instanceof ZodBoolean
+    ) {
+        return <ValueField {...props} schema={schema} />;
+    }
+
+    // Object
+    if (schema instanceof ZodObject) {
+        return (
+            <FormFieldGroupExpandable
+                toggleAriaLabel={`Toggle ${name} section`}
+                header={
+                    <Split>
+                        <SplitItem isFilled>
+                            <FormFieldGroupHeader
+                                titleText={{
+                                    text:
+                                        normalizeToI18nKey(props.name) +
+                                        ".title",
+                                    id: `${name}-header`,
+                                }}
+                            />
+                        </SplitItem>
+                        <SplitItem>
+                            {props.remove && (
+                                <RemoveButton
+                                    onClick={() =>
+                                        props.remove!(
+                                            Number(name.split(".").pop())
+                                        )
+                                    }
+                                />
+                            )}
+                        </SplitItem>
+                    </Split>
+                }
+            >
+                {Object.entries(schema.shape).map(([key, subschema]) => (
+                    <RenderField
+                        key={key}
+                        name={`${name}.${key}` as Path<T>}
+                        schema={subschema}
+                        control={control}
+                        register={register}
+                        errors={props.errors}
+                    />
+                ))}
+            </FormFieldGroupExpandable>
+        );
+    }
+
+    // Array
+    if (schema instanceof ZodArray) {
+        const arrSchema = schema as ZodArray<any>;
+        const { fields, append, remove } = useFieldArray({
+            name: name as any,
+            control,
+        });
+
+        return (
+            <FormFieldGroupExpandable
+                header={
+                    <FormFieldGroupHeader
+                        titleText={{
+                            text: normalizeToI18nKey(props.name) + ".title",
+                            id: `${name}-header`,
+                        }}
+                        actions={
+                            <>
+                                <Button
+                                    variant="link"
+                                    isDanger
+                                    onClick={() => remove()}
+                                >
+                                    Delete all
+                                </Button>
+                                <Button
+                                    variant="secondary"
+                                    onClick={() =>
+                                        append(
+                                            getNewItemValue(arrSchema.element)
+                                        )
+                                    }
+                                >
+                                    Add item
+                                </Button>
+                            </>
+                        }
+                    />
+                }
+            >
+                {fields.map((_, index) => (
+                    <RenderField
+                        key={index}
+                        {...props}
+                        name={`${name}.${index}` as Path<T>}
+                        schema={arrSchema.element}
+                        errors={props.errors}
+                        remove={remove}
+                    />
+                ))}
+            </FormFieldGroupExpandable>
+        );
+    }
+
+    return (
+        <HelperText>
+            <HelperTextItem variant="error">
+                Unsupported field type: {schema.constructor.name}
+            </HelperTextItem>
+        </HelperText>
+    );
 };
+
 export const ZodForm = <T extends FieldValues>({
     schema,
     defaultValues,
     onSubmit,
+    isSubmitting,
 }: ZodFormProps<T>) => {
-    const {
-        control,
-        register,
-        formState: { errors },
-    } = useForm<T>({
-        resolver: zodResolver(schema),
-        defaultValues,
-    });
-
-    const handleFormSubmit = (data: T) => {
-        if (onSubmit) onSubmit(data);
-        else console.log("Form submitted:", data);
-    };
-
     if (!(schema instanceof ZodObject)) {
         throw new Error("ZodForm only supports ZodObject schemas at the root");
     }
 
+    const {
+        control,
+        register,
+        handleSubmit,
+        formState: { errors },
+    } = useForm<T>({
+        resolver: zodResolver(schema) as Resolver<T>,
+        defaultValues,
+        mode: "all",
+    });
+
+    const handleFormSubmit = (data: T) => {
+        if (!isSubmitting) {
+            onSubmit(data);
+        }
+    };
+
     return (
-        <Form onSubmit={(data) => handleFormSubmit(data as T)}>
-            <RootObjectFormField
-                name=""
-                schema={schema}
-                control={control}
-                register={register}
-                errors={errors}
-            />
+        <Form onSubmit={handleSubmit(handleFormSubmit)}>
+            {Object.entries(schema.shape).map(([key, subschema]) => (
+                <RenderField
+                    key={key}
+                    name={key as Path<T>}
+                    schema={subschema}
+                    control={control}
+                    register={register}
+                    errors={errors}
+                />
+            ))}
+            <Button type="submit" variant="primary" isDisabled={isSubmitting}>
+                Submit
+            </Button>
         </Form>
     );
 };

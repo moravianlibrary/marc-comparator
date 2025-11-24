@@ -3,7 +3,7 @@ import {
     type Settings,
 } from "../../models/api/responses/settings";
 import jsonSchemaToZod from "json-schema-to-zod";
-import ZodForm from "../molecules/ZodForm";
+import ZodForm from "./ZodForm";
 import { z } from "zod";
 
 interface SettingsTableProps {
@@ -52,9 +52,10 @@ const SettingsTable = ({
     isError,
     error,
 }: SettingsTableProps) => {
-    const zodSchema = eval(jsonSchemaToZod(dereferenceSchema(schema)));
+    // const zodSchema = eval(jsonSchemaToZod(dereferenceSchema(schema)));
 
-    return <ZodForm schema={zodSchema} defaultValues={settings as any} />;
+    return <></>;
+    // return <ZodForm schema={zodSchema} defaultValues={settings as any} />;
 };
 
 export default SettingsTable;

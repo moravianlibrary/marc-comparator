@@ -16,7 +16,6 @@ import {
 import { useTranslation } from "react-i18next";
 import RecordsTable from "./RecordsTable";
 import RecordDetailsSection from "./RecordDetailsSection";
-import SystemSettingsSection from "./SystemSettingsSection";
 import SystemMaintenance from "./SystemMaintenance";
 import RecordsAddition from "./RecordsAddition";
 import RoleManagement from "./RoleManagement";
@@ -30,6 +29,11 @@ import { useGetMe } from "../hooks/useAuth";
 import AuthPage from "./AuthPage";
 import { useNotification } from "../hooks/useNotifications";
 import AppNotificationDrawer from "./main-page/NotificationDrawer";
+import CatalogSettingsPage from "./CatalogSettingsPage";
+import TasksSettingsPage from "./TaskSettingsPage";
+import ValidatorsConfigPage from "./ValidatorsConfigPage";
+import ComparatorsConfigPage from "./ComparatorsConfigPage";
+import AuthorityLinkersConfigPage from "./AuthorityLinkersConfigPage";
 
 interface NavigationItem {
     itemId: string;
@@ -87,17 +91,17 @@ const NAVIGATION_CONFIG: (NavigationGroup | NavigationItem)[] = [
             {
                 itemId: "authority-linkers",
                 to: "/record-tools/authority-linkers",
-                element: <div>Authority Linkers</div>,
+                element: <AuthorityLinkersConfigPage />,
             },
             {
                 itemId: "comparators",
                 to: "/record-tools/comparators",
-                element: <div>Comparators</div>,
+                element: <ComparatorsConfigPage />,
             },
             {
                 itemId: "validators",
                 to: "/record-tools/validators",
-                element: <div>Validators</div>,
+                element: <ValidatorsConfigPage />,
             },
         ],
     },
@@ -120,10 +124,16 @@ const NAVIGATION_CONFIG: (NavigationGroup | NavigationItem)[] = [
                 element: <UserManagement />,
             },
             {
-                itemId: "system-settings",
-                to: "/administration/system-settings",
+                itemId: "catalog-settings",
+                to: "/administration/catalog-settings",
                 permission: "ManageAppSettings",
-                element: <SystemSettingsSection />,
+                element: <CatalogSettingsPage />,
+            },
+            {
+                itemId: "tasks-settings",
+                to: "/administration/tasks-settings",
+                permission: "ManageAppSettings",
+                element: <TasksSettingsPage />,
             },
             {
                 itemId: "system-maintenance",
