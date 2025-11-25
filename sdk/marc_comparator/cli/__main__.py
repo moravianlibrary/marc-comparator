@@ -277,29 +277,31 @@ def compare(
     typer.echo(f"Overall Score: {comparison.overall_score:.4f}")
 
     for field_comparison in comparison.field_results or []:
+        field_strs = [f"Tag: {field_comparison.tag}"]
+
+        if field_comparison.tagB:
+            field_strs.append(f"TagB: {field_comparison.tagB}")
+
+        field_strs.append(f"IdxA: {field_comparison.idxA}")
+        field_strs.append(f"IdxB: {field_comparison.idxB}")
+
         if field_comparison.explanation:
-            typer.echo(
-                f"Tag: {field_comparison.tag}, "
-                f"Explanation: {field_comparison.explanation}, "
-                f"Score: {field_comparison.score:.4f}"
-            )
-        else:
-            typer.echo(
-                f"Tag: {field_comparison.tag}, "
-                f"Score: {field_comparison.score:.4f}"
-            )
-            for subfield_comparison in field_comparison.subfield_results or []:
-                if subfield_comparison.explanation:
-                    typer.echo(
-                        f"  Codes: {''.join(subfield_comparison.code)}, "
-                        f"Explanation: {subfield_comparison.explanation}, "
-                        f"Score: {subfield_comparison.score:.4f}"
-                    )
-                else:
-                    typer.echo(
-                        f"  Codes: {''.join(subfield_comparison.code)}, "
-                        f"Score: {subfield_comparison.score:.4f}"
-                    )
+            field_strs.append(f"Explanation: {field_comparison.explanation}")
+
+        typer.echo(", ".join(field_strs))
+
+        for subfield_comparison in field_comparison.subfield_results or []:
+            subfield_strs = [f"Codes: {subfield_comparison.code}"]
+            subfield_strs.append(f"IdxA: {subfield_comparison.idxA}")
+            subfield_strs.append(f"IdxB: {subfield_comparison.idxB}")
+
+            if subfield_comparison.explanation:
+                subfield_strs.append(
+                    f"Explanation: {subfield_comparison.explanation}"
+                )
+
+            subfield_strs.append(f"Score: {subfield_comparison.score:.4f}")
+            typer.echo("  " + ", ".join(subfield_strs))
 
 
 def main():

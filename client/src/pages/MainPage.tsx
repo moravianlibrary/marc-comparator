@@ -34,6 +34,7 @@ import TasksSettingsPage from "./TaskSettingsPage";
 import ValidatorsConfigPage from "./ValidatorsConfigPage";
 import ComparatorsConfigPage from "./ComparatorsConfigPage";
 import AuthorityLinkersConfigPage from "./AuthorityLinkersConfigPage";
+import HomePage from "./Home";
 
 interface NavigationItem {
     itemId: string;
@@ -49,7 +50,7 @@ interface NavigationGroup {
 }
 
 const NAVIGATION_CONFIG: (NavigationGroup | NavigationItem)[] = [
-    { itemId: "home", to: "/", element: <div>Home</div> },
+    { itemId: "home", to: "/", element: <HomePage /> },
     {
         groupId: "records",
         permission: "ReadRecords",

@@ -13,6 +13,10 @@ class SubfieldComparisonResult(BaseModel):
     ----------
     code: str
         The MARC subfield code being compared.
+    idxA: int | None
+        The index of the subfield in record A, if applicable.
+    idxB: int | None
+        The index of the subfield in record B, if applicable.
     score: float
         The similarity score for this subfield.
     explanation: str | None
@@ -22,6 +26,8 @@ class SubfieldComparisonResult(BaseModel):
     """
 
     code: str
+    idxA: int | None = None
+    idxB: int | None = None
     score: float
     explanation: str | None = None
     details: str | None = None
@@ -35,6 +41,12 @@ class FieldComparisonResult(BaseModel):
     ----------
     tag: str
         The MARC field tag being compared.
+    tagB: str | None
+        The MARC field tag in record B, if different.
+    idxA: int | None
+        The index of the field in record A, if applicable.
+    idxB: int | None
+        The index of the field in record B, if applicable.
     score: float
         The similarity score for this field.
     explanation: str | None
@@ -46,6 +58,9 @@ class FieldComparisonResult(BaseModel):
     """
 
     tag: str
+    tagB: str | None = None
+    idxA: int | None = None
+    idxB: int | None = None
     score: float
     explanation: str | None = None
     details: str | None = None

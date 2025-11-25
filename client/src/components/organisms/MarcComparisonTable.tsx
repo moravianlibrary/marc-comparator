@@ -185,7 +185,7 @@ const MarcComparisonTable = ({
         !!baseA && !!systemNumberA
     );
 
-    const baseB = comparison?.comparator;
+    const baseB = comparison?.base;
     const systemNumberB = comparison?.system_number;
     const { data: recordB, isLoading: isLoadingB } = useGetMarcRecord(
         baseB || "",

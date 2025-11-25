@@ -71,8 +71,12 @@ def get_enabled_comparators(db_session: DatabaseSession) -> List[str]:
     if not settings:
         return []
 
-    # TODO
-    return []
+    comparators = []
+
+    if settings.intiim is not None:
+        comparators.append("intiim")
+
+    return comparators
 
 
 def get_enabled_validators(db_session: DatabaseSession) -> List[str]:

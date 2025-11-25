@@ -7,15 +7,15 @@ from ._base import (
     RecordComparisonResult,
     SubfieldComparisonResult,
 )
-from .rule_based import RuleBasedComparator, RuleBasedComparatorConfig
+from .intiim import IntiimComparator, IntiimComparatorConfig
 
 
 class Comparator(StrEnum):
-    RuleBased = "rule-based"
+    Intiim = "intiim"
 
 
 COMPARATOR_DISPATCHER: dict[Comparator, Type[BaseComparator]] = {
-    Comparator.RuleBased: RuleBasedComparator,
+    Comparator.Intiim: IntiimComparator,
 }
 
 __all__ = [
@@ -23,8 +23,8 @@ __all__ = [
     "COMPARATOR_DISPATCHER",
     "Comparator",
     "FieldComparisonResult",
+    "IntiimComparator",
+    "IntiimComparatorConfig",
     "RecordComparisonResult",
-    "RuleBasedComparator",
-    "RuleBasedComparatorConfig",
     "SubfieldComparisonResult",
 ]

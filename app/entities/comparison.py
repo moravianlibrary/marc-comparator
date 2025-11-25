@@ -31,6 +31,7 @@ class SubfieldComparisonResult(IndexerNestedModel):
 
 class FieldComparisonResult(IndexerNestedModel):
     tag: Keyword
+    tagB: Keyword | None = None
     idxA: int | None = None
     idxB: int | None = None
     score: float

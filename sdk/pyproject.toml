@@ -22,6 +22,8 @@ packages = [
     "marc_comparator",
     "marc_comparator.authority_linkers",
     "marc_comparator.comparators",
+    "marc_comparator.comparators.intiim_engine",
+    "marc_comparator.comparators.intiim_engine.checks",
     "marc_comparator.validators",
 ]
 

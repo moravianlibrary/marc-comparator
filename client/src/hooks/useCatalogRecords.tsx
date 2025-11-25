@@ -67,7 +67,7 @@ export const useGetAvailableTargetBases = () =>
                                 aggs: {
                                     bases: {
                                         terms: {
-                                            field: "authority_links.base.keyword",
+                                            field: "authority_links.base",
                                             size: 100,
                                         },
                                     },
@@ -134,4 +134,4 @@ export const useReindexRecords = () =>
     useCreateTask<EsQuery>("/catalog-records/reindex");
 
 export const useSetHiddenStateOfRecords = () =>
-    useCreateTask<SetHiddenStateData>("/catalog-records/hide");
+    useCreateTask<SetHiddenStateData>("/catalog-records/hidden-state");

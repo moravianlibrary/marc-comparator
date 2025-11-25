@@ -1,4 +1,4 @@
-from marc_comparator.comparators import Comparator, RuleBasedComparatorConfig
+from marc_comparator.comparators import Comparator, IntiimComparatorConfig
 from pydantic import BaseModel, Field
 
 from adapters.indexer import IndexerQuery
@@ -6,9 +6,7 @@ from entities.settings import SettingsSchema
 
 
 class ComparisonSettings(SettingsSchema):
-    rule_based: RuleBasedComparatorConfig | None = Field(
-        None, alias="rule-based"
-    )
+    intiim: IntiimComparatorConfig | None = Field(IntiimComparatorConfig())
 
 
 class ComparisonTaskData(BaseModel):
