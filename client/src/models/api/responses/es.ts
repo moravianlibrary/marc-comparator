@@ -1,5 +1,8 @@
 import { z, type ZodType } from "zod";
-import { type EsAggregation, EsAggregationSchema } from "./es_aggregations";
+import {
+    type EsAggregationContainer,
+    EsAggregationContainerSchema,
+} from "./es_aggregations";
 
 export const createEsHitSchema = <T extends ZodType<any>>(sourceSchema: T) =>
     z.object({
@@ -25,7 +28,7 @@ export type EsResponse<T> = {
     timed_out: boolean;
     _shards: unknown;
     hits: EsHits<T>;
-    aggregations?: Record<string, EsAggregation> | null;
+    aggregations?: Record<string, EsAggregationContainer> | null;
 };
 
 export const createEsHitsSchema = <T extends ZodType<any>>(sourceSchema: T) =>
@@ -43,7 +46,7 @@ export const createEsResponseSchema = <T extends ZodType<any>>(
         _shards: z.any(),
         hits: createEsHitsSchema(sourceSchema),
         aggregations: z
-            .record(z.string(), EsAggregationSchema)
+            .record(z.string(), EsAggregationContainerSchema)
             .nullable()
             .optional(),
     });

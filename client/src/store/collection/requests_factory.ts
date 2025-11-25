@@ -62,98 +62,112 @@ function buildSearchQueries(
 }
 
 function buildFilterQuery(config: FilterConfig, state: FilterState) {
-    console.log("buildFilterQuery", config, state);
-    switch (config.type) {
-        case "term":
-            return {
-                terms: { [config.field]: (state as TermsFilterState).include },
-            };
-        case "range":
-        case "histogram":
-            const { from, to } = state as
-                | RangeFilterState
-                | HistogramFilterState;
-            return {
-                range: {
-                    [config.field]: {
-                        ...(from !== undefined ? { gte: from } : {}),
-                        ...(to !== undefined ? { lte: to } : {}),
+    const innerPart = () => {
+        switch (config.type) {
+            case "term":
+                return {
+                    terms: {
+                        [config.field]: (state as TermsFilterState).include,
                     },
-                },
-            };
-        case "date-range":
-            const dateState = state as DateRangeFilterState;
-            return {
-                range: {
-                    [config.field]: {
-                        ...(dateState.from ? { gte: dateState.from } : {}),
-                        ...(dateState.to ? { lte: dateState.to } : {}),
-                        format: "yyyy-MM-dd||yyyy-MM-dd'T'HH:mm:ss||epoch_millis",
+                };
+            case "range":
+            case "histogram":
+                const { from, to } = state as
+                    | RangeFilterState
+                    | HistogramFilterState;
+                return {
+                    range: {
+                        [config.field]: {
+                            ...(from !== undefined ? { gte: from } : {}),
+                            ...(to !== undefined ? { lte: to } : {}),
+                        },
                     },
-                },
-            };
-        case "search":
-            const searchState = state as SearchFilterState;
-            return { match: { [config.field]: searchState.value } };
+                };
+            case "date-range":
+                const dateState = state as DateRangeFilterState;
+                return {
+                    range: {
+                        [config.field]: {
+                            ...(dateState.from ? { gte: dateState.from } : {}),
+                            ...(dateState.to ? { lte: dateState.to } : {}),
+                            format: "yyyy-MM-dd||yyyy-MM-dd'T'HH:mm:ss||epoch_millis",
+                        },
+                    },
+                };
+            case "search":
+                const searchState = state as SearchFilterState;
+                return { match: { [config.field]: searchState.value } };
+        }
+    };
+
+    if (!config.isNested) {
+        return innerPart();
     }
+
+    const path = config.field.substring(0, config.field.lastIndexOf("."));
+    return {
+        nested: {
+            path,
+            query: innerPart(),
+        },
+    };
 }
 
 function buildAggs(configs: FilterConfig[]): Record<string, any> {
-    return configs.reduce((acc, filter) => {
-        if (filter.type === "term") {
-            acc[filter.field] = { terms: { field: filter.field } };
-        } else if (filter.type === "range") {
-            acc[filter.field] = {
-                range: {
-                    field: filter.field,
-                    ranges: [{ from: filter.min, to: filter.max }],
-                },
-            };
-        } else if (filter.type === "histogram") {
-            acc[filter.field] = {
-                histogram: {
-                    field: filter.field,
-                    interval: filter.interval,
-                },
-            };
-        } else if (filter.type === "date-range") {
-            acc[filter.field] = {
-                date_range: {
-                    field: filter.field,
-                    // TODO: make ranges configurable
-                    ranges: [
-                        {
-                            from: "2018-01-01T00:00:00Z",
-                            to: "2019-01-01T00:00:00Z",
+    const aggs: Record<string, any> = {};
+
+    for (const filter of configs) {
+        const baseAgg: Record<string, any> = (() => {
+            switch (filter.type) {
+                case "term":
+                    return { terms: { field: filter.field } };
+                case "range":
+                    return {
+                        range: {
+                            field: filter.field,
+                            ranges: [{ from: filter.min, to: filter.max }],
                         },
-                        {
-                            from: "2019-01-01T00:00:00Z",
-                            to: "2020-01-01T00:00:00Z",
+                    };
+                case "histogram":
+                    return {
+                        histogram: {
+                            field: filter.field,
+                            interval: filter.interval,
                         },
-                        {
-                            from: "2021-01-01T00:00:00Z",
-                            to: "2022-01-01T00:00:00Z",
+                    };
+                case "date-range":
+                    return {
+                        date_range: {
+                            field: filter.field,
+                            ranges: [{ from: "now-1M/M" }, { to: "now-1M/M" }],
                         },
-                        {
-                            from: "2022-01-01T00:00:00Z",
-                            to: "2023-01-01T00:00:00Z",
-                        },
-                        {
-                            from: "2023-01-01T00:00:00Z",
-                            to: "2024-01-01T00:00:00Z",
-                        },
-                        {
-                            from: "2024-01-01T00:00:00Z",
-                            to: "2025-01-01T00:00:00Z",
-                        },
-                        { from: "2025-01-01T00:00:00Z" },
-                    ],
-                    // ranges: [{ min: filter., max: filter.max }],
-                },
-            };
+                    };
+                default:
+                    return {};
+            }
+        })();
+
+        if (filter.isNested) {
+            // Split nested path
+            const parts = filter.field.split(".");
+            let currentAgg = aggs;
+
+            for (let i = 0; i < parts.length - 1; i++) {
+                const path = parts.slice(0, i + 1).join(".");
+                if (!currentAgg[parts[i]]) {
+                    currentAgg[parts[i]] = { nested: { path }, aggs: {} };
+                }
+                currentAgg = currentAgg[parts[i]].aggs;
+            }
+
+            // Assign the actual aggregation at the deepest level
+            currentAgg[parts[parts.length - 1]] = baseAgg;
+        } else {
+            aggs[filter.field] = baseAgg;
         }
-        return acc;
-    }, {} as Record<string, any>);
+    }
+
+    return aggs;
 }
 
 function buildFieldIncludes<T>(
@@ -164,6 +178,14 @@ function buildFieldIncludes<T>(
         .filter((col) => columnStates[col.key]?.visible)
         .map((col) => col.fields || [col.key])
         .flat();
+}
+
+function buildQuery(must: any[], filter: any[]) {
+    const bool: Record<string, any> = {};
+    if (must.length > 0) bool.must = must.length === 1 ? must[0] : must;
+    if (filter.length > 0)
+        bool.filter = filter.length === 1 ? filter[0] : filter;
+    return Object.keys(bool).length > 0 ? { bool } : { match_all: {} };
 }
 
 export function buildRequests<T>(state: CollectionState<T>): EsRequest[] {
@@ -187,20 +209,9 @@ export function buildRequests<T>(state: CollectionState<T>): EsRequest[] {
         }
     });
 
-    const buildBoolQuery = (must: any[], filter: any[]) => {
-        const bool: Record<string, any> = {};
-        if (must.length > 0) bool.must = must.length === 1 ? must[0] : must;
-        if (filter.length > 0)
-            bool.filter = filter.length === 1 ? filter[0] : filter;
-        return Object.keys(bool).length > 0 ? { bool } : { match_all: {} };
-    };
-
     // Main hits request
     const hitsRequest: EsRequest = {
-        query: buildBoolQuery(
-            searchQueries,
-            Object.values(activeFilterQueries)
-        ),
+        query: buildQuery(searchQueries, Object.values(activeFilterQueries)),
         from: (state.page - 1) * state.perPage,
         size: state.perPage,
         sort: state.sortBy?.value,
@@ -223,10 +234,38 @@ export function buildRequests<T>(state: CollectionState<T>): EsRequest[] {
                     .map(([, q]) => q);
 
                 return {
-                    query: buildBoolQuery(searchQueries, filtersExcludingSelf),
+                    query: buildQuery(searchQueries, filtersExcludingSelf),
                     aggs: buildAggs([config]),
                 } as EsRequest;
             }) || [];
 
     return [hitsRequest, ...filterAggsRequests];
+}
+
+export function buildSelectQuery(state: CollectionState<any>) {
+    if (!state.isAllSelected) {
+        return { ids: { values: Array.from(state.selectedIds) } };
+    }
+
+    const searchQueries =
+        state.config.search && state.searchTerm
+            ? buildSearchQueries(
+                  state.config.search,
+                  state.searchTerm,
+                  state.searchFuzziness
+              )
+            : [];
+
+    const activeFilterQueries: Record<string, any> = {};
+    state.config.filter?.forEach((config) => {
+        const filterState = state.filterStates?.[config.field];
+        if (filterState) {
+            activeFilterQueries[config.field] = buildFilterQuery(
+                config,
+                filterState
+            );
+        }
+    });
+
+    return buildQuery(searchQueries, Object.values(activeFilterQueries));
 }

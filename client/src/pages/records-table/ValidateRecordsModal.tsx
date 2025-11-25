@@ -4,10 +4,7 @@ import {
     type CollectionData,
     type CollectionState,
 } from "../../store/collection/domain";
-import {
-    selectSelectedCount,
-    selectSelectionQuery,
-} from "../../store/collection/selectors";
+import { selectSelectedCount } from "../../store/collection/selectors";
 import ConfirmModal from "../../components/organisms/ConfirmModal";
 import {
     Content,
@@ -18,10 +15,12 @@ import {
 } from "@patternfly/react-core";
 import ToggleList from "../../components/molecules/ToggleList";
 import { useValidateRecords } from "../../hooks/useValidation";
+import type { CatalogRecord } from "../../models/api/responses/catalog_record";
+import { buildSelectQuery } from "../../store/collection/requests_factory";
 
 interface ValidateRecordsModalProps {
-    state: CollectionState;
-    data: CollectionData;
+    state: CollectionState<CatalogRecord>;
+    data: CollectionData<CatalogRecord>;
     isOpen: boolean;
     onClose: () => void;
 }
@@ -62,7 +61,7 @@ const ValidateRecordsModal = ({
 
         validateRecordsMutation.mutate({
             validators: Array.from(selectedValidators),
-            query: selectSelectionQuery(state),
+            query: buildSelectQuery(state),
         });
         onClose();
     };

@@ -3,7 +3,7 @@ from enum import StrEnum
 from functools import cached_property
 from typing import List, Optional
 
-from esorm.fields import Keyword, Text
+from esorm.fields import Keyword, Text, TextField
 from marcdantic import MarcRecord
 from marcdantic.selectors import SubtitleJq, TitleJq
 from sqlalchemy import (
@@ -54,8 +54,8 @@ class CatalogRecordSchema(IndexerSchema):
     type_of_record: Keyword
     bibliographic_level: Keyword
 
-    title: List[Text]
-    subtitle: List[Text]
+    title: Text | None = TextField(None, keyword=True)
+    subtitle: Text | None
     authors: List[Text]
     latest_transaction: datetime
     latest_sync: datetime
@@ -141,12 +141,14 @@ class CatalogRecord(
         return self.record.leader_selector.bibliographic_level
 
     @property
-    def title(self) -> List[str]:
-        return self.record.variable_fields.query_subfield_values(TitleJq)
+    def title(self) -> str | None:
+        stm = self.record.variable_fields.query_subfield_values(TitleJq)
+        return stm[0] if stm else None
 
     @property
-    def subtitle(self) -> List[str]:
-        return self.record.variable_fields.query_subfield_values(SubtitleJq)
+    def subtitle(self) -> str | None:
+        stm = self.record.variable_fields.query_subfield_values(SubtitleJq)
+        return stm[0] if stm else None
 
     @property
     def authors(self) -> List[str]:

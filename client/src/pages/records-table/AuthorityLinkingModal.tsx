@@ -5,11 +5,7 @@ import {
     type CollectionData,
     type CollectionState,
 } from "../../store/collection/domain";
-import {
-    selectSelectedCount,
-    selectSelectionQuery,
-} from "../../store/collection/selectors";
-import ActionsMenu from "../../components/molecules/ActionsMenu";
+import { selectSelectedCount } from "../../store/collection/selectors";
 import ConfirmModal from "../../components/organisms/ConfirmModal";
 import {
     Content,
@@ -21,10 +17,12 @@ import {
 } from "@patternfly/react-core";
 import BaseSelector from "../../components/molecules/BaseSelector";
 import ToggleList from "../../components/molecules/ToggleList";
+import type { CatalogRecord } from "../../models/api/responses/catalog_record";
+import { buildSelectQuery } from "../../store/collection/requests_factory";
 
 interface AuthorityLinkingModalProps {
-    state: CollectionState;
-    data: CollectionData;
+    state: CollectionState<CatalogRecord>;
+    data: CollectionData<CatalogRecord>;
     isOpen: boolean;
     onClose: () => void;
 }
@@ -72,7 +70,7 @@ const AuthorityLinkingModal = ({
         authorityLinkingMutation.mutate({
             target_base: base,
             linkers: Array.from(selectedLinkers),
-            query: selectSelectionQuery(state),
+            query: buildSelectQuery(state),
         });
         onClose();
     };

@@ -122,7 +122,7 @@ def task(db_session: DatabaseSession, user: TokenData) -> Task:
         data=ComparisonTaskData(
             comparator="rule-based",
             target_base="SKC",
-            query={"query": {"match_all": {}}},
+            query={"match_all": {}},
         ).model_dump(mode="json"),
     ).save(db_session)
 

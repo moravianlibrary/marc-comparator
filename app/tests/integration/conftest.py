@@ -7,7 +7,8 @@ import pytest
 import pytest_asyncio
 from aleph_nought import AlephClient
 from celery import Celery
-from esorm import connect, setup_mappings
+from elasticsearch import AsyncElasticsearch
+from esorm import connect, es, setup_mappings
 from httpx import ASGITransport, AsyncClient, Response
 from marcdantic import MarcRecord
 from pytest_mock import MockerFixture
@@ -20,6 +21,7 @@ from testcontainers.redis import RedisContainer
 
 from adapters.aleph_client_registry import AlephClientRegistry
 from adapters.database import Base, DatabaseSession, db_session_generator
+from adapters.indexer import connect as es_connect
 from adapters.tasks import TasksClient
 from app import app
 from auth.models import TokenData
@@ -126,7 +128,7 @@ async def db_session(
 @pytest_asyncio.fixture(scope="class")
 async def indexer_session(
     elasticsearch_container, class_mocker: MockerFixture
-) -> AsyncGenerator[None, None]:
+) -> AsyncGenerator[AsyncElasticsearch, None]:
     """
     Yield a function that creates a fresh async indexer session
     inside the test loop.
@@ -135,11 +137,7 @@ async def indexer_session(
         config.elasticsearch, "url", elasticsearch_container.get_url()
     )
 
-    from adapters.indexer import connect
-
-    await connect()
-
-    from esorm import es
+    await es_connect()
 
     for index_name in [
         CatalogRecord.__indexer_schema__.ESConfig.index,
@@ -148,7 +146,7 @@ async def indexer_session(
         if await es.indices.exists(index=index_name):
             await es.indices.delete(index=index_name)
 
-    yield
+    yield es
 
 
 @pytest_asyncio.fixture(scope="class")

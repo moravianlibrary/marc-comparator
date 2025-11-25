@@ -14,6 +14,7 @@ export interface TermsFilterConfig {
     labelProps?: (bucketKey: string) => LabelProps;
     displayOrder?: string[];
     orderBucketBy?: (a: EsAggregationBucket, b: EsAggregationBucket) => number;
+    isNested?: boolean;
 }
 
 export interface RangeFilterConfig {
@@ -21,6 +22,7 @@ export interface RangeFilterConfig {
     field: string;
     min?: number;
     max?: number;
+    isNested?: boolean;
 }
 
 export interface HistogramFilterConfig {
@@ -29,11 +31,13 @@ export interface HistogramFilterConfig {
     interval: number;
     min?: number;
     max?: number;
+    isNested?: boolean;
 }
 
 export interface DateRangeFilterConfig {
     type: "date-range";
     field: string;
+    isNested?: boolean;
 }
 
 export interface SearchFilterConfig {

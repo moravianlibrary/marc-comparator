@@ -1,6 +1,9 @@
 import {
+    Brand,
     Masthead,
+    MastheadBrand,
     MastheadContent,
+    MastheadLogo,
     MastheadMain,
     MastheadToggle,
     PageToggleButton,
@@ -18,15 +21,14 @@ const MainPageMasthead = (): ReactElement => {
                         aria-label="Global navigation"
                     />
                 </MastheadToggle>
-                {/* <MastheadBrand>
+                <MastheadBrand>
                     <MastheadLogo>
                         <Brand
-                            src={pfLogo}
-                            alt="PatternFly"
-                            heights={{ default: "36px" }}
+                            src="/marcomparator-logo-dark-text-transparent.png"
+                            alt="Marc Comparator"
                         />
                     </MastheadLogo>
-                </MastheadBrand> */}
+                </MastheadBrand>
             </MastheadMain>
             <MastheadContent>
                 <MainPageMastheadToolbar />

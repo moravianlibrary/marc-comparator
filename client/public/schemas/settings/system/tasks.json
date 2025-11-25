@@ -1,0 +1,18 @@
+{
+    "properties": {
+        "progress_update_interval": {
+            "default": 100,
+            "description": "Interval (in number of records) to update task progress.",
+            "title": "Progress Update Interval",
+            "type": "integer"
+        },
+        "indexing_batch_size": {
+            "default": 500,
+            "description": "Number of records to index in a single batch operation.",
+            "title": "Indexing Batch Size",
+            "type": "integer"
+        }
+    },
+    "title": "TaskSettings",
+    "type": "object"
+}

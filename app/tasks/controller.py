@@ -2,11 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Body, Query
 
-from adapters.dependencies import (
-    DatabaseSessionDep,
-    IndexerSessionDep,
-    WithPermission,
-)
+from adapters.dependencies import DatabaseSessionDep, WithPermission
 from adapters.indexer import IndexerRequest, IndexerResponse
 from auth.service import CurrentUser
 from entities.role import Permission
@@ -26,7 +22,6 @@ router = APIRouter(prefix="/tasks", tags=["Tasks"])
 async def search_own(
     request: Annotated[IndexerRequest, Body()],
     current_user: CurrentUser,
-    _: IndexerSessionDep,
 ):
     return await service.search_own_tasks(request, current_user.user_id)
 
@@ -38,7 +33,6 @@ async def search_own(
 )
 async def search_all(
     request: Annotated[IndexerRequest, Body()],
-    _: IndexerSessionDep,
 ):
     return await service.search_all_tasks(request)
 

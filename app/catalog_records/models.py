@@ -9,7 +9,16 @@ from entities.settings import SettingsSchema
 
 
 class CatalogSettings(SettingsSchema):
-    clients: List[AlephOAIConfig]
+    clients: List[AlephOAIConfig] = [
+        AlephOAIConfig(
+            base="MZK01",
+            host="https://aleph.mzk.cz",
+            endpoint="OAI",
+            system_number_pattern=r"\d{9}",
+            oai_sets=["MZK01-VDK"],
+            oai_identifier_template="oai:aleph.mzk.cz:{base}-{doc_number}",
+        )
+    ]
 
 
 class FetchRecordData(BaseModel):

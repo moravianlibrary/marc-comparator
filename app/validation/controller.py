@@ -2,7 +2,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Body
 
-from adapters.dependencies import DatabaseSessionDep, IndexerSessionDep
+from adapters.dependencies import DatabaseSessionDep
 from auth.service import CurrentUser
 from entities.task import TaskSchema
 
@@ -17,6 +17,5 @@ async def validate_records(
     data: Annotated[ValidationTaskData, Body(...)],
     current_user: CurrentUser,
     db_session: DatabaseSessionDep,
-    _: IndexerSessionDep,
 ):
     return await service.validate(data, current_user.user_id, db_session)

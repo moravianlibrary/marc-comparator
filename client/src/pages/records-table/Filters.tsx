@@ -1,4 +1,4 @@
-import { type Dispatch, Fragment, type ReactElement, useCallback } from "react";
+import { type Dispatch, Fragment, type ReactElement } from "react";
 import type {
     CollectionAction,
     CollectionState,
@@ -31,9 +31,11 @@ import type {
 } from "../../models/ui/filters";
 import { ResourcesEmptyIcon, ResourcesFullIcon } from "@patternfly/react-icons";
 import RangeSlider from "./RangeSlider";
+import type { CatalogRecord } from "../../models/api/responses/catalog_record";
+import { is } from "zod/locales";
 
 interface RecordsTableFiltersProps {
-    state: CollectionState;
+    state: CollectionState<CatalogRecord>;
     dispatch: Dispatch<CollectionAction>;
     aggregations: Record<string, EsAggregation>;
 }
@@ -165,6 +167,50 @@ const HistogramFilter = ({
     );
 };
 
+function isEsAggregation(obj: any): obj is EsAggregation {
+    if (!obj || typeof obj !== "object") return false;
+
+    return Array.isArray(obj.buckets);
+}
+
+function getAggregation(
+    aggregations: Record<string, any>,
+    field: string
+): EsAggregation | undefined {
+    const parts = field.split(".");
+
+    let current: any = aggregations;
+
+    for (let i = 0; i < parts.length; i++) {
+        const key = parts[i];
+
+        if (!current || typeof current !== "object") return undefined;
+
+        // Step into the next level
+        current = current[key];
+        if (!current) return undefined;
+
+        // If this is NOT the last part, drill into nested sub-aggregations
+        if (i < parts.length - 1) {
+            if (current.aggs) {
+                current = current.aggs;
+            } else if (current.aggregations) {
+                current = current.aggregations;
+            } else {
+                // It's a container aggregation (doc_count but no explicit aggs)
+                // so stay in this object (it contains nested keys directly)
+                // e.g. field_results → subfield_results
+                continue;
+            }
+        }
+    }
+
+    // At the end of traversal, we must return an actual aggregation
+    if (isEsAggregation(current)) return current;
+
+    return undefined;
+}
+
 const RecordsTableFilters = ({
     state,
     dispatch,
@@ -176,8 +222,12 @@ const RecordsTableFilters = ({
     } = state;
 
     const renderFilter = (filterConfig: FilterConfig) => {
-        const aggregation = aggregations[filterConfig.field];
+        const aggregation = getAggregation(aggregations, filterConfig.field);
+
         if (!aggregation) {
+            return null;
+        }
+        if (aggregation.buckets.length === 0) {
             return null;
         }
 

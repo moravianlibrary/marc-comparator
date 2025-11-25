@@ -1,4 +1,4 @@
-import { Dispatch, useEffect } from "react";
+import { type Dispatch, useEffect } from "react";
 import { SortingIcon } from "../../components/atoms/Icons";
 import SingleSelect from "../../components/molecules/SingleSelect";
 import { useGetSystemInfo } from "../../hooks/useSystem";
@@ -6,9 +6,10 @@ import type {
     CollectionAction,
     CollectionState,
 } from "../../store/collection/domain";
+import type { CatalogRecord } from "../../models/api/responses/catalog_record";
 
 interface RecordsTableSortByProps {
-    state: CollectionState;
+    state: CollectionState<CatalogRecord>;
     dispatch: Dispatch<CollectionAction>;
 }
 
@@ -30,32 +31,32 @@ const RecordsTableSortBy = ({ state, dispatch }: RecordsTableSortByProps) => {
         {
             key: "latest-sync-desc",
             label: "Latest Sync (Desc)",
-            value: [{ field: "latest_sync", order: "desc" }],
+            value: [{ latest_sync: { order: "desc" } }],
         },
         {
             key: "latest-sync-asc",
             label: "Latest Sync (Asc)",
-            value: [{ field: "latest_sync", order: "asc" }],
+            value: [{ latest_sync: { order: "asc" } }],
         },
         {
             key: "latest-transaction-desc",
             label: "Latest Transaction (Desc)",
-            value: [{ field: "latest_transaction", order: "desc" }],
+            value: [{ latest_transaction: { order: "desc" } }],
         },
         {
             key: "latest-transaction-asc",
             label: "Latest Transaction (Asc)",
-            value: [{ field: "latest_transaction", order: "asc" }],
+            value: [{ latest_transaction: { order: "asc" } }],
         },
         {
             key: "title-asc",
             label: "Title (A-Z)",
-            value: [{ field: "title.keyword", order: "asc" }],
+            value: [{ "title.keyword": { order: "asc" } }],
         },
         {
             key: "title-desc",
             label: "Title (Z-A)",
-            value: [{ field: "title.keyword", order: "desc" }],
+            value: [{ "title.keyword": { order: "desc" } }],
         },
         ...comparators.flatMap((comparator) =>
             ["desc", "asc"].map((order) => ({

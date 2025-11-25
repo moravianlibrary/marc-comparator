@@ -5,10 +5,11 @@ from typing import ContextManager, List, Optional, TypeVar
 from celery import Celery
 from celery import Task as CeleryTask
 from celery import shared_task
+from esorm import es
 from sqlalchemy.orm import Session
 
 from adapters.database import Base, DatabaseSession, get_db_session
-from adapters.indexer import IndexerSchema, indexer_session
+from adapters.indexer import IndexerSchema, shutdown_indexer, startup_indexer
 from adapters.lock_server import one_at_a_time_lock
 from config import config
 
@@ -146,7 +147,8 @@ class ManagedTask:
             self.logger.addHandler(handler)
 
             # --- Indexer session ---
-            self.indexer = await indexer_session().__aenter__()
+            await startup_indexer()
+            self.indexer = es
 
             # --- Load task settings ---
             self.task_settings: TaskSettings = (
@@ -212,6 +214,8 @@ class ManagedTask:
 
             if self.db_session:
                 self.db_session.close()
+
+            shutdown_indexer()
 
 
 """

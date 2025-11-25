@@ -5,6 +5,6 @@ export const AuthorityLinkSchema = z.object({
     base: z.string(),
     system_number: z.string(),
     confidence: z.number().nullable(),
-    updated_at: z.date(),
+    updated_at: z.coerce.date(),
 });
 export type AuthorityLink = z.infer<typeof AuthorityLinkSchema>;

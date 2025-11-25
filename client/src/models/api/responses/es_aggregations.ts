@@ -1,5 +1,6 @@
 import { z } from "zod";
 
+// Buckets
 export const EsBaseBucketSchema = z.object({
     key: z.string().or(z.number()),
     doc_count: z.number(),
@@ -31,14 +32,7 @@ export const EsDateRangeBucketSchema = z.object({
 });
 export type EsDateRangeBucket = z.infer<typeof EsDateRangeBucketSchema>;
 
-export const EsAggregationBucketSchema = z.union([
-    EsTermsBucketSchema,
-    EsRangeBucketSchema,
-    EsHistogramBucketSchema,
-    EsDateRangeBucketSchema,
-]);
-export type EsAggregationBucket = z.infer<typeof EsAggregationBucketSchema>;
-
+// Aggregations
 export const EsTermsAggregationSchema = z.object({
     buckets: z.array(EsTermsBucketSchema),
     sum_other_doc_count: z.number().optional(),
@@ -72,3 +66,28 @@ export const EsAggregationSchema = z.union([
     EsDateRangeAggregationSchema,
 ]);
 export type EsAggregation = z.infer<typeof EsAggregationSchema>;
+
+// Nested Aggregation
+export const EsAggregationContainerSchema: z.ZodType<any> = z.lazy(() =>
+    z
+        .object({
+            doc_count: z.number().optional(),
+            sum_other_doc_count: z.number().optional(),
+            doc_count_error_upper_bound: z.number().optional(),
+            buckets: z
+                .array(
+                    z.union([
+                        EsBaseBucketSchema,
+                        EsTermsBucketSchema,
+                        EsRangeBucketSchema,
+                        EsHistogramBucketSchema,
+                        EsDateRangeBucketSchema,
+                    ])
+                )
+                .optional(),
+        })
+        .catchall(z.union([EsAggregationSchema, EsAggregationContainerSchema]))
+);
+export type EsAggregationContainer = z.infer<
+    typeof EsAggregationContainerSchema
+>;

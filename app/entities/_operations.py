@@ -191,7 +191,7 @@ class IndexerOperationsMixin:
         index_name = cls.__indexer_schema__.ESConfig.index
         id_field = cls.__indexer_schema__.ESConfig.id_field
         id_column = inspect(cls).c[id_field]
-        query_body = query.model_dump(mode="python")
+        query_body = {"query": query.model_dump(mode="python")}
 
         scroll_id = None
 

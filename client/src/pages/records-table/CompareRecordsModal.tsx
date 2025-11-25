@@ -4,10 +4,7 @@ import {
     type CollectionData,
     type CollectionState,
 } from "../../store/collection/domain";
-import {
-    selectSelectedCount,
-    selectSelectionQuery,
-} from "../../store/collection/selectors";
+import { selectSelectedCount } from "../../store/collection/selectors";
 import ConfirmModal from "../../components/organisms/ConfirmModal";
 import {
     Content,
@@ -21,10 +18,12 @@ import BaseSelector from "../../components/molecules/BaseSelector";
 import { useGetAvailableTargetBases } from "../../hooks/useCatalogRecords";
 import SingleSelect from "../../components/molecules/SingleSelect";
 import { useCompareRecords } from "../../hooks/useComparison";
+import type { CatalogRecord } from "../../models/api/responses/catalog_record";
+import { buildSelectQuery } from "../../store/collection/requests_factory";
 
 interface CompareRecordsModalProps {
-    state: CollectionState;
-    data: CollectionData;
+    state: CollectionState<CatalogRecord>;
+    data: CollectionData<CatalogRecord>;
     isOpen: boolean;
     onClose: () => void;
 }
@@ -54,7 +53,7 @@ const CompareRecordsModal = ({
         compareRecordsMutation.mutate({
             target_base: targetBase,
             comparator,
-            query: selectSelectionQuery(state),
+            query: buildSelectQuery(state),
         });
         onClose();
     };

@@ -11,9 +11,10 @@ import type {
     SetHiddenStateData,
     SyncRecordsData,
 } from "../models/api/requests/catalog_record";
-import type {
-    CatalogRecord,
-    SearchCatalogRecordsResponse,
+import {
+    SearchCatalogRecordsResponseSchema,
+    type CatalogRecord,
+    type SearchCatalogRecordsResponse,
 } from "../models/api/responses/catalog_record";
 import apiClient from "../services/apiClient";
 import type { EsHit } from "../models/api/responses/es";
@@ -39,7 +40,10 @@ export const useSearchCatalogRecordsBatch = (
         queries: requests.map((request, idx) => ({
             queryKey: ["catalog-records", "search", idx, request],
             queryFn: async () =>
-                (await apiClient.post("/catalog-records/search", request)).data,
+                SearchCatalogRecordsResponseSchema.parse(
+                    (await apiClient.post("/catalog-records/search", request))
+                        .data
+                ),
             enabled,
         })),
     });

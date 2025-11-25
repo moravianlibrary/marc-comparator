@@ -1,0 +1,79 @@
+{
+    "$defs": {
+        "KnihovnyCZBaseMapping": {
+            "properties": {
+                "base": {
+                    "title": "Base",
+                    "type": "string"
+                },
+                "id_template": {
+                    "title": "Id Template",
+                    "type": "string"
+                },
+                "pattern": {
+                    "title": "Pattern",
+                    "type": "string"
+                }
+            },
+            "required": [
+                "base",
+                "id_template",
+                "pattern"
+            ],
+            "title": "KnihovnyCZBaseMapping",
+            "type": "object"
+        },
+        "KnihovnyCZLinkerConfig": {
+            "properties": {
+                "api_url": {
+                    "default": "https://www.knihovny.cz/api/v1",
+                    "format": "uri",
+                    "minLength": 1,
+                    "title": "Api Url",
+                    "type": "string"
+                },
+                "mappings": {
+                    "default": [
+                        {
+                            "base": "MZK01",
+                            "id_template": "mzk.MZK01-{system_number}",
+                            "pattern": "^mzk\\.MZK01-(\\d{9})$"
+                        },
+                        {
+                            "base": "MZK03",
+                            "id_template": "mzk.MZK03-{system_number}",
+                            "pattern": "^mzk\\.MZK03-(\\d{9})$"
+                        },
+                        {
+                            "base": "SKC",
+                            "id_template": "caslin.SKC01-{system_number}",
+                            "pattern": "^caslin\\.SKC01-(\\d{9})$"
+                        }
+                    ],
+                    "items": {
+                        "$ref": "#/$defs/KnihovnyCZBaseMapping"
+                    },
+                    "title": "Mappings",
+                    "type": "array"
+                }
+            },
+            "title": "KnihovnyCZLinkerConfig",
+            "type": "object"
+        }
+    },
+    "properties": {
+        "knihovny-cz": {
+            "anyOf": [
+                {
+                    "$ref": "#/$defs/KnihovnyCZLinkerConfig"
+                },
+                {
+                    "type": "null"
+                }
+            ],
+            "default": null
+        }
+    },
+    "title": "AuthorityLinkingSettings",
+    "type": "object"
+}

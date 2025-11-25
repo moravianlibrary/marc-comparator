@@ -3,10 +3,7 @@ import {
     type CollectionData,
     type CollectionState,
 } from "../../store/collection/domain";
-import {
-    selectSelectedCount,
-    selectSelectionQuery,
-} from "../../store/collection/selectors";
+import { selectSelectedCount } from "../../store/collection/selectors";
 import ActionsMenu from "../../components/molecules/ActionsMenu";
 import AuthorityLinkingModal from "./AuthorityLinkingModal";
 import CompareRecordsModal from "./CompareRecordsModal";
@@ -16,10 +13,12 @@ import {
     useReindexRecords,
     useSetHiddenStateOfRecords,
 } from "../../hooks/useCatalogRecords";
+import type { CatalogRecord } from "../../models/api/responses/catalog_record";
+import { buildSelectQuery } from "../../store/collection/requests_factory";
 
 interface RecordsActionsMenuProps {
-    state: CollectionState;
-    data: CollectionData;
+    state: CollectionState<CatalogRecord>;
+    data: CollectionData<CatalogRecord>;
 }
 
 export const RecordsActionsMenu = ({
@@ -61,7 +60,7 @@ export const RecordsActionsMenu = ({
     const reindexRecordsMutation = useReindexRecords();
 
     const selectedItemsCount = selectSelectedCount(state, data);
-    const selectionQuery = selectSelectionQuery(state);
+    const selectionQuery = buildSelectQuery(state);
 
     const handleHideConfirm = () => {
         setHiddenStateOfRecordsMutation.mutate({

@@ -3,11 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Body
 from marcdantic import MarcRecord
 
-from adapters.dependencies import (
-    DatabaseSessionDep,
-    IndexerSessionDep,
-    WithPermission,
-)
+from adapters.dependencies import DatabaseSessionDep, WithPermission
 from adapters.indexer import IndexerQuery, IndexerRequest, IndexerResponse
 from auth.service import CurrentUser
 from entities.role import Permission
@@ -31,7 +27,6 @@ router = APIRouter(prefix="/catalog-records", tags=["Catalog Records"])
 )
 async def search_records(
     request: Annotated[IndexerRequest, Body()],
-    _: IndexerSessionDep,
 ):
     return await service.search_records(request)
 
@@ -58,7 +53,6 @@ async def fetch_record(
     data: Annotated[FetchRecordData, Body()],
     current_user: CurrentUser,
     db_session: DatabaseSessionDep,
-    _: IndexerSessionDep,
 ):
     return await service.fetch_record(data, current_user.user_id, db_session)
 
@@ -72,7 +66,6 @@ async def fetch_batch_of_records(
     data: Annotated[FetchBatchOfRecordsData, Body()],
     current_user: CurrentUser,
     db_session: DatabaseSessionDep,
-    _: IndexerSessionDep,
 ):
     return await service.fetch_batch_of_records(
         data, current_user.user_id, db_session
@@ -88,7 +81,6 @@ async def sync_records(
     data: Annotated[SyncRecordsData, Body()],
     current_user: CurrentUser,
     db_session: DatabaseSessionDep,
-    _: IndexerSessionDep,
 ):
     return await service.sync_records(data, current_user.user_id, db_session)
 
@@ -102,7 +94,6 @@ async def reindex_records(
     query: Annotated[IndexerQuery, Body()],
     current_user: CurrentUser,
     db_session: DatabaseSessionDep,
-    _: IndexerSessionDep,
 ):
     return await service.reindex_records(
         query, current_user.user_id, db_session
@@ -118,7 +109,6 @@ async def set_records_hidden_state(
     data: Annotated[SetRecordsHiddenStateData, Body()],
     current_user: CurrentUser,
     db_session: DatabaseSessionDep,
-    _: IndexerSessionDep,
 ):
     return await service.set_records_hidden_state(
         data, current_user.user_id, db_session

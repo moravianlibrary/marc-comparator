@@ -30,6 +30,6 @@ export const ComparisonSchema = z.object({
     overall_score: z.number(),
     summary: z.string().optional(),
     field_results: z.array(FieldComparisonResultSchema).optional(),
-    updated_at: z.date(),
+    updated_at: z.coerce.date(),
 });
 export type Comparison = z.infer<typeof ComparisonSchema>;

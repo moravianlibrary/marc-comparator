@@ -96,7 +96,7 @@ def task(db_session: DatabaseSession, user: TokenData) -> Task:
         created_by=user.user_id,
         data=ValidationTaskData(
             validators=["kramerius-links"],
-            query={"query": {"match_all": {}}},
+            query={"match_all": {}},
         ).model_dump(mode="json"),
     ).save(db_session)
 

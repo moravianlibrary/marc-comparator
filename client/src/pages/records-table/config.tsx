@@ -183,21 +183,25 @@ export function generateCatalogRecordsConfig<T>(): CollectionConfig<T> {
                 type: "term",
                 field: "authority_links.base",
                 sizeOptions: [10, 20, 50],
+                isNested: true,
             },
             {
                 type: "term",
                 field: "comparisons.base",
                 sizeOptions: [10, 50],
+                isNested: true,
             },
             {
                 type: "term",
                 field: "comparisons.comparator",
                 sizeOptions: [10, 50],
+                isNested: true,
             },
             {
                 type: "term",
                 field: "comparisons.status",
                 sizeOptions: [4],
+                isNested: true,
             },
             {
                 type: "histogram",
@@ -205,21 +209,25 @@ export function generateCatalogRecordsConfig<T>(): CollectionConfig<T> {
                 interval: 1,
                 min: 0,
                 max: 100,
+                isNested: true,
             },
             {
                 type: "term",
                 field: "comparisons.field_results.explanation",
                 sizeOptions: [10, 50],
+                isNested: true,
             },
             {
                 type: "term",
                 field: "comparisons.field_results.subfield_results.explanation",
                 sizeOptions: [10, 50],
+                isNested: true,
             },
             {
                 type: "term",
                 field: "validations.validator",
                 sizeOptions: [10, 50],
+                isNested: true,
             },
             {
                 type: "term",
@@ -229,21 +237,25 @@ export function generateCatalogRecordsConfig<T>(): CollectionConfig<T> {
                     color: validityColor(bucketKey as ValidityStatus),
                 }),
                 displayOrder: ValidityStatusSchema.options,
+                isNested: true,
             },
             {
                 type: "term",
                 field: "validations.target.tag",
                 sizeOptions: [10, 50],
+                isNested: true,
             },
             {
                 type: "term",
                 field: "validations.target.codes",
                 sizeOptions: [10, 50],
+                isNested: true,
             },
             {
                 type: "term",
                 field: "validations.reason",
                 sizeOptions: [10, 50],
+                isNested: true,
             },
             {
                 type: "term",

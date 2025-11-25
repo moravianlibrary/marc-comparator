@@ -1,8 +1,6 @@
-from collections.abc import AsyncGenerator
-from contextlib import asynccontextmanager
+import asyncio
 from enum import Enum
-from functools import wraps
-from typing import Any, Callable, Dict, Generic, List, TypeVar, Union
+from typing import Any, Dict, Generic, List, TypeVar, Union
 
 from aiohttp import ClientSession
 from elasticsearch import AsyncElasticsearch
@@ -123,6 +121,8 @@ async def connect():
                 config.elasticsearch.password,
             ),
             request_timeout=config.elasticsearch.request_timeout,
+            max_retries=5,
+            retry_on_timeout=True,
         )
     )
     _patch_es_meta()
@@ -141,44 +141,37 @@ async def is_indexer_available() -> bool:
         async with ClientSession() as session:
             async with session.get(config.elasticsearch.url) as resp:
                 print(f"Elasticsearch response status: {resp.status}")
-                if resp.status not in [200, 401]:
-                    return False
-    except Exception:
-        return False
-    try:
-        await connect()
-        return await es.ping()
+                return resp.status in [200, 401]
     except Exception:
         return False
 
 
-async def get_indexer_session() -> AsyncGenerator[AsyncElasticsearch, None]:
-    if not await is_indexer_available():
-        raise IndexIsNotAvailableException()
-    try:
-        yield es
-    finally:
+async def startup_indexer(retries: int = 5, backoff: int = 2) -> bool:
+    """
+    Try to start ES client with retries and exponential backoff.
+    Returns True if ES is available, False otherwise.
+    """
+    attempt = 0
+    while attempt < retries:
+        if await is_indexer_available():
+            try:
+                await connect()
+                if es is not None and await es.ping():
+                    return True
+            except Exception as e:
+                print(f"Elasticsearch ping failed: {e}")
+        attempt += 1
+        wait_time = backoff**attempt
+        print(
+            f"Retrying Elasticsearch in {wait_time}s "
+            f"(attempt {attempt}/{retries})"
+        )
+        await asyncio.sleep(wait_time)
+    return False
+
+
+async def shutdown_indexer() -> None:
+    global es
+    if es:
         await es.close()
-
-
-@asynccontextmanager
-async def indexer_session():
-    if not await is_indexer_available():
-        raise IndexIsNotAvailableException()
-    try:
-        yield es
-    finally:
-        await es.close()
-
-
-def with_indexer_session(func: Callable) -> Callable:
-    @wraps(func)
-    async def wrapper(*args, **kwargs) -> Any:
-        if not await is_indexer_available():
-            raise IndexIsNotAvailableException()
-        try:
-            return func(*args, indexer_session=es, **kwargs)
-        finally:
-            await es.close()
-
-    return wrapper
+        es = None

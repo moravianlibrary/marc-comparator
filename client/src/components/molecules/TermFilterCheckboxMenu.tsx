@@ -92,7 +92,9 @@ const TermFilterCheckboxMenu = <T,>({
     const filterConfig = filter!.find(
         (f) => f.field === field
     )! as TermsFilterConfig;
-    const buckets = (aggregations?.[field]?.buckets || []) as EsTermsBucket[];
+    const buckets = ((filterConfig.isNested
+        ? aggregations?.[field]?.buckets?.[field]
+        : aggregations?.[field]?.buckets) || []) as EsTermsBucket[];
 
     return (
         <Popper
