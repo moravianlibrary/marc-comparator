@@ -9,38 +9,50 @@ import {
 import type { CatalogRecord } from "../../models/api/responses/catalog_record";
 import type { EsHit } from "../../models/api/responses/es";
 import type { ReactElement } from "react";
+import { useTranslation } from "react-i18next";
+
+interface ValidationSelectState {
+    validator: string;
+    showOnlyTarget: boolean;
+}
 
 interface ValidationSelectProps {
     record: EsHit<CatalogRecord>;
-    validator: string | null;
-    showOnlyTarget?: boolean;
-    onSubmit: (validator: string, showOnlyTarget: boolean) => void;
+    state: ValidationSelectState | null;
+    onSubmit: (state: ValidationSelectState) => void;
 }
 
 const ValidationSelect = ({
     record,
-    validator,
-    showOnlyTarget,
+    state,
     onSubmit,
 }: ValidationSelectProps): ReactElement => {
+    const { t } = useTranslation();
+
     return (
         <Form isHorizontal onSubmit={(e) => e.preventDefault()}>
             <Split hasGutter style={{ alignItems: "center" }}>
                 <SplitItem>
                     <FormSelect
                         id="validator-name-select"
-                        value={validator || ""}
+                        value={state?.validator || ""}
                         onChange={(_, value) =>
-                            onSubmit(value, showOnlyTarget ?? false)
+                            onSubmit({
+                                validator: value,
+                                showOnlyTarget: state?.showOnlyTarget ?? false,
+                            })
                         }
                         placeholder="Select validator name"
                     >
-                        <FormSelectOption
-                            key="empty"
-                            value=""
-                            label="Select validator name"
-                            isPlaceholder
-                        />
+                        {state === null ? (
+                            <FormSelectOption
+                                key="placeholder"
+                                label={t(
+                                    "records:details.validations.select-placeholder"
+                                )}
+                                isPlaceholder
+                            />
+                        ) : null}
                         {record._source.validations?.map((validation, i) => (
                             <FormSelectOption
                                 key={i}
@@ -52,12 +64,18 @@ const ValidationSelect = ({
                 </SplitItem>
                 <SplitItem>
                     <Checkbox
-                        label="Show only targets"
+                        label={t(
+                            "records:details.validations.show-only-targets"
+                        )}
                         aria-label="Show only targets"
                         id="inlinecheck04"
-                        isChecked={showOnlyTarget}
+                        isChecked={state?.showOnlyTarget ?? false}
                         onChange={(_, checked) =>
-                            onSubmit(validator || "", checked)
+                            state &&
+                            onSubmit({
+                                validator: state.validator,
+                                showOnlyTarget: checked,
+                            })
                         }
                     />
                 </SplitItem>

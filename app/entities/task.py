@@ -33,7 +33,7 @@ class TaskType(StrEnum):
     LinkRecordsToAuthorities = "LinkRecordsToAuthorities"
     CompareRecords = "CompareRecords"
     ReindexRecords = "ReindexRecords"
-    SetRecordsHiddenState = "SetRecordsHiddenState"
+    SetRecordsVisibility = "SetRecordsVisibility"
     DeleteTasks = "DeleteTasks"
     RecreateIndexes = "RecreateIndexes"
 

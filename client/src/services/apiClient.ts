@@ -1,4 +1,5 @@
 import axios, { AxiosError } from "axios";
+import { useLocation } from "react-router";
 
 const apiClient = axios.create({
     baseURL: "/api",
@@ -20,9 +21,11 @@ setAuthToken(localStorage.getItem("auth_token"));
 apiClient.interceptors.response.use(
     (response) => response,
     (error: AxiosError) => {
+        const location = useLocation();
         if (error.status === 401) {
             setAuthToken(null);
-            window.location.href = "/login";
+            window.location.href =
+                "/login?redirect=" + encodeURIComponent(location.pathname);
             return Promise.reject(error);
         }
         if (error.response) {

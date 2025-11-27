@@ -138,7 +138,7 @@ class KrameriusLinksValidator(BaseValidator):
                     continue
 
                 add_partial_result(
-                    status=ValidityStatus.Warning,
+                    status=ValidityStatus.ForReview,
                     reason="Missing link text in $y",
                     details=(
                         "Field 856 is missing expected link text "

@@ -16,7 +16,7 @@ const ValidityHelperTextItem = ({
         return <HelperTextItem variant="success">{text}</HelperTextItem>;
     if (status === "Invalid")
         return <HelperTextItem variant="error">{text}</HelperTextItem>;
-    if (status === "Warning")
+    if (status === "ForReview")
         return <HelperTextItem variant="warning">{text}</HelperTextItem>;
     return (
         <HelperTextItem icon={<InfoIcon color="#0066CC" />}>

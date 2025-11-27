@@ -12,6 +12,7 @@ export interface TermsFilterConfig {
     order?: { _count: "asc" | "desc" };
     searchable?: boolean;
     labelProps?: (bucketKey: string) => LabelProps;
+    labelI18nKey?: (bucketKey: string) => string;
     displayOrder?: string[];
     orderBucketBy?: (a: EsAggregationBucket, b: EsAggregationBucket) => number;
     isNested?: boolean;

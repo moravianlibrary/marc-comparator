@@ -9,6 +9,7 @@ import { useLogin } from "../hooks/useAuth";
 import { ExclamationCircleIcon } from "@patternfly/react-icons";
 import { z } from "zod";
 import { useNavigate } from "react-router";
+import { useTranslation } from "react-i18next";
 
 const LoginDataSchema = z.object({
     username: z.email({ message: "Must be a valid email" }),
@@ -17,6 +18,7 @@ const LoginDataSchema = z.object({
 type LoginData = z.infer<typeof LoginDataSchema>;
 
 const AuthPage = (): ReactElement => {
+    const { t } = useTranslation();
     const { mutate: login, isSuccess, isPending } = useLogin();
     const navigate = useNavigate();
 
@@ -44,7 +46,6 @@ const AuthPage = (): ReactElement => {
         event.preventDefault();
 
         const result = LoginDataSchema.safeParse(loginData);
-        console.log("Login data validation result:", result);
 
         if (!result.success) {
             const errorTree = z.treeifyError(result.error);
@@ -64,34 +65,33 @@ const AuthPage = (): ReactElement => {
         }
 
         setErrors({});
-        console.log("Submitting login data:", loginData);
         login(loginData);
     };
 
     return (
         <LoginPage
-            loginTitle="Log in to your account"
-            loginSubtitle="Enter your credentials."
+            loginTitle={t("auth:login.title")}
+            loginSubtitle={t("auth:login.subtitle")}
             brandImgSrc="marcomparator-logo-dark-text-transparent.png"
             brandImgAlt="MarcComparator logo"
-            textContent="This is placeholder text only. Use this area to place any information or introductory message about your application that may be relevant to users."
+            textContent={t("auth:about-app")}
             signUpForAccountMessage={
                 <LoginMainFooterBandItem>
-                    Need an account?{" "}
+                    {`${t("auth:login.sign-up-for-account-message")} `}
                     <Button variant="link" onClick={() => navigate("/signup")}>
-                        Sign up.
+                        {t("auth:login.sign-up-link")}
                     </Button>
                 </LoginMainFooterBandItem>
             }
         >
             <LoginForm
-                usernameLabel="Email"
+                usernameLabel={t("auth:login.form.username")}
                 usernameValue={loginData.username}
                 onChangeUsername={(_, value: string) =>
                     setLoginData({ ...loginData, username: value })
                 }
                 isValidUsername={!errors.username}
-                passwordLabel="Password"
+                passwordLabel={t("auth:login.form.password")}
                 passwordValue={loginData.password}
                 onChangePassword={(_, value: string) =>
                     setLoginData({ ...loginData, password: value })
@@ -100,14 +100,14 @@ const AuthPage = (): ReactElement => {
                 showHelperText={!!(errors.username || errors.password)}
                 helperText={
                     !!(errors.username && errors.password)
-                        ? "Invalid login credentials."
+                        ? t("auth:login.form.invalid-login-credentials")
                         : errors.username ||
                           errors.password ||
-                          "Invalid login credentials."
+                          t("auth:login.form.invalid-login-credentials")
                 }
                 helperTextIcon={<ExclamationCircleIcon />}
                 onLoginButtonClick={handleSubmit}
-                loginButtonLabel="Log in"
+                loginButtonLabel={t("auth:login.form.login-button")}
                 isLoginButtonDisabled={isPending}
             />
         </LoginPage>

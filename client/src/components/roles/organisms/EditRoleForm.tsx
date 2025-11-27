@@ -1,7 +1,6 @@
 import {
     ActionGroup,
     Button,
-    Checkbox,
     Form,
     FormGroup,
     FormHelperText,
@@ -11,15 +10,15 @@ import {
     StackItem,
     Switch,
     TextInput,
-    Title,
 } from "@patternfly/react-core";
 import { useState, type ReactElement } from "react";
-import { type EditRole } from "../../models/api/requests/roles";
+import { type EditRole } from "../../../models/api/requests/roles";
 import {
     type Permission,
     PermissionDependencies,
     PermissionSchema,
-} from "../../models/primitives/permissions";
+} from "../../../models/primitives/permissions";
+import { useTranslation } from "react-i18next";
 
 function getAllPermissionDependencies(permission: Permission): Permission[] {
     const direct = PermissionDependencies[permission] || [];
@@ -46,6 +45,7 @@ function removeDependents(
 
 interface EditRoleFormProps {
     initialData: EditRole;
+    isNewRole?: boolean;
     isProtected?: boolean;
     onSubmit: (data: EditRole) => void;
     onCancel?: () => void;
@@ -54,14 +54,17 @@ interface EditRoleFormProps {
 
 const EditRoleForm = ({
     initialData,
+    isNewRole = false,
     isProtected = false,
     onSubmit,
     onCancel,
     isSubmitting = false,
 }: EditRoleFormProps): ReactElement => {
-    const [name, setName] = useState(initialData?.name || "");
+    const { t } = useTranslation("roles");
+
+    const [name, setName] = useState(initialData.name);
     const [permissions, setPermissions] = useState<Permission[]>(
-        initialData?.permissions || []
+        initialData.permissions
     );
     const [nameError, setNameError] = useState<string | null>(null);
 
@@ -80,7 +83,7 @@ const EditRoleForm = ({
         e.preventDefault();
 
         if (name.trim().length < 4) {
-            setNameError("Role name must be at least 4 characters long");
+            setNameError(t("validation.role-name-length"));
             return;
         }
 
@@ -89,11 +92,7 @@ const EditRoleForm = ({
 
     return (
         <Form onSubmit={handleSubmit}>
-            <Title headingLevel="h2" size="lg">
-                {initialData ? "Edit Role" : "Create Role"}
-            </Title>
-
-            <FormGroup label="Role name" isRequired fieldId="role-name">
+            <FormGroup label={t("fields.name")} isRequired fieldId="role-name">
                 <TextInput
                     id="role-name"
                     name="role-name"
@@ -124,7 +123,7 @@ const EditRoleForm = ({
                             <Switch
                                 key={perm}
                                 id={`perm-${perm}`}
-                                label={perm}
+                                label={t(`permissions.${perm}`)}
                                 isChecked={permissions.includes(perm)}
                                 onChange={(_, checked) =>
                                     handlePermissionChange(perm, checked)
@@ -142,7 +141,9 @@ const EditRoleForm = ({
                     isDisabled={isSubmitting}
                     isLoading={isSubmitting}
                 >
-                    {initialData ? "Save Changes" : "Create Role"}
+                    {isNewRole
+                        ? t("create-role-button")
+                        : t("save-changes-button")}
                 </Button>
                 {onCancel && (
                     <Button
@@ -151,7 +152,7 @@ const EditRoleForm = ({
                         className="pf-v5-u-ml-md"
                         isDisabled={isSubmitting}
                     >
-                        Cancel
+                        {t("cancel-edit-button")}
                     </Button>
                 )}
             </ActionGroup>

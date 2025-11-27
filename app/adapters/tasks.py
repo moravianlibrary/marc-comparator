@@ -215,7 +215,7 @@ class ManagedTask:
             if self.db_session:
                 self.db_session.close()
 
-            shutdown_indexer()
+            await shutdown_indexer()
 
 
 """
@@ -294,13 +294,13 @@ def reindex_records_task(self: CeleryTask) -> None:
     return async_to_sync(reindex_records)(str(self.request.id))
 
 
-@shared_task(name="set_records_hidden_state_task", bind=True)
-def set_records_hidden_state_task(self: CeleryTask) -> None:
+@shared_task(name="set_records_visibility_task", bind=True)
+def set_records_visibility_task(self: CeleryTask) -> None:
     from asgiref.sync import async_to_sync
 
-    from catalog_records.tasks import set_records_hidden_state
+    from catalog_records.tasks import set_records_visibility
 
-    return async_to_sync(set_records_hidden_state)(str(self.request.id))
+    return async_to_sync(set_records_visibility)(str(self.request.id))
 
 
 @shared_task(name="delete_tasks_task", bind=True)
@@ -358,8 +358,8 @@ def dispatch_task(task: Task) -> None:
     elif task.type == TaskType.ReindexRecords:
         reindex_records_task.apply_async(task_id=task_id)
 
-    elif task.type == TaskType.SetRecordsHiddenState:
-        set_records_hidden_state_task.apply_async(task_id=task_id)
+    elif task.type == TaskType.SetRecordsVisibility:
+        set_records_visibility_task.apply_async(task_id=task_id)
 
     elif task.type == TaskType.DeleteTasks:
         delete_tasks_task.apply_async(task_id=task_id)

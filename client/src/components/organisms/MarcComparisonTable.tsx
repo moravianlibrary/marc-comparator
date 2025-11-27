@@ -1,4 +1,3 @@
-import { Table, Tbody, Td, Tr } from "@patternfly/react-table";
 import { type ReactElement } from "react";
 import { useGetMarcRecord } from "../../hooks/useCatalogRecords";
 import {
@@ -6,31 +5,29 @@ import {
     Card,
     CardBody,
     CardHeader,
-    DescriptionList,
-    DescriptionListDescription,
-    DescriptionListGroup,
-    DescriptionListTerm,
+    Divider,
     HelperText,
     Stack,
     StackItem,
 } from "@patternfly/react-core";
-import MonospaceValue from "../atoms/MonospaceValue";
 import type {
     Comparison,
     FieldComparisonResult,
     SubfieldComparisonResult,
 } from "../../models/api/responses/comparison";
 import MarcRecordTable from "./MarcRecordTable";
-import MarcDetailRow from "../molecules/MarcDetailRow";
 import type { MarcRecord } from "../../models/api/responses/marc_record";
-import ValidityHelperTextItem from "../atoms/ValidityHelperTextItem";
-import { scoreToValidity } from "../../models/ui/comparison";
+import { useTranslation } from "react-i18next";
+import MonospaceValue from "../atoms/MonospaceValue";
+import SemiCircularGauge from "../atoms/SemiCircularGauge";
+import ComparisonHelperTextItem from "../atoms/ComparisonHelperTextItem";
+import { scoreToMatchQuality } from "../../models/ui/comparison";
 
 interface MarcComparisonTableProps {
     base?: string;
     systemNumber?: string;
     comparison?: Comparison;
-    noDataMessage?: string;
+    showOnlyTarget?: boolean;
 }
 
 type FieldLookup = Record<
@@ -177,8 +174,10 @@ const MarcComparisonTable = ({
     base: baseA,
     systemNumber: systemNumberA,
     comparison,
-    noDataMessage = "No data available",
+    showOnlyTarget,
 }: MarcComparisonTableProps): ReactElement => {
+    const { t } = useTranslation();
+
     const { data: recordA, isLoading: isLoadingA } = useGetMarcRecord(
         baseA || "",
         systemNumberA || "",
@@ -194,7 +193,11 @@ const MarcComparisonTable = ({
     );
 
     if (!comparison) {
-        return <Bullseye>No comparison provided</Bullseye>;
+        return (
+            <Bullseye>
+                {t("records:details.comparisons.no-comparison-selected")}
+            </Bullseye>
+        );
     }
 
     const enrichedRecordA = recordA
@@ -204,6 +207,17 @@ const MarcComparisonTable = ({
         ? buildFieldLookup(recordB, comparison)
         : undefined;
 
+    const scoreExplanationText = (
+        score: number,
+        explanation?: string | null
+    ) => {
+        const scoreStr = `${(score * 100).toFixed(1)}%`;
+
+        if (!explanation) return scoreStr;
+
+        return `${scoreStr}: ${t(`${comparison.comparator}:${explanation}`)}`;
+    };
+
     const renderFieldDetail = (tag: string, index: number) => {
         const fieldLookup = fieldLookupMap?.[tag]?.[index];
 
@@ -211,29 +225,30 @@ const MarcComparisonTable = ({
 
         // TODO: Details as info popover
         return (
-            <MarcDetailRow key={`comparison-${tag}-${index}`}>
-                <Stack>
-                    <StackItem>
-                        <HelperText>
-                            <ValidityHelperTextItem
-                                status={scoreToValidity(
-                                    fieldLookup.result.score
-                                )}
-                                text={`${(
-                                    fieldLookup.result.score * 100
-                                ).toFixed(1)}% : 
-                            ${
-                                fieldLookup.result.explanation ||
-                                "No explanation provided"
-                            }`}
-                            />
-                        </HelperText>
-                    </StackItem>
-                    {fieldLookup.valueOther && (
-                        <StackItem>{fieldLookup.valueOther}</StackItem>
-                    )}
-                </Stack>
-            </MarcDetailRow>
+            <Card isCompact isPlain>
+                <CardHeader>
+                    <HelperText>
+                        <ComparisonHelperTextItem
+                            matchQuality={scoreToMatchQuality(
+                                fieldLookup.result.score
+                            )}
+                            text={scoreExplanationText(
+                                fieldLookup.result.score,
+                                fieldLookup.result.explanation
+                            )}
+                        />
+                    </HelperText>
+                </CardHeader>
+                {fieldLookup.valueOther && (
+                    <CardBody>
+                        {tag < "010" ? (
+                            <MonospaceValue value={fieldLookup.valueOther} />
+                        ) : (
+                            fieldLookup.valueOther
+                        )}
+                    </CardBody>
+                )}
+            </Card>
         );
     };
 
@@ -242,7 +257,7 @@ const MarcComparisonTable = ({
         fieldIdx: number,
         code: string,
         subfieldIdx: number,
-        value: string
+        _: string
     ): ReactElement | null => {
         const fieldLookup = fieldLookupMap?.[tag]?.[fieldIdx];
         const subfieldLookup = fieldLookup?.subfields?.[code]?.[subfieldIdx];
@@ -253,17 +268,14 @@ const MarcComparisonTable = ({
             <Card isCompact>
                 <CardHeader>
                     <HelperText>
-                        <ValidityHelperTextItem
-                            status={scoreToValidity(
+                        <ComparisonHelperTextItem
+                            matchQuality={scoreToMatchQuality(
                                 subfieldLookup.result.score
                             )}
-                            text={`${(
-                                subfieldLookup.result.score * 100
-                            ).toFixed(1)}% : 
-                            ${
-                                subfieldLookup.result.explanation ||
-                                "No explanation provided"
-                            }`}
+                            text={scoreExplanationText(
+                                subfieldLookup.result.score,
+                                subfieldLookup.result.explanation
+                            )}
                         />
                     </HelperText>
                 </CardHeader>
@@ -273,19 +285,29 @@ const MarcComparisonTable = ({
     };
 
     return (
-        <MarcRecordTable
-            systemNumber={systemNumberA}
-            record={enrichedRecordA}
-            isLoading={isLoadingA || isLoadingB}
-            renderFieldDetail={renderFieldDetail}
-            renderSubfieldDetail={renderSubfieldDetail}
-            // includeOnlyFields={
-            //     showOnlyTarget
-            //         ? validations?.map((v) => v.target.tag)
-            //         : undefined
-            // }
-            noRecordMessage={noDataMessage}
-        />
+        <Stack hasGutter>
+            <StackItem>
+                <Bullseye>
+                    <SemiCircularGauge value={comparison.overall_score * 100} />
+                </Bullseye>
+            </StackItem>
+            <Divider />
+            <StackItem>
+                <MarcRecordTable
+                    systemNumber={systemNumberA}
+                    record={enrichedRecordA}
+                    isLoading={isLoadingA || isLoadingB}
+                    renderFieldDetail={renderFieldDetail}
+                    renderSubfieldDetail={renderSubfieldDetail}
+                    includeOnlyFields={
+                        showOnlyTarget
+                            ? comparison.field_results?.map((v) => v.tag)
+                            : undefined
+                    }
+                    noRecordMessage={t("records:details.comparisons.no-record")}
+                />
+            </StackItem>
+        </Stack>
     );
 };
 

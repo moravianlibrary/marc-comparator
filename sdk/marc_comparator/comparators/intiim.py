@@ -16,8 +16,10 @@ from .intiim_engine.scoring import score_differences
 
 
 class IntiimComparatorConfig(BaseModel):
-    valid_max: int = 6
-    warning_max: int = 12
+    llm_enabled: bool = False
+    nonstandard_llm_enabled: bool = False
+    valid_threshold: int = 6
+    warning_threshold: int = 12
 
 
 class IntiimComparator(BaseComparator):
@@ -62,71 +64,6 @@ class IntiimComparator(BaseComparator):
 
         return d
 
-    def _normalize_30_score(self, score: float) -> float:
-        """
-        Piecewise logistic mapping:
-        0 → 1.0
-        valid → 0.9
-        warning → 0.7
-        30 → 0.0
-        """
-        score = max(0, min(score, 30))  # clamp
-        print(f"Raw score: {score}")
-
-        def logistic(x, midpoint, steepness=0.3):
-            return 1 / (1 + math.exp(steepness * (x - midpoint)))
-
-        def normalized_segment(
-            x, start_x, end_x, start_y, end_y, midpoint, steepness=0.3
-        ):
-            """
-            Smooth logistic segment,
-            but exactly hits (start_x → start_y) and (end_x → end_y).
-            """
-
-            # raw logistic values at segment boundaries
-            raw_start = logistic(start_x, midpoint, steepness)
-            raw_end = logistic(end_x, midpoint, steepness)
-
-            # value at x
-            raw_x = logistic(x, midpoint, steepness)
-
-            # normalize raw curve to (start_y .. end_y)
-            t = (raw_x - raw_start) / (raw_end - raw_start)
-            return start_y + t * (end_y - start_y)
-
-        if score <= self.config.valid_max:
-            # map 0 → 1.0, valid → 0.9
-            return normalized_segment(
-                score,
-                0,
-                self.config.valid_max,
-                1.0,
-                0.9,
-                midpoint=self.config.valid_max / 2,
-            )
-
-        if score <= self.config.warning_max:
-            # map valid → 0.9, warning → 0.7
-            return normalized_segment(
-                score,
-                self.config.valid_max,
-                self.config.warning_max,
-                0.9,
-                0.7,
-                midpoint=(self.config.valid_max + self.config.warning_max) / 2,
-            )
-
-        # final segment: warning → 0.7, 30 → 0.0
-        return normalized_segment(
-            score,
-            self.config.warning_max,
-            30,
-            0.7,
-            0.0,
-            midpoint=(self.config.warning_max + 30) / 2,
-        )
-
     async def run(
         self,
         record_a: MarcRecord,
@@ -136,8 +73,36 @@ class IntiimComparator(BaseComparator):
         record_b_dict = self._parse_record_to_dict(record_b)
 
         comparison = compare_records(
-            record_a_dict, record_b_dict, include_identical=True
+            record_a_dict,
+            record_b_dict,
+            include_identical=True,
+            llm_backend="ollama" if self.config.llm_enabled else None,
+            nonstandard_llm=self.config.nonstandard_llm_enabled,
         )
+
+        scoring = score_differences(comparison.get("differences", []))
+        field_score_caps = {
+            f["tag"]: f.get("cap") or 10.0
+            for f in scoring.get("field_contributions", [])
+        }
+        field_scoring = {
+            f["tag"]: normalize_score(
+                f.get("applied", 0.0),
+                valid_threshold=self.config.valid_threshold / 3,
+                warning_threshold=self.config.warning_threshold / 3,
+                cap=field_score_caps.get(f["tag"], 10.0),
+            )
+            for f in scoring.get("field_contributions", [])
+        }
+        subfield_scoring = {
+            f"{s['tag']}|{s['code']}|{s["value_main"]}": normalize_score(
+                s.get("weight", 0.0),
+                valid_threshold=self.config.valid_threshold / 3,
+                warning_threshold=self.config.warning_threshold / 3,
+                cap=field_score_caps.get(s["tag"], 10.0),
+            )
+            for s in scoring.get("components", [])
+        }
 
         all_comparison_results = comparison.get(
             "differences", []
@@ -160,7 +125,7 @@ class IntiimComparator(BaseComparator):
                         tag=group["tag"],
                         idxA=0 if group.get("value_main", "") != "" else None,
                         idxB=0 if group.get("value_test", "") != "" else None,
-                        score=group.get("confidence", 0.0),
+                        score=field_scoring.get(tag, 1.0),
                         explanation=group.get("label"),
                         details=group.get("details", {}).get("reason"),
                     )
@@ -188,7 +153,10 @@ class IntiimComparator(BaseComparator):
                         code=group["code"],
                         idxA=idxA[2],
                         idxB=idxB[2],
-                        score=group.get("confidence", 0.0),
+                        score=subfield_scoring.get(
+                            f"{tag}|{group['code']}|{group.get('value_main')}",
+                            1.0,
+                        ),
                         explanation=group.get("label"),
                         details=group.get("details", {}).get("reason"),
                     )
@@ -228,11 +196,15 @@ class IntiimComparator(BaseComparator):
                     )
                 )
 
-        scoring = score_differences(comparison.get("differences", []))
-        score_30 = scoring["record_score_30"]
+        score_30 = scoring["record_score_30_exact"]
 
         return RecordComparisonResult(
-            overall_score=self._normalize_30_score(score_30),
+            overall_score=normalize_score(
+                score_30,
+                self.config.valid_threshold,
+                self.config.warning_threshold,
+                30,
+            ),
             field_results=field_results,
         )
 
@@ -290,3 +262,70 @@ def get_field_and_subfield_indexes(
             results.append((used_tag, None, None))
 
     return results
+
+
+def normalize_score(
+    score: float, valid_threshold: float, warning_threshold: float, cap: float
+) -> float:
+    """
+    Piecewise logistic mapping:
+    0 → 1.0
+    valid → 0.9
+    warning → 0.7
+    cap → 0.0
+    """
+    score = max(0, min(score, cap))
+
+    def logistic(x, midpoint, steepness=0.3):
+        return 1 / (1 + math.exp(steepness * (x - midpoint)))
+
+    def normalized_segment(
+        x, start_x, end_x, start_y, end_y, midpoint, steepness=0.3
+    ):
+        """
+        Smooth logistic segment,
+        but exactly hits (start_x → start_y) and (end_x → end_y).
+        """
+
+        # raw logistic values at segment boundaries
+        raw_start = logistic(start_x, midpoint, steepness)
+        raw_end = logistic(end_x, midpoint, steepness)
+
+        # value at x
+        raw_x = logistic(x, midpoint, steepness)
+
+        # normalize raw curve to (start_y .. end_y)
+        t = (raw_x - raw_start) / (raw_end - raw_start)
+        return start_y + t * (end_y - start_y)
+
+    if score <= valid_threshold:
+        # map 0 → 1.0, valid → 0.9
+        return normalized_segment(
+            score,
+            0,
+            valid_threshold,
+            1.0,
+            0.9,
+            midpoint=valid_threshold / 2,
+        )
+
+    if score <= warning_threshold:
+        # map valid → 0.9, warning → 0.7
+        return normalized_segment(
+            score,
+            valid_threshold,
+            warning_threshold,
+            0.9,
+            0.7,
+            midpoint=(valid_threshold + warning_threshold) / 2,
+        )
+
+    # final segment: warning → 0.7, 30 → 0.0
+    return normalized_segment(
+        score,
+        warning_threshold,
+        cap,
+        0.7,
+        0.0,
+        midpoint=(warning_threshold + cap) / 2,
+    )

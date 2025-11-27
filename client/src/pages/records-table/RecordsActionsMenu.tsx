@@ -11,10 +11,11 @@ import ValidateRecordsModal from "./ValidateRecordsModal";
 import ConfirmModal from "../../components/organisms/ConfirmModal";
 import {
     useReindexRecords,
-    useSetHiddenStateOfRecords,
+    useSetRecordsVisibility,
 } from "../../hooks/useCatalogRecords";
 import type { CatalogRecord } from "../../models/api/responses/catalog_record";
 import { buildSelectQuery } from "../../store/collection/requests_factory";
+import { useTranslation } from "react-i18next";
 
 interface RecordsActionsMenuProps {
     state: CollectionState<CatalogRecord>;
@@ -25,55 +26,62 @@ export const RecordsActionsMenu = ({
     state,
     data,
 }: RecordsActionsMenuProps) => {
+    const { t } = useTranslation();
     const [visibleModal, setVisibleModal] = useState<
-        "link" | "compare" | "validate" | "hide" | "unhide" | "reindex" | null
+        | "link"
+        | "compare"
+        | "validate"
+        | "hide"
+        | "make-visible"
+        | "reindex"
+        | null
     >(null);
 
     const config = [
         {
-            label: "Link Records to Authorities",
+            label: t("records:actions.link-authorities"),
             onClick: () => setVisibleModal("link"),
         },
         {
-            label: "Run Comparisons",
+            label: t("records:actions.run-comparisons"),
             onClick: () => setVisibleModal("compare"),
         },
         {
-            label: "Run Validations",
+            label: t("records:actions.run-validations"),
             onClick: () => setVisibleModal("validate"),
         },
         {
-            label: "Hide Records",
+            label: t("records:actions.hide-records"),
             onClick: () => setVisibleModal("hide"),
         },
         {
-            label: "Unhide Records",
-            onClick: () => setVisibleModal("unhide"),
+            label: t("records:actions.make-records-visible"),
+            onClick: () => setVisibleModal("make-visible"),
         },
         {
-            label: "Reindex Records",
+            label: t("records:actions.reindex-records"),
             onClick: () => setVisibleModal("reindex"),
         },
     ];
 
-    const setHiddenStateOfRecordsMutation = useSetHiddenStateOfRecords();
+    const setRecordsVisibilityMutation = useSetRecordsVisibility();
     const reindexRecordsMutation = useReindexRecords();
 
     const selectedItemsCount = selectSelectedCount(state, data);
     const selectionQuery = buildSelectQuery(state);
 
     const handleHideConfirm = () => {
-        setHiddenStateOfRecordsMutation.mutate({
+        setRecordsVisibilityMutation.mutate({
             query: selectionQuery,
-            hide: true,
+            visible: false,
         });
         setVisibleModal(null);
     };
 
-    const handleUnhideConfirm = () => {
-        setHiddenStateOfRecordsMutation.mutate({
+    const handleMakeVisibleConfirm = () => {
+        setRecordsVisibilityMutation.mutate({
             query: selectionQuery,
-            hide: false,
+            visible: true,
         });
         setVisibleModal(null);
     };
@@ -88,7 +96,7 @@ export const RecordsActionsMenu = ({
             <ActionsMenu
                 config={config}
                 disabled={selectSelectedCount(state, data) === 0}
-                label="Records Actions"
+                label={t("records:actions.label")}
             />
             <AuthorityLinkingModal
                 state={state}
@@ -117,12 +125,12 @@ export const RecordsActionsMenu = ({
                 records?
             </ConfirmModal>
             <ConfirmModal
-                isOpen={visibleModal === "unhide"}
+                isOpen={visibleModal === "make-visible"}
                 onClose={() => setVisibleModal(null)}
-                onConfirm={handleUnhideConfirm}
+                onConfirm={handleMakeVisibleConfirm}
             >
-                Are you sure you want to unhide {selectedItemsCount} selected
-                records?
+                Are you sure you want to make {selectedItemsCount} selected
+                records visible?
             </ConfirmModal>
             <ConfirmModal
                 isOpen={visibleModal === "reindex"}

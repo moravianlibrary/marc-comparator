@@ -4,10 +4,9 @@ import {
     TaskStatusSchema,
     TaskTypeSchema,
 } from "../../primitives/task";
-import { createEsResponseSchema } from "./es";
+import { createEsHitSchema, createEsResponseSchema } from "./es";
 
 export const TaskSchema = z.object({
-    task_id: z.uuidv4(),
     name: z.string(),
     type: TaskTypeSchema,
     status: TaskStatusSchema,
@@ -19,6 +18,9 @@ export const TaskSchema = z.object({
     traceback_lines: z.number().nullable(),
 });
 export type Task = z.infer<typeof TaskSchema>;
+
+export const EsHitTaskSchema = createEsHitSchema(TaskSchema);
+export type EsHitTask = z.infer<typeof EsHitTaskSchema>;
 
 export const SearchTasksResponseSchema = createEsResponseSchema(
     TaskSchema.partial()

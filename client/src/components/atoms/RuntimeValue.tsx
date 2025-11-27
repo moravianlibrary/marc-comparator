@@ -9,7 +9,7 @@ const pad2 = (n: number) => String(n).padStart(2, " ");
 
 const RuntimeValue = ({ startedAt, finishedAt }: RuntimeValueProps) => {
     const runTimeMs =
-        (finishedAt ?? new Date()).getTime() - startedAt.getTime();
+        (finishedAt?.getTime() ?? Date.now()) - startedAt.getTime();
     const seconds = Math.floor((runTimeMs / 1000) % 60);
     const minutes = Math.floor((runTimeMs / (1000 * 60)) % 60);
     const hours = Math.floor(runTimeMs / (1000 * 60 * 60));

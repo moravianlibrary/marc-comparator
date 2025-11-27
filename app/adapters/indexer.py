@@ -171,7 +171,4 @@ async def startup_indexer(retries: int = 5, backoff: int = 2) -> bool:
 
 
 async def shutdown_indexer() -> None:
-    global es
-    if es:
-        await es.close()
-        es = None
+    await es.close()

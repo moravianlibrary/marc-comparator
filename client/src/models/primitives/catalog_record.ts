@@ -3,8 +3,7 @@ import { z } from "zod";
 export const CatalogRecordStateSchema = z.enum([
     "Active",
     "Deleted",
-    "Valid",
-    "Invalid",
+    "Visible",
     "Hidden",
 ]);
 export type CatalogRecordState = z.infer<typeof CatalogRecordStateSchema>;

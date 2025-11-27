@@ -59,8 +59,17 @@ services:
     networks:
       - marc-comparator
 
+  ollama:
+    image: ollama/ollama:latest
+    container_name: marc-comparator-llm
+    networks:
+      - marc-comparator
+    ports:
+      - "11434:11434"
+
 volumes:
   postgres_data:
 
 networks:
   marc-comparator:
+    name: marc-comparator

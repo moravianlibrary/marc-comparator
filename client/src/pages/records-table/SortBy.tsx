@@ -7,6 +7,7 @@ import type {
     CollectionState,
 } from "../../store/collection/domain";
 import type { CatalogRecord } from "../../models/api/responses/catalog_record";
+import { useTranslation } from "react-i18next";
 
 interface RecordsTableSortByProps {
     state: CollectionState<CatalogRecord>;
@@ -14,6 +15,7 @@ interface RecordsTableSortByProps {
 }
 
 const RecordsTableSortBy = ({ state, dispatch }: RecordsTableSortByProps) => {
+    const { t } = useTranslation();
     const { sortBy } = state;
 
     const { data: systemInfo } = useGetSystemInfo();
@@ -22,7 +24,7 @@ const RecordsTableSortBy = ({ state, dispatch }: RecordsTableSortByProps) => {
     const sortByOptions = [
         {
             key: "relevance",
-            label: "Relevance",
+            label: t("records:sort-by.relevance"),
             value: [
                 { _score: { order: "desc" } },
                 { latest_transaction: { order: "desc" } },
@@ -30,42 +32,52 @@ const RecordsTableSortBy = ({ state, dispatch }: RecordsTableSortByProps) => {
         },
         {
             key: "latest-sync-desc",
-            label: "Latest Sync (Desc)",
+            label: t("records:sort-by.latest-sync-desc"),
             value: [{ latest_sync: { order: "desc" } }],
         },
         {
             key: "latest-sync-asc",
-            label: "Latest Sync (Asc)",
+            label: t("records:sort-by.latest-sync-asc"),
             value: [{ latest_sync: { order: "asc" } }],
         },
         {
             key: "latest-transaction-desc",
-            label: "Latest Transaction (Desc)",
+            label: t("records:sort-by.latest-transaction-desc"),
             value: [{ latest_transaction: { order: "desc" } }],
         },
         {
             key: "latest-transaction-asc",
-            label: "Latest Transaction (Asc)",
+            label: t("records:sort-by.latest-transaction-asc"),
             value: [{ latest_transaction: { order: "asc" } }],
         },
         {
             key: "title-asc",
-            label: "Title (A-Z)",
+            label: t("records:sort-by.title-asc"),
             value: [{ "title.keyword": { order: "asc" } }],
         },
         {
             key: "title-desc",
-            label: "Title (Z-A)",
+            label: t("records:sort-by.title-desc"),
             value: [{ "title.keyword": { order: "desc" } }],
         },
         ...comparators.flatMap((comparator) =>
             ["desc", "asc"].map((order) => ({
                 key: `score-${comparator}-${order}`,
-                label: `Score ${comparator} (High to Low)`,
+                label: t(`records:sort-by.score-${order}`, { comparator }),
                 value: [
                     {
-                        field: `comparisons.${comparator}.overall_score`,
-                        order: order as "asc" | "desc",
+                        [`comparisons.overall_score`]: {
+                            order: order as "asc" | "desc",
+                            mode: "max",
+                            nested: {
+                                path: "comparisons",
+                                filter: {
+                                    term: {
+                                        "comparisons.comparator": comparator,
+                                    },
+                                },
+                            },
+                        },
                     },
                 ],
             }))

@@ -11,8 +11,10 @@ import {
     Button,
 } from "@patternfly/react-core";
 import { useNotification } from "../../hooks/useNotifications";
+import { useTranslation } from "react-i18next";
 
 const AppNotificationDrawer = (): ReactElement => {
+    const { t } = useTranslation();
     const {
         notifications,
         getUnreadCount,
@@ -24,18 +26,21 @@ const AppNotificationDrawer = (): ReactElement => {
     return (
         <NotificationDrawer>
             <NotificationDrawerHeader
-                count={getUnreadCount()}
+                title={t("notifications:title")}
+                customText={t("notifications:unread-notifications", {
+                    count: getUnreadCount(),
+                })}
                 onClose={() => toggleDrawer()}
             >
                 <Button variant="link" onClick={markAllNotificationsRead}>
-                    Mark all read
+                    {t("notifications:mark-all-as-read")}
                 </Button>
             </NotificationDrawerHeader>
             <NotificationDrawerBody>
                 {notifications.length === 0 && (
                     <Content>
                         <h6 style={{ marginLeft: "1.5rem" }}>
-                            No notifications
+                            {t("notifications:no-notifications")}
                         </h6>
                     </Content>
                 )}

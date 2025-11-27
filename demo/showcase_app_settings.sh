@@ -64,7 +64,7 @@ SETTINGS_JSON=$(cat <<'EOF'
 EOF
 )
 
-http POST "$APP_URL/settings/app/Catalog" \
+http POST "$APP_URL/settings/system/catalog" \
   Content-Type:application/json \
   "Authorization: Bearer $ADMIN_TOKEN" \
   <<< "$SETTINGS_JSON"
@@ -76,21 +76,12 @@ pause
 ###############################################################################
 print_step "Fetching current Catalog settings"
 
-http GET "$APP_URL/settings/app/Catalog" "Authorization: Bearer $ADMIN_TOKEN"
+http GET "$APP_URL/settings/system/catalog" "Authorization: Bearer $ADMIN_TOKEN"
 
 pause
 
 ###############################################################################
-# 4. Get schema for Catalog settings
-###############################################################################
-print_step "Fetching Catalog settings schema"
-
-http GET "$APP_URL/settings/app/Catalog/schema" "Authorization: Bearer $ADMIN_TOKEN"
-
-pause
-
-###############################################################################
-# 5. Set Authority Linking settings
+# 4. Set Authority Linking settings
 ###############################################################################
 print_step "Setting Authority Linking settings"
 
@@ -120,7 +111,7 @@ SETTINGS_JSON=$(cat <<'EOF'
 EOF
 )
 
-http POST "$APP_URL/settings/tasks/AuthorityLinking" \
+http POST "$APP_URL/settings/record-tools/authority-linkers" \
   Content-Type:application/json \
   "Authorization: Bearer $ADMIN_TOKEN" \
   <<< "$SETTINGS_JSON"
@@ -131,14 +122,6 @@ pause
 # 6. Verify settings
 ###############################################################################
 
-http GET "$APP_URL/settings/tasks/AuthorityLinking" "Authorization: Bearer $ADMIN_TOKEN"
-
-pause
-
-###############################################################################
-# 7. Get schema for AuthorityLinking settings
-###############################################################################
-
-http GET "$APP_URL/settings/tasks/AuthorityLinking/schema" "Authorization: Bearer $ADMIN_TOKEN"
+http GET "$APP_URL/settings/record-tools/authority-linkers" "Authorization: Bearer $ADMIN_TOKEN"
 
 echo -e "\n${CYAN}=== Demo completed successfully! ===${NC}\n"

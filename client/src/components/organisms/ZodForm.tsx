@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import {
     useForm,
     Controller,
@@ -46,12 +46,14 @@ import {
     SplitItem,
 } from "@patternfly/react-core";
 import { TrashIcon } from "@patternfly/react-icons";
+import { useTranslation } from "react-i18next";
 
 export interface ZodFormProps<T extends FieldValues> {
     schema: ZodType<T, any, any>;
     defaultValues?: DefaultValues<T>;
     onSubmit: (data: T) => void;
     isSubmitting?: boolean;
+    i18nNamespace?: string;
 }
 
 type AnyZod = ZodType<unknown>;
@@ -63,6 +65,7 @@ interface FieldProps<T extends FieldValues, S extends AnyZod>
     errors: FieldErrors<T>;
     isRequired?: boolean;
     remove?: UseFieldArrayRemove;
+    i18nNamespace?: string;
 }
 
 const RemoveButton = ({ onClick }: { onClick: () => void }) => (
@@ -70,7 +73,10 @@ const RemoveButton = ({ onClick }: { onClick: () => void }) => (
 );
 
 function normalizeToI18nKey(name: string): string {
-    return `form.${name.replace(/\.\d+\./g, ".").replace(/\.\d+$/g, "")}`;
+    return `${name
+        .replace(/\.\d+\./g, ".")
+        .replace(/\.\d+$/g, "")
+        .replace(/_/g, "-")}`;
 }
 
 const VALUE_FIELD_RENDERER_MAP: Record<
@@ -108,7 +114,9 @@ const VALUE_FIELD_RENDERER_MAP: Record<
             id={field.name}
             isChecked={!!field.value}
             onChange={(_, v: boolean) => field.onChange(v)}
-            label={String(field.value)}
+            label={useTranslation("common").t(
+                `form.boolean.${String(field.value)}`
+            )}
         />
     ),
 };
@@ -119,10 +127,12 @@ const ValueField = <
 >(
     props: FieldProps<T, S>
 ) => {
+    const { t } = useTranslation(props.i18nNamespace);
+
     const error = get(props.errors, props.name);
     return (
         <FormGroup
-            label={normalizeToI18nKey(props.name)}
+            label={t(normalizeToI18nKey(props.name))}
             fieldId={props.name}
             isRequired={props.isRequired}
         >
@@ -189,8 +199,14 @@ function getNewItemValue(schema: AnyZod): any {
     return null;
 }
 
-const RenderField = <T extends FieldValues>(props: FieldProps<T, AnyZod>) => {
-    const { name, control, register, errors } = props;
+const RenderField = <T extends FieldValues>({
+    objectIndex,
+    ...props
+}: FieldProps<T, AnyZod> & { objectIndex?: number }) => {
+    const { t } = useTranslation(props.i18nNamespace);
+    const { t: t_common } = useTranslation("common");
+
+    const { name, control, register } = props;
 
     let schema = props.schema;
 
@@ -233,9 +249,16 @@ const RenderField = <T extends FieldValues>(props: FieldProps<T, AnyZod>) => {
                         <SplitItem isFilled>
                             <FormFieldGroupHeader
                                 titleText={{
-                                    text:
+                                    text: t(
                                         normalizeToI18nKey(props.name) +
-                                        ".title",
+                                            "-object",
+                                        {
+                                            objectIndex:
+                                                objectIndex !== undefined
+                                                    ? objectIndex + 1
+                                                    : undefined,
+                                        }
+                                    ),
                                     id: `${name}-header`,
                                 }}
                             />
@@ -262,6 +285,7 @@ const RenderField = <T extends FieldValues>(props: FieldProps<T, AnyZod>) => {
                         control={control}
                         register={register}
                         errors={props.errors}
+                        i18nNamespace={props.i18nNamespace}
                     />
                 ))}
             </FormFieldGroupExpandable>
@@ -282,7 +306,7 @@ const RenderField = <T extends FieldValues>(props: FieldProps<T, AnyZod>) => {
                 header={
                     <FormFieldGroupHeader
                         titleText={{
-                            text: normalizeToI18nKey(props.name) + ".title",
+                            text: t(normalizeToI18nKey(props.name) + "-array"),
                             id: `${name}-header`,
                         }}
                         titleDescription={
@@ -303,7 +327,7 @@ const RenderField = <T extends FieldValues>(props: FieldProps<T, AnyZod>) => {
                                     isDanger
                                     onClick={() => remove()}
                                 >
-                                    Delete all
+                                    {t_common("form.delete-all-items")}
                                 </Button>
                                 <Button
                                     variant="secondary"
@@ -313,7 +337,7 @@ const RenderField = <T extends FieldValues>(props: FieldProps<T, AnyZod>) => {
                                         )
                                     }
                                 >
-                                    Add item
+                                    {t_common("form.add-item")}
                                 </Button>
                             </>
                         }
@@ -328,6 +352,7 @@ const RenderField = <T extends FieldValues>(props: FieldProps<T, AnyZod>) => {
                         schema={arrSchema.element}
                         errors={props.errors}
                         remove={remove}
+                        objectIndex={index}
                     />
                 ))}
             </FormFieldGroupExpandable>
@@ -337,7 +362,8 @@ const RenderField = <T extends FieldValues>(props: FieldProps<T, AnyZod>) => {
     return (
         <HelperText>
             <HelperTextItem variant="error">
-                Unsupported field type: {schema.constructor.name}
+                {t_common("form.unsupported-field-type")}:{" "}
+                {schema.constructor.name}
             </HelperTextItem>
         </HelperText>
     );
@@ -348,7 +374,10 @@ export const ZodForm = <T extends FieldValues>({
     defaultValues,
     onSubmit,
     isSubmitting,
+    i18nNamespace,
 }: ZodFormProps<T>) => {
+    const { t } = useTranslation("common");
+
     if (!(schema instanceof ZodObject)) {
         throw new Error("ZodForm only supports ZodObject schemas at the root");
     }
@@ -357,6 +386,7 @@ export const ZodForm = <T extends FieldValues>({
         control,
         register,
         handleSubmit,
+        reset,
         formState: { errors },
     } = useForm<T>({
         resolver: zodResolver(schema) as Resolver<T>,
@@ -364,14 +394,15 @@ export const ZodForm = <T extends FieldValues>({
         mode: "all",
     });
 
+    useEffect(() => {
+        reset(defaultValues);
+    }, [defaultValues, reset]);
+
     const handleFormSubmit = (data: T) => {
-        console.log("Form submitted", data);
         if (!isSubmitting) {
             onSubmit(data);
         }
     };
-
-    console.log("Form errors", errors);
 
     return (
         <Form onSubmit={handleSubmit(handleFormSubmit)}>
@@ -383,6 +414,7 @@ export const ZodForm = <T extends FieldValues>({
                     control={control}
                     register={register}
                     errors={errors}
+                    i18nNamespace={i18nNamespace}
                 />
             ))}
             <Button
@@ -390,7 +422,7 @@ export const ZodForm = <T extends FieldValues>({
                 variant="primary"
                 isDisabled={Object.keys(errors).length > 0 || isSubmitting}
             >
-                Submit
+                {t("form.submit")}
             </Button>
         </Form>
     );

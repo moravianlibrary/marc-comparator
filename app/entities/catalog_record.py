@@ -38,6 +38,7 @@ class CatalogRecordSource(StrEnum):
 class CatalogRecordState(StrEnum):
     Active = "Active"
     Deleted = "Deleted"
+    Visible = "Visible"
     Hidden = "Hidden"
 
 
@@ -163,12 +164,17 @@ class CatalogRecord(
     @property
     def state(self) -> List[CatalogRecordState]:
         states = []
+
         if not self.deleted:
             states.append(CatalogRecordState.Active)
-        if self.deleted:
+        else:
             states.append(CatalogRecordState.Deleted)
+
         if self.hidden:
             states.append(CatalogRecordState.Hidden)
+        else:
+            states.append(CatalogRecordState.Visible)
+
         return states
 
 

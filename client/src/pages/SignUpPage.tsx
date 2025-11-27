@@ -7,8 +7,10 @@ import { useEffect, type ReactElement } from "react";
 import SignUpForm from "../components/organisms/SignUpForm";
 import { useSignUp } from "../hooks/useAuth";
 import { useNavigate } from "react-router";
+import { useTranslation } from "react-i18next";
 
 const SignUpPage = (): ReactElement => {
+    const { t } = useTranslation();
     const { mutate: signUp, isPending, isSuccess } = useSignUp();
     const navigate = useNavigate();
 
@@ -20,15 +22,16 @@ const SignUpPage = (): ReactElement => {
 
     return (
         <LoginPage
-            loginTitle="Register"
-            loginSubtitle="Enter your credentials."
+            loginTitle={t("auth:signup.title")}
+            loginSubtitle={t("auth:signup.subtitle")}
             brandImgSrc="marcomparator-logo-dark-text-transparent.png"
             brandImgAlt="MarcComparator logo"
+            textContent={t("auth:about-app")}
             signUpForAccountMessage={
                 <LoginMainFooterBandItem>
-                    Already have an account?{" "}
+                    {`${t("auth:signup.already-have-account-message")} `}
                     <Button variant="link" onClick={() => navigate("/login")}>
-                        Log in.
+                        {t("auth:signup.already-have-account-link")}
                     </Button>
                 </LoginMainFooterBandItem>
             }

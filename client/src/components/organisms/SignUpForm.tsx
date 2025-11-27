@@ -13,6 +13,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { Controller, useForm } from "react-hook-form";
 import { ExclamationCircleIcon } from "@patternfly/react-icons";
 import type { ReactElement } from "react";
+import { useTranslation } from "react-i18next";
 
 // --- Zod schema for registration form ---
 const SignUpFormDataSchema = z
@@ -39,6 +40,7 @@ const SignUpForm = ({
     onSubmit: (data: SignUpFormData) => void;
     isPending?: boolean;
 }): ReactElement => {
+    const { t } = useTranslation();
     const {
         control,
         handleSubmit,
@@ -97,7 +99,14 @@ const SignUpForm = ({
                             icon={<ExclamationCircleIcon />}
                             variant="error"
                         >
-                            {errors?.[fieldName]?.message}
+                            {t(
+                                `auth:signup.form.${errors?.[fieldName]?.message}`,
+                                {
+                                    defaultValue: String(
+                                        errors?.[fieldName]?.message
+                                    ),
+                                }
+                            )}
                         </HelperTextItem>
                     </HelperText>
                 </FormHelperText>
@@ -108,7 +117,11 @@ const SignUpForm = ({
 
     return (
         <Form onSubmit={handleSubmit((data) => !isPending && onSubmit(data))}>
-            <FormGroup label="Email" isRequired fieldId="email">
+            <FormGroup
+                label={t("auth:signup.form.username")}
+                isRequired
+                fieldId="email"
+            >
                 <Controller
                     name="email"
                     control={control}
@@ -118,7 +131,11 @@ const SignUpForm = ({
                 />
                 {renderErrorText("email", errors)}
             </FormGroup>
-            <FormGroup label="First Name" isRequired fieldId="first_name">
+            <FormGroup
+                label={t("auth:signup.form.first-name")}
+                isRequired
+                fieldId="first_name"
+            >
                 <Controller
                     name="first_name"
                     control={control}
@@ -128,7 +145,11 @@ const SignUpForm = ({
                 />
                 {renderErrorText("first_name", errors)}
             </FormGroup>
-            <FormGroup label="Last Name" isRequired fieldId="last_name">
+            <FormGroup
+                label={t("auth:signup.form.last-name")}
+                isRequired
+                fieldId="last_name"
+            >
                 <Controller
                     name="last_name"
                     control={control}
@@ -138,7 +159,11 @@ const SignUpForm = ({
                 />
                 {renderErrorText("last_name", errors)}
             </FormGroup>
-            <FormGroup label="Password" isRequired fieldId="password">
+            <FormGroup
+                label={t("auth:signup.form.password")}
+                isRequired
+                fieldId="password"
+            >
                 <Controller
                     name="password"
                     control={control}
@@ -149,7 +174,7 @@ const SignUpForm = ({
                 {renderErrorText("password", errors)}
             </FormGroup>
             <FormGroup
-                label="Confirm Password"
+                label={t("auth:signup.form.confirm-password")}
                 isRequired
                 fieldId="confirm_password"
             >
@@ -170,7 +195,7 @@ const SignUpForm = ({
                     isBlock
                     isLoading={isPending}
                 >
-                    Register
+                    {t("auth:signup.form.sign-up-button")}
                 </Button>
             </ActionGroup>
         </Form>

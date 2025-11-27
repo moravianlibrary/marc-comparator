@@ -13,7 +13,7 @@ from . import service
 from .models import (
     FetchBatchOfRecordsData,
     FetchRecordData,
-    SetRecordsHiddenStateData,
+    SetRecordsVisibilityData,
     SyncRecordsData,
 )
 
@@ -101,15 +101,15 @@ async def reindex_records(
 
 
 @router.post(
-    "/hidden-state",
+    "/visibility",
     dependencies=[WithPermission(Permission.RunRecordTasks)],
     response_model=TaskSchema,
 )
-async def set_records_hidden_state(
-    data: Annotated[SetRecordsHiddenStateData, Body()],
+async def set_records_visibility(
+    data: Annotated[SetRecordsVisibilityData, Body()],
     current_user: CurrentUser,
     db_session: DatabaseSessionDep,
 ):
-    return await service.set_records_hidden_state(
+    return await service.set_records_visibility(
         data, current_user.user_id, db_session
     )

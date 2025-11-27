@@ -1,0 +1,28 @@
+{
+    "home": "Domů",
+    "records": {
+        "group-title": "Katalogové záznamy",
+        "table": "Seznam záznamů",
+        "details": "Detaily záznamu",
+        "addition": "Přidání záznamů"
+    },
+    "tasks": {
+        "group-title": "Úkoly",
+        "table": "Seznam úkolů",
+        "details": "Podrobnosti úkolu"
+    },
+    "record-tools": {
+        "group-title": "Zpracování záznamů",
+        "authority-linkers": "Nastavení propojení autorit",
+        "comparators": "Nastavení porovnávání záznamů",
+        "validators": "Nastavení validátorů záznamů"
+    },
+    "administration": {
+        "group-title": "Administrace",
+        "role-management": "Správa rolí",
+        "user-management": "Správa uživatelů",
+        "catalog-settings": "Nastavení propojení s katalogem",
+        "tasks-settings": "Nastavení úkolů",
+        "system-maintenance": "Údržba systému"
+    }
+}

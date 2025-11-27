@@ -1,0 +1,51 @@
+{
+    "fields": {
+        "name": "Název",
+        "type": "Typ",
+        "status": "Stav",
+        "severity": "Úroveň chyb při běhu",
+        "run-time": "Doba běhu",
+        "details": "Podrobnosti",
+        "revoke": "Zrušit",
+        "traceback": "Traceback"
+    },
+    "details": {
+        "title": "Podrobnosti úkolu",
+        "task-id": "ID úkolu",
+        "select-task-instructions": "Pro zobrazení podrobností vyberte úkol v tabulce úkolů.",
+        "loading": "Načítání podrobností úkolu...",
+        "not-found": "Úkol nebyl nalezen.",
+        "no-traceback": "Pro tento úkol není k dispozici žádný traceback."
+    },
+    "type": {
+        "FetchRecord": "Pridani záznamu",
+        "FetchBatchOfRecords": "Hromadné přidání záznamů",
+        "SyncRecords": "Synchronizace zaznamu z katalogu",
+        "LinkRecordsToAuthorities": "Propojení záznamů s autoritami",
+        "CompareRecords": "Porovnání záznamů",
+        "ValidateRecords": "Validace záznamů",
+        "SetRecordVisibility": "Nastavení viditelnosti záznamů",
+        "ReindexRecords": "Reindexace záznamů",
+        "DeleteTasks": "Odstranění úkolů",
+        "RecreateIndexes": "Obnovení indexů"
+    },
+    "status": {
+        "Pending": "Naplanovano",
+        "Started": "Spuštěno",
+        "Success": "Uspesne dokonceno",
+        "Failure": "Selhalo",
+        "Revoked": "Zruseno"
+    },
+    "severity": {
+        "Info": "Žádná",
+        "Warning": "Varování",
+        "Error": "Došlo k chybám",
+        "Critical": "Závažná chyba"
+    },
+    "filters": {
+        "type-placeholder": "Vyberte typ úkolu",
+        "status-placeholder": "Vyberte stav úkolu",
+        "severity-placeholder": "Vyberte úroveň chyb při běhu",
+        "clear": "Zrusit filtre"
+    }
+}

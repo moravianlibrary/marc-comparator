@@ -1,6 +1,10 @@
 import type { ReactElement } from "react";
 import ZodFormPageLayout from "../components/templates/ZodFormPageLayout";
-import { useGetSettings, useGetSettingsZodSchema } from "../hooks/useSettings";
+import {
+    useGetSettings,
+    useGetSettingsZodSchema,
+    useSetSettings,
+} from "../hooks/useSettings";
 
 const AuthorityLinkersConfigPage = (): ReactElement => {
     const { zodSchema, isLoading: isLoadingSchema } = useGetSettingsZodSchema(
@@ -11,15 +15,19 @@ const AuthorityLinkersConfigPage = (): ReactElement => {
         "record-tools",
         "authority-linkers"
     );
+    const { mutate, isPending } = useSetSettings(
+        "record-tools",
+        "authority-linkers"
+    );
 
     return (
         <ZodFormPageLayout
             schema={zodSchema}
             initValues={settings}
             isLoading={isLoadingSchema || isLoadingSettings}
-            onSubmit={(data) => console.log(data)}
-            isSubmitting={false}
-            title="Authority Linkers Config"
+            onSubmit={(data) => mutate(data)}
+            isSubmitting={isPending}
+            i18nNamespace="authority-linkers-config"
         />
     );
 };

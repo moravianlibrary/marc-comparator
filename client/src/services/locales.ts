@@ -7,7 +7,22 @@ i18n.use(HttpBackend)
     .init({
         lng: "cs",
         fallbackLng: "cs",
-        ns: ["common", "documents", "navbar"],
+        ns: [
+            "auth",
+            "authority-linkers-config",
+            "catalog-settings",
+            "common",
+            "comparators-config",
+            "home",
+            "navbar",
+            "notifications",
+            "records",
+            "records-addition",
+            "roles",
+            "system-maintenance",
+            "tasks-settings",
+            "validators-config",
+        ],
         defaultNS: "common",
         backend: {
             loadPath: "/locales/{{lng}}/{{ns}}.json",

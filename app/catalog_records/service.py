@@ -14,7 +14,7 @@ from .exceptions import (
 from .models import (
     FetchBatchOfRecordsData,
     FetchRecordData,
-    SetRecordsHiddenStateData,
+    SetRecordsVisibilityData,
     SyncRecordsData,
 )
 
@@ -107,15 +107,15 @@ async def reindex_records(
     )
 
 
-async def set_records_hidden_state(
-    data: SetRecordsHiddenStateData,
+async def set_records_visibility(
+    data: SetRecordsVisibilityData,
     created_by: str,
     db_session: DatabaseSession,
 ) -> TaskSchema:
     return await enqueue_task(
         Task(
             name=f"{'Hide' if data.hide else 'Unhide'} catalog records",
-            type=TaskType.SetRecordsHiddenState,
+            type=TaskType.SetRecordsVisibility,
             created_by=created_by,
             data=data.model_dump(),
         ),

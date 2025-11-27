@@ -198,6 +198,7 @@ class TestValidationTask:
     "task",
     "mock_validator_result",
     "validation",
+    "indexer_session",
 )
 class TestValidationTaskWithExistingValidation:
     @pytest.mark.asyncio
@@ -225,6 +226,7 @@ class TestValidationTaskWithExistingValidation:
     "catalog_record",
     "task",
     "mock_validator_result",
+    "indexer_session",
 )
 class TestValidationTaskNoSettingsFound:
     @pytest.mark.asyncio
@@ -240,6 +242,7 @@ class TestValidationTaskNoSettingsFound:
     "validation_settings",
     "task",
     "mock_no_validator",
+    "indexer_session",
 )
 class TestValidationTaskNoValidatorFound:
     @pytest.mark.asyncio
@@ -256,6 +259,7 @@ class TestValidationTaskNoValidatorFound:
     "task",
     "mock_validator_result",
     "task_settings_one_by_one",
+    "indexer_session",
 )
 class TestValidationTaskIndexingOneByOne:
     @pytest.mark.asyncio

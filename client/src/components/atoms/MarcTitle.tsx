@@ -2,7 +2,7 @@ import { Content, Stack, StackItem, Truncate } from "@patternfly/react-core";
 
 interface MarcTitleProps {
     title: string;
-    subtitle?: string;
+    subtitle?: string | null;
 }
 
 const MarcTitle = ({ title, subtitle }: MarcTitleProps) => {

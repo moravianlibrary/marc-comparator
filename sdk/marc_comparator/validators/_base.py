@@ -8,9 +8,9 @@ from pydantic import BaseModel
 
 class ValidityStatus(StrEnum):
     Valid = "Valid"
+    ForReview = "ForReview"
     Invalid = "Invalid"
-    Warning = "Warning"
-    Info = "Info"
+    AdditionalInfo = "AdditionalInfo"
 
 
 class ValidationTarget(BaseModel):

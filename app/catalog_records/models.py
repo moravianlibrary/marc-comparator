@@ -40,6 +40,6 @@ class SyncRecordsData(BaseModel):
     from_date: datetime | None = None
 
 
-class SetRecordsHiddenStateData(BaseModel):
+class SetRecordsVisibilityData(BaseModel):
     query: IndexerQuery
-    hide: bool = True
+    visible: bool = False

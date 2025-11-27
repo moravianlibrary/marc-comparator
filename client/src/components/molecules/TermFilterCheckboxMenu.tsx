@@ -28,6 +28,8 @@ const TermFilterCheckboxMenu = <T,>({
         data: { aggregations },
         dispatch,
     },
+    placeholder,
+    labelRender,
 }: TermFilterCheckboxMenuProps<T>): ReactElement => {
     const [isOpen, setIsOpen] = useState<boolean>(false);
     const toggleRef = useRef<HTMLButtonElement>(null);
@@ -111,7 +113,7 @@ const TermFilterCheckboxMenu = <T,>({
                         ),
                     })}
                 >
-                    Filter placeholder
+                    {placeholder}
                 </MenuToggle>
             }
             popperRef={menuRef}
@@ -140,7 +142,11 @@ const TermFilterCheckboxMenu = <T,>({
                                 >
                                     <Split hasGutter>
                                         <SplitItem isFilled>
-                                            {bucket.key}
+                                            {labelRender
+                                                ? labelRender(
+                                                      bucket.key.toString()
+                                                  )
+                                                : bucket.key}
                                         </SplitItem>
                                         <SplitItem>
                                             <Badge

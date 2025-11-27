@@ -1,34 +1,104 @@
 import { type ReactElement } from "react";
 import {
     Bullseye,
+    Card,
+    CardBody,
+    CardHeader,
     DescriptionList,
     DescriptionListDescription,
     DescriptionListGroup,
     DescriptionListTerm,
     HelperText,
+    Spinner,
 } from "@patternfly/react-core";
 import type { Validation } from "../../models/api/responses/validation";
 import ValidityHelperTextItem from "../atoms/ValidityHelperTextItem";
-import MarcDetailRow from "../molecules/MarcDetailRow";
 import MarcRecordTable from "./MarcRecordTable";
+import { useTranslation } from "react-i18next";
+import { useGetMarcRecord } from "../../hooks/useCatalogRecords";
+import type {
+    MarcRecord,
+    VariableField,
+} from "../../models/api/responses/marc_record";
 
 interface MarcValidationTableProps {
     base?: string;
     systemNumber?: string;
-    noRecordMessage?: string;
     validations?: Validation[];
     showOnlyTarget?: boolean;
+}
+
+function addEmptyTargetIfMissing(
+    record: MarcRecord,
+    validations: Validation[]
+): MarcRecord {
+    if (!validations || validations.length === 0) return record;
+
+    const tag = validations[0].target.tag;
+
+    if (tag < "010") {
+        if (tag in record.fixed_fields) return record;
+
+        const newFixedFields: Record<string, string> = {};
+
+        for (const fieldTag in record.fixed_fields) {
+            if (fieldTag > tag) {
+                newFixedFields[tag] = "-";
+            }
+            newFixedFields[fieldTag] = record.fixed_fields[fieldTag];
+        }
+
+        return {
+            ...record,
+            fixed_fields: newFixedFields,
+        };
+    }
+
+    if (tag in record.variable_fields) return record;
+
+    const newVariableFields: Record<string, VariableField[]> = {};
+
+    for (const fieldTag in record.variable_fields) {
+        if (fieldTag > tag) {
+            newVariableFields[tag] = [{ ind1: "-", ind2: "-", subfields: {} }];
+        }
+        newVariableFields[fieldTag] = record.variable_fields[fieldTag];
+    }
+
+    return {
+        ...record,
+        variable_fields: newVariableFields,
+    };
 }
 
 const MarcValidationTable = ({
     base,
     systemNumber,
-    noRecordMessage = "No MARC record available",
     validations,
     showOnlyTarget,
 }: MarcValidationTableProps): ReactElement => {
+    const { t } = useTranslation();
+
+    const { data: record, isLoading: isLoading } = useGetMarcRecord(
+        base || "",
+        systemNumber || "",
+        !!base && !!systemNumber
+    );
+
+    if (!record || isLoading) {
+        return (
+            <Bullseye>
+                <Spinner />
+            </Bullseye>
+        );
+    }
+
     if (!validations) {
-        return <Bullseye>No validations provided</Bullseye>;
+        return (
+            <Bullseye>
+                {t("records:details.validations.no-record-message")}
+            </Bullseye>
+        );
     }
 
     const validationsLookup = validations.reduce<
@@ -36,7 +106,7 @@ const MarcValidationTable = ({
     >((acc, validation) => {
         const tag = validation.target.tag;
 
-        if (validation.target.idx === undefined) {
+        if (!validation.target.idx) {
             acc[tag] = { 0: validation };
         } else {
             if (!acc[tag] || !(acc[tag] instanceof Object)) {
@@ -61,48 +131,58 @@ const MarcValidationTable = ({
         const validation = validationsLookup[tag][index];
 
         return (
-            <MarcDetailRow
-                key={`validation-${validation.target.tag}-${validation.target.idx}`}
-                showMoreContent={
-                    (validation.details || validation.hints) && (
+            <Card isCompact isPlain>
+                <CardHeader>
+                    <HelperText>
+                        <ValidityHelperTextItem
+                            status={validation.status}
+                            text={
+                                t(
+                                    `${validation.validator}:${validation.reason}`
+                                ) || t("records:details.validations.no-reason")
+                            }
+                        />
+                    </HelperText>
+                </CardHeader>
+                <CardBody>
+                    {(validation.details || validation.hint) && (
                         <DescriptionList isHorizontal>
                             {validation.details && (
                                 <DescriptionListGroup>
                                     <DescriptionListTerm>
-                                        Details
+                                        {t(
+                                            "records:details.validations.details"
+                                        )}
                                     </DescriptionListTerm>
                                     <DescriptionListDescription>
-                                        {validation.details}
+                                        {t(
+                                            `${validation.validator}:${validation.details}`
+                                        )}
                                     </DescriptionListDescription>
                                 </DescriptionListGroup>
                             )}
-                            {validation.hints && (
+                            {validation.hint && (
                                 <DescriptionListGroup>
                                     <DescriptionListTerm>
-                                        Hints
+                                        {t("records:details.validations.hint")}
                                     </DescriptionListTerm>
                                     <DescriptionListDescription>
-                                        {validation.hints}
+                                        {t(
+                                            `${validation.validator}:${validation.hint}`
+                                        )}
                                     </DescriptionListDescription>
                                 </DescriptionListGroup>
                             )}
                         </DescriptionList>
-                    )
-                }
-            >
-                <HelperText>
-                    <ValidityHelperTextItem
-                        status={validation.status}
-                        text={validation.reason || "No reason provided"}
-                    />
-                </HelperText>
-            </MarcDetailRow>
+                    )}
+                </CardBody>
+            </Card>
         );
     };
 
     return (
         <MarcRecordTable
-            base={base}
+            record={addEmptyTargetIfMissing(record, validations)}
             systemNumber={systemNumber}
             includeOnlyFields={
                 showOnlyTarget
@@ -110,7 +190,7 @@ const MarcValidationTable = ({
                     : undefined
             }
             renderFieldDetail={renderValidationDetail}
-            noRecordMessage={noRecordMessage}
+            noRecordMessage={t("records:details.validations.no-record-message")}
         />
     );
 };

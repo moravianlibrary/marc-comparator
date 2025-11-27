@@ -1,4 +1,4 @@
-import { ReactElement, useState } from "react";
+import { type ReactElement, useState } from "react";
 import {
     InnerScrollContainer,
     OuterScrollContainer,
@@ -20,6 +20,7 @@ import {
     ActionListGroup,
     ActionListItem,
     Button,
+    Content,
     Label,
     LabelGroup,
     Modal,
@@ -27,17 +28,22 @@ import {
     ModalFooter,
     ModalHeader,
     ModalVariant,
+    PageGroup,
+    PageSection,
     Pagination,
     Toolbar,
     ToolbarContent,
     ToolbarItem,
 } from "@patternfly/react-core";
 import { PencilAltIcon, TrashIcon } from "@patternfly/react-icons";
-import EditRoleForm from "./role-management/EditRoleForm";
+import EditRoleForm from "../components/roles/organisms/EditRoleForm";
 import { type RoleResponse } from "../models/api/responses/roles";
 import { type EditRole } from "../models/api/requests/roles";
+import { useTranslation } from "react-i18next";
 
 const RoleManagement = (): ReactElement => {
+    const { t } = useTranslation("roles");
+
     const [page, setPage] = useState<number>(1);
     const [pageSize, setPageSize] = useState<number>(10);
     const [editRole, setEditRole] = useState<Partial<RoleResponse> | null>(
@@ -71,59 +77,89 @@ const RoleManagement = (): ReactElement => {
     };
 
     return (
-        <OuterScrollContainer
-            style={{
-                marginLeft: 20,
-                marginRight: 20,
-                marginTop: 10,
-                marginBottom: 10,
-            }}
-        >
-            <Toolbar>
-                <ToolbarContent>
-                    <ToolbarItem align={{ default: "alignStart" }}>
-                        <Button
-                            variant="primary"
-                            onClick={() =>
-                                setEditRole({ name: "", permissions: [] })
-                            }
-                        >
-                            Add Role
-                        </Button>
-                    </ToolbarItem>
-                    {(rolesPage?.num_found || 0) > 10 && (
-                        <ToolbarItem align={{ default: "alignEnd" }}>
-                            <Pagination
-                                perPageOptions={[
-                                    { title: "10", value: 10 },
-                                    { title: "20", value: 20 },
-                                    { title: "50", value: 50 },
-                                ]}
-                                itemCount={rolesPage?.num_found || 0}
-                                perPage={pageSize}
-                                page={page}
-                                onSetPage={(_event, newPage, newPerPage) =>
-                                    handlePaginationChange(newPage, newPerPage)
-                                }
-                                onPerPageSelect={(
-                                    _event,
-                                    newPerPage,
-                                    newPage
-                                ) =>
-                                    handlePaginationChange(newPage, newPerPage)
-                                }
-                            />
-                        </ToolbarItem>
-                    )}
-                </ToolbarContent>
-            </Toolbar>
-            <InnerScrollContainer>
+        <OuterScrollContainer>
+            <PageGroup stickyOnBreakpoint={{ default: "top" }}>
+                <PageSection>
+                    <Content>
+                        <h1>{t("role-management-title")}</h1>
+                    </Content>
+                </PageSection>
+            </PageGroup>
+            <PageGroup stickyOnBreakpoint={{ default: "top" }}>
+                <PageSection>
+                    <Toolbar>
+                        <ToolbarContent rowWrap={{ default: "nowrap" }}>
+                            <ToolbarItem align={{ default: "alignStart" }}>
+                                <Button
+                                    variant="primary"
+                                    onClick={() =>
+                                        setEditRole({
+                                            name: "",
+                                            permissions: [],
+                                        })
+                                    }
+                                >
+                                    {t("create-role-button")}
+                                </Button>
+                            </ToolbarItem>
+                            {(rolesPage?.num_found || 0) > 10 && (
+                                <ToolbarItem align={{ default: "alignEnd" }}>
+                                    <Pagination
+                                        perPageOptions={[
+                                            { title: "10", value: 10 },
+                                            { title: "20", value: 20 },
+                                            { title: "50", value: 50 },
+                                        ]}
+                                        itemCount={rolesPage?.num_found || 0}
+                                        perPage={pageSize}
+                                        page={page}
+                                        onSetPage={(
+                                            _event,
+                                            newPage,
+                                            newPerPage
+                                        ) =>
+                                            handlePaginationChange(
+                                                newPage,
+                                                newPerPage
+                                            )
+                                        }
+                                        onPerPageSelect={(
+                                            _event,
+                                            newPerPage,
+                                            newPage
+                                        ) =>
+                                            handlePaginationChange(
+                                                newPage,
+                                                newPerPage
+                                            )
+                                        }
+                                        titles={{
+                                            perPageSuffix: t(
+                                                "pagination.per-page-suffix"
+                                            ),
+                                            ofWord: t("pagination.of"),
+                                        }}
+                                    />
+                                </ToolbarItem>
+                            )}
+                        </ToolbarContent>
+                    </Toolbar>
+                </PageSection>
+            </PageGroup>
+            <InnerScrollContainer
+                style={{
+                    marginLeft: 20,
+                    marginRight: 20,
+                    marginTop: 10,
+                    marginBottom: 10,
+                }}
+            >
                 <Table isStickyHeader>
                     <Thead>
                         <Tr>
-                            <Th>Name</Th>
-                            <Th>Permissions</Th>
-                            <Th>Actions</Th>
+                            <Th>{t("fields.name")}</Th>
+                            <Th>{t("fields.permissions")}</Th>
+                            <Th>{t("fields.actions")}</Th>
                         </Tr>
                     </Thead>
                     <Tbody>
@@ -137,7 +173,7 @@ const RoleManagement = (): ReactElement => {
                                                 key={permission}
                                                 variant="outline"
                                             >
-                                                {permission}
+                                                {t(`permissions.${permission}`)}
                                             </Label>
                                         ))}
                                     </LabelGroup>
@@ -186,7 +222,11 @@ const RoleManagement = (): ReactElement => {
                 aria-describedby="modal-box-body-with-dropdown"
             >
                 <ModalHeader
-                    title="Dropdown modal"
+                    title={
+                        editRole?.id
+                            ? t("edit-role-title")
+                            : t("create-role-title")
+                    }
                     labelId="modal-with-dropdown"
                 />
                 <ModalBody id="modal-box-body-with-dropdown">
@@ -195,6 +235,7 @@ const RoleManagement = (): ReactElement => {
                             name: editRole?.name || "",
                             permissions: editRole?.permissions || [],
                         }}
+                        isNewRole={!editRole?.id}
                         isProtected={editRole?.protected || false}
                         onSubmit={handleEditRoleSubmit}
                         onCancel={() => setEditRole(null)}
@@ -210,13 +251,14 @@ const RoleManagement = (): ReactElement => {
                 aria-describedby="modal-box-body-with-delete-confirmation"
             >
                 <ModalHeader
-                    title="Confirm Delete"
+                    title={t("confirm-delete-title")}
                     labelId="modal-with-delete-confirmation"
                 />
                 <ModalBody id="modal-box-body-with-delete-confirmation">
                     <p>
-                        Are you sure you want to delete the role "
-                        {deleteRole?.name}"?
+                        {t("confirm-delete-message", {
+                            roleName: deleteRole?.name,
+                        })}
                     </p>
                 </ModalBody>
                 <ModalFooter>
@@ -233,7 +275,7 @@ const RoleManagement = (): ReactElement => {
                                         setDeleteRole(null);
                                     }}
                                 >
-                                    Delete
+                                    {t("confirm-delete-button")}
                                 </Button>
                             </ActionListItem>
                             <ActionListItem>
@@ -241,7 +283,7 @@ const RoleManagement = (): ReactElement => {
                                     variant="link"
                                     onClick={() => setDeleteRole(null)}
                                 >
-                                    Cancel
+                                    {t("cancel-delete-button")}
                                 </Button>
                             </ActionListItem>
                         </ActionListGroup>

@@ -8,8 +8,10 @@ import {
 import apiClient from "../services/apiClient";
 import { type EsQuery } from "../models/api/requests/es_query";
 import {
+    EsHitTaskSchema,
     SearchTasksResponseSchema,
     TaskSchema,
+    type EsHitTask,
     type SearchTasksResponse,
     type Task,
     type TracebackLinesRequestParams,
@@ -31,6 +33,31 @@ export const useSearchTasks = (
             SearchTasksResponseSchema.parse(
                 (await apiClient.post(`/tasks/search-${target}`, request)).data
             ),
+        enabled,
+    });
+
+export const useGetTask = (
+    id: string,
+    enabled = true,
+    target: "all" | "own" = "own"
+) =>
+    useQuery<EsHitTask | undefined>({
+        queryKey: ["tasks", "get", id],
+        queryFn: async () => {
+            const hit = (
+                await apiClient.post(`/tasks/search-${target}`, {
+                    query: { term: { _id: id } },
+                })
+            ).data?.hits?.hits?.[0];
+
+            if (!hit) return undefined;
+
+            const parsed = EsHitTaskSchema.safeParse(hit);
+            if (!parsed.success) {
+                throw new Error("Failed to parse task data");
+            }
+            return parsed.data;
+        },
         enabled,
     });
 
@@ -110,7 +137,7 @@ export const useCreateTask = <T>(path: string) => {
             addTaskCreatedNotification(taskData);
             // Invalidate
             useQueryClient().invalidateQueries({
-                queryKey: ["tasks"],
+                queryKey: ["catalog-records", "tasks"],
                 exact: false,
             });
         },
@@ -129,7 +156,9 @@ export const useRevokeTask = () =>
                 queryKey: ["tasks"],
                 exact: false,
             });
-            useQueryClient().refetchQueries({ queryKey: ["tasks", "search"] });
+            useQueryClient().invalidateQueries({
+                queryKey: ["tasks", "search"],
+            });
         },
     });
 

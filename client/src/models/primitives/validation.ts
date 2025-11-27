@@ -2,8 +2,8 @@ import { z } from "zod";
 
 export const ValidityStatusSchema = z.enum([
     "Valid",
+    "ForReview",
     "Invalid",
-    "Warning",
-    "Info",
+    "AdditionalInfo",
 ]);
 export type ValidityStatus = z.infer<typeof ValidityStatusSchema>;

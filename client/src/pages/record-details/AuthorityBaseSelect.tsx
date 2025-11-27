@@ -1,6 +1,4 @@
-import type { ReactElement } from "react";
-import type { CatalogRecord } from "../../models/api/responses/catalog_record";
-import type { EsHit } from "../../models/api/responses/es";
+import { type ReactElement } from "react";
 import {
     Split,
     SplitItem,
@@ -8,19 +6,22 @@ import {
     FormSelect,
     FormSelectOption,
 } from "@patternfly/react-core";
+import type { AuthorityLink } from "../../models/api/responses/authority_link";
+import { useTranslation } from "react-i18next";
 
 interface AuthorityBaseSelectProps {
-    record: EsHit<CatalogRecord>;
+    authorityLinks: AuthorityLink[];
     base: string | null;
     onSubmit: (base: string) => void;
 }
 
 const AuthorityBaseSelect = ({
-    record,
+    authorityLinks,
     base,
     onSubmit,
-}: AuthorityBaseSelectProps): ReactElement => {
-    console.log("AuthorityBaseSelect render with base:", base);
+}: AuthorityBaseSelectProps): ReactElement | null => {
+    const { t } = useTranslation();
+
     return (
         <Form isHorizontal onSubmit={(e) => e.preventDefault()}>
             <Split hasGutter>
@@ -28,16 +29,18 @@ const AuthorityBaseSelect = ({
                     <FormSelect
                         id="authority-base-select"
                         value={base || ""}
-                        onChange={(_, value) => onSubmit(value)}
-                        placeholder="Select authority base"
+                        onChange={(_, value) => value && onSubmit(value)}
                     >
-                        <FormSelectOption
-                            key="empty"
-                            value=""
-                            label="Select authority base"
-                            isPlaceholder
-                        />
-                        {record._source.authority_links
+                        {base === null ? (
+                            <FormSelectOption
+                                key="placeholder"
+                                label={t(
+                                    "records:details.authority-links.select-base-placeholder"
+                                )}
+                                isPlaceholder
+                            />
+                        ) : null}
+                        {authorityLinks
                             ?.filter(
                                 (item, index, arr) =>
                                     arr.findIndex(

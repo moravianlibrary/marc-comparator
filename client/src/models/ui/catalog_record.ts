@@ -3,9 +3,8 @@ import type { CatalogRecordState } from "../primitives/catalog_record";
 const STATE_RANKING: Record<CatalogRecordState, number> = {
     Active: 1,
     Deleted: 2,
-    Valid: 3,
-    Invalid: 4,
-    Hidden: 5,
+    Hidden: 3,
+    Visible: 4,
 };
 
 export function stateOrder(
@@ -15,19 +14,15 @@ export function stateOrder(
     return STATE_RANKING[a] - STATE_RANKING[b];
 }
 
-const STATE_COLOR_MAP: Record<
-    CatalogRecordState,
-    "teal" | "grey" | "green" | "red" | "blue"
-> = {
+const STATE_COLOR_MAP: Record<CatalogRecordState, "teal" | "grey" | "blue"> = {
     Active: "teal",
     Deleted: "grey",
-    Valid: "green",
-    Invalid: "red",
     Hidden: "blue",
+    Visible: "blue",
 };
 
 export function stateColor(
     state: CatalogRecordState
-): "teal" | "grey" | "green" | "red" | "blue" {
+): "teal" | "grey" | "blue" {
     return STATE_COLOR_MAP[state];
 }

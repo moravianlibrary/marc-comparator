@@ -4,6 +4,7 @@ from typing import Type
 from ._base import (
     BaseComparator,
     FieldComparisonResult,
+    MatchQuality,
     RecordComparisonResult,
     SubfieldComparisonResult,
 )
@@ -25,6 +26,7 @@ __all__ = [
     "FieldComparisonResult",
     "IntiimComparator",
     "IntiimComparatorConfig",
+    "MatchQuality",
     "RecordComparisonResult",
     "SubfieldComparisonResult",
 ]

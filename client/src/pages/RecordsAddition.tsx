@@ -24,11 +24,14 @@ import {
     useSyncRecords,
 } from "../hooks/useCatalogRecords";
 import CatalogBaseSelector from "../components/organisms/CatalogBaseSelector";
+import { useTranslation } from "react-i18next";
 
 // ------------------------------------
 // Add One Record Card
 // ------------------------------------
 const AddOneRecordCard = (): ReactElement => {
+    const { t } = useTranslation("records-addition");
+
     const addOneRecord = useAddOneRecord();
 
     const [base, setBase] = useState<string | null>(null);
@@ -44,13 +47,10 @@ const AddOneRecordCard = (): ReactElement => {
 
     return (
         <Card>
-            <CardTitle>Add One Record</CardTitle>
+            <CardTitle>{t("add-one-record.title")}</CardTitle>
             <CardBody>
                 <Content>
-                    <p>
-                        Add a single record to the database by selecting a base
-                        and entering the system number.
-                    </p>
+                    <p>{t("add-one-record.description")}</p>
                 </Content>
             </CardBody>
 
@@ -59,14 +59,16 @@ const AddOneRecordCard = (): ReactElement => {
                     <CatalogBaseSelector selected={base} onChange={setBase} />
                     <DescriptionListGroup>
                         <DescriptionListTerm>
-                            Enter system number
+                            {t("add-one-record.enter-system-number")}
                         </DescriptionListTerm>
                         <DescriptionListDescription>
                             <TextInput
                                 id="system-number-input"
                                 value={systemNumber}
                                 type="text"
-                                placeholder="Enter system number"
+                                placeholder={t(
+                                    "add-one-record.enter-system-number"
+                                )}
                                 onChange={(_, value) => setSystemNumber(value)}
                                 validated={
                                     systemNumber
@@ -87,7 +89,7 @@ const AddOneRecordCard = (): ReactElement => {
                     isDisabled={!base || !isValidSystemNumber}
                     onClick={handleAddRecord}
                 >
-                    Add Record
+                    {t("add-one-record.add-button")}
                 </Button>
             </CardFooter>
         </Card>
@@ -98,6 +100,8 @@ const AddOneRecordCard = (): ReactElement => {
 // Add Batch of Records Card
 // ------------------------------------
 const AddBatchOfRecordsCard = (): ReactElement => {
+    const { t } = useTranslation("records-addition");
+
     const addBatchRecords = useAddBatchOfRecords();
 
     const [base, setBase] = useState<string | null>(null);
@@ -130,13 +134,10 @@ const AddBatchOfRecordsCard = (): ReactElement => {
 
     return (
         <Card>
-            <CardTitle>Add Batch of Records</CardTitle>
+            <CardTitle>{t("add-batch-of-records.title")}</CardTitle>
             <CardBody>
                 <Content>
-                    <p>
-                        Add multiple records to the database by selecting a base
-                        and uploading a file containing system numbers.
-                    </p>
+                    <p>{t("add-batch-of-records.description")}</p>
                 </Content>
             </CardBody>
 
@@ -145,7 +146,7 @@ const AddBatchOfRecordsCard = (): ReactElement => {
                     <CatalogBaseSelector selected={base} onChange={setBase} />
                     <DescriptionListGroup>
                         <DescriptionListTerm>
-                            Upload system numbers file
+                            {t("add-batch-of-records.upload-file")}
                         </DescriptionListTerm>
                         <DescriptionListDescription>
                             <FileUpload
@@ -153,7 +154,9 @@ const AddBatchOfRecordsCard = (): ReactElement => {
                                 type="text"
                                 value={value}
                                 filename={filename}
-                                filenamePlaceholder="Drag and drop a file or upload one"
+                                filenamePlaceholder={t(
+                                    "add-batch-of-records.upload-file-placeholder"
+                                )}
                                 onFileInputChange={(_, file) =>
                                     setFilename(file.name)
                                 }
@@ -164,7 +167,12 @@ const AddBatchOfRecordsCard = (): ReactElement => {
                                 onClearClick={clearFile}
                                 isLoading={isUploading}
                                 allowEditingUploadedText
-                                browseButtonText="Upload"
+                                browseButtonText={t(
+                                    "add-batch-of-records.browse-button"
+                                )}
+                                clearButtonText={t(
+                                    "add-batch-of-records.clear-button"
+                                )}
                                 validated={
                                     value
                                         ? hasValidSystemNumbers
@@ -184,7 +192,7 @@ const AddBatchOfRecordsCard = (): ReactElement => {
                     isDisabled={!base || !value || !hasValidSystemNumbers}
                     onClick={handleAddRecords}
                 >
-                    Add Records
+                    {t("add-batch-of-records.add-button")}
                 </Button>
             </CardFooter>
         </Card>
@@ -195,6 +203,8 @@ const AddBatchOfRecordsCard = (): ReactElement => {
 // Sync Records from Catalog Card
 // ------------------------------------
 const SyncRecordsFromCatalogCard = (): ReactElement => {
+    const { t } = useTranslation("records-addition");
+
     const syncRecords = useSyncRecords();
 
     const [base, setBase] = useState<string | null>(null);
@@ -209,14 +219,10 @@ const SyncRecordsFromCatalogCard = (): ReactElement => {
 
     return (
         <Card>
-            <CardTitle>Sync Records from Catalog</CardTitle>
+            <CardTitle>{t("sync-from-catalog.title")}</CardTitle>
             <CardBody>
                 <Content>
-                    <p>
-                        Sync records from the external catalog into the local
-                        database by selecting a base and optionally providing a
-                        start date.
-                    </p>
+                    <p>{t("sync-from-catalog.description")}</p>
                 </Content>
             </CardBody>
 
@@ -225,7 +231,7 @@ const SyncRecordsFromCatalogCard = (): ReactElement => {
                     <CatalogBaseSelector selected={base} onChange={setBase} />
                     <DescriptionListGroup>
                         <DescriptionListTerm>
-                            From Date (optional)
+                            {t("sync-from-catalog.from-date")}
                         </DescriptionListTerm>
                         <DescriptionListDescription>
                             <div
@@ -237,7 +243,9 @@ const SyncRecordsFromCatalogCard = (): ReactElement => {
                             >
                                 <DatePicker
                                     value={fromDate?.toISOString().slice(0, 10)}
-                                    placeholder="Select from date"
+                                    placeholder={t(
+                                        "sync-from-catalog.from-date-placeholder"
+                                    )}
                                     appendTo={() => document.body}
                                     validators={[validateDate]}
                                     onChange={(_, __, newDate) =>
@@ -262,7 +270,7 @@ const SyncRecordsFromCatalogCard = (): ReactElement => {
                     isDisabled={!base}
                     onClick={handleSyncRecords}
                 >
-                    Sync Records
+                    {t("sync-from-catalog.sync-button")}
                 </Button>
             </CardFooter>
         </Card>
@@ -272,43 +280,45 @@ const SyncRecordsFromCatalogCard = (): ReactElement => {
 // ------------------------------------
 // Main Page
 // ------------------------------------
-const RecordsAddition = (): ReactElement => (
-    <>
-        <PageGroup stickyOnBreakpoint={{ default: "top" }}>
-            <PageSection>
-                <Content>
-                    <h1>Records Addition</h1>
-                    <p>
-                        Add, batch upload, or sync records for selected bases.
-                    </p>
-                </Content>
-            </PageSection>
-        </PageGroup>
+const RecordsAddition = (): ReactElement => {
+    const { t } = useTranslation("records-addition");
 
-        <PageSection isFilled>
-            <Gallery
-                hasGutter
-                minWidths={{
-                    default: "500px",
-                    sm: "100%",
-                    md: "500px",
-                    lg: "500px",
-                    xl: "600px",
-                }}
-                maxWidths={{
-                    default: "1fr",
-                    sm: "100%",
-                    md: "1fr",
-                    lg: "1fr",
-                    xl: "1fr",
-                }}
-            >
-                <AddOneRecordCard />
-                <AddBatchOfRecordsCard />
-                <SyncRecordsFromCatalogCard />
-            </Gallery>
-        </PageSection>
-    </>
-);
+    return (
+        <>
+            <PageGroup stickyOnBreakpoint={{ default: "top" }}>
+                <PageSection>
+                    <Content>
+                        <h1>{t("title")}</h1>
+                        <p>{t("description")}</p>
+                    </Content>
+                </PageSection>
+            </PageGroup>
+
+            <PageSection isFilled>
+                <Gallery
+                    hasGutter
+                    minWidths={{
+                        default: "500px",
+                        sm: "100%",
+                        md: "500px",
+                        lg: "500px",
+                        xl: "600px",
+                    }}
+                    maxWidths={{
+                        default: "1fr",
+                        sm: "100%",
+                        md: "1fr",
+                        lg: "1fr",
+                        xl: "1fr",
+                    }}
+                >
+                    <AddOneRecordCard />
+                    <AddBatchOfRecordsCard />
+                    <SyncRecordsFromCatalogCard />
+                </Gallery>
+            </PageSection>
+        </>
+    );
+};
 
 export default RecordsAddition;

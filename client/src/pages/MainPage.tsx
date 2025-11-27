@@ -35,6 +35,7 @@ import ValidatorsConfigPage from "./ValidatorsConfigPage";
 import ComparatorsConfigPage from "./ComparatorsConfigPage";
 import AuthorityLinkersConfigPage from "./AuthorityLinkersConfigPage";
 import HomePage from "./Home";
+import TasksDetailsPage from "./TaskDetails";
 
 interface NavigationItem {
     itemId: string;
@@ -81,7 +82,11 @@ const NAVIGATION_CONFIG: (NavigationGroup | NavigationItem)[] = [
         items: [
             { itemId: "table", to: "/tasks/table", element: <TasksTable /> },
             // TODO: Medium priority - implement task traceback page
-            // { itemId: "traceback", to: "/tasks/traceback" },
+            {
+                itemId: "details",
+                to: "/tasks/details",
+                element: <TasksDetailsPage />,
+            },
         ],
     },
     {

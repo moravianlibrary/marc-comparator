@@ -8,7 +8,7 @@ import type { EsQuery } from "../models/api/requests/es_query";
 import type {
     AddBatchOfRecordsData,
     AddOneRecordData,
-    SetHiddenStateData,
+    SetRecordsVisibilityData,
     SyncRecordsData,
 } from "../models/api/requests/catalog_record";
 import {
@@ -133,5 +133,5 @@ export const useSyncRecords = () =>
 export const useReindexRecords = () =>
     useCreateTask<EsQuery>("/catalog-records/reindex");
 
-export const useSetHiddenStateOfRecords = () =>
-    useCreateTask<SetHiddenStateData>("/catalog-records/hidden-state");
+export const useSetRecordsVisibility = () =>
+    useCreateTask<SetRecordsVisibilityData>("/catalog-records/visibility");

@@ -1,0 +1,18 @@
+{
+    "user-management-title": "Správa uživatelů",
+    "search-by-email-placeholder": "Hledat uživatele podle e-mailu",
+    "fields": {
+        "id": "ID",
+        "email": "E-mail",
+        "first-name": "Jméno",
+        "last-name": "Příjmení",
+        "roles": "Role",
+        "assigned-roles": "Přiřazené role",
+        "available-roles": "Dostupné role"
+    },
+    "edit-roles-menu-placeholder": "Spravovat role",
+    "pagination": {
+        "per-page-suffix": "uživatelů na stránku",
+        "of": "z"
+    }
+}

@@ -18,6 +18,7 @@ import LoadingState from "../components/atoms/LoadingState";
 import type { SystemInfo } from "../models/api/responses/system";
 import { useSearchCatalogRecords } from "../hooks/useCatalogRecords";
 import type { EsTermsAggregation } from "../models/api/responses/es_aggregations";
+import { useTranslation } from "react-i18next";
 
 function formatDuration(sec: number) {
     const d = Math.floor(sec / 86400);
@@ -33,6 +34,7 @@ const SystemInfoDescription = ({
 }: {
     systemInfo: SystemInfo;
 }): ReactElement => {
+    const { t } = useTranslation();
     const renderListField = (values: string[]) => (
         <LabelGroup>
             {values.map((v) => (
@@ -46,38 +48,45 @@ const SystemInfoDescription = ({
             isHorizontal
             isCompact
             horizontalTermWidthModifier={{
-                default: "12ch",
-                sm: "15ch",
-                md: "20ch",
+                sm: "20ch",
+                md: "25ch",
             }}
         >
             <DescriptionListGroup key="system-version">
-                <DescriptionListTerm>Version</DescriptionListTerm>
+                <DescriptionListTerm>
+                    {t("home:system-info.system-version")}
+                </DescriptionListTerm>
                 <DescriptionListDescription>
                     {systemInfo.system_version}
                 </DescriptionListDescription>
             </DescriptionListGroup>
             <DescriptionListGroup key="system-commit">
-                <DescriptionListTerm>Commit</DescriptionListTerm>
+                <DescriptionListTerm>
+                    {t("home:system-info.system-commit")}
+                </DescriptionListTerm>
                 <DescriptionListDescription>
                     {systemInfo.system_commit}
                 </DescriptionListDescription>
             </DescriptionListGroup>
             <DescriptionListGroup key="uptime">
-                <DescriptionListTerm>Uptime</DescriptionListTerm>
+                <DescriptionListTerm>
+                    {t("home:system-info.system-uptime")}
+                </DescriptionListTerm>
                 <DescriptionListDescription>
                     {formatDuration(systemInfo.uptime_seconds)}
                 </DescriptionListDescription>
             </DescriptionListGroup>
             <DescriptionListGroup key="available-bases">
-                <DescriptionListTerm>Available Bases</DescriptionListTerm>
+                <DescriptionListTerm>
+                    {t("home:system-info.available-bases")}
+                </DescriptionListTerm>
                 <DescriptionListDescription>
                     {renderListField(systemInfo.available_bases)}
                 </DescriptionListDescription>
             </DescriptionListGroup>
             <DescriptionListGroup key="enabled-authority-linkers">
                 <DescriptionListTerm>
-                    Enabled Authority Linkers
+                    {t("home:system-info.enabled-authority-linkers")}
                 </DescriptionListTerm>
                 <DescriptionListDescription>
                     {renderListField(
@@ -86,13 +95,17 @@ const SystemInfoDescription = ({
                 </DescriptionListDescription>
             </DescriptionListGroup>
             <DescriptionListGroup key="enabled-comparators">
-                <DescriptionListTerm>Enabled Comparators</DescriptionListTerm>
+                <DescriptionListTerm>
+                    {t("home:system-info.enabled-comparators")}
+                </DescriptionListTerm>
                 <DescriptionListDescription>
                     {renderListField(systemInfo.enabled_comparators)}
                 </DescriptionListDescription>
             </DescriptionListGroup>
             <DescriptionListGroup key="enabled-validators">
-                <DescriptionListTerm>Enabled Validators</DescriptionListTerm>
+                <DescriptionListTerm>
+                    {t("home:system-info.enabled-validators")}
+                </DescriptionListTerm>
                 <DescriptionListDescription>
                     {renderListField(systemInfo.enabled_validators)}
                 </DescriptionListDescription>
@@ -106,12 +119,23 @@ const CatalogRecordsDescription = ({
 }: {
     stateAggs?: EsTermsAggregation;
 }): ReactElement | null => {
+    const { t } = useTranslation();
+
     if (!stateAggs) return null;
 
     return (
-        <DescriptionList isHorizontal isCompact>
+        <DescriptionList
+            isHorizontal
+            isCompact
+            horizontalTermWidthModifier={{
+                sm: "16ch",
+                md: "20ch",
+            }}
+        >
             <DescriptionListGroup key="total-records">
-                <DescriptionListTerm>Total Records</DescriptionListTerm>
+                <DescriptionListTerm>
+                    {t("home:catalog-records-overview.total-records")}
+                </DescriptionListTerm>
                 <DescriptionListDescription>
                     {(stateAggs.sum_other_doc_count || 0) +
                         stateAggs.buckets.reduce(
@@ -121,7 +145,9 @@ const CatalogRecordsDescription = ({
                 </DescriptionListDescription>
             </DescriptionListGroup>
             <DescriptionListGroup key="active-records">
-                <DescriptionListTerm>Active Records</DescriptionListTerm>
+                <DescriptionListTerm>
+                    {t("home:catalog-records-overview.active-records")}
+                </DescriptionListTerm>
                 <DescriptionListDescription>
                     {
                         stateAggs.buckets.find(
@@ -131,7 +157,9 @@ const CatalogRecordsDescription = ({
                 </DescriptionListDescription>
             </DescriptionListGroup>
             <DescriptionListGroup key="deleted-records">
-                <DescriptionListTerm>Deleted Records</DescriptionListTerm>
+                <DescriptionListTerm>
+                    {t("home:catalog-records-overview.deleted-records")}
+                </DescriptionListTerm>
                 <DescriptionListDescription>
                     {stateAggs.buckets.find(
                         (bucket) => bucket.key === "Deleted"
@@ -139,7 +167,9 @@ const CatalogRecordsDescription = ({
                 </DescriptionListDescription>
             </DescriptionListGroup>
             <DescriptionListGroup key="hidden-records">
-                <DescriptionListTerm>Hidden Records</DescriptionListTerm>
+                <DescriptionListTerm>
+                    {t("home:catalog-records-overview.hidden-records")}
+                </DescriptionListTerm>
                 <DescriptionListDescription>
                     {stateAggs.buckets.find((bucket) => bucket.key === "Hidden")
                         ?.doc_count || 0}
@@ -150,6 +180,7 @@ const CatalogRecordsDescription = ({
 };
 
 const HomePage = (): ReactElement => {
+    const { t } = useTranslation();
     const { data: systemInfo, isLoading: isLoadingSystemInfo } =
         useGetSystemInfo();
     const { data: catalogRecordAggs, isLoading: isLoadingCatalogRecords } =
@@ -172,7 +203,6 @@ const HomePage = (): ReactElement => {
         );
     }
 
-    console.log(catalogRecordAggs);
     return (
         <PageSection>
             <Gallery
@@ -181,7 +211,7 @@ const HomePage = (): ReactElement => {
             >
                 <GalleryItem>
                     <Card>
-                        <CardTitle>System Information</CardTitle>
+                        <CardTitle>{t("home:system-info.title")}</CardTitle>
                         <CardBody>
                             <SystemInfoDescription systemInfo={systemInfo!} />
                         </CardBody>
@@ -189,7 +219,9 @@ const HomePage = (): ReactElement => {
                 </GalleryItem>
                 <GalleryItem>
                     <Card>
-                        <CardTitle>Catalog Records Overview</CardTitle>
+                        <CardTitle>
+                            {t("home:catalog-records-overview.title")}
+                        </CardTitle>
                         <CardBody>
                             <CatalogRecordsDescription
                                 stateAggs={

@@ -1,6 +1,7 @@
 import { Label } from "@patternfly/react-core";
 import type { ReactElement } from "react";
-import type { TaskStatus } from "../../models/primitives/task";
+import type { TaskStatus } from "../../../models/primitives/task";
+import { useTranslation } from "react-i18next";
 
 interface TaskStatusLabelProps {
     status: TaskStatus;
@@ -18,7 +19,11 @@ const STATUS_COLOR_MAP: Record<
 };
 
 const TaskStatusLabel = ({ status }: TaskStatusLabelProps): ReactElement => {
-    return <Label color={STATUS_COLOR_MAP[status]}>{status}</Label>;
+    const { t } = useTranslation("tasks");
+
+    return (
+        <Label color={STATUS_COLOR_MAP[status]}>{t(`status.${status}`)}</Label>
+    );
 };
 
 export default TaskStatusLabel;

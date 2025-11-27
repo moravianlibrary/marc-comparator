@@ -83,7 +83,7 @@ SETTINGS_JSON=$(cat <<'EOF'
 EOF
 )
 
-http POST "$APP_URL/settings/tasks/AuthorityLinking" \
+http POST "$APP_URL/settings/record-tools/authority-linkers" \
   Content-Type:application/json \
   "Authorization: Bearer $ADMIN_TOKEN" \
   <<< "$SETTINGS_JSON"
@@ -125,7 +125,7 @@ SETTINGS_JSON=$(cat <<'EOF'
 EOF
 )
 
-http POST "$APP_URL/settings/tasks/Comparison" \
+http POST "$APP_URL/settings/record-tools/comparators" \
     Content-Type:application/json \
     "Authorization: Bearer $ADMIN_TOKEN" \
     <<< "$SETTINGS_JSON"
@@ -148,7 +148,7 @@ SETTINGS_JSON=$(cat <<'EOF'
 EOF
 )
 
-http POST "$APP_URL/settings/tasks/Validation" \
+http POST "$APP_URL/settings/record-tools/validators" \
     Content-Type:application/json \
     "Authorization: Bearer $ADMIN_TOKEN" \
     <<< "$SETTINGS_JSON"
@@ -210,7 +210,7 @@ print_step "Run comparison task"
 
 COMPARISON_TASK_JSON=$(cat <<'EOF'
 {
-  "comparator": "rule-based",
+  "comparator": "intiim",
   "target_base": "SKC",
   "query": {
     "query": {
@@ -310,7 +310,7 @@ HIDE_RECORD_TASK_JSON=$(cat <<'EOF'
 EOF
 )
 
-http POST "$APP_URL/catalog-records/hidden-state" \
+http POST "$APP_URL/catalog-records/visibility" \
     "Authorization: Bearer $ADMIN_TOKEN" \
     Content-Type:application/json \
     <<< "$HIDE_RECORD_TASK_JSON"

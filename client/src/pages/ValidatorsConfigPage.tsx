@@ -1,6 +1,10 @@
 import type { ReactElement } from "react";
 import ZodFormPageLayout from "../components/templates/ZodFormPageLayout";
-import { useGetSettings, useGetSettingsZodSchema } from "../hooks/useSettings";
+import {
+    useGetSettings,
+    useGetSettingsZodSchema,
+    useSetSettings,
+} from "../hooks/useSettings";
 
 const ValidatorsConfigPage = (): ReactElement => {
     const { zodSchema, isLoading: isLoadingSchema } = useGetSettingsZodSchema(
@@ -11,15 +15,16 @@ const ValidatorsConfigPage = (): ReactElement => {
         "record-tools",
         "validators"
     );
+    const { mutate, isPending } = useSetSettings("record-tools", "validators");
 
     return (
         <ZodFormPageLayout
             schema={zodSchema}
             initValues={settings}
             isLoading={isLoadingSchema || isLoadingSettings}
-            onSubmit={(data) => console.log(data)}
-            isSubmitting={false}
-            title="Validators Config"
+            onSubmit={(data) => mutate(data)}
+            isSubmitting={isPending}
+            i18nNamespace="validators-config"
         />
     );
 };

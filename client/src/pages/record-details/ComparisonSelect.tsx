@@ -1,107 +1,103 @@
-import { useEffect, useState, type ReactElement } from "react";
+import { type ReactElement } from "react";
 import type { CatalogRecord } from "../../models/api/responses/catalog_record";
 import type { EsHit } from "../../models/api/responses/es";
 import {
+    Checkbox,
     Form,
     FormSelect,
     FormSelectOption,
     Split,
     SplitItem,
 } from "@patternfly/react-core";
+import { useTranslation } from "react-i18next";
+
+interface ComparisonSelectState {
+    base: string;
+    comparator: string;
+    showOnlyTarget: boolean;
+}
 
 interface ComparisonSelectProps {
     record: EsHit<CatalogRecord>;
-    base: string | null;
-    comparator: string | null;
-    onSubmit: (base: string, comparator: string) => void;
+    state: ComparisonSelectState | null;
+    onSubmit: (state: ComparisonSelectState) => void;
 }
 
 const ComparisonSelect = ({
     record,
-    base,
-    comparator,
+    state,
     onSubmit,
 }: ComparisonSelectProps): ReactElement => {
-    const [baseState, setBaseState] = useState(base || "");
-    const [comparatorState, setComparatorState] = useState(comparator || "");
+    const { t } = useTranslation();
 
-    useEffect(() => {
-        setBaseState(base || "");
-    }, [base]);
+    const handleSubmitComparison = (value: string) => {
+        const values = value.split(" - ");
+        if (values.length !== 2) return;
 
-    useEffect(() => {
-        setComparatorState(comparator || "");
-    }, [comparator]);
-
-    const handleValueChange = (newBase: string, newName: string) => {
-        setBaseState(newBase);
-        setComparatorState(newName);
-
-        if (newBase && newName) {
-            onSubmit(newBase, newName);
-        }
+        onSubmit({
+            base: values[0],
+            comparator: values[1],
+            showOnlyTarget: state?.showOnlyTarget || false,
+        });
     };
 
-    const handleSubmit = (e: React.FormEvent) => {
-        e.preventDefault();
-        handleValueChange(baseState, comparatorState);
+    const handleSubmitShowOnlyTarget = (showOnlyTarget: boolean) => {
+        if (state === null) return;
+        onSubmit({
+            base: state.base,
+            comparator: state.comparator,
+            showOnlyTarget,
+        });
     };
 
     return (
-        <Form isHorizontal onSubmit={handleSubmit}>
-            <Split hasGutter>
+        <Form isHorizontal onSubmit={(e) => e.preventDefault()}>
+            <Split hasGutter style={{ alignItems: "center" }}>
                 <SplitItem>
                     <FormSelect
                         id="comparison-base-select"
-                        value={baseState}
+                        value={
+                            state ? `${state.base} - ${state.comparator}` : ""
+                        }
                         onChange={(_, value) =>
-                            handleValueChange(value, comparatorState)
+                            value && handleSubmitComparison(value)
                         }
                     >
-                        <FormSelectOption
-                            key="empty"
-                            value=""
-                            label="Select comparison base"
-                            isPlaceholder
-                        />
+                        {state === null ? (
+                            <FormSelectOption
+                                key="placeholder"
+                                label={t(
+                                    "records:details.comparisons.select-placeholder"
+                                )}
+                                isPlaceholder
+                            />
+                        ) : null}
                         {record._source.comparisons
-                            ?.filter(
-                                (item, index, arr) =>
-                                    arr.findIndex(
-                                        (x) => x.base === item.base
-                                    ) === index
+                            ?.map(
+                                ({ comparator, base }) =>
+                                    `${base} - ${comparator}`
                             )
                             .map((comparison, i) => (
                                 <FormSelectOption
                                     key={i}
-                                    value={comparison.base}
-                                    label={comparison.base}
+                                    value={comparison}
+                                    label={comparison}
                                 />
                             ))}
                     </FormSelect>
                 </SplitItem>
                 <SplitItem>
-                    <FormSelect
-                        id="comparator-name-select"
-                        value={comparatorState}
-                        onChange={(_, value) =>
-                            handleValueChange(baseState, value)
+                    <Checkbox
+                        label={t(
+                            "records:details.comparisons.show-only-targets"
+                        )}
+                        aria-label="Show only targets"
+                        id="inlinecheck04"
+                        isChecked={state?.showOnlyTarget || false}
+                        onChange={(_, checked) =>
+                            handleSubmitShowOnlyTarget(checked)
                         }
-                    >
-                        <FormSelectOption
-                            key="empty"
-                            value=""
-                            label="Select comparator name"
-                            isPlaceholder
-                        />
-                        {record._source.comparisons?.map((comparison, i) => (
-                            <FormSelectOption
-                                key={i}
-                                value={comparison.comparator}
-                                label={comparison.comparator}
-                            />
-                        ))}
-                    </FormSelect>
+                    />
                 </SplitItem>
             </Split>
         </Form>

@@ -48,7 +48,7 @@ class TestComparisonEndpoints:
             await client.post(
                 "/comparison/task",
                 json={
-                    "comparator": "rule-based",
+                    "comparator": "intiim",
                     "target_base": "SKC",
                     "query": {"match_all": {}},
                 },
@@ -59,7 +59,7 @@ class TestComparisonEndpoints:
                 "name": (
                     "Comparing records "
                     "against authority records from 'SKC' base "
-                    "using rule-based comparator"
+                    "using intiim comparator"
                 ),
                 "type": "CompareRecords",
                 "status": "Pending",
@@ -120,7 +120,7 @@ def task(db_session: DatabaseSession, user: TokenData) -> Task:
         type=TaskType.CompareRecords,
         created_by=user.user_id,
         data=ComparisonTaskData(
-            comparator="rule-based",
+            comparator="intiim",
             target_base="SKC",
             query={"match_all": {}},
         ).model_dump(mode="json"),
@@ -137,7 +137,7 @@ def mock_comparator_result(class_mocker: MockerFixture) -> MockerFixture:
 
     return class_mocker.patch(
         "comparison.tasks.COMPARATOR_DISPATCHER",
-        {"rule-based": MockComparator},
+        {"intiim": MockComparator},
     )
 
 
@@ -171,7 +171,7 @@ def comparison(
 ) -> Comparison:
     return Comparison(
         main_record_id=main_catalog_record.id,
-        comparator="rule-based",
+        comparator="intiim",
         other_record_id=authority_catalog_record.id,
         result={"overall_score": 0.9, "summary": "Mock comparison result"},
     ).save(db_session)

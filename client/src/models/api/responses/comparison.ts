@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MatchQualitySchema } from "../../primitives/comparison";
 
 export const SubfieldComparisonResultSchema = z.object({
     code: z.string().length(1),
@@ -35,6 +36,7 @@ export const ComparisonSchema = z.object({
     comparator: z.string(),
     base: z.string(),
     system_number: z.string(),
+    match_quality: MatchQualitySchema,
     overall_score: z.number(),
     summary: z.string().optional().nullable(),
     field_results: z.array(FieldComparisonResultSchema).optional().nullable(),

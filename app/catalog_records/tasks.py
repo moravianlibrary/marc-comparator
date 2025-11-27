@@ -7,7 +7,7 @@ from adapters.tasks import ManagedTask, TaskContext
 from catalog_records.models import (
     FetchBatchOfRecordsData,
     FetchRecordData,
-    SetRecordsHiddenStateData,
+    SetRecordsVisibilityData,
     SyncRecordsData,
 )
 from config import config
@@ -259,11 +259,11 @@ async def reindex_records(task_id: str):
         )
 
 
-async def set_records_hidden_state(task_id: str) -> None:
+async def set_records_visibility(task_id: str) -> None:
     async with ManagedTask(task_id=task_id) as ctx:
-        data = SetRecordsHiddenStateData.model_validate(ctx.task.data)
+        data = SetRecordsVisibilityData.model_validate(ctx.task.data)
         query = data.query
-        hide = data.hide
+        hide = data.visible is False
 
         if hide:
             ctx.logger.info("Setting records to hidden state")

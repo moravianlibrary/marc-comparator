@@ -1,9 +1,11 @@
 from __future__ import annotations
-from typing import Optional, Dict, Any
 
-from ..normalizers import normalize_by_role, norm_generic
+from typing import Any, Dict, Optional
+
 from ..llm import ask_same_written_differently
+from ..normalizers import norm_generic, normalize_by_role
 from ._parts import PART_SENSITIVE_ROLES, differs_only_by_part_tokens
+
 
 def _strip_punct_space(s: str) -> str:
     if not s:

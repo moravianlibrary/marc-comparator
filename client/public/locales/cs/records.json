@@ -1,0 +1,163 @@
+{
+    "fields": {
+        "id": "ID",
+        "base": "Báze",
+        "system-number": "Systémové číslo",
+        "title": "Název",
+        "authors": "Autoři",
+        "state": "Stav",
+        "latest-sync": "Poslední synchronizace",
+        "latest-transaction": "Poslední transakce",
+        "details": "Detaily záznamu",
+        "authority-links": {
+            "label": "Autoritativní záznamy",
+            "base": "Báze autority"
+        },
+        "comparisons": {
+            "label": "Porovnání",
+            "base": "Porovnávaná báze",
+            "comparator": "Použitý komparátor",
+            "overall-score": "Celkové skóre",
+            "field-results": {
+                "explanation": "Výsledek pole",
+                "subfield-results": {
+                    "explanation": "Výsledek podpole"
+                }
+            }
+        },
+        "validations": {
+            "label": "Validace",
+            "validator": "Použitý validátor",
+            "status": "Výsledek validace",
+            "reason": "Odůvodnění výsledku"
+        },
+        "type-of-record": "Typ materiálu",
+        "bibliographic-level": "Typ vydaní"
+    },
+    "types": {
+        "record-state": {
+            "Active": "Aktivní",
+            "Deleted": "Smazaný",
+            "Hidden": "Skrytý",
+            "Visible": "Viditelný"
+        },
+        "validity-status": {
+            "Valid": "Validní",
+            "Warning": "Varování",
+            "Invalid": "Nevalidní",
+            "Info": "Informace"
+        },
+        "type-of-record": {
+            "a": "Jazykový materiál",
+            "c": "Notový záznam",
+            "d": "Rukopisný notový záznam",
+            "e": "Kartografický materiál",
+            "f": "Rukopisný kartografický materiál",
+            "g": "Projektované médium",
+            "i": "Nemuzikální zvukový záznam",
+            "j": "Hudební zvukový záznam",
+            "k": "Dvourozměrný neprojekční grafický materiál",
+            "m": "Počítačový soubor",
+            "o": "Sada materiálů",
+            "p": "Smíšené materiály",
+            "r": "Trojrozměrný artefakt nebo přirozený objekt",
+            "t": "Rukopisný jazykový materiál"
+        },
+        "bibliographic-level": {
+            "a": "Monografická komponenta",
+            "b": "Sériová komponenta",
+            "c": "Kolekce",
+            "d": "Podjednotka",
+            "i": "Integrující zdroj",
+            "m": "Monografie / Jednotka",
+            "s": "Série"
+        }
+    },
+    "selection": {
+        "none": "Zrušit výběr",
+        "page": "Vybrat stránku ({{count}})",
+        "all": "Vybrat vše ({{count}})",
+        "selected_one": "1 vybraný záznam",
+        "selected_few": "{{count}} vybrané záznamy",
+        "selected_other": "{{count}} vybraných záznamů"
+    },
+    "actions": {
+        "label": "Akce se záznamy",
+        "link-authorities": "Propojit záznamy s autoritami",
+        "run-comparisons": "Spustit porovnání",
+        "run-validations": "Spustit validace",
+        "hide-records": "Skrýt záznamy",
+        "make-records-visible": "Zobrazit záznamy",
+        "reindex-records": "Reindexovat záznamy"
+    },
+    "search": {
+        "placeholder": "Hledat v záznamech..."
+    },
+    "filters": {
+        "show": "Zobrazit filtry",
+        "hide": "Skrýt filtry",
+        "apply-filters_one": "Zobrazit {{count}} výsledek",
+        "apply-filters_few": "Zobrazit {{count}} výsledky",
+        "apply-filters_other": "Zobrazit {{count}} výsledků",
+        "clear-all": "Zrušit filtry"
+    },
+    "sort-by": {
+        "relevance": "Relevance",
+        "latest-sync-desc": "Poslední synchronizace (Sestupně)",
+        "latest-sync-asc": "Poslední synchronizace (Vzestupně)",
+        "latest-transaction-desc": "Poslední transakce (Sestupně)",
+        "latest-transaction-asc": "Poslední transakce (Vzestupně)",
+        "title-asc": "Název (A-Z)",
+        "title-desc": "Název (Z-A)",
+        "score-desc": "Skóre {{comparator}} (Vysoké → Nízké)",
+        "score-asc": "Skóre {{comparator}} (Nízké → Vysoké)"
+    },
+    "statement": {
+        "no-records-found": "Žádné výsledky hledání",
+        "no-records-found-body": "Zkuste upravit vyhledávací dotaz nebo filtr, abyste našli to, co hledáte."
+    },
+    "pagination": {
+        "per-page-suffix": "záznamů na stránku",
+        "of-word": "z"
+    },
+    "details": {
+        "title": "Detaily záznamu",
+        "select-form": {
+            "select-base": "Vyberte bázi",
+            "enter-system-number": "Zadejte systémové číslo",
+            "System number must be exactly 9 digits.": "Systémové číslo musí mít přesně 9 číslic."
+        },
+        "views": {
+            "description": "Prehled",
+            "marc": "MARC záznam",
+            "authority-links": "Propojené autority",
+            "comparisons": "Porovnání",
+            "validations": "Validace"
+        },
+        "authority-links": {
+            "select-base-placeholder": "Vyberte bázi autority",
+            "no-record-message": "Nebyla vybrana žádná báze autority"
+        },
+        "comparisons": {
+            "select-placeholder": "Vyberte porovnání",
+            "show-only-targets": "Zobrazit pouze cíle",
+            "no-comparison-selected": "Není vybráno žádné porovnání",
+            "no-record-message": "Nebylo vybráno žádné porovnání"
+        },
+        "validations": {
+            "select-placeholder": "Vyberte validátor",
+            "show-only-targets": "Zobrazit pouze cíle",
+            "no-record-message": "Nebylo vybrána žádná validace",
+            "no-reason": "Žádné odůvodnění",
+            "details": "Detaily",
+            "hint": "Nápověda"
+        },
+        "statement": {
+            "no-id-title": "Nebylo zadáno ID záznamu",
+            "no-id-body": "Prosim vyberte bázi a zadejte systémové číslo pro zobrazení detailů záznamu.",
+            "no-record-found-title": "Žádný záznam nenalezen",
+            "no-record-found-body": "Zadnej záznam nebyl nalezen v bázi {{catalogBase}} se systémovým číslem {{systemNumber}}."
+        }
+    },
+    "select-base-placeholder": "Vyberte bázi"
+}

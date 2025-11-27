@@ -1,5 +1,5 @@
 import { Table, Tbody } from "@patternfly/react-table";
-import { Fragment, type ReactElement } from "react";
+import { type ReactElement } from "react";
 import { useGetMarcRecord } from "../../hooks/useCatalogRecords";
 import TableLoadingBody from "../molecules/TableLoadingBody";
 import TableMessageBody from "../molecules/TableMessageBody";
@@ -45,26 +45,15 @@ const MarcRecordTable = ({
     const record = recordInput || data;
     const isLoading = isLoadingInput || isLoadingHook;
 
-    const renderFixedField = (tag: string, index: number, value: string) => {
-        if (includeOnlyFields && !includeOnlyFields.includes(tag)) return null;
-
-        const fixedField = (
+    const renderFixedField = (tag: string, value: string) =>
+        !includeOnlyFields || includeOnlyFields.includes(tag) ? (
             <MarcFixedFieldRow
-                key={`${tag}-${index}`}
+                key={tag}
                 term={tag}
                 value={value}
+                renderFieldDetail={renderFieldDetail}
             />
-        );
-
-        return renderFieldDetail ? (
-            <Fragment key={`${tag}-${index}-fragment`}>
-                {fixedField}
-                {renderFieldDetail(tag, index)}
-            </Fragment>
-        ) : (
-            fixedField
-        );
-    };
+        ) : null;
 
     const renderVariableField = (
         tag: string,
@@ -72,11 +61,10 @@ const MarcRecordTable = ({
         ind2: string,
         subfields: Record<string, string[]>,
         index: number
-    ) => {
-        if (includeOnlyFields && !includeOnlyFields.includes(tag)) return null;
-
-        const variableField = (
+    ) =>
+        !includeOnlyFields || includeOnlyFields.includes(tag) ? (
             <MarcVariableFieldRow
+                key={`${tag}-${index}-variable-field`}
                 tag={tag}
                 ind1={ind1}
                 ind2={ind2}
@@ -87,6 +75,7 @@ const MarcRecordTable = ({
                         ? getHighlightedCodes(tag, index)
                         : undefined
                 }
+                renderFieldDetail={renderFieldDetail}
                 renderSubfieldDetail={
                     renderSubfieldDetail
                         ? (code, idx, value) =>
@@ -94,17 +83,7 @@ const MarcRecordTable = ({
                         : undefined
                 }
             />
-        );
-        if (renderFieldDetail) {
-            return (
-                <Fragment key={`${tag}-${index}-fragment`}>
-                    {variableField}
-                    {renderFieldDetail(tag, index)}
-                </Fragment>
-            );
-        }
-        return variableField;
-    };
+        ) : null;
 
     return (
         <Table variant="compact">
@@ -113,7 +92,7 @@ const MarcRecordTable = ({
             ) : !record ? (
                 <TableMessageBody colSpan={3} message={noRecordMessage} />
             ) : (
-                <Tbody isEvenStriped>
+                <Tbody isEvenStriped isExpanded>
                     <MarcFixedFieldRow
                         key="id"
                         term="System Number"
@@ -129,9 +108,7 @@ const MarcRecordTable = ({
                     )}
                     {Object.entries(record.fixed_fields)
                         .sort(([a], [b]) => a.localeCompare(b))
-                        .map(([tag, value], index) =>
-                            renderFixedField(tag, index, value)
-                        )}
+                        .map(([tag, value]) => renderFixedField(tag, value))}
                     {Object.entries(record.variable_fields)
                         .sort(([a], [b]) => a.localeCompare(b))
                         .map(([tag, fields]) =>

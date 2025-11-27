@@ -17,8 +17,10 @@ import { useState, type ReactElement } from "react";
 import { useGetMe, useLogout } from "../../hooks/useAuth";
 import userAvatar from "@/assets/icons/user-avatar.svg";
 import { useNotification } from "../../hooks/useNotifications";
+import { useTranslation } from "react-i18next";
 
 const MainPageMastheadToolbar = (): ReactElement => {
+    const { t } = useTranslation();
     const { data: me } = useGetMe();
     const logout = useLogout();
     const { notifications, getUnreadCount, toggleDrawer } = useNotification();
@@ -86,7 +88,7 @@ const MainPageMastheadToolbar = (): ReactElement => {
                                     key="logout"
                                     onClick={() => logout()}
                                 >
-                                    Logout
+                                    {t("auth:logout")}
                                 </DropdownItem>
                             </DropdownList>
                         </Dropdown>

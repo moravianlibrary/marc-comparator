@@ -32,7 +32,7 @@ import type {
 import { ResourcesEmptyIcon, ResourcesFullIcon } from "@patternfly/react-icons";
 import RangeSlider from "./RangeSlider";
 import type { CatalogRecord } from "../../models/api/responses/catalog_record";
-import { is } from "zod/locales";
+import { useTranslation } from "react-i18next";
 
 interface RecordsTableFiltersProps {
     state: CollectionState<CatalogRecord>;
@@ -51,6 +51,7 @@ const TermsFilter = ({
     aggregation: EsTermsAggregation;
     toggleBucket: (field: string, bucketKey: string) => void;
 }): ReactElement => {
+    const { t } = useTranslation();
     const bucketsOrdering = (a: EsTermsBucket, b: EsTermsBucket) => {
         if (config.displayOrder) {
             return (
@@ -64,9 +65,19 @@ const TermsFilter = ({
         );
     };
 
+    const bucketLabel = (bucket: EsTermsBucket) => {
+        const bucketKey = bucket.key_as_string || bucket.key.toString();
+        if (config.labelI18nKey) {
+            return t(config.labelI18nKey(bucketKey));
+        }
+        return bucketKey;
+    };
+
     return (
         <Card isPlain key={config.field}>
-            <CardTitle>{config.field}</CardTitle>
+            <CardTitle>
+                {t(`records:fields.${config.field.replaceAll("_", "-")}`)}
+            </CardTitle>
             <CardBody>
                 <LabelGroup numLabels={state?.size || config.sizeOptions[0]}>
                     {aggregation.buckets.sort(bucketsOrdering).map((bucket) => (
@@ -107,10 +118,10 @@ const TermsFilter = ({
                                         bucket.key.toString()
                                     )}
                                 >
-                                    {bucket.key_as_string || bucket.key}
+                                    {bucketLabel(bucket)}
                                 </Label>
                             ) : (
-                                bucket.key_as_string || bucket.key
+                                bucketLabel(bucket)
                             )}
                         </Button>
                     ))}
@@ -131,6 +142,7 @@ const HistogramFilter = ({
     aggregation: EsHistogramAggregation;
     setRange: (field: string, from?: number, to?: number) => void;
 }): ReactElement => {
+    const { t } = useTranslation();
     const allKeys = aggregation.buckets.map((b) => b.key);
     if (allKeys.length === 0) {
         return <div>No histogram data available</div>;
@@ -152,7 +164,9 @@ const HistogramFilter = ({
 
     return (
         <Card isPlain key={config.field}>
-            <CardTitle>{config.field}</CardTitle>
+            <CardTitle>
+                {t(`records:fields.${config.field.replaceAll("_", "-")}`)}
+            </CardTitle>
             <CardBody>
                 <RangeSlider
                     min={min}

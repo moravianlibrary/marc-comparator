@@ -1,0 +1,10 @@
+{
+    "title": "Nastavení validátorů",
+    "no-data-or-schema": "Nastavení nebo schéma nastavení není k dispozici.",
+    "kramerius-links-object": "Nastavení validátoru Kramerius odkazů",
+    "kramerius-links": {
+        "kramerius-host": "Host adresa Krameria 7 pomocí které se budou validovat odkazy",
+        "url-to-pid-pattern": "Vzor URL pro parsovaní PIDu z odkazu",
+        "link-text-pattern": "Vzor textu odkazu"
+    }
+}

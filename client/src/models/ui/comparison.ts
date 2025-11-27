@@ -1,31 +1,26 @@
-import {
-    mapScoreToResult,
-    type ComparisonResult,
-} from "../primitives/comparison";
-import type { ValidityStatus } from "../primitives/validation";
+import { type MatchQuality } from "../primitives/comparison";
 
-const RESULT_COLOR_MAP: Record<ComparisonResult, "green" | "yellow" | "red"> = {
-    Valid: "green",
-    ReviewRequired: "yellow",
-    Invalid: "red",
+const MATCH_QUALITY_COLOR_MAP: Record<
+    MatchQuality,
+    "green" | "yellow" | "red"
+> = {
+    Excellent: "green",
+    Moderate: "yellow",
+    Poor: "red",
 };
 
-export function resultColor(
-    result: ComparisonResult
+export function matchQualityColor(
+    result: MatchQuality
 ): "green" | "yellow" | "red" {
-    return RESULT_COLOR_MAP[result];
+    return MATCH_QUALITY_COLOR_MAP[result];
 }
 
-export function scoreColor(score: number): "green" | "yellow" | "red" {
-    return resultColor(mapScoreToResult(score));
-}
-
-export function scoreToValidity(score: number): ValidityStatus {
+export function scoreToMatchQuality(score: number): MatchQuality {
     if (score >= 0.9) {
-        return "Valid";
+        return "Excellent";
     } else if (score >= 0.7) {
-        return "Warning";
+        return "Moderate";
     } else {
-        return "Invalid";
+        return "Poor";
     }
 }

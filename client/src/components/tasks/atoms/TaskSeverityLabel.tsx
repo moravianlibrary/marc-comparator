@@ -1,6 +1,7 @@
 import { Label } from "@patternfly/react-core";
 import type { ReactElement } from "react";
-import type { TaskSeverity } from "../../models/primitives/task";
+import type { TaskSeverity } from "../../../models/primitives/task";
+import { useTranslation } from "react-i18next";
 
 interface TaskSeverityLabelProps {
     severity: TaskSeverity;
@@ -19,7 +20,13 @@ const SEVERITY_STATUS_MAP: Record<
 const TaskSeverityLabel = ({
     severity,
 }: TaskSeverityLabelProps): ReactElement => {
-    return <Label status={SEVERITY_STATUS_MAP[severity]}>{severity}</Label>;
+    const { t } = useTranslation("tasks");
+
+    return (
+        <Label status={SEVERITY_STATUS_MAP[severity]}>
+            {t(`severity.${severity}`)}
+        </Label>
+    );
 };
 
 export default TaskSeverityLabel;

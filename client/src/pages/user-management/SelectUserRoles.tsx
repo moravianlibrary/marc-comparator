@@ -6,9 +6,10 @@ import {
     DropdownItem,
     MenuToggle,
     Divider,
+    Badge,
 } from "@patternfly/react-core";
 import { type RoleSummary } from "../../models/api/responses/roles";
-import { UsersIcon } from "@patternfly/react-icons";
+import { useTranslation } from "react-i18next";
 
 interface SelectUserRolesProps {
     userRoles: RoleSummary[];
@@ -23,6 +24,8 @@ const SelectUserRoles = ({
     onAssignRole,
     onUnassignRole,
 }: SelectUserRolesProps) => {
+    const { t } = useTranslation("users");
+
     const [isOpen, setIsOpen] = useState(false);
     const menuRef = useRef<HTMLDivElement>(null);
     const [selectedRoles, setSelectedRoles] = useState<number[]>(
@@ -32,7 +35,7 @@ const SelectUserRoles = ({
     const toggleOpen = () => setIsOpen((prev) => !prev);
 
     // handle add/remove role
-    const handleRoleToggle = (event: any, roleId: number, actionId: string) => {
+    const handleRoleToggle = (event: any, roleId: number, _: string) => {
         event.stopPropagation();
 
         const hasRole = selectedRoles.includes(roleId);
@@ -57,15 +60,23 @@ const SelectUserRoles = ({
                     ref={toggleRef}
                     onClick={toggleOpen}
                     isExpanded={isOpen}
+                    badge={
+                        <Badge isRead style={{ marginLeft: 8 }}>
+                            {selectedRoles.length}
+                        </Badge>
+                    }
                 >
-                    Manage Roles
+                    {t("edit-roles-menu-placeholder")}
                 </MenuToggle>
             )}
             popperProps={{ position: "right" }}
         >
             {selectedRoles.length > 0 && (
                 <Fragment>
-                    <DropdownGroup key="user-roles" label="Assigned Roles">
+                    <DropdownGroup
+                        key="user-roles"
+                        label={t("fields.assigned-roles")}
+                    >
                         <DropdownList>
                             {allRoles
                                 .filter((r) => selectedRoles.includes(r.id))
@@ -84,7 +95,7 @@ const SelectUserRoles = ({
                     <Divider key="roles-divider" />
                 </Fragment>
             )}
-            <DropdownGroup key="roles" label="Available Roles">
+            <DropdownGroup key="roles" label={t("fields.available-roles")}>
                 <div
                     style={{
                         maxHeight: "350px",

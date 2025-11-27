@@ -1,0 +1,13 @@
+{
+    "form": {
+        "submit": "Uložit změny",
+        "boolean": {
+            "true": "Ano",
+            "false": "Ne",
+            "undefined": "Nedefinováno"
+        }, 
+        "delete-all-items": "Smazat všechny položky",
+        "add-item": "Přidat položku",
+        "unsuported-field-type": "Nepodporovaný typ pole: {{type}}"
+    }
+}

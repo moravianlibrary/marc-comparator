@@ -32,8 +32,10 @@ import { buildRequests } from "../store/collection/requests_factory";
 import { buildCollectionData } from "../store/collection/data_factory";
 import RecordsTableFilters from "./records-table/Filters";
 import type { CatalogRecord } from "../models/api/responses/catalog_record";
+import { useTranslation } from "react-i18next";
 
 const RecordsTable = (): ReactElement => {
+    const { t } = useTranslation();
     const [state, dispatch] = useReducer(
         collectionReducer,
         initCollectionState(generateCatalogRecordsConfig())
@@ -48,6 +50,7 @@ const RecordsTable = (): ReactElement => {
             state.searchFuzziness,
             JSON.stringify(state.filterStates),
             state.sortBy,
+            JSON.stringify(state.columnStates),
         ]
     );
 
@@ -104,7 +107,8 @@ const RecordsTable = (): ReactElement => {
             state={state}
             dispatch={dispatch}
             data={data}
-            onShowFilters={() => setShowFilters(!showFilters)}
+            showFilters={showFilters}
+            onToggleShowFilters={() => setShowFilters(!showFilters)}
         />
     );
 
@@ -132,7 +136,9 @@ const RecordsTable = (): ReactElement => {
                                         variant="primary"
                                         onClick={() => setShowFilters(false)}
                                     >
-                                        Show {totalItems} Results
+                                        {t("records:filters.apply-filters", {
+                                            count: totalItems,
+                                        })}
                                     </Button>
                                 </ActionListItem>
                                 <ActionListItem>
@@ -140,7 +146,7 @@ const RecordsTable = (): ReactElement => {
                                         variant="link"
                                         onClick={handleClearFilters}
                                     >
-                                        Clear
+                                        {t("records:filters.clear-all")}
                                     </Button>
                                 </ActionListItem>
                             </ActionListGroup>
@@ -196,8 +202,10 @@ const RecordsTable = (): ReactElement => {
                         }
                         texts={{
                             noMatchFound: {
-                                title: "No records found",
-                                body: "Try adjusting your search or filter to find what you're looking for.",
+                                title: t("records:statement.no-records-found"),
+                                body: t(
+                                    "records:statement.no-records-found-body"
+                                ),
                             },
                         }}
                     />
@@ -221,8 +229,10 @@ const RecordsTable = (): ReactElement => {
                             }
                             variant="bottom"
                             titles={{
-                                perPageSuffix: "items per page",
-                                ofWord: "of",
+                                perPageSuffix: t(
+                                    "records:pagination.per-page-suffix"
+                                ),
+                                ofWord: t("records:pagination.of-word"),
                             }}
                         />
                     </PageSection>

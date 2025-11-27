@@ -10,11 +10,15 @@ interface MarcVariableFieldRowProps {
     subfields: Record<string, string[]>;
     index: number;
     highlightedCodes?: string[];
+    renderFieldDetail?: (
+        tag: string,
+        fieldIdx: number
+    ) => React.ReactNode | null;
     renderSubfieldDetail?: (
         code: string,
         idx: number,
         value: string
-    ) => React.ReactNode;
+    ) => React.ReactNode | null;
 }
 
 const MarcVariableFieldRow = ({
@@ -24,6 +28,7 @@ const MarcVariableFieldRow = ({
     subfields,
     index,
     highlightedCodes,
+    renderFieldDetail,
     renderSubfieldDetail,
 }: MarcVariableFieldRowProps) => {
     const renderSubfieldEntry = (code: string, value: string, idx: number) => {
@@ -40,31 +45,35 @@ const MarcVariableFieldRow = ({
             </Tr>
         );
 
-        if (renderSubfieldDetail) {
-            return (
-                <Fragment key={`${code}-fragment`}>
-                    {entry}
-                    <Tr key={`detail-${code}-${idx}`}>
-                        <Td colSpan={2}>
-                            {renderSubfieldDetail(code, idx, value)}
-                        </Td>
-                    </Tr>
-                </Fragment>
-            );
-        }
+        const detailContent = renderSubfieldDetail
+            ? renderSubfieldDetail(code, idx, value)
+            : null;
 
-        return entry;
+        if (!detailContent) return entry;
+
+        return (
+            <Fragment key={`${code}-fragment`}>
+                {entry}
+                <Tr key={`detail-${code}-${idx}`}>
+                    <Td colSpan={2}>{detailContent}</Td>
+                </Tr>
+            </Fragment>
+        );
     };
 
-    return (
+    const detailContent = renderFieldDetail
+        ? renderFieldDetail(tag, index)
+        : null;
+
+    const content = (
         <Tr key={`${tag}-${index}`}>
             <Td>
                 <MonospaceValue value={tag} />
             </Td>
             <Td>
                 <MonospaceValue
-                    value={`${ind1?.trim() !== "" ? ind1 : "-"}${
-                        ind2?.trim() !== "" ? ind2 : "-"
+                    value={`${ind1 && ind1.trim() !== "" ? ind1 : "-"}${
+                        ind2 && ind2.trim() !== "" ? ind2 : "-"
                     }`}
                 />
             </Td>
@@ -80,6 +89,19 @@ const MarcVariableFieldRow = ({
                 </Table>
             </Td>
         </Tr>
+    );
+
+    if (!detailContent) return content;
+
+    return (
+        <Fragment key={`${tag}-${index}-fragment`}>
+            {content}
+            <Tr key={`detail-${tag}-${index}`} isExpanded={true}>
+                <Td colSpan={4} style={{ padding: 0 }}>
+                    {detailContent}
+                </Td>
+            </Tr>
+        </Fragment>
     );
 };
 

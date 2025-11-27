@@ -21,8 +21,10 @@ export const SyncRecordsDataSchema = z.object({
 });
 export type SyncRecordsData = z.infer<typeof SyncRecordsDataSchema>;
 
-export const SetHiddenStateDataSchema = z.object({
-    hide: z.boolean(),
+export const SetRecordsVisibilityDataSchema = z.object({
     query: EsQuerySchema,
+    visible: z.boolean(),
 });
-export type SetHiddenStateData = z.infer<typeof SetHiddenStateDataSchema>;
+export type SetRecordsVisibilityData = z.infer<
+    typeof SetRecordsVisibilityDataSchema
+>;

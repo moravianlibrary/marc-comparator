@@ -1,0 +1,35 @@
+{
+    "role-management-title": "Správa rolí",
+    "create-role-button": "Vytvořit novou roli",
+    "create-role-title": "Vytvořit novou roli",
+    "cancel-edit-button": "Zrušit",
+    "edit-role-title": "Upravit roli",
+    "save-changes-button": "Uložit změny",
+    "fields": {
+        "name": "Název role",
+        "permissions": "Oprávnění",
+        "actions": "Akce"
+    },
+    "permissions": {
+        "ReadRecords": "Číst záznamy",
+        "AddRecords": "Přidávat záznamy",
+        "SyncRecordsFromCatalog": "Synchronizovat záznamy z katalogu",
+        "RunRecordTasks": "Spouštět úkoly na záznamech",
+        "ManageTasks": "Spravovat úkoly",
+        "ManageTaskSettings": "Spravovat nastavení úkolů",
+        "ManageAccessControl": "Spravovat přístupová práva",
+        "ManageAppSettings": "Spravovat nastavení aplikace",
+        "ManageSystem": "Spravovat systém"
+    },
+    "validation": {
+        "role-name-length": "Název role musí mít alespoň 4 znaky."
+    },
+    "confirm-delete-title": "Potvrzení smazání",
+    "confirm-delete-message": "Opravdu chcete smazat roli „{{roleName}}“?",
+    "confirm-delete-button": "Potvrdit smazání",
+    "cancel-delete-button": "Zrušit",
+    "pagination": {
+        "per-page-suffix": "rolí na stránku",
+        "of": "z celkem"
+    }
+}

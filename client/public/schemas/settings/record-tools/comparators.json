@@ -1,114 +1,52 @@
 {
     "$defs": {
-        "FieldRuleConfig": {
-            "description": "Configuration for rule-based MARC field comparison.\nDefines which normalization and matching rules apply to a specific field,\nalong with optional rule-specific parameters.",
+        "IntiimComparatorConfig": {
             "properties": {
-                "tag": {
-                    "description": "The MARC field tag this configuration applies to (e.g. '245').",
-                    "title": "Tag",
-                    "type": "string"
+                "llm_enabled": {
+                    "default": true,
+                    "title": "Llm Enabled",
+                    "type": "boolean"
                 },
-                "subfield_codes": {
-                    "anyOf": [
-                        {
-                            "items": {
-                                "type": "string"
-                            },
-                            "type": "array"
-                        },
-                        {
-                            "type": "null"
-                        }
-                    ],
-                    "default": null,
-                    "description": "Specific subfield codes (e.g. ['a', 'b']). If not set, applies to all subfields.",
-                    "title": "Subfield Codes"
+                "nonstandard_llm_enabled": {
+                    "default": false,
+                    "title": "Nonstandard Llm Enabled",
+                    "type": "boolean"
                 },
-                "match_score": {
-                    "default": 1.0,
-                    "minimum": 0.0,
-                    "title": "Match Score",
-                    "type": "number"
+                "valid_threshold": {
+                    "default": 6,
+                    "minimum": 0,
+                    "maximum": 30,
+                    "title": "Valid Max",
+                    "type": "integer"
                 },
-                "missing_field_score": {
-                    "default": 0.0,
-                    "minimum": 0.0,
-                    "title": "Missing Field Score",
-                    "type": "number"
-                },
-                "missing_subfield_score": {
-                    "default": 0.0,
-                    "minimum": 0.0,
-                    "title": "Missing Subfield Score",
-                    "type": "number"
-                },
-                "mismatch_score": {
-                    "default": 0.0,
-                    "minimum": 0.0,
-                    "title": "Mismatch Score",
-                    "type": "number"
-                },
-                "rule_scores": {
-                    "additionalProperties": {
-                        "type": "number"
-                    },
-                    "description": "Expected score contribution (0.0-1.0) for each rule when it applies.\nRules not included are considered inactive.\nA lower value represents a more severe penalty.",
-                    "propertyNames": {
-                        "$ref": "#/$defs/RuleType"
-                    },
-                    "title": "Rule Scores",
-                    "type": "object"
-                },
-                "field_weight": {
-                    "default": 1.0,
-                    "description": "Relative weight of this field in the overall comparison score.",
-                    "minimum": 0.0,
-                    "title": "Field Weight",
-                    "type": "number"
+                "warning_threshold": {
+                    "default": 12,
+                    "minimum": 0,
+                    "maximum": 30,
+                    "title": "Warning Max",
+                    "type": "integer"
                 }
             },
-            "required": [
-                "tag",
-                "rule_scores"
-            ],
-            "title": "FieldRuleConfig",
+            "title": "IntiimComparatorConfig",
             "type": "object"
-        },
-        "RuleBasedComparatorConfig": {
-            "properties": {
-                "rules": {
-                    "items": {
-                        "$ref": "#/$defs/FieldRuleConfig"
-                    },
-                    "title": "Rules",
-                    "type": "array"
-                }
-            },
-            "required": [
-                "rules"
-            ],
-            "title": "RuleBasedComparatorConfig",
-            "type": "object"
-        },
-        "RuleType": {
-            "enum": [
-                "Normalization"
-            ],
-            "title": "RuleType",
-            "type": "string"
         }
     },
     "properties": {
-        "rule-based": {
+        "intiim": {
             "anyOf": [
                 {
-                    "$ref": "#/$defs/RuleBasedComparatorConfig"
+                    "$ref": "#/$defs/IntiimComparatorConfig"
                 },
                 {
                     "type": "null"
                 }
             ],
-            "default": null
+            "default": {
+                "llm_enabled": true,
+                "nonstandard_llm_enabled": false,
+                "valid_threshold": 6,
+                "warning_threshold": 12
+            }
         }
     },
     "title": "ComparisonSettings",

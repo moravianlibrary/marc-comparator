@@ -11,7 +11,7 @@ export const CatalogRecordSchema = z.object({
     type_of_record: z.string(),
     bibliographic_level: z.string(),
     title: z.string().default("Missing Title"),
-    // subtitle: z.string().optional(),
+    subtitle: z.string().optional().nullable(),
     authors: z.array(z.string()).default([]),
     latest_transaction: z.coerce.date().optional(),
     latest_sync: z.coerce.date(),

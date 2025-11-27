@@ -23,7 +23,7 @@ ADMIN_EMAIL="admin@mzk.cz"
 ADMIN_PASSWORD="AdminPassword"
 
 ###############################################################################
-# 4. Login as admin
+# 1. Login as admin
 ###############################################################################
 print_step "Logging in as admin"
 
@@ -64,7 +64,7 @@ SETTINGS_JSON=$(cat <<'EOF'
 EOF
 )
 
-http POST "$APP_URL/settings/app/Catalog" \
+http POST "$APP_URL/settings/system/catalog" \
   Content-Type:application/json \
   "Authorization: Bearer $ADMIN_TOKEN" \
   <<< "$SETTINGS_JSON"

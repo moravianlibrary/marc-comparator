@@ -1,3 +1,4 @@
+import { FilterIcon } from "@patternfly/react-icons";
 import {
     Button,
     SearchInput,
@@ -11,30 +12,40 @@ import type {
     CollectionData,
     CollectionState,
 } from "../../store/collection/domain";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { RecordsActionsMenu } from "./RecordsActionsMenu";
 import BulkSelector from "../../components/molecules/BulkSelector";
 import RecordsTableSortBy from "./SortBy";
 import type { CatalogRecord } from "../../models/api/responses/catalog_record";
+import { useTranslation } from "react-i18next";
 
 interface RecordsTableToolbarProps {
-    state: CollectionState;
+    state: CollectionState<CatalogRecord>;
     dispatch: React.Dispatch<CollectionAction>;
     data: CollectionData<CatalogRecord>;
-    onShowFilters: () => void;
+    showFilters: boolean;
+    onToggleShowFilters: () => void;
 }
 const RecordsTableToolbar = ({
     state,
     dispatch,
     data,
-    onShowFilters,
+    showFilters,
+    onToggleShowFilters,
 }: RecordsTableToolbarProps) => {
+    const { t } = useTranslation();
     const { selectedIds, isAllSelected } = state;
     const { hits, totalItems } = data;
 
     const pageIds = hits?.map((hit) => hit._id) || [];
 
     const [searchTerm, setSearchTerm] = useState<string>("");
+
+    useEffect(() => {
+        if (state.searchTerm && state.searchTerm !== searchTerm) {
+            setSearchTerm(state.searchTerm);
+        }
+    }, [state.searchTerm]);
 
     return (
         <Toolbar collapseListedFiltersBreakpoint="lg">
@@ -60,13 +71,13 @@ const RecordsTableToolbar = ({
                             }
                             onSelectAll={() => dispatch({ type: "selectAll" })}
                             texts={{
-                                selectNone: "Select None",
+                                selectNone: t("records:selection.none"),
                                 selectPage: ({ count }) =>
-                                    `Select Page (${count})`,
+                                    t("records:selection.page", { count }),
                                 selectAll: ({ count }) =>
-                                    `Select All (${count})`,
+                                    t("records:selection.all", { count }),
                                 selectedCount: ({ count }) =>
-                                    `${count} Selected`,
+                                    t("records:selection.selected", { count }),
                             }}
                         />
                     </ToolbarItem>
@@ -77,8 +88,8 @@ const RecordsTableToolbar = ({
                 <ToolbarGroup key="search" align={{ default: "alignCenter" }}>
                     <ToolbarItem>
                         <SearchInput
-                            placeholder="Search records"
-                            value={searchTerm}
+                            placeholder={t("records:search.placeholder")}
+                            value={state.searchTerm || searchTerm}
                             onChange={(_event, value) => setSearchTerm(value)}
                             onClear={() => {
                                 setSearchTerm("");
@@ -95,8 +106,14 @@ const RecordsTableToolbar = ({
                 </ToolbarGroup>
                 <ToolbarGroup key="filters" align={{ default: "alignEnd" }}>
                     <ToolbarItem>
-                        <Button variant="control" onClick={onShowFilters}>
-                            Filters
+                        <Button
+                            variant="control"
+                            icon={<FilterIcon />}
+                            onClick={onToggleShowFilters}
+                        >
+                            {showFilters
+                                ? t("records:filters.hide")
+                                : t("records:filters.show")}
                         </Button>
                     </ToolbarItem>
                     <ToolbarItem>

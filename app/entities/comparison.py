@@ -3,7 +3,7 @@ from functools import cached_property
 from typing import TYPE_CHECKING, List, Optional
 
 from esorm.fields import Keyword, Text
-from marc_comparator.comparators import RecordComparisonResult
+from marc_comparator.comparators import MatchQuality, RecordComparisonResult
 from sqlalchemy import TIMESTAMP, Column, ForeignKey, String, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, relationship
@@ -42,6 +42,7 @@ class FieldComparisonResult(IndexerNestedModel):
 
 class ComparisonSchema(IndexerNestedModel):
     comparator: Keyword
+    match_quality: MatchQuality
 
     base: Keyword
     system_number: Keyword
@@ -125,6 +126,15 @@ class Comparison(Base, BaseOperationsMixin):
     @cached_property
     def record_result(self) -> RecordComparisonResult:
         return RecordComparisonResult.model_validate(self._result)
+
+    @property
+    def match_quality(self) -> MatchQuality:
+        if self.overall_score >= 0.9:
+            return MatchQuality.Excellent
+        elif self.overall_score >= 0.7:
+            return MatchQuality.Moderate
+        else:
+            return MatchQuality.Poor
 
     @property
     def overall_score(self) -> float:

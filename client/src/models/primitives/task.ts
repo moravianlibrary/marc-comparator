@@ -7,7 +7,7 @@ export const TaskTypeSchema = z.enum([
     "LinkRecordsToAuthorities",
     "CompareRecords",
     "ValidateRecords",
-    "SetRecordsHiddenState",
+    "SetRecordsVisibility",
     "ReindexRecords",
     "DeleteTasks",
     "RecreateIndexes",

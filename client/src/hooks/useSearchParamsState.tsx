@@ -52,32 +52,52 @@ function unflattenObject(obj: Record<string, string>): Record<string, any> {
 }
 
 export function useSearchParamsState<Schema extends z.ZodTypeAny>(
-    schema: Schema
+    schema: Schema,
+    storeKey?: string
 ) {
     const [searchParams, setSearchParams] = useSearchParams();
 
+    // Load stored data (if any)
+    const loadStored = useCallback((): z.infer<Schema> | null => {
+        if (!storeKey) return null;
+
+        const raw = localStorage.getItem(storeKey);
+        if (!raw) return null;
+
+        const parsedObj = JSON.parse(raw);
+        const parsed = schema.safeParse(parsedObj);
+
+        return parsed.success ? parsed.data : null;
+    }, [storeKey, schema]);
+
+    // Parse current URL search params
     const parseParams = useCallback((): z.infer<Schema> => {
         const flat: Record<string, string> = {};
-        searchParams.forEach((value, key) => {
-            flat[key] = value;
-        });
+        searchParams.forEach((value, key) => (flat[key] = value));
 
-        const obj = unflattenObject(flat);
+        const fromUrl = unflattenObject(flat);
+        const fromStore = loadStored();
 
-        const parsed = schema.safeParse(obj);
+        const merged = { ...(fromStore || {}), ...fromUrl };
+
+        const parsed = schema.safeParse(merged);
         if (!parsed.success) {
             throw new Error("Invalid search params: " + parsed.error.message);
         }
 
         return parsed.data;
-    }, [searchParams, schema]);
+    }, [searchParams, schema, loadStored]);
 
     const [state, setState] = useState<z.infer<Schema>>(parseParams);
 
-    // Sync URL → state on navigation
+    // Sync URL state on navigation
     useEffect(() => {
-        setState(parseParams());
-    }, [searchParams, parseParams]);
+        const parsed = parseParams();
+        setState(parsed);
+        if (storeKey) {
+            localStorage.setItem(storeKey, JSON.stringify(parsed));
+        }
+    }, [searchParams, parseParams, storeKey]);
 
     const update = useCallback(
         (nextPartial: Partial<z.infer<Schema>>) => {
@@ -90,6 +110,7 @@ export function useSearchParamsState<Schema extends z.ZodTypeAny>(
 
             const flat = flattenObject(parsed.data);
             const newParams = new URLSearchParams();
+
             for (const key in flat) {
                 const value = flat[key];
                 if (value !== undefined) {
@@ -100,8 +121,12 @@ export function useSearchParamsState<Schema extends z.ZodTypeAny>(
 
             setSearchParams(newParams);
             setState(parsed.data);
+
+            if (storeKey) {
+                localStorage.setItem(storeKey, JSON.stringify(parsed.data));
+            }
         },
-        [schema, setSearchParams]
+        [schema, setSearchParams, storeKey]
     );
 
     return [state, update] as const;

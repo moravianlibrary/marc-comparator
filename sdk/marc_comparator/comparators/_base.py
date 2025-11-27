@@ -1,8 +1,31 @@
 from abc import ABC, abstractmethod
+from enum import StrEnum
 from typing import List
 
 from marcdantic import MarcRecord
 from pydantic import BaseModel
+
+
+class MatchQuality(StrEnum):
+    """
+    Enum representing the quality of a match between MARC records.
+
+    Attributes
+    ----------
+    Excellent : str
+        Indicates an excellent match.
+        Score range: 0.9 - 1.0.
+    Moderate : str
+        Indicates a moderate match.
+        Score range: 0.7 - 0.9.
+    Poor : str
+        Indicates a poor match.
+        Score range: 0.0 - 0.7.
+    """
+
+    Excellent = "Excellent"
+    Moderate = "Moderate"
+    Poor = "Poor"
 
 
 class SubfieldComparisonResult(BaseModel):

@@ -1,4 +1,3 @@
-import { Button, Label, LabelGroup } from "@patternfly/react-core";
 import MarcTitle from "../../components/atoms/MarcTitle";
 import MonospaceValue from "../../components/atoms/MonospaceValue";
 import {
@@ -6,8 +5,6 @@ import {
     type CatalogRecordState,
 } from "../../models/primitives/catalog_record";
 import LocalizedDateTime from "../../components/atoms/LocalizedDateTime";
-import { DetailsIcon } from "../../components/atoms/Icons";
-import { Link } from "react-router";
 import { type CatalogRecord } from "../../models/api/responses/catalog_record";
 import { type CollectionConfig } from "../../store/collection/domain";
 import {
@@ -16,150 +13,98 @@ import {
 } from "../../models/primitives/validation";
 import type { TableColumnConfig } from "../../models/ui/hits_table";
 import type { EsHit } from "../../models/api/responses/es";
-import { stateColor, stateOrder } from "../../models/ui/catalog_record";
+import { stateColor } from "../../models/ui/catalog_record";
 import { validityColor } from "../../models/ui/validation";
-import AuthorityLinkLabel from "../../components/atoms/AuthorityLinkLabel";
-import ComparisonLabel from "../../components/atoms/ComparisonLabel";
-import ValidationLabel from "../../components/atoms/ValidationLabel";
+import { useTranslation } from "react-i18next";
+import RecordId from "../../components/records/atoms/RecordId";
+import { RecordStateLabelGroup } from "../../components/records/atoms/RecordStateLabel";
+import { AuthorityLinkLabelGroup } from "../../components/records/atoms/AuthorityLinkLabel";
+import { ComparisonLabelGroup } from "../../components/records/atoms/ComparisonLabel";
+import { ValidationLabelGroup } from "../../components/records/atoms/ValidationLabel";
 
 export function generateColumnsConfig(): TableColumnConfig<
     EsHit<CatalogRecord>
 >[] {
+    const { t } = useTranslation();
     return [
         {
             key: "id",
-            label: "ID",
+            label: t("records:fields.id"),
             visibleByDefault: true,
             render: ({ _id }: EsHit<CatalogRecord>) => (
-                <MonospaceValue value={_id} />
+                <RecordId recordId={_id} />
             ),
         },
         {
             key: "base",
-            label: "Base",
+            label: t("records:fields.base"),
             render: ({ _source: { base } }: EsHit<CatalogRecord>) =>
-                base ? <MonospaceValue value={base} /> : undefined,
+                base ? <MonospaceValue value={base} /> : null,
         },
         {
             key: "system_number",
-            label: "System Number",
+            label: t("records:fields.system-number"),
             render: ({ _source: { system_number } }: EsHit<CatalogRecord>) =>
-                system_number ? (
-                    <MonospaceValue value={system_number} />
-                ) : undefined,
+                system_number ? <MonospaceValue value={system_number} /> : null,
         },
         {
             key: "title",
-            label: "Title",
-            render: ({
-                _source: { title, subtitle },
-            }: EsHit<CatalogRecord>) => (
-                <MarcTitle title={title || "N/A"} subtitle={subtitle} />
-            ),
+            label: t("records:fields.title"),
+            render: ({ _source: { title, subtitle } }: EsHit<CatalogRecord>) =>
+                title ? <MarcTitle title={title} subtitle={subtitle} /> : null,
         },
         {
             key: "authors",
-            label: "Authors",
+            label: t("records:fields.authors"),
         },
         {
             key: "state",
-            label: "State",
+            label: t("records:fields.state"),
             visibleByDefault: true,
-            render: ({ _source: { state } }: EsHit<CatalogRecord>) => (
-                <LabelGroup>
-                    {(state || [])
-                        .sort(stateOrder)
-                        .map((state: CatalogRecordState, index: number) => (
-                            <Label key={index} color={stateColor(state)}>
-                                {state}
-                            </Label>
-                        ))}
-                </LabelGroup>
+            render: (hit: EsHit<CatalogRecord>) => (
+                <RecordStateLabelGroup hit={hit} />
             ),
         },
         {
             key: "authority_links",
-            label: "Authority Links",
+            label: t("records:fields.authority-links.label"),
             visibleByDefault: true,
-            render: ({
-                _id,
-                _source: { authority_links },
-            }: EsHit<CatalogRecord>) => (
-                <LabelGroup>
-                    {(authority_links || []).map((link, index) => (
-                        <AuthorityLinkLabel
-                            key={index}
-                            recordId={_id}
-                            authorityLink={link}
-                        />
-                    ))}
-                </LabelGroup>
+            render: (hit: EsHit<CatalogRecord>) => (
+                <AuthorityLinkLabelGroup hit={hit} />
             ),
         },
         {
             key: "comparisons",
-            label: "Comparisons",
+            label: t("records:fields.comparisons.label"),
             visibleByDefault: true,
-            render: ({
-                _id,
-                _source: { comparisons },
-            }: EsHit<CatalogRecord>) => (
-                <LabelGroup>
-                    {(comparisons || []).map((comparison, index) => (
-                        <ComparisonLabel
-                            key={index}
-                            recordId={_id}
-                            comparison={comparison}
-                        />
-                    ))}
-                </LabelGroup>
+            render: (hit: EsHit<CatalogRecord>) => (
+                <ComparisonLabelGroup hit={hit} />
             ),
         },
         {
             key: "validations",
-            label: "Validations",
+            label: t("records:fields.validations.label"),
             visibleByDefault: true,
-            render: ({
-                _id,
-                _source: { validations },
-            }: EsHit<CatalogRecord>) => (
-                <LabelGroup>
-                    {(validations || []).map((validation, index) => (
-                        <ValidationLabel
-                            key={index}
-                            recordId={_id}
-                            validation={validation}
-                        />
-                    ))}
-                </LabelGroup>
+            render: (hit: EsHit<CatalogRecord>) => (
+                <ValidationLabelGroup hit={hit} />
             ),
         },
         {
             key: "latest_sync",
-            label: "Last Sync",
+            label: t("records:fields.latest-sync"),
             visibleByDefault: true,
             render: ({ _source: { latest_sync } }: EsHit<CatalogRecord>) =>
-                latest_sync && <LocalizedDateTime date={latest_sync} />,
+                latest_sync ? <LocalizedDateTime date={latest_sync} /> : null,
         },
         {
             key: "latest_transaction",
-            label: "Last Transaction",
+            label: t("records:fields.latest-transaction"),
             render: ({
                 _source: { latest_transaction },
             }: EsHit<CatalogRecord>) =>
-                latest_transaction && (
+                latest_transaction ? (
                     <LocalizedDateTime date={latest_transaction} />
-                ),
-        },
-        {
-            key: "details",
-            label: "Details",
-            render: ({ _id }: EsHit<CatalogRecord>) => (
-                <Link to={`/records/details?id=${_id}`}>
-                    <Button variant="plain" icon={<DetailsIcon />} />
-                </Link>
-            ),
-            alwaysShow: true,
+                ) : null,
         },
     ];
 }
@@ -177,6 +122,8 @@ export function generateCatalogRecordsConfig<T>(): CollectionConfig<T> {
                 labelProps: (bucketKey: string) => ({
                     color: stateColor(bucketKey as CatalogRecordState),
                 }),
+                labelI18nKey: (bucketKey: string) =>
+                    `records:types.record-state.${bucketKey}`,
                 displayOrder: CatalogRecordStateSchema.options,
             },
             {
@@ -236,6 +183,8 @@ export function generateCatalogRecordsConfig<T>(): CollectionConfig<T> {
                 labelProps: (bucketKey: string) => ({
                     color: validityColor(bucketKey as ValidityStatus),
                 }),
+                labelI18nKey: (bucketKey: string) =>
+                    `records:types.validity-status.${bucketKey}`,
                 displayOrder: ValidityStatusSchema.options,
                 isNested: true,
             },

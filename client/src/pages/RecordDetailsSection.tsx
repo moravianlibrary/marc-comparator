@@ -9,12 +9,15 @@ import {
     Tab,
     TabTitleText,
     TabContent,
+    Split,
+    SplitItem,
+    Button,
 } from "@patternfly/react-core";
 import { createRef, Fragment, type ReactElement } from "react";
 import { useGetSystemInfo } from "../hooks/useSystem";
-import { SearchIcon } from "@patternfly/react-icons";
+import { RedoIcon, SearchIcon } from "@patternfly/react-icons";
 import { useGetCatalogRecordById } from "../hooks/useCatalogRecords";
-import RecordDescription from "./record-details/Description";
+import RecordDescription from "../components/records/organisms/Description";
 import RecordSelect from "./record-details/RecordSelect";
 import ComparisonSelect from "./record-details/ComparisonSelect";
 import ValidationSelect from "./record-details/ValidationSelect";
@@ -26,6 +29,8 @@ import MarcValidationTable from "../components/organisms/MarcValidationTable";
 import { z } from "zod";
 import { useSearchParamsState } from "../hooks/useSearchParamsState";
 import MarcComparisonTable from "../components/organisms/MarcComparisonTable";
+import { useTranslation } from "react-i18next";
+import { useQueryClient } from "@tanstack/react-query";
 
 type TabKey =
     | "description"
@@ -47,20 +52,21 @@ const RecordDetailsState = z.object({
     id: z.string().nullable().default(null),
     authorityLinks: z
         .object({
-            base: z.string().nullable().default(null),
+            base: z.string(),
         })
         .nullable()
         .default(null),
     comparisons: z
         .object({
-            base: z.string().nullable().default(null),
-            comparator: z.string().nullable().default(null),
+            base: z.string(),
+            comparator: z.string(),
+            showOnlyTarget: z.boolean().default(false),
         })
         .nullable()
         .default(null),
     validations: z
         .object({
-            validator: z.string().nullable().default(null),
+            validator: z.string(),
             showOnlyTarget: z.boolean().default(false),
         })
         .nullable()
@@ -80,7 +86,11 @@ function recordIdToSystemNumber(recordId: string | null): string {
 }
 
 const RecordDetailsSection = (): ReactElement => {
-    const [params, setParams] = useSearchParamsState(RecordDetailsState);
+    const { t } = useTranslation();
+    const [params, setParams] = useSearchParamsState(
+        RecordDetailsState,
+        "record-details"
+    );
 
     const { data: systemInfo, isLoading: systemInfoLoading } =
         useGetSystemInfo();
@@ -89,6 +99,14 @@ const RecordDetailsSection = (): ReactElement => {
     const { data: record, isLoading: recordLoading } = useGetCatalogRecordById(
         params.id ?? null
     );
+    const queryClient = useQueryClient();
+
+    const handleRefresh = () => {
+        queryClient.invalidateQueries({
+            queryKey: ["catalog-records", "get-by-id", params.id],
+            exact: true,
+        });
+    };
 
     const descriptionRef = createRef<HTMLDivElement>();
     const marcRef = createRef<HTMLDivElement>();
@@ -100,77 +118,103 @@ const RecordDetailsSection = (): ReactElement => {
         setParams({ tab: newTab, id: params.id, ...tabParams });
     };
 
-    const renderAuthorityRecordsTab = (record: EsHit<CatalogRecord>) => (
-        <Tab
-            eventKey={"authority_records"}
-            title={<TabTitleText>Authority Records</TabTitleText>}
-            tabContentId={`authority_records-content`}
-            tabContentRef={authorityRecordsRef}
-        >
-            <div style={{ marginTop: "1rem" }}>
-                <AuthorityBaseSelect
-                    record={record}
-                    base={params.authorityLinks?.base ?? null}
-                    onSubmit={(base) =>
-                        handleTabChange("authority_records", {
-                            authorityLinks: { base },
-                        })
-                    }
-                />
-            </div>
-        </Tab>
-    );
+    const renderAuthorityRecordsTab = ({
+        _source: { authority_links },
+    }: EsHit<CatalogRecord>) =>
+        authority_links && authority_links.length > 0 ? (
+            <Tab
+                eventKey={"authority_records"}
+                title={
+                    <TabTitleText>
+                        {t("records:details.views.authority-links")}
+                    </TabTitleText>
+                }
+                tabContentId={`authority_records-content`}
+                tabContentRef={authorityRecordsRef}
+            >
+                <div style={{ marginTop: "1rem" }}>
+                    <AuthorityBaseSelect
+                        authorityLinks={authority_links}
+                        base={params.authorityLinks?.base ?? null}
+                        onSubmit={(base) =>
+                            handleTabChange("authority_records", {
+                                authorityLinks: { base },
+                            })
+                        }
+                    />
+                </div>
+            </Tab>
+        ) : null;
 
-    const renderComparisonsTab = (record: EsHit<CatalogRecord>) => (
-        <Tab
-            eventKey={"comparisons"}
-            title={<TabTitleText>Comparisons</TabTitleText>}
-            tabContentId={`comparisons-content`}
-            tabContentRef={comparisonsRef}
-        >
-            <div style={{ marginTop: "1rem" }}>
-                <ComparisonSelect
-                    record={record}
-                    base={params.comparisons?.base ?? null}
-                    comparator={params.comparisons?.comparator ?? null}
-                    onSubmit={(base, comparator) =>
-                        handleTabChange("comparisons", {
-                            comparisons: { base, comparator },
-                        })
-                    }
-                />
-            </div>
-        </Tab>
-    );
+    const renderComparisonsTab = (record: EsHit<CatalogRecord>) =>
+        record._source.comparisons && record._source.comparisons.length > 0 ? (
+            <Tab
+                eventKey={"comparisons"}
+                title={
+                    <TabTitleText>
+                        {t("records:details.views.comparisons")}
+                    </TabTitleText>
+                }
+                tabContentId={`comparisons-content`}
+                tabContentRef={comparisonsRef}
+            >
+                <div style={{ marginTop: "1rem" }}>
+                    <ComparisonSelect
+                        record={record}
+                        state={params.comparisons}
+                        onSubmit={(state) =>
+                            handleTabChange("comparisons", {
+                                comparisons: state,
+                            })
+                        }
+                    />
+                </div>
+            </Tab>
+        ) : null;
 
-    const renderValidationsTab = (record: EsHit<CatalogRecord>) => (
-        <Tab
-            eventKey={"validations"}
-            title={<TabTitleText>Validations</TabTitleText>}
-            tabContentId={`validations-content`}
-            tabContentRef={validationsRef}
-        >
-            <div style={{ marginTop: "1rem" }}>
-                <ValidationSelect
-                    record={record}
-                    validator={params.validations?.validator ?? null}
-                    showOnlyTarget={params.validations?.showOnlyTarget}
-                    onSubmit={(validator, showOnlyTarget) =>
-                        handleTabChange("validations", {
-                            validations: { validator, showOnlyTarget },
-                        })
-                    }
-                />
-            </div>
-        </Tab>
-    );
+    const renderValidationsTab = (record: EsHit<CatalogRecord>) =>
+        record._source.validations && record._source.validations.length > 0 ? (
+            <Tab
+                eventKey={"validations"}
+                title={
+                    <TabTitleText>
+                        {t("records:details.views.validations")}
+                    </TabTitleText>
+                }
+                tabContentId={`validations-content`}
+                tabContentRef={validationsRef}
+            >
+                <div style={{ marginTop: "1rem" }}>
+                    <ValidationSelect
+                        record={record}
+                        state={params.validations}
+                        onSubmit={(state) =>
+                            handleTabChange("validations", {
+                                validations: state,
+                            })
+                        }
+                    />
+                </div>
+            </Tab>
+        ) : null;
 
     return (
         <Fragment>
             <PageGroup stickyOnBreakpoint={{ default: "top" }}>
                 <PageSection>
                     <Content>
-                        <h1>Record Details</h1>
+                        <Split>
+                            <SplitItem isFilled>
+                                <h1>{t("records:details.title")}</h1>
+                            </SplitItem>
+                            <SplitItem>
+                                <Button
+                                    variant="plain"
+                                    icon={<RedoIcon />}
+                                    onClick={handleRefresh}
+                                />
+                            </SplitItem>
+                        </Split>
                     </Content>
                 </PageSection>
                 <PageSection>
@@ -200,13 +244,21 @@ const RecordDetailsSection = (): ReactElement => {
                         >
                             <Tab
                                 eventKey="description"
-                                title={<TabTitleText>Description</TabTitleText>}
+                                title={
+                                    <TabTitleText>
+                                        {t("records:details.views.description")}
+                                    </TabTitleText>
+                                }
                                 tabContentId="description-content"
                                 tabContentRef={descriptionRef}
                             />
                             <Tab
                                 eventKey="marc"
-                                title={<TabTitleText>MARC Record</TabTitleText>}
+                                title={
+                                    <TabTitleText>
+                                        {t("records:details.views.marc")}
+                                    </TabTitleText>
+                                }
                                 tabContentId="marc-content"
                                 tabContentRef={marcRef}
                             />
@@ -232,13 +284,14 @@ const RecordDetailsSection = (): ReactElement => {
                 <PageGroup>
                     <PageSection>
                         <EmptyState
-                            titleText="No Record ID Entered"
+                            titleText={t(
+                                "records:details.statement.no-id-title"
+                            )}
                             headingLevel="h4"
                             icon={SearchIcon}
                         >
                             <EmptyStateBody>
-                                Please enter a catalog base and system number to
-                                view record details.
+                                {t("records:details.statement.no-id-body")}
                             </EmptyStateBody>
                         </EmptyState>
                     </PageSection>
@@ -248,14 +301,22 @@ const RecordDetailsSection = (): ReactElement => {
                 <PageGroup>
                     <PageSection>
                         <EmptyState
-                            titleText="No results found"
+                            titleText={t(
+                                "records:details.statement.no-record-found-title"
+                            )}
                             headingLevel="h4"
                             icon={SearchIcon}
                         >
                             <EmptyStateBody>
-                                No record found for the catalog base "
-                                {recordIdToBase(params.id)}" and system number "
-                                {recordIdToSystemNumber(params.id)}".
+                                {t(
+                                    "records:details.statement.no-record-found-body",
+                                    {
+                                        catalogBase: recordIdToBase(params.id),
+                                        systemNumber: recordIdToSystemNumber(
+                                            params.id
+                                        ),
+                                    }
+                                )}
                             </EmptyStateBody>
                         </EmptyState>
                     </PageSection>
@@ -304,7 +365,9 @@ const RecordDetailsSection = (): ReactElement => {
                                                     params.authorityLinks?.base
                                             )?.system_number
                                         }
-                                        noRecordMessage="No authority records available"
+                                        noRecordMessage={t(
+                                            "records:details.authority-links.no-record-message"
+                                        )}
                                     />
                                 </TabContent>
                             )}
@@ -330,6 +393,9 @@ const RecordDetailsSection = (): ReactElement => {
                                                         params.comparisons
                                                             ?.comparator
                                             )!
+                                        }
+                                        showOnlyTarget={
+                                            params.comparisons?.showOnlyTarget
                                         }
                                     />
                                 </TabContent>

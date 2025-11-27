@@ -10,6 +10,7 @@ import {
 import type { DefaultValues, FieldValues } from "react-hook-form";
 import type { ZodType } from "zod";
 import ZodForm from "../organisms/ZodForm";
+import { useTranslation } from "react-i18next";
 
 interface ZodFormPageLayoutProps<T extends FieldValues> {
     schema?: ZodType<T, any, any>;
@@ -17,8 +18,7 @@ interface ZodFormPageLayoutProps<T extends FieldValues> {
     isLoading: boolean;
     onSubmit: (data: T) => void;
     isSubmitting: boolean;
-    title: string;
-    emptyStateMessage?: string;
+    i18nNamespace: string;
 }
 
 const ZodFormPageLayout = <T extends FieldValues>({
@@ -27,9 +27,10 @@ const ZodFormPageLayout = <T extends FieldValues>({
     isLoading,
     onSubmit,
     isSubmitting,
-    title,
-    emptyStateMessage = "No data or schema available.",
+    i18nNamespace,
 }: ZodFormPageLayoutProps<T>): ReactElement => {
+    const { t } = useTranslation(i18nNamespace);
+
     const [dataEdit, setDataEdit] = useState<DefaultValues<T> | undefined>(
         initValues
     );
@@ -51,7 +52,7 @@ const ZodFormPageLayout = <T extends FieldValues>({
             <PageGroup stickyOnBreakpoint={{ default: "top" }}>
                 <PageSection>
                     <Content>
-                        <h1>{title}</h1>
+                        <h1>{t("title")}</h1>
                     </Content>
                 </PageSection>
             </PageGroup>
@@ -62,9 +63,10 @@ const ZodFormPageLayout = <T extends FieldValues>({
                         defaultValues={dataEdit}
                         onSubmit={onSubmit}
                         isSubmitting={isSubmitting}
+                        i18nNamespace={i18nNamespace}
                     />
                 ) : (
-                    <EmptyState>{emptyStateMessage}</EmptyState>
+                    <EmptyState>{t("form.no-data-or-schema")}</EmptyState>
                 )}
             </PageSection>
         </Fragment>

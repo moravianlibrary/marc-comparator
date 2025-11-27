@@ -17,11 +17,18 @@ import {
     PageSection,
     Popover,
 } from "@patternfly/react-core";
-import { Fragment, ReactElement, useCallback, useMemo, useState } from "react";
+import {
+    Fragment,
+    type ReactElement,
+    useCallback,
+    useMemo,
+    useState,
+} from "react";
 import CheckboxSelect from "../components/molecules/CheckboxSelect";
 import { TaskSeveritySchema, TaskTypeSchema } from "../models/primitives/task";
 import { useRecreateIndexes } from "../hooks/useSystem";
 import { useDeleteTasks } from "../hooks/useTasks";
+import { useTranslation } from "react-i18next";
 
 // -----------------------------------------------------------------------------
 // Utility Components
@@ -70,6 +77,9 @@ const MaintenanceCard = ({
 // -----------------------------------------------------------------------------
 
 const DeleteOldTasksCard = (): ReactElement => {
+    const { t } = useTranslation("system-maintenance");
+    const { t: t_tasks } = useTranslation("tasks");
+
     const deleteTasksMutation = useDeleteTasks();
 
     const [date, setDate] = useState<Date>(() => {
@@ -96,7 +106,7 @@ const DeleteOldTasksCard = (): ReactElement => {
     const validateDate = useCallback(
         (selectedDate: Date) =>
             selectedDate > oneMonthAgo
-                ? "Date must be at least one month old."
+                ? t("validation.date-at-least-one-month-old")
                 : "",
         [oneMonthAgo]
     );
@@ -135,9 +145,9 @@ const DeleteOldTasksCard = (): ReactElement => {
 
     return (
         <MaintenanceCard
-            title="Delete Old Tasks"
-            description="Remove old tasks to free up database space and keep your system clean."
-            action="Delete Old Tasks"
+            title={t("delete-old-tasks.title")}
+            description={t("delete-old-tasks.description")}
+            action={t("delete-old-tasks.action")}
             onActionClick={handleDelete}
             isActionDisabled={!date}
         >
@@ -145,18 +155,24 @@ const DeleteOldTasksCard = (): ReactElement => {
                 <DescriptionListGroup>
                     <DescriptionListTermHelpText>
                         <Popover
-                            headerContent="Delete tasks older than"
-                            bodyContent="Tasks must be at least one month old to be deleted."
+                            headerContent={t(
+                                "delete-old-tasks.cutoff-date-title"
+                            )}
+                            bodyContent={t(
+                                "delete-old-tasks.cutoff-date-description"
+                            )}
                         >
                             <DescriptionListTermHelpTextButton>
-                                Delete tasks older than
+                                {t("delete-old-tasks.cutoff-date-title")}
                             </DescriptionListTermHelpTextButton>
                         </Popover>
                     </DescriptionListTermHelpText>
                     <DescriptionListDescription>
                         <DatePicker
                             value={date?.toISOString().slice(0, 10)}
-                            placeholder="Select cutoff date"
+                            placeholder={t(
+                                "delete-old-tasks.cutoff-date-placeholder"
+                            )}
                             appendTo={() => document.body}
                             validators={[validateDate]}
                             onChange={(_, __, newDate) =>
@@ -168,13 +184,15 @@ const DeleteOldTasksCard = (): ReactElement => {
 
                 <DescriptionListGroup>
                     <DescriptionListTerm>
-                        Delete only tasks of type
+                        {t("delete-old-tasks.task-types-title")}
                     </DescriptionListTerm>
                     <DescriptionListDescription>
                         <CheckboxSelect
-                            placeholder="Select task types"
+                            placeholder={t(
+                                "delete-old-tasks.task-types-placeholder"
+                            )}
                             options={TaskTypeSchema.options.map((opt) => ({
-                                label: opt,
+                                label: t_tasks(`type.${opt}`),
                                 value: opt,
                             }))}
                             selected={selectedTypes}
@@ -185,13 +203,15 @@ const DeleteOldTasksCard = (): ReactElement => {
 
                 <DescriptionListGroup>
                     <DescriptionListTerm>
-                        Delete only tasks with outcome severity
+                        {t("delete-old-tasks.task-severities-title")}
                     </DescriptionListTerm>
                     <DescriptionListDescription>
                         <CheckboxSelect
-                            placeholder="Select outcome severities"
+                            placeholder={t(
+                                "delete-old-tasks.task-severities-placeholder"
+                            )}
                             options={TaskSeveritySchema.options.map((opt) => ({
-                                label: opt,
+                                label: t_tasks(`severity.${opt}`),
                                 value: opt,
                             }))}
                             selected={selectedSeverities}
@@ -209,6 +229,8 @@ const DeleteOldTasksCard = (): ReactElement => {
 // -----------------------------------------------------------------------------
 
 const SystemMaintenance = (): ReactElement => {
+    const { t } = useTranslation("system-maintenance");
+
     const recreateIndexesMutation = useRecreateIndexes();
 
     return (
@@ -216,11 +238,8 @@ const SystemMaintenance = (): ReactElement => {
             <PageGroup stickyOnBreakpoint={{ default: "top" }}>
                 <PageSection>
                     <Content>
-                        <h1>System Maintenance</h1>
-                        <p>
-                            Perform periodic housekeeping tasks to ensure smooth
-                            system performance and data integrity.
-                        </p>
+                        <h1>{t("title")}</h1>
+                        <p>{t("description")}</p>
                     </Content>
                 </PageSection>
             </PageGroup>
@@ -228,12 +247,11 @@ const SystemMaintenance = (): ReactElement => {
             <PageSection>
                 <Gallery hasGutter minWidths={{ default: "400px" }}>
                     <MaintenanceCard
-                        title="Recreate Indexes"
-                        description="If you experience issues with searching or indexing, you can safely recreate the indexes."
-                        action="Recreate Indexes"
+                        title={t("recreate-indexes.title")}
+                        description={t("recreate-indexes.description")}
+                        action={t("recreate-indexes.action")}
                         onActionClick={() => recreateIndexesMutation.mutate()}
                     />
-
                     <DeleteOldTasksCard />
                 </Gallery>
             </PageSection>

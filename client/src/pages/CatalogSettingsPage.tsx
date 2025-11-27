@@ -24,7 +24,7 @@ const CatalogSettingsPage = (): ReactElement => {
             isLoading={isLoadingSchema || isLoadingSettings}
             onSubmit={(data) => mutate(data)}
             isSubmitting={isPending}
-            title="Catalog Settings"
+            i18nNamespace="catalog-settings"
         />
     );
 };
