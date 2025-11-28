@@ -3,7 +3,7 @@ import apiClient, { setAuthToken } from "../services/apiClient";
 import type { Me } from "../models/api/responses/users";
 import { useCallback } from "react";
 import type { EnforcedPermission } from "../models/ui/permissions";
-import type { Token, UserInfo } from "../models/api/responses/auth";
+import type { Token } from "../models/api/responses/auth";
 import type { LoginUser, RegisterUser } from "../models/api/requests/auth";
 import { queryClient } from "../services/queryClient";
 import { useNotification } from "./useNotifications";
@@ -105,10 +105,9 @@ export const useLogout = () => {
 export const useSignUp = () => {
     const { addNotification } = useNotification();
 
-    return useMutation<UserInfo, AxiosError<{ detail: string }>, RegisterUser>({
-        mutationFn: async (data) =>
-            (await apiClient.post<UserInfo>("/auth/signup", data)).data,
-        onSuccess: (userData) => {
+    return useMutation<void, AxiosError<{ detail: string }>, RegisterUser>({
+        mutationFn: async (data) => await apiClient.post("/auth/sign-up", data),
+        onSuccess: (_, userData) => {
             addNotification({
                 key: `signup-success-${Date.now()}`,
                 title: "Registration Successful",
@@ -124,6 +123,7 @@ export const useSignUp = () => {
             });
         },
         onError: (error) => {
+            console.error("Registration error:", error);
             addNotification({
                 key: `signup-error-${Date.now()}`,
                 title: "Registration Failed",

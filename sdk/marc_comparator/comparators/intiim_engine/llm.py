@@ -22,6 +22,11 @@ OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5vl:7b")
 OLLAMA_TIMEOUT = int(os.getenv("OLLAMA_TIMEOUT", "20"))
 
+def set_ollama_url(url: str):
+    """Programmatically update the module-level OLLAMA_URL."""
+    global OLLAMA_URL
+    OLLAMA_URL = url
+
 os.environ["LLM_BACKEND"] = "llama_cpp"
 os.environ["LLM_LLAMA_MODEL"] = "path_to_model.gguf"
 
@@ -203,6 +208,7 @@ def _ollama_generate(prompt: str) -> str:
         json={"model": OLLAMA_MODEL, "prompt": prompt, "stream": False},
         timeout=OLLAMA_TIMEOUT,
     )
+    print(r.url, r.status_code, r.content)
     r.raise_for_status()
     return r.json().get("response", "")
 

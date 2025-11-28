@@ -1,11 +1,17 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Body, Path
+from fastapi import APIRouter, Body
 
 from adapters.dependencies import DatabaseSessionDep, WithPermission
 from entities.role import Permission
-from entities.settings import RecordToolsSettingsScope, SystemSettingsScope
-from settings.models import AppSettingsSchemas, TaskSettingsSchemas
+from entities.settings import SettingsScope
+from settings.models import (
+    AuthorityLinkingSettings,
+    CatalogSettings,
+    ComparisonSettings,
+    TaskSettings,
+    ValidationSettings,
+)
 
 from . import service
 
@@ -23,42 +29,93 @@ record_tools_settings_router = APIRouter(
 )
 
 
-@system_settings_router.get("/{scope}", response_model=AppSettingsSchemas)
-async def get_app_settings(
-    scope: Annotated[SystemSettingsScope, Path()],
+@system_settings_router.get("/catalog", response_model=CatalogSettings)
+async def get_catalog_settings(
     db_session: DatabaseSessionDep,
 ):
-    return service.get_settings(scope, db_session)
+    return service.get_settings(SettingsScope.Catalog, db_session)
 
 
-@system_settings_router.post("/{scope}", response_model=AppSettingsSchemas)
-async def set_app_settings(
-    scope: Annotated[SystemSettingsScope, Path()],
-    settings: Annotated[AppSettingsSchemas, Body()],
+@system_settings_router.post("/catalog", response_model=CatalogSettings)
+async def set_catalog_settings(
+    settings: Annotated[CatalogSettings, Body()],
     db_session: DatabaseSessionDep,
 ):
-    return service.set_settings(scope, settings, db_session)
+    return service.set_settings(SettingsScope.Catalog, settings, db_session)
+
+
+@system_settings_router.get("/tasks", response_model=TaskSettings)
+async def get_task_settings(
+    db_session: DatabaseSessionDep,
+):
+    return service.get_settings(SettingsScope.Tasks, db_session)
+
+
+@system_settings_router.post("/tasks", response_model=TaskSettings)
+async def set_task_settings(
+    settings: Annotated[TaskSettings, Body()],
+    db_session: DatabaseSessionDep,
+):
+    return service.set_settings(SettingsScope.Tasks, settings, db_session)
 
 
 @record_tools_settings_router.get(
-    "/{scope}", response_model=TaskSettingsSchemas
+    "/authority-linkers", response_model=AuthorityLinkingSettings
 )
-async def get_task_settings(
-    scope: Annotated[RecordToolsSettingsScope, Path()],
+async def get_authority_linking_settings(
     db_session: DatabaseSessionDep,
 ):
-    return service.get_settings(scope, db_session)
+    return service.get_settings(SettingsScope.AuthorityLinking, db_session)
 
 
 @record_tools_settings_router.post(
-    "/{scope}", response_model=TaskSettingsSchemas
+    "/authority-linkers", response_model=AuthorityLinkingSettings
 )
-async def set_task_settings(
-    scope: Annotated[RecordToolsSettingsScope, Path()],
-    settings: Annotated[TaskSettingsSchemas, Body()],
+async def set_authority_linking_settings(
+    settings: Annotated[AuthorityLinkingSettings, Body()],
     db_session: DatabaseSessionDep,
 ):
-    return service.set_settings(scope, settings, db_session)
+    return service.set_settings(
+        SettingsScope.AuthorityLinking, settings, db_session
+    )
+
+
+@record_tools_settings_router.get(
+    "/comparators", response_model=ComparisonSettings
+)
+async def get_comparison_settings(
+    db_session: DatabaseSessionDep,
+):
+    return service.get_settings(SettingsScope.Comparison, db_session)
+
+
+@record_tools_settings_router.post(
+    "/comparators", response_model=ComparisonSettings
+)
+async def set_comparison_settings(
+    settings: Annotated[ComparisonSettings, Body()],
+    db_session: DatabaseSessionDep,
+):
+    return service.set_settings(SettingsScope.Comparison, settings, db_session)
+
+
+@record_tools_settings_router.get(
+    "/validators", response_model=ValidationSettings
+)
+async def get_validation_settings(
+    db_session: DatabaseSessionDep,
+):
+    return service.get_settings(SettingsScope.Validation, db_session)
+
+
+@record_tools_settings_router.post(
+    "/validators", response_model=ValidationSettings
+)
+async def set_validation_settings(
+    settings: Annotated[ValidationSettings, Body()],
+    db_session: DatabaseSessionDep,
+):
+    return service.set_settings(SettingsScope.Validation, settings, db_session)
 
 
 router.include_router(system_settings_router)

@@ -35,7 +35,7 @@ print_step "Registering test user"
 echo "Registration can fail if the user already exists, which is fine."
 echo
 
-http POST "$APP_URL/auth/register" \
+http POST "$APP_URL/auth/sign-up" \
     email="$TEST_EMAIL" \
     first_name="$TEST_FIRSTNAME" \
     last_name="$TEST_LASTNAME" \

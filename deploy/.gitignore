@@ -1,0 +1,3 @@
+docker-compose/es_data/
+docker-compose/pg_data/
+docker-compose/ollama_models/

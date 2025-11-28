@@ -1,29 +1,56 @@
 COMPOSE_FILE := deploy/docker-compose/docker-compose.yml
-TAG ?= local
+DOCKER ?= $(shell which podman 2>/dev/null || which docker 2>/dev/null)
+VERSION := $(shell cat VERSION)
 
+REGISTRY ?=
+
+REG_PREFIX := $(if $(REGISTRY),$(REGISTRY)/,)
+APP_IMAGE := $(REG_PREFIX)marc-comparator-app:$(VERSION)
+WORKER_IMAGE := $(REG_PREFIX)marc-comparator-worker:$(VERSION)
+CLIENT_IMAGE := $(REG_PREFIX)marc-comparator-client:$(VERSION)
+
+# ------------------------------
+# Build Images
+# ------------------------------
 build:
-	docker build -t marc-comparator-app:$(TAG) -f app/app.Containerfile .
-	docker build -t marc-comparator-worker:$(TAG) -f app/worker.Containerfile .
+	$(DOCKER) build -t $(APP_IMAGE) -f app/app.Containerfile .
+	$(DOCKER) build -t $(WORKER_IMAGE) -f app/worker.Containerfile .
+	$(DOCKER) build -t $(CLIENT_IMAGE) -f client/Containerfile client/
 
+# ------------------------------
+# Push Images
+# ------------------------------
+push:
+	$(if $(REGISTRY),,$(error REGISTRY is required for push target))
+	$(DOCKER) push $(APP_IMAGE)
+	$(DOCKER) push $(WORKER_IMAGE)
+
+build-push: build push
+
+# ------------------------------
+# Local Development
+# ------------------------------
 start:
-	docker compose -f $(COMPOSE_FILE) up -d
+	TAG=$(VERSION) $(DOCKER) compose -f $(COMPOSE_FILE) up -d
 
 stop:
-	docker compose -f $(COMPOSE_FILE) down
+	$(DOCKER) compose -f $(COMPOSE_FILE) down
 
 restart: stop start
 
 rebuild: stop build start
 
 restart-clean:
-	docker compose -f $(COMPOSE_FILE) down -v
-	docker compose -f $(COMPOSE_FILE) up -d
+	$(DOCKER) compose -f $(COMPOSE_FILE) down -v
+	TAG=$(VERSION) $(DOCKER) compose -f $(COMPOSE_FILE) up -d
 
 rebuild-clean:
-	docker compose -f $(COMPOSE_FILE) down -v
-	docker build -t marc-comparator-app:$(TAG) -f app/app.Containerfile .
-	docker build -t marc-comparator-worker:$(TAG) -f app/worker.Containerfile .
-	docker compose -f $(COMPOSE_FILE) up -d
+	$(DOCKER) compose -f $(COMPOSE_FILE) down -v
+	$(MAKE) build
+	TAG=$(VERSION) $(DOCKER) compose -f $(COMPOSE_FILE) up -d
 
+# ------------------------------
+# Postgres Shell
+# ------------------------------
 psql:
 	docker container exec -it marc-comparator-postgres psql -d marc -U marcAdmin

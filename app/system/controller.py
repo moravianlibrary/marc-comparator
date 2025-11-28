@@ -10,18 +10,22 @@ from . import service
 router = APIRouter(
     prefix="/system",
     tags=["System"],
-    dependencies=[WithPermission(Permission.ManageSystem)],
 )
 
 
 @router.get("/info")
 async def get_system_info(
     db_session: DatabaseSessionDep,
+    _: CurrentUser,
 ):
     return await service.get_system_info(db_session)
 
 
-@router.post("/recreate-indexes", response_model=TaskSchema)
+@router.post(
+    "/recreate-indexes",
+    dependencies=[WithPermission(Permission.ManageSystem)],
+    response_model=TaskSchema,
+)
 async def recreate_indexes(
     current_user: CurrentUser,
     db_session: DatabaseSessionDep,

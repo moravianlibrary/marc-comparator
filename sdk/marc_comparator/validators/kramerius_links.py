@@ -1,5 +1,6 @@
 import re
-from typing import List
+from dataclasses import dataclass
+from typing import Dict, List
 
 from kramerius import KrameriusClient, KrameriusConfig, KrameriusField, Model
 from marcdantic import MarcRecord
@@ -24,6 +25,48 @@ class KrameriusLinksValidatorConfig(BaseModel):
 
 VALIDATION_FIELD = ValidationTarget(tag="856", codes=["u", "y"])
 
+TARGET_MODELS = [
+    Model.Monograph,
+    Model.MonographUnit,
+    Model.Periodical,
+    Model.PeriodicalVolume,
+    Model.PeriodicalItem,
+    Model.Supplement,
+    Model.Graphic,
+    Model.Map,
+    Model.Sheetmusic,
+    Model.SoundRecording,
+    Model.Archive,
+    Model.Manuscript,
+]
+VALID_TOP_LEVEL_MODELS = {
+    Model.Monograph,
+    Model.Periodical,
+    Model.Graphic,
+    Model.Map,
+    Model.Sheetmusic,
+    Model.SoundRecording,
+    Model.Archive,
+    Model.Manuscript,
+}
+FL = [
+    f.value
+    for f in [
+        KrameriusField.OwnPidPath,
+        KrameriusField.ModelPath,
+        KrameriusField.Level,
+    ]
+]
+MAX_QUERY_PARTS = 50
+
+
+@dataclass
+class FoundKrameriusLink:
+    pid: str
+    model: Model
+    has_wrong_model: bool = False
+    level: int = 0
+
 
 class KrameriusLinksValidator(BaseValidator):
     """
@@ -42,22 +85,12 @@ class KrameriusLinksValidator(BaseValidator):
             KrameriusConfig(host=config.kramerius_host)
         )
 
-    async def find_kramerius_pids(
+    async def find_kramerius_links(
         self, record: MarcRecord, current_kramerius_pids: List[str]
-    ) -> List[str]:
-        models = [
-            Model.Monograph,
-            Model.MonographUnit,
-            Model.Periodical,
-            Model.PeriodicalVolume,
-            Model.PeriodicalItem,
-            Model.Supplement,
-            Model.Graphic,
-            Model.Map,
-        ]
+    ) -> List[FoundKrameriusLink]:
+        links: Dict[str, FoundKrameriusLink] = {}
 
-        query = None
-        for field, values in [
+        raw_fields = [
             (
                 KrameriusField.Barcode,
                 [i.barcode for i in record.issues_selector.all],
@@ -65,46 +98,67 @@ class KrameriusLinksValidator(BaseValidator):
             (KrameriusField.Isbn, record.variable_fields.query(IsbnActiveJq)),
             (KrameriusField.Issn, record.variable_fields.query(IssnActiveJq)),
             (KrameriusField.Nbn, record.variable_fields.query(NbnActiveJq)),
-        ]:
-            if not values:
-                continue
-
-            if query is None:
-                query = F(field, values)
-                continue
-
-            query |= F(field, values)
-
-        if query is None:
-            return []
-
-        query = G(query) & F(KrameriusField.Model, models)
-
-        pid_paths = [
-            doc.own_pid_path
-            for doc in self.client.Search.search(
-                query,
-                fl=[
-                    f.value
-                    for f in [
-                        KrameriusField.OwnPidPath,
-                        KrameriusField.ModelPath,
-                    ]
-                ],
-            )
         ]
 
-        pids = []
+        field_query_parts = [
+            (field, value)
+            for field, values in raw_fields
+            for value in (values or [])
+        ]
 
-        for pid_path in pid_paths:
-            split = pid_path.split("/")
-            pids.append(split[-1])
+        for i in range(0, len(field_query_parts), MAX_QUERY_PARTS):
+            upper = min(i + MAX_QUERY_PARTS, len(field_query_parts))
+            field_query_parts_chunk = field_query_parts[i:upper]
+
+            query = None
+
+            for field, values in field_query_parts_chunk:
+                if query is None:
+                    query = F(field, values)
+                    continue
+
+                query |= F(field, values)
+
+            if query is None:
+                break
+
+            query = G(query) & F(KrameriusField.Model, TARGET_MODELS)
+
+            for doc in self.client.Search.search(query, fl=FL):
+                root_pid = doc.own_pid_path.split("/")[0]
+                root_model = Model(doc.model_path.split("/")[-1])
+                has_wrong_model = root_model not in VALID_TOP_LEVEL_MODELS
+
+                links[root_pid] = FoundKrameriusLink(
+                    root_pid, root_model, has_wrong_model
+                )
 
         for pid in current_kramerius_pids:
-            if self.client.Search.num_found(F(KrameriusField.Pid, pid)) == 1:
-                pids.append(pid)
+            docs = list(
+                self.client.Search.search(F(KrameriusField.Pid, pid), fl=FL),
+            )
+            if not docs:
+                continue
 
-        return pids
+            doc = docs[0]
+
+            if doc.level != 0:
+                links[pid] = FoundKrameriusLink(
+                    pid,
+                    model=Model(doc.model_path.split("/")[-1]),
+                    level=doc.level,
+                )
+                continue
+
+            root_pid = doc.own_pid_path.split("/")[0]
+            root_model = Model(doc.model_path.split("/")[-1])
+            has_wrong_model = root_model not in VALID_TOP_LEVEL_MODELS
+
+            links[root_pid] = FoundKrameriusLink(
+                root_pid, root_model, has_wrong_model
+            )
+
+        return list(links.values())
 
     async def run(self, record: MarcRecord) -> List[ValidationResult]:
         current_kramerius_pids = []
@@ -165,11 +219,11 @@ class KrameriusLinksValidator(BaseValidator):
                     ),
                 )
 
-        found_kramerius_pids = await self.find_kramerius_pids(
+        found_kramerius_links = await self.find_kramerius_links(
             record, current_kramerius_pids
         )
 
-        if not current_kramerius_pids and not found_kramerius_pids:
+        if not current_kramerius_pids and not found_kramerius_links:
             if not results:
                 add_partial_result(
                     status=ValidityStatus.Valid,
@@ -181,6 +235,36 @@ class KrameriusLinksValidator(BaseValidator):
                 )
 
             return results
+
+        found_kramerius_pids = []
+
+        for link in found_kramerius_links:
+            if link.level > 0:
+                add_partial_result(
+                    reason="Kramerius link points to non-top-level document",
+                    details=(
+                        f"Document with PID '{link.pid}' "
+                        f"and model '{link.model.value}' "
+                        f"is at level {link.level} "
+                        "and not a top-level document."
+                    ),
+                    hint="Link should point to a top-level document.",
+                )
+
+            elif link.has_wrong_model:
+                add_partial_result(
+                    status=ValidityStatus.AdditionalInfo,
+                    reason="Kramerius link points to invalid model",
+                    details=(
+                        f"Found top level document with PID '{link.pid}' "
+                        f"that has model '{link.model.value}' "
+                        "which is not a valid top-level model."
+                    ),
+                    hint=("Check integrity of the data in Kramerius."),
+                )
+
+            else:
+                found_kramerius_pids.append(link.pid)
 
         extra_pids = set(current_kramerius_pids) - set(found_kramerius_pids)
         for pid in extra_pids:

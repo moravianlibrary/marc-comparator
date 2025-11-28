@@ -10,6 +10,8 @@ import {
     DescriptionListTerm,
     HelperText,
     Spinner,
+    Stack,
+    StackItem,
 } from "@patternfly/react-core";
 import type { Validation } from "../../models/api/responses/validation";
 import ValidityHelperTextItem from "../atoms/ValidityHelperTextItem";
@@ -101,21 +103,30 @@ const MarcValidationTable = ({
         );
     }
 
+    const targetTags = new Set(validations.map((v) => v.target.tag));
+    const maxTagIdxLookup: Record<string, number> = {};
+    targetTags.forEach((tag) => {
+        maxTagIdxLookup[tag] = record.variable_fields[tag]
+            ? record.variable_fields[tag].length - 1
+            : 0;
+    });
+
     const validationsLookup = validations.reduce<
-        Record<string, Record<number, Validation>>
+        Record<string, Record<number, Validation[]>>
     >((acc, validation) => {
         const tag = validation.target.tag;
 
-        if (!validation.target.idx) {
-            acc[tag] = { 0: validation };
-        } else {
-            if (!acc[tag] || !(acc[tag] instanceof Object)) {
+        const appendToArray = (idx: number) => {
+            if (!acc[tag]) {
                 acc[tag] = {};
             }
+            if (!(idx in acc[tag])) {
+                (acc[tag] as Record<number, Validation[]>)![idx] = [];
+            }
+            (acc[tag] as Record<number, Validation[]>)[idx].push(validation);
+        };
 
-            (acc[tag] as Record<number, Validation>)[validation.target.idx] =
-                validation;
-        }
+        appendToArray(validation.target.idx ?? maxTagIdxLookup[tag] ?? 0);
 
         return acc;
     }, {});
@@ -131,52 +142,63 @@ const MarcValidationTable = ({
         const validation = validationsLookup[tag][index];
 
         return (
-            <Card isCompact isPlain>
-                <CardHeader>
-                    <HelperText>
-                        <ValidityHelperTextItem
-                            status={validation.status}
-                            text={
-                                t(
-                                    `${validation.validator}:${validation.reason}`
-                                ) || t("records:details.validations.no-reason")
-                            }
-                        />
-                    </HelperText>
-                </CardHeader>
-                <CardBody>
-                    {(validation.details || validation.hint) && (
-                        <DescriptionList isHorizontal>
-                            {validation.details && (
-                                <DescriptionListGroup>
-                                    <DescriptionListTerm>
-                                        {t(
-                                            "records:details.validations.details"
+            <Stack>
+                <StackItem>
+                    {validation.map((validation, idx) => (
+                        <Card key={idx} isCompact isPlain>
+                            <CardHeader>
+                                <HelperText>
+                                    <ValidityHelperTextItem
+                                        status={validation.status}
+                                        text={
+                                            t(
+                                                `${validation.validator}:${validation.reason}`
+                                            ) ||
+                                            t(
+                                                "records:details.validations.no-reason"
+                                            )
+                                        }
+                                    />
+                                </HelperText>
+                            </CardHeader>
+                            <CardBody>
+                                {(validation.details || validation.hint) && (
+                                    <DescriptionList isHorizontal>
+                                        {validation.details && (
+                                            <DescriptionListGroup>
+                                                <DescriptionListTerm>
+                                                    {t(
+                                                        "records:details.validations.details"
+                                                    )}
+                                                </DescriptionListTerm>
+                                                <DescriptionListDescription>
+                                                    {t(
+                                                        `${validation.validator}:${validation.details}`
+                                                    )}
+                                                </DescriptionListDescription>
+                                            </DescriptionListGroup>
                                         )}
-                                    </DescriptionListTerm>
-                                    <DescriptionListDescription>
-                                        {t(
-                                            `${validation.validator}:${validation.details}`
+                                        {validation.hint && (
+                                            <DescriptionListGroup>
+                                                <DescriptionListTerm>
+                                                    {t(
+                                                        "records:details.validations.hint"
+                                                    )}
+                                                </DescriptionListTerm>
+                                                <DescriptionListDescription>
+                                                    {t(
+                                                        `${validation.validator}:${validation.hint}`
+                                                    )}
+                                                </DescriptionListDescription>
+                                            </DescriptionListGroup>
                                         )}
-                                    </DescriptionListDescription>
-                                </DescriptionListGroup>
-                            )}
-                            {validation.hint && (
-                                <DescriptionListGroup>
-                                    <DescriptionListTerm>
-                                        {t("records:details.validations.hint")}
-                                    </DescriptionListTerm>
-                                    <DescriptionListDescription>
-                                        {t(
-                                            `${validation.validator}:${validation.hint}`
-                                        )}
-                                    </DescriptionListDescription>
-                                </DescriptionListGroup>
-                            )}
-                        </DescriptionList>
-                    )}
-                </CardBody>
-            </Card>
+                                    </DescriptionList>
+                                )}
+                            </CardBody>
+                        </Card>
+                    ))}
+                </StackItem>
+            </Stack>
         );
     };
 

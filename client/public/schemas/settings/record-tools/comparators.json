@@ -2,6 +2,11 @@
     "$defs": {
         "IntiimComparatorConfig": {
             "properties": {
+                "ollama_url": {
+                    "default": "http://localhost:11434",
+                    "title": "Ollama Url",
+                    "type": "string"
+                },
                 "llm_enabled": {
                     "default": true,
                     "title": "Llm Enabled",
@@ -42,6 +47,7 @@
                 }
             ],
             "default": {
+                "ollama_url": "http://localhost:11434",
                 "llm_enabled": true,
                 "nonstandard_llm_enabled": false,
                 "valid_threshold": 6,

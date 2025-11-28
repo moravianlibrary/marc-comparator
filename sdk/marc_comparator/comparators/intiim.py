@@ -12,10 +12,12 @@ from ._base import (
     SubfieldComparisonResult,
 )
 from .intiim_engine.engine import compare_records
+from .intiim_engine.llm import set_ollama_url
 from .intiim_engine.scoring import score_differences
 
 
 class IntiimComparatorConfig(BaseModel):
+    ollama_url: str = "http://localhost:11434"
     llm_enabled: bool = False
     nonstandard_llm_enabled: bool = False
     valid_threshold: int = 6
@@ -37,6 +39,7 @@ class IntiimComparator(BaseComparator):
 
     def __init__(self, config: IntiimComparatorConfig):
         self.config = config
+        set_ollama_url(config.ollama_url)
 
     def _parse_record_to_dict(self, record: MarcRecord) -> dict:
         d: dict = {"leader": record.leader, "fields": []}

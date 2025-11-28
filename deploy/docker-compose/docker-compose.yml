@@ -7,7 +7,7 @@ services:
       - POSTGRES_USER=marcAdmin
       - POSTGRES_PASSWORD=marcAdmin
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - ./pg_data:/var/lib/postgresql/data
     networks:
       - marc-comparator
     ports:
@@ -21,6 +21,8 @@ services:
       - xpack.security.enabled=true
       - ELASTIC_PASSWORD=replaceMe
       - ES_JAVA_OPTS=-Xms512m -Xmx512m
+    volumes:
+      - ./es_data:/usr/share/elasticsearch/data
     networks:
       - marc-comparator
     ports:
@@ -66,10 +68,23 @@ services:
       - marc-comparator
     ports:
       - "11434:11434"
-
-volumes:
-  postgres_data:
-
+    volumes:
+      - ./ollama_models:/root/.ollama/models
+      - ./ollama-entrypoint.sh:/ollama-entrypoint.sh:ro
+    environment:
+      - MODELS=qwen2.5vl:7b
+    entrypoint: ["/ollama-entrypoint.sh"]
+  
+  client:
+    image: marc-comparator-client:${TAG:-local}
+    container_name: marc-comparator-client
+    depends_on:
+      - app
+    networks:
+      - marc-comparator
+    ports:
+      - "8080:80"
+  
 networks:
   marc-comparator:
     name: marc-comparator

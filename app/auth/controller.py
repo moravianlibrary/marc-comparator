@@ -14,7 +14,7 @@ router = APIRouter(prefix="/auth", tags=["Authentication"])
 OAuthFormData = Annotated[OAuth2PasswordRequestForm, Depends()]
 
 
-@router.post("/register", status_code=status.HTTP_201_CREATED)
+@router.post("/sign-up", status_code=status.HTTP_201_CREATED)
 async def register_user(
     db: DatabaseSessionDep, register_user_request: RegisterUserRequest
 ):

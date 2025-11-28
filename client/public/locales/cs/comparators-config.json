@@ -3,6 +3,7 @@
     "no-data-or-schema": "Nastavení nebo schéma nastavení není k dispozici.",
     "intiim-object": "Nastavení porovnávače INTIIM",
     "intiim": {
+        "ollama-url": "URL adresa služby Ollama pro INTIIM LLM (např. http://localhost:11434)",
         "llm-enabled": "Povolit použití LLM pro vyhodnocení překlepů",
         "nonstandard-llm-enabled": "Povolit použití LLM pro vyhodnocení nestandardních zápisů",
         "valid-threshold": "Maximální hodnota skóre INTIIM (0-30), která je považována za shodu",
