@@ -41,26 +41,25 @@ const TaskDetailsState = z.object({
 const TasksDetailsPage = (): ReactElement => {
     const { t } = useTranslation("tasks");
 
-    const [params, setParams] = useSearchParamsState(
-        TaskDetailsState,
-        "task-details-state"
-    );
+    const { state, update } = useSearchParamsState(TaskDetailsState, {
+        storeKey: "task-details-state",
+    });
 
-    const { data, isLoading } = useGetTask(params.id || "", Boolean(params.id));
+    const { data, isLoading } = useGetTask(state.id || "", Boolean(state.id));
     const queryClient = useQueryClient();
 
     const handleRefresh = () => {
         queryClient.invalidateQueries({
-            queryKey: ["tasks", "get", params.id],
+            queryKey: ["tasks", "get", state.id],
             exact: true,
         });
         queryClient.invalidateQueries({
-            queryKey: ["tasks", "traceback", params.id],
+            queryKey: ["tasks", "traceback", state.id],
             exact: false,
         });
     };
 
-    if (!params.id) {
+    if (!state.id) {
         return (
             <PageGroup stickyOnBreakpoint={{ default: "top" }}>
                 <PageSection>
@@ -90,28 +89,25 @@ const TasksDetailsPage = (): ReactElement => {
     }
 
     const handleGoToPreviousPage = () => {
-        setParams({
-            id: params.id,
+        update({
+            id: state.id,
             traceback: {
-                from: Math.max(
-                    0,
-                    params.traceback.from - params.traceback.size
-                ),
-                size: params.traceback.size,
+                from: Math.max(0, state.traceback.from - state.traceback.size),
+                size: state.traceback.size,
             },
         });
     };
 
     const handleGoToNextPage = () => {
-        const { from, size } = params.traceback;
+        const { from, size } = state.traceback;
         const total = data._source.traceback_lines ?? 0;
 
         const nextFrom = total > from + size ? from + size : from;
 
-        setParams({
-            ...params,
+        update({
+            ...state,
             traceback: {
-                ...params.traceback,
+                ...state.traceback,
                 from: nextFrom,
             },
         });
@@ -137,7 +133,7 @@ const TasksDetailsPage = (): ReactElement => {
                         <p>
                             {t("details.task-id")}
                             {": "}
-                            <MonospaceValue value={params.id} />
+                            <MonospaceValue value={state.id} />
                         </p>
                     </Content>
                 </PageSection>
@@ -166,7 +162,7 @@ const TasksDetailsPage = (): ReactElement => {
                                 term: t("fields.severity"),
                                 description: (
                                     <TaskSeverityLabel
-                                        severity={data._source.outcome_severity}
+                                        severity={data._source.severity}
                                     />
                                 ),
                             },
@@ -188,8 +184,8 @@ const TasksDetailsPage = (): ReactElement => {
                                 description:
                                     (data._source.traceback_lines || 0) > 0 ? (
                                         <TaskTraceback
-                                            id={params.id}
-                                            traceback={params.traceback}
+                                            id={state.id}
+                                            traceback={state.traceback}
                                             taskHit={data}
                                             onGoToPreviousPage={
                                                 handleGoToPreviousPage
@@ -274,7 +270,7 @@ const TaskTraceback = ({
                             <MonospaceValue value={`${index + 1}: `} />
                         </GridItem>
                         <GridItem span={11}>
-                            <MonospaceValue value={line} />
+                            <MonospaceValue value={line} allowWrap />
                         </GridItem>
                     </Fragment>
                 ))}

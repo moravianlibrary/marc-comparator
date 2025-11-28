@@ -66,7 +66,7 @@ class TaskHandler(logging.Handler):
 
             severity = LEVEL_NO_TO_SEVERITY.get(record.levelno)
             if severity:
-                self.task.outcome_severity = severity
+                self.task.severity = severity
 
         try:
             self.db_session.commit()

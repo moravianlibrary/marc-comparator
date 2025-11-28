@@ -9,12 +9,12 @@
         "latest-sync": "Poslední synchronizace",
         "latest-transaction": "Poslední transakce",
         "details": "Detaily záznamu",
-        "authority-links": {
-            "label": "Autoritativní záznamy",
+        "authority-links": "Autoritativní záznamy",
+        "authority-links-object": {
             "base": "Báze autority"
         },
-        "comparisons": {
-            "label": "Porovnání",
+        "comparisons": "Porovnání",
+        "comparisons-object": {
             "base": "Porovnávaná báze",
             "comparator": "Použitý komparátor",
             "overall-score": "Celkové skóre",
@@ -25,8 +25,8 @@
                 }
             }
         },
-        "validations": {
-            "label": "Validace",
+        "validations": "Validace",
+        "validations-object": {
             "validator": "Použitý validátor",
             "status": "Výsledek validace",
             "reason": "Odůvodnění výsledku"
@@ -109,8 +109,8 @@
         "latest-transaction-asc": "Poslední transakce (Vzestupně)",
         "title-asc": "Název (A-Z)",
         "title-desc": "Název (Z-A)",
-        "score-desc": "Skóre {{comparator}} (Vysoké → Nízké)",
-        "score-asc": "Skóre {{comparator}} (Nízké → Vysoké)"
+        "score-intiim-desc": "Skóre INTIIM (Vysoké → Nízké)",
+        "score-intiim-asc": "Skóre INTIIM (Nízké → Vysoké)"
     },
     "statement": {
         "no-records-found": "Žádné výsledky hledání",

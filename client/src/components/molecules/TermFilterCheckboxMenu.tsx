@@ -1,5 +1,10 @@
-import { useEffect, useRef, useState, type ReactElement } from "react";
-import type { CollectionFilterProps } from "../atoms/CollectionFilterProps";
+import {
+    useEffect,
+    useRef,
+    useState,
+    type Dispatch,
+    type ReactElement,
+} from "react";
 import {
     MenuToggle,
     Badge,
@@ -10,33 +15,46 @@ import {
     MenuItem,
     Split,
     SplitItem,
+    type LabelProps,
+    Label,
 } from "@patternfly/react-core";
-import type {
-    TermsFilterConfig,
-    TermsFilterState,
-} from "../../models/ui/filters";
 import { FilterIcon } from "@patternfly/react-icons";
 import type { EsTermsBucket } from "../../models/api/responses/es_aggregations";
-
-interface TermFilterCheckboxMenuProps<T> extends CollectionFilterProps<T> {}
+import type { CollectionData } from "../../store/collection/domain";
+import type {
+    EsState,
+    EsStateAction,
+    EsTermsFilterConfig,
+} from "../../store/es/domain";
+import { selectTermsBuckets } from "../../store/es/selectors";
 
 const TermFilterCheckboxMenu = <T,>({
     field,
-    context: {
-        config: { filter },
-        state: { filterStates },
-        data: { aggregations },
-        dispatch,
-    },
+    state,
+    dispatch,
+    data,
+    bucketsOrdering,
+    renderBucketLabel,
     placeholder,
-    labelRender,
-}: TermFilterCheckboxMenuProps<T>): ReactElement => {
+    labelProps,
+}: {
+    field: string;
+    data?: CollectionData<T>;
+    state: EsState;
+    dispatch: Dispatch<EsStateAction>;
+    bucketsOrdering?: (a: EsTermsBucket, b: EsTermsBucket) => number;
+    renderBucketLabel?: (bucket: EsTermsBucket) => React.ReactNode | null;
+    placeholder?: string;
+    labelProps?: (bucketKey: string) => LabelProps | null;
+}): ReactElement | null => {
     const [isOpen, setIsOpen] = useState<boolean>(false);
     const toggleRef = useRef<HTMLButtonElement>(null);
     const menuRef = useRef<HTMLDivElement>(null);
 
-    const selectedItems: string[] =
-        (filterStates?.[field] as TermsFilterState)?.include ?? [];
+    const filterConfig = state.config.filters?.[field] as
+        | EsTermsFilterConfig
+        | undefined;
+    if (!filterConfig) return null;
 
     const handleMenuKeys = (event: KeyboardEvent) => {
         if (isOpen && menuRef.current?.contains(event.target as Node)) {
@@ -75,6 +93,11 @@ const TermFilterCheckboxMenu = <T,>({
         setIsOpen(!isOpen);
     };
 
+    const filterState = state.terms?.[field];
+    const include = new Set(filterState?.include || []);
+
+    const buckets = selectTermsBuckets(field, state, data, bucketsOrdering);
+
     function onSelect(
         _event: React.MouseEvent | undefined,
         itemId: string | number | undefined
@@ -84,19 +107,25 @@ const TermFilterCheckboxMenu = <T,>({
         }
 
         const itemIdStr = itemId.toString();
-        if (selectedItems.includes(itemIdStr)) {
+        if (include.has(itemIdStr)) {
             dispatch({ type: "toggleTerm", field, bucketKey: itemIdStr });
         } else {
             dispatch({ type: "toggleTerm", field, bucketKey: itemIdStr });
         }
     }
 
-    const filterConfig = filter!.find(
-        (f) => f.field === field
-    )! as TermsFilterConfig;
-    const buckets = ((filterConfig.isNested
-        ? aggregations?.[field]?.buckets?.[field]
-        : aggregations?.[field]?.buckets) || []) as EsTermsBucket[];
+    const renderLabel = (bucket: EsTermsBucket) => {
+        const currLabelProps = labelProps && labelProps(bucket.key.toString());
+        if (currLabelProps) {
+            return <Label {...currLabelProps}>{bucket.key.toString()}</Label>;
+        }
+
+        return renderBucketLabel ? (
+            renderBucketLabel(bucket)
+        ) : (
+            <>{bucket.key.toString()}</>
+        );
+    };
 
     return (
         <Popper
@@ -107,10 +136,8 @@ const TermFilterCheckboxMenu = <T,>({
                     onClick={onToggleClick}
                     isExpanded={isOpen}
                     icon={<FilterIcon />}
-                    {...(selectedItems.length > 0 && {
-                        badge: (
-                            <Badge isRead={false}>{selectedItems.length}</Badge>
-                        ),
+                    {...(include.size > 0 && {
+                        badge: <Badge isRead={false}>{include.size}</Badge>,
                     })}
                 >
                     {placeholder}
@@ -122,36 +149,27 @@ const TermFilterCheckboxMenu = <T,>({
                     ref={menuRef}
                     id="checkbox-select-menu"
                     onSelect={onSelect}
-                    selected={selectedItems}
+                    selected={Array.from(include)}
                     role="listbox"
                 >
                     <MenuContent>
                         <MenuList>
-                            {(filterConfig.orderBucketBy
-                                ? buckets.sort(filterConfig.orderBucketBy)
-                                : buckets.sort(
-                                      (a, b) => b.doc_count - a.doc_count
-                                  )
-                            ).map((bucket) => (
+                            {buckets.map((bucket) => (
                                 <MenuItem
                                     key={bucket.key}
-                                    isSelected={selectedItems.includes(
+                                    isSelected={include.has(
                                         bucket.key.toString()
                                     )}
                                     itemId={bucket.key}
                                 >
                                     <Split hasGutter>
                                         <SplitItem isFilled>
-                                            {labelRender
-                                                ? labelRender(
-                                                      bucket.key.toString()
-                                                  )
-                                                : bucket.key}
+                                            {renderLabel(bucket)}
                                         </SplitItem>
                                         <SplitItem>
                                             <Badge
                                                 isRead={
-                                                    !selectedItems.includes(
+                                                    !include.has(
                                                         bucket.key.toString()
                                                     )
                                                 }

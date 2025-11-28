@@ -7,21 +7,18 @@ import {
     ToolbarGroup,
     ToolbarItem,
 } from "@patternfly/react-core";
-import type {
-    CollectionAction,
-    CollectionData,
-    CollectionState,
-} from "../../store/collection/domain";
+import type { CollectionData } from "../../store/collection/domain";
 import { useEffect, useState } from "react";
 import { RecordsActionsMenu } from "./RecordsActionsMenu";
 import BulkSelector from "../../components/molecules/BulkSelector";
 import RecordsTableSortBy from "./SortBy";
 import type { CatalogRecord } from "../../models/api/responses/catalog_record";
 import { useTranslation } from "react-i18next";
+import type { EsState, EsStateAction } from "../../store/es/domain";
 
 interface RecordsTableToolbarProps {
-    state: CollectionState<CatalogRecord>;
-    dispatch: React.Dispatch<CollectionAction>;
+    state: EsState;
+    dispatch: React.Dispatch<EsStateAction>;
     data: CollectionData<CatalogRecord>;
     showFilters: boolean;
     onToggleShowFilters: () => void;
@@ -46,6 +43,15 @@ const RecordsTableToolbar = ({
             setSearchTerm(state.searchTerm);
         }
     }, [state.searchTerm]);
+
+    const countActiveFilters =
+        Object.values(state.terms || {}).reduce(
+            (acc, val) => acc + (val.include?.length || 0),
+            0
+        ) +
+        Object.keys(state.range || {}).length +
+        Object.keys(state.hist || {}).length +
+        Object.keys(state.dateRange || {}).length;
 
     return (
         <Toolbar collapseListedFiltersBreakpoint="lg">
@@ -110,6 +116,10 @@ const RecordsTableToolbar = ({
                             variant="control"
                             icon={<FilterIcon />}
                             onClick={onToggleShowFilters}
+                            countOptions={{
+                                isRead: countActiveFilters === 0,
+                                count: countActiveFilters,
+                            }}
                         >
                             {showFilters
                                 ? t("records:filters.hide")

@@ -3,6 +3,7 @@ interface MonospaceValueProps {
     bold?: boolean;
     width?: number;
     toRight?: boolean;
+    allowWrap?: boolean;
 }
 
 const MonospaceValue = ({
@@ -10,12 +11,13 @@ const MonospaceValue = ({
     bold,
     width,
     toRight,
+    allowWrap,
 }: MonospaceValueProps) => {
     return (
         <span
             style={{
                 fontFamily: "monospace",
-                whiteSpace: "pre",
+                whiteSpace: allowWrap ? "pre-wrap" : "pre",
                 fontWeight: bold ? "bold" : "normal",
                 width: width ? `${width}ch` : "auto",
                 display: "inline-block",

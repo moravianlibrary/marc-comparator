@@ -1,11 +1,8 @@
 import { Fragment, useState } from "react";
 import { useLinkToAuthorities } from "../../hooks/useAuthorityLinking";
 import { useGetSystemInfo } from "../../hooks/useSystem";
-import {
-    type CollectionData,
-    type CollectionState,
-} from "../../store/collection/domain";
-import { selectSelectedCount } from "../../store/collection/selectors";
+import { type CollectionData } from "../../store/collection/domain";
+import { selectSelectedCount } from "../../store/es/selectors";
 import ConfirmModal from "../../components/organisms/ConfirmModal";
 import {
     Content,
@@ -18,10 +15,11 @@ import {
 import BaseSelector from "../../components/molecules/BaseSelector";
 import ToggleList from "../../components/molecules/ToggleList";
 import type { CatalogRecord } from "../../models/api/responses/catalog_record";
-import { buildSelectQuery } from "../../store/collection/requests_factory";
+import { buildSelectQuery } from "../../store/es/requests_factory";
+import type { EsState } from "../../store/es/domain";
 
 interface AuthorityLinkingModalProps {
-    state: CollectionState<CatalogRecord>;
+    state: EsState;
     data: CollectionData<CatalogRecord>;
     isOpen: boolean;
     onClose: () => void;

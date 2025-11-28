@@ -1,4 +1,4 @@
-import { useMemo, useReducer, useRef, type ReactElement } from "react";
+import { useMemo, useRef, type ReactElement } from "react";
 import {
     InnerScrollContainer,
     OuterScrollContainer,
@@ -14,17 +14,11 @@ import {
     ToolbarGroup,
     ToolbarItem,
 } from "@patternfly/react-core";
-import { collectionReducer } from "../store/collection/reducer";
-import {
-    initCollectionState,
-    type CollectionConfig,
-    type CollectionData,
-} from "../store/collection/domain";
-import { buildRequests } from "../store/collection/requests_factory";
+import { type CollectionData } from "../store/collection/domain";
+import { buildRequests } from "../store/es/requests_factory";
 import { buildCollectionData } from "../store/collection/data_factory";
 import type { Task } from "../models/api/responses/task";
 import { useSearchTasksBatch } from "../hooks/useTasks";
-import type { EsHit } from "../models/api/responses/es";
 import TaskSeverityLabel from "../components/tasks/atoms/TaskSeverityLabel";
 import TaskStatusLabel from "../components/tasks/atoms/TaskStatusLabel";
 import TermFilterCheckboxMenu from "../components/molecules/TermFilterCheckboxMenu";
@@ -38,12 +32,14 @@ import {
 } from "../models/primitives/task";
 import RuntimeValue from "../components/atoms/RuntimeValue";
 import { useGetMe } from "../hooks/useAuth";
-import type { EsTermsBucket } from "../models/api/responses/es_aggregations";
 import { useTranslation } from "react-i18next";
 import RevokeTaskButton from "../components/tasks/atoms/RevokeButton";
 import ShowTaskDetailsButton from "../components/tasks/atoms/ShowDetailsButton";
 import TaskName from "../components/tasks/atoms/TaskName";
 import TaskTypeText from "../components/tasks/atoms/TaskTypeText";
+import { useSearchParamsState } from "../hooks/useSearchParamsState";
+import { EsStateSchema } from "../store/es/domain";
+import { esStateReducer } from "../store/es/reducer";
 
 const TASK_TYPE_ORDER: Record<string, number> = TaskTypeSchema.options.reduce(
     (acc, type, index) => {
@@ -57,122 +53,50 @@ const TASK_STATUS_ORDER: Record<string, number> =
         acc[status] = index;
         return acc;
     }, {} as Record<string, number>);
-const TASK_OUTCOME_SEVERITY_ORDER: Record<string, number> =
+const TASK_SEVERITY_ORDER: Record<string, number> =
     TaskSeveritySchema.options.reduce((acc, severity, index) => {
         acc[severity] = index;
         return acc;
     }, {} as Record<string, number>);
 
-const generateConfig = (): CollectionConfig<EsHit<Task>> => {
-    const { t } = useTranslation("tasks");
-    return {
-        columns: [
-            {
-                key: "name",
-                label: t("fields.name"),
-                alwaysShow: true,
-                render: (hit) => <TaskName hit={hit} />,
-            },
-            {
-                key: "type",
-                label: t("fields.type"),
-                alwaysShow: true,
-                render: (hit) => <TaskTypeText hit={hit} />,
-            },
-            {
-                key: "status",
-                label: t("fields.status"),
-                render: ({ _source: { status } }) => (
-                    <TaskStatusLabel status={status!} />
-                ),
-                alwaysShow: true,
-            },
-            {
-                key: "outcome_severity",
-                label: t("fields.severity"),
-                render: ({ _source: { outcome_severity } }) => (
-                    <TaskSeverityLabel severity={outcome_severity!} />
-                ),
-                alwaysShow: true,
-            },
-            {
-                key: "run_time",
-                fields: ["started_at", "finished_at"],
-                label: t("fields.run-time"),
-                render: ({ _source: { started_at, finished_at } }) =>
-                    started_at ? (
-                        <RuntimeValue
-                            startedAt={started_at}
-                            finishedAt={finished_at ?? null}
-                        />
-                    ) : null,
-                alwaysShow: true,
-            },
-            {
-                key: "details",
-                label: t("fields.details"),
-                render: (hit) => <ShowTaskDetailsButton hit={hit} />,
-                alwaysShow: true,
-            },
-            {
-                key: "revoke",
-                label: t("fields.revoke"),
-                render: ({ _id, _source: { status } }) => (
-                    <RevokeTaskButton _id={_id} status={status!} />
-                ),
-                alwaysShow: true,
-            },
-        ],
-        perPage: { options: [10, 20, 50, 100], default: 10 },
-        filter: [
-            {
-                type: "term",
-                field: "type",
-                sizeOptions: [5, 10, 20],
-                orderBucketBy: (a, b) =>
-                    TASK_TYPE_ORDER[(a as EsTermsBucket).key] -
-                    TASK_TYPE_ORDER[(b as EsTermsBucket).key],
-            },
-            {
-                type: "term",
-                field: "status",
-                sizeOptions: [5, 10, 20],
-                orderBucketBy: (a, b) =>
-                    TASK_STATUS_ORDER[(a as EsTermsBucket).key] -
-                    TASK_STATUS_ORDER[(b as EsTermsBucket).key],
-            },
-            {
-                type: "term",
-                field: "outcome_severity",
-                sizeOptions: [5, 10, 20],
-                orderBucketBy: (a, b) =>
-                    TASK_OUTCOME_SEVERITY_ORDER[(a as EsTermsBucket).key] -
-                    TASK_OUTCOME_SEVERITY_ORDER[(b as EsTermsBucket).key],
-            },
-        ],
-        sortBy: { created_at: { order: "desc" } },
-    };
-};
-
 const TasksTable = (): ReactElement => {
     const { t } = useTranslation("tasks");
 
-    const [state, dispatch] = useReducer(
-        collectionReducer,
-        initCollectionState(generateConfig())
-    );
+    const { state, dispatch } = useSearchParamsState(EsStateSchema, {
+        storeKey: "tasksTable",
+        reducer: esStateReducer,
+        defaultValues: {
+            config: {
+                columnFields: {
+                    run_time: ["started_at", "finished_at"],
+                    details: [],
+                    revoke: [],
+                },
+                filters: {
+                    type: { type: "terms", size: 10 },
+                    status: { type: "terms", size: 10 },
+                    severity: { type: "terms", size: 4 },
+                },
+                sortBy: { default: [{ created_at: { order: "desc" } }] },
+                perPage: { options: [10, 25, 50, 100], default: 10 },
+            },
+            columns: {
+                name: { order: 0, visible: true },
+                type: { order: 1, visible: true },
+                status: { order: 2, visible: true },
+                severity: { order: 3, visible: true },
+                run_time: { order: 4, visible: true },
+                details: { order: 5, visible: true },
+                revoke: { order: 6, visible: true },
+            },
+            sortBy: "default",
+        },
+    });
     const { data: me } = useGetMe();
 
     const requests = useMemo(
         () => buildRequests(state),
-        [
-            state.page,
-            state.perPage,
-            state.searchTerm,
-            state.searchFuzziness,
-            JSON.stringify(state.filterStates),
-            state.sortBy,
-        ]
+        [state.page, state.perPage, JSON.stringify(state.terms), state.sortBy]
     );
 
     const queryResponses = useSearchTasksBatch(
@@ -204,25 +128,24 @@ const TasksTable = (): ReactElement => {
         return newData;
     }, [queryResponses]);
 
-    const { config, columnStates, page, perPage } = state;
-
     const { isLoading, isError, error, hits, totalItems } = data;
-
-    const context = { config, state, data, dispatch };
-
-    const { columns } = config;
 
     const handlePaginationChange = (newPage: number, newPerPage?: number) => {
         dispatch({
             type: "setPaginationParams",
             page: newPage,
-            perPage: newPerPage || perPage || 0,
+            perPage: newPerPage || state.perPage || 0,
         });
     };
 
     const handleClearFilters = () => {
         dispatch({ type: "clearFilters" });
     };
+
+    const countActiveFilters = Object.values(state.terms || {}).reduce(
+        (acc, val) => acc + (val.include?.length || 0),
+        0
+    );
 
     return (
         <OuterScrollContainer>
@@ -237,13 +160,19 @@ const TasksTable = (): ReactElement => {
                                 <ToolbarItem>
                                     <TermFilterCheckboxMenu
                                         field="type"
-                                        context={context}
+                                        data={data}
+                                        state={state}
+                                        dispatch={dispatch}
+                                        bucketsOrdering={(a, b) =>
+                                            TASK_TYPE_ORDER[a.key] -
+                                            TASK_TYPE_ORDER[b.key]
+                                        }
                                         placeholder={t(
                                             "filters.type-placeholder"
                                         )}
-                                        labelRender={(type) => (
+                                        renderBucketLabel={({ key }) => (
                                             <TaskTypeText
-                                                type={type as TaskType}
+                                                type={key as TaskType}
                                             />
                                         )}
                                     />
@@ -251,35 +180,44 @@ const TasksTable = (): ReactElement => {
                                 <ToolbarItem>
                                     <TermFilterCheckboxMenu
                                         field="status"
-                                        context={context}
+                                        data={data}
+                                        state={state}
+                                        dispatch={dispatch}
+                                        bucketsOrdering={(a, b) =>
+                                            TASK_STATUS_ORDER[a.key] -
+                                            TASK_STATUS_ORDER[b.key]
+                                        }
                                         placeholder={t(
                                             "filters.status-placeholder"
                                         )}
-                                        labelRender={(status) => (
+                                        renderBucketLabel={({ key }) => (
                                             <TaskStatusLabel
-                                                status={status as TaskStatus}
+                                                status={key as TaskStatus}
                                             />
                                         )}
                                     />
                                 </ToolbarItem>
                                 <ToolbarItem>
                                     <TermFilterCheckboxMenu
-                                        field="outcome_severity"
-                                        context={context}
+                                        field="severity"
+                                        data={data}
+                                        state={state}
+                                        dispatch={dispatch}
+                                        bucketsOrdering={(a, b) =>
+                                            TASK_SEVERITY_ORDER[a.key] -
+                                            TASK_SEVERITY_ORDER[b.key]
+                                        }
                                         placeholder={t(
                                             "filters.severity-placeholder"
                                         )}
-                                        labelRender={(severity) => (
+                                        renderBucketLabel={({ key }) => (
                                             <TaskSeverityLabel
-                                                severity={
-                                                    severity as TaskSeverity
-                                                }
+                                                severity={key as TaskSeverity}
                                             />
                                         )}
                                     />
                                 </ToolbarItem>
-                                {Object.keys(state.filterStates || {}).length >
-                                    0 && (
+                                {countActiveFilters > 0 && (
                                     <ToolbarItem>
                                         <Button
                                             variant="link"
@@ -303,12 +241,55 @@ const TasksTable = (): ReactElement => {
                 }}
             >
                 <HitsTable
-                    columns={columns}
-                    columnStates={columnStates}
+                    state={state}
+                    dispatch={dispatch}
                     isLoading={isLoading}
                     isError={isError}
                     error={error}
                     hits={hits}
+                    getColumnLabel={(key) =>
+                        t(`fields.${key.replaceAll("_", "-")}`)
+                    }
+                    renderCell={(key, hit) => {
+                        switch (key) {
+                            case "name":
+                                return <TaskName hit={hit} />;
+                            case "type":
+                                return <TaskTypeText hit={hit} />;
+                            case "status":
+                                return (
+                                    <TaskStatusLabel
+                                        status={hit._source.status!}
+                                    />
+                                );
+                            case "severity":
+                                return (
+                                    <TaskSeverityLabel
+                                        severity={hit._source.severity!}
+                                    />
+                                );
+                            case "run_time":
+                                return hit._source.started_at ? (
+                                    <RuntimeValue
+                                        startedAt={hit._source.started_at}
+                                        finishedAt={
+                                            hit._source.finished_at ?? null
+                                        }
+                                    />
+                                ) : null;
+                            case "details":
+                                return <ShowTaskDetailsButton hit={hit} />;
+                            case "revoke":
+                                return (
+                                    <RevokeTaskButton
+                                        _id={hit._id}
+                                        status={hit._source.status!}
+                                    />
+                                );
+                            default:
+                                return null;
+                        }
+                    }}
                     texts={{
                         noMatchFound: {
                             title: "No records found",
@@ -321,13 +302,15 @@ const TasksTable = (): ReactElement => {
                 <PageSection>
                     <Pagination
                         style={{ marginLeft: 20, marginRight: 20 }}
-                        perPageOptions={config.perPage.options.map((o) => ({
-                            value: o,
-                            title: o.toString(),
-                        }))}
+                        perPageOptions={state.config.perPage.options.map(
+                            (o) => ({
+                                value: o,
+                                title: o.toString(),
+                            })
+                        )}
                         itemCount={totalItems}
-                        page={page}
-                        perPage={perPage}
+                        page={state.page}
+                        perPage={state.perPage}
                         onSetPage={(_event, newPage, newPerPage) =>
                             handlePaginationChange(newPage, newPerPage)
                         }

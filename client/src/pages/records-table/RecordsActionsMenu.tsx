@@ -1,9 +1,6 @@
 import { Fragment, useState } from "react";
-import {
-    type CollectionData,
-    type CollectionState,
-} from "../../store/collection/domain";
-import { selectSelectedCount } from "../../store/collection/selectors";
+import { type CollectionData } from "../../store/collection/domain";
+import { selectSelectedCount } from "../../store/es/selectors";
 import ActionsMenu from "../../components/molecules/ActionsMenu";
 import AuthorityLinkingModal from "./AuthorityLinkingModal";
 import CompareRecordsModal from "./CompareRecordsModal";
@@ -14,11 +11,12 @@ import {
     useSetRecordsVisibility,
 } from "../../hooks/useCatalogRecords";
 import type { CatalogRecord } from "../../models/api/responses/catalog_record";
-import { buildSelectQuery } from "../../store/collection/requests_factory";
+import { buildSelectQuery } from "../../store/es/requests_factory";
 import { useTranslation } from "react-i18next";
+import type { EsState } from "../../store/es/domain";
 
 interface RecordsActionsMenuProps {
-    state: CollectionState<CatalogRecord>;
+    state: EsState;
     data: CollectionData<CatalogRecord>;
 }
 

@@ -63,7 +63,7 @@ class TestComparisonEndpoints:
                 ),
                 "type": "CompareRecords",
                 "status": "Pending",
-                "outcome_severity": "Info",
+                "severity": "Info",
                 "created_by": "12345678-1234-4678-9abc-1234567890ab",
                 "created_at": "IGNORE",
                 "started_at": None,

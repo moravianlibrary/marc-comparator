@@ -1,10 +1,7 @@
 import { Fragment, useState } from "react";
 import { useGetSystemInfo } from "../../hooks/useSystem";
-import {
-    type CollectionData,
-    type CollectionState,
-} from "../../store/collection/domain";
-import { selectSelectedCount } from "../../store/collection/selectors";
+import { type CollectionData } from "../../store/collection/domain";
+import { selectSelectedCount } from "../../store/es/selectors";
 import ConfirmModal from "../../components/organisms/ConfirmModal";
 import {
     Content,
@@ -16,10 +13,11 @@ import {
 import ToggleList from "../../components/molecules/ToggleList";
 import { useValidateRecords } from "../../hooks/useValidation";
 import type { CatalogRecord } from "../../models/api/responses/catalog_record";
-import { buildSelectQuery } from "../../store/collection/requests_factory";
+import { buildSelectQuery } from "../../store/es/requests_factory";
+import type { EsState } from "../../store/es/domain";
 
 interface ValidateRecordsModalProps {
-    state: CollectionState<CatalogRecord>;
+    state: EsState;
     data: CollectionData<CatalogRecord>;
     isOpen: boolean;
     onClose: () => void;

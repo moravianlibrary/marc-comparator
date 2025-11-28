@@ -7,32 +7,29 @@ import {
     EmptyStateBody,
 } from "@patternfly/react-core";
 import type { EsHit } from "../../models/api/responses/es";
-import type {
-    TableColumnConfig,
-    TableColumnState,
-} from "../../models/ui/hits_table";
 import NoMatchFoundState, {
     type NoMatchFoundStateTexts,
 } from "../atoms/NoMatchFoundState";
 import LoadingState from "../atoms/LoadingState";
-import { useEffect, useState } from "react";
+import { useEffect, useState, type Dispatch } from "react";
 import { DragDropSort } from "@patternfly/react-drag-drop";
+import type { EsState, EsStateAction } from "../../store/es/domain";
 
 export interface HitsTableTexts {
     noMatchFound: NoMatchFoundStateTexts;
 }
 
 interface HitsTableProps<T> {
-    columns: TableColumnConfig<EsHit<T>>[];
-    columnStates: Record<string, TableColumnState>;
+    state: EsState;
+    dispatch: Dispatch<EsStateAction>;
+    variant?: "simple" | "default";
     isLoading?: boolean;
     isError?: boolean;
     error?: unknown;
     hits?: Array<EsHit<T>>;
-    selectedIds?: Set<string>;
-    onToggleSelect?: (hitId: string) => void;
-    onColumnOrderChange?: (columnKeys: string[]) => void;
-    onColumnVisibilityToggle?: (columnKey: string) => void;
+    getColumnLabel?: (columnKey: string) => string | null;
+    renderColumnHeader?: (columnKey: string) => React.ReactNode | null;
+    renderCell?: (columnKey: string, hit: EsHit<T>) => React.ReactNode | null;
     texts: HitsTableTexts;
 }
 
@@ -45,54 +42,62 @@ type BodyKey =
     | "hits";
 
 const HitsTable = <T,>({
-    columns,
-    columnStates,
+    state,
+    dispatch,
+    variant = "default",
     isLoading,
     isError,
     error,
     hits,
-    selectedIds,
-    onToggleSelect,
-    onColumnOrderChange,
-    onColumnVisibilityToggle,
+    getColumnLabel,
+    renderColumnHeader,
+    renderCell,
     texts,
 }: HitsTableProps<T>) => {
-    const orderedColumns = columns.sort(
-        (a, b) =>
-            (columnStates[a.key]?.order ?? Number.MAX_SAFE_INTEGER) -
-            (columnStates[b.key]?.order ?? Number.MAX_SAFE_INTEGER)
-    );
-    const displayedColumns = orderedColumns.filter(
-        (col) => columnStates[col.key]?.visible
-    );
-
-    const isSimpleTable =
-        !onToggleSelect || !onColumnOrderChange || !onColumnVisibilityToggle;
     const [bodyKey, setBodyKey] = useState<BodyKey>("loading");
+
+    const columns = Object.entries(state.columns)
+        .sort(([, a], [, b]) => a.order - b.order)
+        .map(([key, colState]) => ({
+            key,
+            visible: colState.visible,
+        }));
+    const visibleColumns = columns
+        .filter(({ visible }) => visible)
+        .map(({ key }) => key);
+    const columnLabels = columns.reduce((acc, { key }) => {
+        acc[key] = getColumnLabel ? getColumnLabel(key) || key : key;
+        return acc;
+    }, {} as Record<string, string>);
 
     useEffect(() => {
         setBodyKey((prev) => {
             if (prev === "settings") return "settings";
-            if (displayedColumns.length === 0) return "no-columns";
+            if (visibleColumns.length === 0) return "no-columns";
             if (isLoading) return "loading";
             if (isError) return "error";
             if (!hits || hits.length === 0) return "no-results";
             return "hits";
         });
-    }, [displayedColumns.length, isLoading, isError, hits]);
+    }, [visibleColumns, isLoading, isError, hits]);
 
-    const renderCell = (hit: EsHit<T>, col: TableColumnConfig<EsHit<T>>) => {
-        if (col.render) {
-            return col.render(hit);
-        }
-        return String((hit._source as { [key: string]: unknown })?.[col.key]);
+    const handleRenderColumnHeader = (columnKey: string) => {
+        const node = renderColumnHeader && renderColumnHeader(columnKey);
+        return node ? node : columnLabels[columnKey] || columnKey;
+    };
+
+    const handleRenderCell = (columnKey: string, hit: EsHit<T>) => {
+        return (
+            (renderCell && renderCell(columnKey, hit)) ||
+            String((hit._source as { [key: string]: unknown })?.[columnKey])
+        );
     };
 
     return (
         <Table isStickyHeader>
             <Thead>
                 <Tr>
-                    {!isSimpleTable && (
+                    {variant !== "simple" && (
                         <Th>
                             <Button
                                 variant="plain"
@@ -109,55 +114,61 @@ const HitsTable = <T,>({
                             />
                         </Th>
                     )}
-                    {displayedColumns.map((col) => (
-                        <Th key={col.key}>{col.label}</Th>
+                    {visibleColumns.map((key) => (
+                        <Th key={key}>{handleRenderColumnHeader(key)}</Th>
                     ))}
                 </Tr>
             </Thead>
             <Tbody>
                 {bodyKey !== "hits" && (
                     <Tr>
-                        <Td colSpan={displayedColumns.length + 1}>
-                            {bodyKey === "settings" && !isSimpleTable && (
+                        <Td colSpan={visibleColumns.length + 1}>
+                            {bodyKey === "settings" && variant !== "simple" && (
                                 <DragDropSort
-                                    items={orderedColumns.map((col) => ({
-                                        id: col.key,
+                                    items={columns.map(({ key, visible }) => ({
+                                        id: key,
                                         content: (
                                             <span>
                                                 <Button
                                                     variant="plain"
                                                     icon={
-                                                        columnStates[col.key]
-                                                            ?.visible ? (
+                                                        visible ? (
                                                             <EyeIcon />
                                                         ) : (
                                                             <EyeSlashIcon />
                                                         )
                                                     }
-                                                    isDisabled={col.alwaysShow}
                                                     onClick={() =>
-                                                        onColumnVisibilityToggle(
-                                                            col.key
-                                                        )
+                                                        dispatch({
+                                                            type: "toggleColumnVisibility",
+                                                            columnKey: key,
+                                                        })
                                                     }
                                                 />
-                                                {col.label}
+                                                {columnLabels[key] || key}
                                             </span>
                                         ),
                                     }))}
                                     onDrop={(_event, items) =>
-                                        onColumnOrderChange(
-                                            items.map((item) =>
+                                        dispatch({
+                                            type: "setColumnOrder",
+                                            columnKeys: items.map((item) =>
                                                 item.id.toString()
-                                            )
-                                        )
+                                            ),
+                                        })
                                     }
                                 />
                             )}
                             {bodyKey === "no-columns" && (
-                                <Bullseye>
-                                    <EmptyState title="No columns configured" />
-                                </Bullseye>
+                                <EmptyState
+                                    title="No columns configured"
+                                    isFullHeight
+                                    height="300px"
+                                    style={{
+                                        height: "300px",
+                                        width: "100%",
+                                    }}
+                                />
                             )}
                             {bodyKey === "loading" && (
                                 <Bullseye>
@@ -187,19 +198,28 @@ const HitsTable = <T,>({
                     hits &&
                     hits.map((hit, index) => (
                         <Tr key={hit._id}>
-                            {!isSimpleTable && (
+                            {variant !== "simple" && (
                                 <Td
                                     select={{
                                         rowIndex: index,
                                         isSelected:
-                                            selectedIds?.has(hit._id) ?? false,
-                                        onSelect: () => onToggleSelect(hit._id),
+                                            (state.isAllSelected ||
+                                                state.selectedIds.has(
+                                                    hit._id
+                                                )) ??
+                                            false,
+                                        onSelect: () =>
+                                            dispatch({
+                                                type: "toggleSelection",
+                                                id: hit._id,
+                                                pageIds: hits.map((h) => h._id),
+                                            }),
                                     }}
                                 />
                             )}
-                            {displayedColumns.map((col) => (
-                                <Td key={col.key} dataLabel={col.label}>
-                                    {renderCell(hit, col)}
+                            {visibleColumns.map((key) => (
+                                <Td key={key} dataLabel={columnLabels[key]}>
+                                    {handleRenderCell(key, hit)}
                                 </Td>
                             ))}
                         </Tr>

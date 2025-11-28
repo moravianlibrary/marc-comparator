@@ -63,7 +63,7 @@ class TaskSchema(IndexerSchema):
     name: IndexerText
     type: TaskType
     status: TaskStatus
-    outcome_severity: TaskSeverity
+    severity: TaskSeverity
 
     created_by: UUID4
     created_at: datetime
@@ -87,7 +87,7 @@ class Task(
     status = Column(
         Enum(TaskStatus), nullable=False, default=TaskStatus.Pending
     )
-    outcome_severity = Column(
+    severity = Column(
         Enum(TaskSeverity), nullable=False, default=TaskSeverity.Info
     )
 

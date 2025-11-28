@@ -10,7 +10,7 @@ export const TaskSchema = z.object({
     name: z.string(),
     type: TaskTypeSchema,
     status: TaskStatusSchema,
-    outcome_severity: TaskSeveritySchema,
+    severity: TaskSeveritySchema,
     created_by: z.uuidv4(),
     created_at: z.coerce.date(),
     started_at: z.coerce.date().nullable(),

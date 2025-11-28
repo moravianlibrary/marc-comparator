@@ -87,23 +87,22 @@ function recordIdToSystemNumber(recordId: string | null): string {
 
 const RecordDetailsSection = (): ReactElement => {
     const { t } = useTranslation();
-    const [params, setParams] = useSearchParamsState(
-        RecordDetailsState,
-        "record-details"
-    );
+    const { state, update } = useSearchParamsState(RecordDetailsState, {
+        storeKey: "record-details",
+    });
 
     const { data: systemInfo, isLoading: systemInfoLoading } =
         useGetSystemInfo();
     const availableBases = systemInfo?.available_bases ?? [];
 
     const { data: record, isLoading: recordLoading } = useGetCatalogRecordById(
-        params.id ?? null
+        state.id ?? null
     );
     const queryClient = useQueryClient();
 
     const handleRefresh = () => {
         queryClient.invalidateQueries({
-            queryKey: ["catalog-records", "get-by-id", params.id],
+            queryKey: ["catalog-records", "get-by-id", state.id],
             exact: true,
         });
     };
@@ -114,8 +113,8 @@ const RecordDetailsSection = (): ReactElement => {
     const comparisonsRef = createRef<HTMLDivElement>();
     const validationsRef = createRef<HTMLDivElement>();
 
-    const handleTabChange = (newTab: TabKey, tabParams: Object = {}) => {
-        setParams({ tab: newTab, id: params.id, ...tabParams });
+    const handleTabChange = (newTab: TabKey, tabstate: Object = {}) => {
+        update({ tab: newTab, id: state.id, ...tabstate });
     };
 
     const renderAuthorityRecordsTab = ({
@@ -135,7 +134,7 @@ const RecordDetailsSection = (): ReactElement => {
                 <div style={{ marginTop: "1rem" }}>
                     <AuthorityBaseSelect
                         authorityLinks={authority_links}
-                        base={params.authorityLinks?.base ?? null}
+                        base={state.authorityLinks?.base ?? null}
                         onSubmit={(base) =>
                             handleTabChange("authority_records", {
                                 authorityLinks: { base },
@@ -161,7 +160,7 @@ const RecordDetailsSection = (): ReactElement => {
                 <div style={{ marginTop: "1rem" }}>
                     <ComparisonSelect
                         record={record}
-                        state={params.comparisons}
+                        state={state.comparisons}
                         onSubmit={(state) =>
                             handleTabChange("comparisons", {
                                 comparisons: state,
@@ -187,7 +186,7 @@ const RecordDetailsSection = (): ReactElement => {
                 <div style={{ marginTop: "1rem" }}>
                     <ValidationSelect
                         record={record}
-                        state={params.validations}
+                        state={state.validations}
                         onSubmit={(state) =>
                             handleTabChange("validations", {
                                 validations: state,
@@ -223,8 +222,8 @@ const RecordDetailsSection = (): ReactElement => {
                     ) : (
                         <RecordSelect
                             availableBases={availableBases}
-                            base={recordIdToBase(params.id)}
-                            systemNumber={recordIdToSystemNumber(params.id)}
+                            base={recordIdToBase(state.id)}
+                            systemNumber={recordIdToSystemNumber(state.id)}
                             onSubmit={(base, systemNumber) =>
                                 handleTabChange("description", {
                                     id: `${base}-${systemNumber}`,
@@ -236,7 +235,7 @@ const RecordDetailsSection = (): ReactElement => {
                 {record && (
                     <PageSection>
                         <Tabs
-                            activeKey={params.tab}
+                            activeKey={state.tab}
                             onSelect={(_e, tabKey) =>
                                 handleTabChange(tabKey as TabKey)
                             }
@@ -280,7 +279,7 @@ const RecordDetailsSection = (): ReactElement => {
                     </PageSection>
                 </PageGroup>
             )}
-            {!params.id && (
+            {!state.id && (
                 <PageGroup>
                     <PageSection>
                         <EmptyState
@@ -297,7 +296,7 @@ const RecordDetailsSection = (): ReactElement => {
                     </PageSection>
                 </PageGroup>
             )}
-            {params.id && !record && (
+            {state.id && !record && (
                 <PageGroup>
                     <PageSection>
                         <EmptyState
@@ -311,9 +310,9 @@ const RecordDetailsSection = (): ReactElement => {
                                 {t(
                                     "records:details.statement.no-record-found-body",
                                     {
-                                        catalogBase: recordIdToBase(params.id),
+                                        catalogBase: recordIdToBase(state.id),
                                         systemNumber: recordIdToSystemNumber(
-                                            params.id
+                                            state.id
                                         ),
                                     }
                                 )}
@@ -325,7 +324,7 @@ const RecordDetailsSection = (): ReactElement => {
             {record && (
                 <PageGroup>
                     <PageSection>
-                        {params.tab === "description" && (
+                        {state.tab === "description" && (
                             <TabContent
                                 eventKey="description"
                                 id="description-content"
@@ -334,7 +333,7 @@ const RecordDetailsSection = (): ReactElement => {
                                 <RecordDescription record={record} />
                             </TabContent>
                         )}
-                        {params.tab === "marc" && (
+                        {state.tab === "marc" && (
                             <TabContent
                                 eventKey="marc"
                                 id="marc-content"
@@ -346,7 +345,7 @@ const RecordDetailsSection = (): ReactElement => {
                                 />
                             </TabContent>
                         )}
-                        {params.tab === "authority_records" &&
+                        {state.tab === "authority_records" &&
                             record._source.authority_links && (
                                 <TabContent
                                     eventKey="authority_records"
@@ -355,14 +354,14 @@ const RecordDetailsSection = (): ReactElement => {
                                 >
                                     <MarcRecordTable
                                         base={
-                                            params.authorityLinks?.base ??
+                                            state.authorityLinks?.base ??
                                             undefined
                                         }
                                         systemNumber={
                                             record._source.authority_links.find(
                                                 (link) =>
                                                     link.base ===
-                                                    params.authorityLinks?.base
+                                                    state.authorityLinks?.base
                                             )?.system_number
                                         }
                                         noRecordMessage={t(
@@ -371,7 +370,7 @@ const RecordDetailsSection = (): ReactElement => {
                                     />
                                 </TabContent>
                             )}
-                        {params.tab === "comparisons" &&
+                        {state.tab === "comparisons" &&
                             record._source.comparisons && (
                                 <TabContent
                                     eventKey="comparisons"
@@ -387,20 +386,20 @@ const RecordDetailsSection = (): ReactElement => {
                                             record._source.comparisons.find(
                                                 (comp) =>
                                                     comp.base ===
-                                                        params.comparisons
+                                                        state.comparisons
                                                             ?.base &&
                                                     comp.comparator ===
-                                                        params.comparisons
+                                                        state.comparisons
                                                             ?.comparator
                                             )!
                                         }
                                         showOnlyTarget={
-                                            params.comparisons?.showOnlyTarget
+                                            state.comparisons?.showOnlyTarget
                                         }
                                     />
                                 </TabContent>
                             )}
-                        {params.tab === "validations" &&
+                        {state.tab === "validations" &&
                             record._source.validations && (
                                 <TabContent
                                     eventKey="validations"
@@ -416,13 +415,12 @@ const RecordDetailsSection = (): ReactElement => {
                                             record._source.validations || []
                                         ).filter(
                                             (validation) =>
-                                                params.validations?.validator &&
+                                                state.validations?.validator &&
                                                 validation.validator ===
-                                                    params.validations
-                                                        ?.validator
+                                                    state.validations?.validator
                                         )}
                                         showOnlyTarget={
-                                            params.validations?.showOnlyTarget
+                                            state.validations?.showOnlyTarget
                                         }
                                     />
                                 </TabContent>

@@ -29,7 +29,7 @@ export function buildCollectionData<T>(
         return prevData || { isLoading, isError, error };
     }
 
-    // Extract hits and totalItems only from the main hits response
+    // Main hits response
     const mainHitsResponse = responses.find(
         (r) => r.isSuccess && r.data && r.data.hits?.hits?.length
     );
@@ -40,19 +40,28 @@ export function buildCollectionData<T>(
 
     const totalItems = mainHitsResponse?.data?.hits?.total?.value || 0;
 
-    // Merge aggregations from all responses (including per-filter agg queries)
-    const aggregations = responses
-        .filter((r) => r.isSuccess && r.data && r.data.aggregations)
-        .reduce(
-            (acc, r) => deepMerge(acc, r.data!.aggregations!),
-            {} as Record<string, any>
-        );
-    // const aggregations = responses
-    //     .filter((r) => r.isSuccess && r.data && r.data.aggregations)
-    //     .reduce(
-    //         (acc, r) => ({ ...acc, ...r.data!.aggregations }),
-    //         {} as Record<string, any>
-    //     );
+    // First, collect per-field aggregation responses
+    const perFieldAggs: Record<string, any> = {};
+    const otherAggs: Record<string, any> = {};
+
+    for (const r of responses) {
+        if (!r.isSuccess || !r.data?.aggregations) continue;
+        const aggs = r.data.aggregations;
+
+        const keys = Object.keys(aggs);
+
+        // If the response contains **only one aggregation**, treat it as per-field
+        if (keys.length === 1) {
+            const key = keys[0];
+            perFieldAggs[key] = aggs[key]; // override any previous
+        } else {
+            // merge into general aggregations
+            Object.assign(otherAggs, aggs);
+        }
+    }
+
+    // Merge main/general aggregations with per-field overrides
+    const aggregations = deepMerge(otherAggs, perFieldAggs);
 
     return { isLoading, isError, error, hits, totalItems, aggregations };
 }

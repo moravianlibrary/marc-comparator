@@ -126,7 +126,7 @@ const DeleteOldTasksCard = (): ReactElement => {
         if (selectedSeverities.length > 0) {
             terms.push({
                 terms: {
-                    outcome_severity: selectedSeverities.map((s) => s.value),
+                    severity: selectedSeverities.map((s) => s.value),
                 },
             });
         }

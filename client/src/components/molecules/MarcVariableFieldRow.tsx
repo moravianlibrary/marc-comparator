@@ -52,7 +52,7 @@ const MarcVariableFieldRow = ({
         if (!detailContent) return entry;
 
         return (
-            <Fragment key={`${code}-fragment`}>
+            <Fragment key={`${code}-${idx}-fragment`}>
                 {entry}
                 <Tr key={`detail-${code}-${idx}`}>
                     <Td colSpan={2}>{detailContent}</Td>

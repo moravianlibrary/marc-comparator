@@ -25,7 +25,7 @@ export function systemRoutes(this: any) {
             name: "Recreate Indexes",
             type: "RecreateIndexes",
             status: "Pending",
-            outcome_severity: "Info",
+            severity: "Info",
             created_by: faker.string.uuid(),
             created_at: new Date(),
             started_at: null,

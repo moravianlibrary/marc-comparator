@@ -13,8 +13,7 @@ export const taskFactory = Factory.extend<Task>({
     name: () => `Task ${faker.number.int({ min: 1, max: 1000 })}`,
     type: () => faker.helpers.arrayElement(TaskTypeSchema.options),
     status: () => faker.helpers.arrayElement(TaskStatusSchema.options),
-    outcome_severity: () =>
-        faker.helpers.arrayElement(TaskSeveritySchema.options),
+    severity: () => faker.helpers.arrayElement(TaskSeveritySchema.options),
     created_by: () => faker.string.uuid(),
     created_at: () => faker.date.past(),
     started_at: () => (faker.datatype.boolean() ? faker.date.recent() : null),
@@ -61,7 +60,7 @@ export function tasksRoutes(this: any) {
             name: "Delete Tasks",
             type: "DeleteTasks",
             status: "Pending",
-            outcome_severity: "Info",
+            severity: "Info",
             created_by: faker.string.uuid(),
             created_at: new Date(),
             started_at: null,

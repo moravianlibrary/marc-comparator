@@ -114,7 +114,7 @@ async def set_records_visibility(
 ) -> TaskSchema:
     return await enqueue_task(
         Task(
-            name=f"{'Hide' if data.hide else 'Unhide'} catalog records",
+            name=f"Set records to {'visible' if data.visible else 'hidden'}",
             type=TaskType.SetRecordsVisibility,
             created_by=created_by,
             data=data.model_dump(),
