@@ -1,7 +1,8 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import apiClient from "../services/apiClient";
 import type { RoleResponse } from "../models/api/responses/roles";
 import type { UserId, UsersPage } from "../models/api/responses/users";
+import { queryClient } from "../services/queryClient";
 
 // -------------------------
 // Queries
@@ -33,7 +34,7 @@ export const useAssignUserRole = () =>
                 )
             ).data,
         onSuccess: () => {
-            useQueryClient().invalidateQueries({
+            queryClient.invalidateQueries({
                 queryKey: ["users"],
                 exact: true,
             });
@@ -50,7 +51,7 @@ export const useUnassignUserRole = () =>
                 )
             ).data,
         onSuccess: () => {
-            useQueryClient().invalidateQueries({
+            queryClient.invalidateQueries({
                 queryKey: ["users"],
                 exact: true,
             });

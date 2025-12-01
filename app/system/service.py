@@ -1,4 +1,5 @@
 import os
+import time
 from typing import List
 
 from marc_comparator.authority_linkers import (
@@ -18,11 +19,7 @@ from validation.models import ValidationSettings
 
 from .models import AuthorityLinkerInfo, SystemInfo
 
-
-def get_system_uptime() -> float:
-    with open("/proc/uptime", "r") as f:
-        uptime_seconds = float(f.readline().split()[0])
-    return uptime_seconds
+START_TS = time.time()
 
 
 def get_settings(scope: SettingsScope, db_session: DatabaseSession):
@@ -99,7 +96,7 @@ async def get_system_info(db_session: DatabaseSession) -> SystemInfo:
     return SystemInfo(
         system_version=os.getenv("SYSTEM_VERSION", "dev"),
         system_commit=os.getenv("SYSTEM_COMMIT", "dev"),
-        uptime_seconds=get_system_uptime(),
+        uptime_seconds=time.time() - START_TS,
         available_bases=get_available_bases(db_session),
         enabled_authority_linkers=await get_enabled_authority_linkers(
             db_session

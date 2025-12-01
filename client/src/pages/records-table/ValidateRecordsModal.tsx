@@ -11,10 +11,10 @@ import {
     DescriptionListTerm,
 } from "@patternfly/react-core";
 import ToggleList from "../../components/molecules/ToggleList";
-import { useValidateRecords } from "../../hooks/useValidation";
 import type { CatalogRecord } from "../../models/api/responses/catalog_record";
 import { buildSelectQuery } from "../../store/es/requests_factory";
 import type { EsState } from "../../store/es/domain";
+import { useValidateRecords } from "../../hooks/useCatalogRecords";
 
 interface ValidateRecordsModalProps {
     state: EsState;

@@ -12,9 +12,11 @@ import {
     Spinner,
 } from "@patternfly/react-core";
 import BaseSelector from "../../components/molecules/BaseSelector";
-import { useGetAvailableTargetBases } from "../../hooks/useCatalogRecords";
+import {
+    useCompareRecords,
+    useGetAvailableTargetBases,
+} from "../../hooks/useCatalogRecords";
 import SingleSelect from "../../components/molecules/SingleSelect";
-import { useCompareRecords } from "../../hooks/useComparison";
 import type { CatalogRecord } from "../../models/api/responses/catalog_record";
 import { buildSelectQuery } from "../../store/es/requests_factory";
 import type { EsState } from "../../store/es/domain";

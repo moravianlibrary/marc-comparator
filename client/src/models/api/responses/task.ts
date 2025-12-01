@@ -7,6 +7,7 @@ import {
 import { createEsHitSchema, createEsResponseSchema } from "./es";
 
 export const TaskSchema = z.object({
+    task_id: z.uuidv4().optional(),
     name: z.string(),
     type: TaskTypeSchema,
     status: TaskStatusSchema,

@@ -18,6 +18,7 @@
             "base": "Porovnávaná báze",
             "comparator": "Použitý komparátor",
             "overall-score": "Celkové skóre",
+            "match-quality": "Kvalita shody",
             "field-results": {
                 "explanation": "Výsledek pole",
                 "subfield-results": {

@@ -8,8 +8,7 @@
 | `AddRecords`             | Add new records to the catalog          |
 | `SyncRecordsFromCatalog` | Synchronize records from the catalog    |
 | `RunRecordTasks`         | Execute automated tasks on records      |
-| `ManageTasks`            | Read and manage own tasks               |
-| `ManageAllTasks`         | Read and manage all tasks               |
+| `ManageTasks`            | Read and manage all tasks               |
 | `ManageAccessControl`    | Configure user roles and permissions    |
 | `ManageAppSettings`      | Update global application settings      |
 | `ManageTaskSettings`     | Configure settings for individual tasks |
@@ -19,9 +18,9 @@
 
 ## **Authentication**
 
-### `POST /auth/register`
+### `POST /auth/sign-up`
 
-**Description:** Register a new user.
+**Description:** Sign up a new user.
 
 **Request Body:**
 
@@ -36,20 +35,11 @@
 
 **Successful Response:** `201 Created`
 
-```json
-{
-  "id": "uuid",
-  "email": "string",
-  "first_name": "string",
-  "last_name": "string"
-}
-```
-
 ---
 
-### `POST /auth/token`
+### `POST /auth/login`
 
-**Description:** Obtain an access token.
+**Description:** Login and obtain an access token.
 
 **Request Form:**
 
@@ -406,16 +396,16 @@
 
 ---
 
-### `POST /catalog-records/hidden-state`
+### `POST /catalog-records/visibility`
 
-**Description:** Change hidden state of catalog records matching a query.
+**Description:** Change visibility of catalog records matching a query.
 **Permissions Required:** `RunRecordTasks`
 
 **Request Body:** 
 
 ```json
 {
-  "hide": true,
+  "visible": false,
   "query":{
     /* Elasticsearch DSL query */
   }
@@ -592,45 +582,31 @@ The `TaskSchema` represents tasks in the system:
 
 ---
 
-## **App Settings**
+## **System Settings**
 
-### `GET /settings/app/{scope}/schema`
-
-**Description:** Retrieve the schema for application settings of the specified scope.
-**Permissions Required:** `ManageAppSettings`
-
-**Path Parameters:**
-
-* `scope` (string, required) — Scope of the app settings
-  *Available values:* `Catalog`, `Task`
-
-**Response:** JSON schema describing the structure of the settings for the specified scope
-
----
-
-### `GET /settings/app/{scope}`
+### `GET /settings/system/{scope}`
 
 **Description:** Retrieve the current application settings for the specified scope.
-**Permissions Required:** `ManageAppSettings`
+**Permissions Required:** `ManageSystemSettings`
 
 **Path Parameters:**
 
 * `scope` (string, required) — Scope of the app settings
-  *Available values:* `Catalog`, `Task`
+  *Available values:* `catalog`, `tasks`
 
 **Response:** JSON object containing the current settings for the specified scope
 
 ---
 
-### `POST /settings/app/{scope}`
+### `POST /settings/system/{scope}`
 
 **Description:** Update or set application settings for the specified scope.
-**Permissions Required:** `ManageAppSettings`
+**Permissions Required:** `ManageSystemSettings`
 
 **Path Parameters:**
 
 * `scope` (string, required) — Scope of the app settings
-  *Available values:* `Catalog`, `Task`
+  *Available values:* `catalog`, `tasks`
 
 **Request Body:** JSON object containing settings for the specified scope, based on the schema
 
@@ -638,31 +614,17 @@ The `TaskSchema` represents tasks in the system:
 
 ---
 
-## **Task Settings**
+## **Record Tools Settings**
 
-### `GET /settings/tasks/{scope}/schema`
+### `GET /settings/record-tools/{scope}`
 
-**Description:** Retrieve the schema for task settings of the specified scope.
-**Permissions Required:** `ManageTaskSettings`
-
-**Path Parameters:**
-
-* `scope` (string, required) — Scope of the task settings
-  *Available values:* `Validation`, `AuthorityLinking`, `Comparison`
-
-**Response:** JSON schema describing the structure of the settings for the specified scope
-
----
-
-### `GET /settings/tasks/{scope}`
-
-**Description:** Retrieve the current task settings for the specified scope.
-**Permissions Required:** `ManageTaskSettings`
+**Description:** Retrieve the current record tools settings for the specified scope.
+**Permissions Required:** `ManageRecordToolsSettings`
 
 **Path Parameters:**
 
-* `scope` (string, required) — Scope of the task settings
-  *Available values:* `Validation`, `AuthorityLinking`, `Comparison`
+* `scope` (string, required) — Scope of the record tools settings
+  *Available values:* `validators`, `authority-linkers`, `comparators`
 
 **Response:** JSON object containing the current settings for the specified scope
 
@@ -670,13 +632,13 @@ The `TaskSchema` represents tasks in the system:
 
 ### `POST /settings/tasks/{scope}`
 
-**Description:** Update or set task settings for the specified scope.
-**Permissions Required:** `ManageTaskSettings`
+**Description:** Update or set record tools settings for the specified scope.
+**Permissions Required:** `ManageRecordToolsSettings`
 
 **Path Parameters:**
 
 * `scope` (string, required) — Scope of the task settings
-  *Available values:* `Validation`, `AuthorityLinking`, `Comparison`
+  *Available values:* `validators`, `authority-linkers`, `comparators`
 
 **Request Body:** JSON object containing settings for the specified scope, based on the schema
 
@@ -685,6 +647,37 @@ The `TaskSchema` represents tasks in the system:
 ---
 
 ## **System**
+
+### `GET /system/info`
+
+**Description:** Get system information.
+
+**Response:**
+
+```json
+{
+  "system_version": "string",
+  "system_commit": "string",
+  "uptime_seconds": 0,
+  "available_bases": [
+    "string"
+  ],
+  "enabled_authority_linkers": [
+    {
+      "name": "string",
+      "target_bases": [
+        "string"
+      ]
+    }
+  ],
+  "enabled_comparators": [
+    "string"
+  ],
+  "enabled_validators": [
+    "string"
+  ]
+}
+```
 
 ### `POST /system/recreate-indexes`
 

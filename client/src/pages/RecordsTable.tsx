@@ -28,16 +28,22 @@ import { EsStateSchema } from "../store/es/domain";
 import RecordId from "../components/records/atoms/RecordId";
 import MonospaceValue from "../components/atoms/MonospaceValue";
 import MarcTitle from "../components/atoms/MarcTitle";
-import { RecordStateLabelGroup } from "../components/records/atoms/RecordStateLabel";
+import {
+    RecordStateLabel,
+    RecordStateLabelGroup,
+} from "../components/records/atoms/RecordStateLabel";
 import { AuthorityLinkLabelGroup } from "../components/records/atoms/AuthorityLinkLabel";
 import LocalizedDateTime from "../components/atoms/LocalizedDateTime";
 import { ComparisonLabelGroup } from "../components/records/atoms/ComparisonLabel";
 import { ValidationLabelGroup } from "../components/records/atoms/ValidationLabel";
 import EsTermsLabelGroup from "../components/molecules/EsTermsLabelGroup";
 import EsHistogram from "../components/molecules/EsHistogram";
+import type { CatalogRecordState } from "../models/primitives/catalog_record";
+import { MatchQualitySchema } from "../models/primitives/comparison";
 
 const RecordsTable = (): ReactElement => {
     const { t } = useTranslation("records");
+    const { t: t_comparators } = useTranslation("comparators-config");
 
     const { state, dispatch } = useSearchParamsState(EsStateSchema, {
         storeKey: "esRecordsTableState",
@@ -274,6 +280,12 @@ const RecordsTable = (): ReactElement => {
                                     data={data}
                                     state={state}
                                     dispatch={dispatch}
+                                    renderBucketLabel={({ key }) => (
+                                        <RecordStateLabel
+                                            state={key as CatalogRecordState}
+                                        />
+                                    )}
+                                    title={t("fields.state")}
                                 />
                             </StackItem>
                             <StackItem>
@@ -282,6 +294,9 @@ const RecordsTable = (): ReactElement => {
                                     data={data}
                                     state={state}
                                     dispatch={dispatch}
+                                    title={t(
+                                        "fields.authority-links-object.base"
+                                    )}
                                 />
                             </StackItem>
                             <StackItem>
@@ -290,6 +305,7 @@ const RecordsTable = (): ReactElement => {
                                     data={data}
                                     state={state}
                                     dispatch={dispatch}
+                                    title={t("fields.comparisons-object.base")}
                                 />
                             </StackItem>
                             <StackItem>
@@ -298,6 +314,12 @@ const RecordsTable = (): ReactElement => {
                                     data={data}
                                     state={state}
                                     dispatch={dispatch}
+                                    renderBucketLabel={({ key }) =>
+                                        t_comparators(`${key}.title`)
+                                    }
+                                    title={t(
+                                        "fields.comparisons-object.comparator"
+                                    )}
                                 />
                             </StackItem>
                             <StackItem>
@@ -306,6 +328,10 @@ const RecordsTable = (): ReactElement => {
                                     data={data}
                                     state={state}
                                     dispatch={dispatch}
+                                    bucketsOrder={MatchQualitySchema.options}
+                                    title={t(
+                                        "fields.comparisons-object.match-quality"
+                                    )}
                                 />
                             </StackItem>
                             <StackItem>
@@ -314,6 +340,9 @@ const RecordsTable = (): ReactElement => {
                                     data={data}
                                     state={state}
                                     dispatch={dispatch}
+                                    title={t(
+                                        "fields.comparisons-object.overall-score"
+                                    )}
                                 />
                             </StackItem>
                             <StackItem>
@@ -322,6 +351,9 @@ const RecordsTable = (): ReactElement => {
                                     data={data}
                                     state={state}
                                     dispatch={dispatch}
+                                    title={t(
+                                        "fields.comparisons-object.field-results.explanation"
+                                    )}
                                 />
                             </StackItem>
                             <StackItem>
@@ -330,6 +362,9 @@ const RecordsTable = (): ReactElement => {
                                     data={data}
                                     state={state}
                                     dispatch={dispatch}
+                                    title={t(
+                                        "fields.comparisons-object.field-results.subfield-results.explanation"
+                                    )}
                                 />
                             </StackItem>
                             <StackItem>
@@ -338,6 +373,9 @@ const RecordsTable = (): ReactElement => {
                                     data={data}
                                     state={state}
                                     dispatch={dispatch}
+                                    title={t(
+                                        "fields.validations-object.validator"
+                                    )}
                                 />
                             </StackItem>
                             <StackItem>
@@ -346,6 +384,9 @@ const RecordsTable = (): ReactElement => {
                                     data={data}
                                     state={state}
                                     dispatch={dispatch}
+                                    title={t(
+                                        "fields.validations-object.status"
+                                    )}
                                 />
                             </StackItem>
                             <StackItem>
@@ -354,6 +395,9 @@ const RecordsTable = (): ReactElement => {
                                     data={data}
                                     state={state}
                                     dispatch={dispatch}
+                                    title={t(
+                                        "fields.validations-object.target.tag"
+                                    )}
                                 />
                             </StackItem>
                             <StackItem>
@@ -362,6 +406,9 @@ const RecordsTable = (): ReactElement => {
                                     data={data}
                                     state={state}
                                     dispatch={dispatch}
+                                    title={t(
+                                        "fields.validations-object.target.codes"
+                                    )}
                                 />
                             </StackItem>
                             <StackItem>
@@ -370,6 +417,9 @@ const RecordsTable = (): ReactElement => {
                                     data={data}
                                     state={state}
                                     dispatch={dispatch}
+                                    title={t(
+                                        "fields.validations-object.reason"
+                                    )}
                                 />
                             </StackItem>
                             <StackItem>
@@ -378,6 +428,7 @@ const RecordsTable = (): ReactElement => {
                                     data={data}
                                     state={state}
                                     dispatch={dispatch}
+                                    title={t("fields.type-of-record")}
                                 />
                             </StackItem>
                             <StackItem>
@@ -386,6 +437,7 @@ const RecordsTable = (): ReactElement => {
                                     data={data}
                                     state={state}
                                     dispatch={dispatch}
+                                    title={t("fields.bibliographic-level")}
                                 />
                             </StackItem>
                         </Stack>

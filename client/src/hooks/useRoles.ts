@@ -1,7 +1,8 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import apiClient from "../services/apiClient";
 import type { RoleResponse, RolesPage } from "../models/api/responses/roles";
 import { type EditRole } from "../models/api/requests/roles";
+import { queryClient } from "../services/queryClient";
 
 // -------------------------
 // Queries
@@ -30,7 +31,7 @@ export const useCreateRole = () =>
             (await apiClient.post<RoleResponse>(`/access-control/roles`, data))
                 .data,
         onSuccess: () => {
-            useQueryClient().invalidateQueries({
+            queryClient.invalidateQueries({
                 queryKey: ["roles"],
                 exact: true,
             });
@@ -48,7 +49,7 @@ export const useUpdateRole = () =>
                 )
             ).data,
         onSuccess: () => {
-            useQueryClient().invalidateQueries({
+            queryClient.invalidateQueries({
                 queryKey: ["roles"],
                 exact: true,
             });
@@ -65,7 +66,7 @@ export const useDeleteRole = () =>
                 )
             ).data,
         onSuccess: () => {
-            useQueryClient().invalidateQueries({
+            queryClient.invalidateQueries({
                 queryKey: ["roles"],
                 exact: true,
             });

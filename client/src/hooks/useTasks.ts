@@ -2,7 +2,6 @@ import {
     useMutation,
     useQueries,
     useQuery,
-    useQueryClient,
     type UseQueryResult,
 } from "@tanstack/react-query";
 import apiClient from "../services/apiClient";
@@ -18,6 +17,7 @@ import {
 } from "../models/api/responses/task";
 import type { EsRequest } from "../models/api/requests/es";
 import { useNotification } from "./useNotifications";
+import { queryClient } from "../services/queryClient";
 
 // -------------------------
 // Queries
@@ -78,6 +78,28 @@ export const useSearchTasksBatch = (
         })),
     });
 
+export const useGetUserActiveTasks = (enabled = true) =>
+    useQuery<SearchTasksResponse>({
+        queryKey: ["tasks", "running", "own"],
+        queryFn: async () =>
+            SearchTasksResponseSchema.parse(
+                (
+                    await apiClient.post(`/tasks/search-own`, {
+                        query: {
+                            bool: {
+                                should: [
+                                    { term: { status: "Pending" } },
+                                    { term: { status: "Started" } },
+                                ],
+                                minimum_should_match: 1,
+                            },
+                        },
+                    })
+                ).data
+            ),
+        enabled,
+    });
+
 export const useGetTraceback = (
     id: string,
     params: TracebackLinesRequestParams | null = null,
@@ -135,9 +157,9 @@ export const useCreateTask = <T>(path: string) => {
         onSuccess: (taskData) => {
             // Notify
             addTaskCreatedNotification(taskData);
-            // Invalidate
-            useQueryClient().invalidateQueries({
-                queryKey: ["catalog-records", "tasks"],
+            // Invalidate queries
+            queryClient.invalidateQueries({
+                queryKey: ["tasks"],
                 exact: false,
             });
         },
@@ -152,25 +174,11 @@ export const useRevokeTask = () =>
         mutationFn: async (id: string) =>
             (await apiClient.patch<Task>(`/tasks/${id}/revoke`)).data,
         onSuccess: () => {
-            useQueryClient().invalidateQueries({
+            queryClient.invalidateQueries({
                 queryKey: ["tasks"],
                 exact: false,
-            });
-            useQueryClient().invalidateQueries({
-                queryKey: ["tasks", "search"],
             });
         },
     });
 
-export const useDeleteTasks = () =>
-    useMutation<Task, Error, EsQuery>({
-        mutationFn: async (query: EsQuery) =>
-            (await apiClient.post<Task>(`/tasks/delete`, query)).data,
-        onSuccess: () => {
-            useQueryClient().invalidateQueries({
-                queryKey: ["tasks"],
-                exact: false,
-            });
-            // TODO: Show notification
-        },
-    });
+export const useDeleteTasks = () => useCreateTask<EsQuery>("/tasks/delete");

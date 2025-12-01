@@ -9,11 +9,18 @@ APP_IMAGE := $(REG_PREFIX)marc-comparator-app:$(VERSION)
 WORKER_IMAGE := $(REG_PREFIX)marc-comparator-worker:$(VERSION)
 CLIENT_IMAGE := $(REG_PREFIX)marc-comparator-client:$(VERSION)
 
+SYSTEM_VERSION := $(VERSION)
+SYSTEM_COMMIT := $(shell git rev-parse --short HEAD 2>/dev/null)
+
 # ------------------------------
 # Build Images
 # ------------------------------
 build:
-	$(DOCKER) build -t $(APP_IMAGE) -f app/app.Containerfile .
+	$(DOCKER) build \
+		--build-arg SYSTEM_VERSION=$(SYSTEM_VERSION) \
+		--build-arg SYSTEM_COMMIT=$(SYSTEM_COMMIT) \
+		-t $(APP_IMAGE) \
+		-f app/app.Containerfile .
 	$(DOCKER) build -t $(WORKER_IMAGE) -f app/worker.Containerfile .
 	$(DOCKER) build -t $(CLIENT_IMAGE) -f client/Containerfile client/
 
@@ -24,6 +31,7 @@ push:
 	$(if $(REGISTRY),,$(error REGISTRY is required for push target))
 	$(DOCKER) push $(APP_IMAGE)
 	$(DOCKER) push $(WORKER_IMAGE)
+	$(DOCKER) push $(CLIENT_IMAGE)
 
 build-push: build push
 

@@ -1,7 +1,7 @@
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import apiClient from "../services/apiClient";
-import { type Task } from "../models/api/responses/task";
 import { type SystemInfo } from "../models/api/responses/system";
+import { useCreateTask } from "./useTasks";
 
 // -------------------------
 // Queries
@@ -18,10 +18,4 @@ export const useGetSystemInfo = (enabled = true) =>
 // Mutations
 // -------------------------
 export const useRecreateIndexes = () =>
-    useMutation<Task, Error, void>({
-        mutationFn: async () =>
-            (await apiClient.post<Task>("/system/recreate-indexes")).data,
-        onSuccess: () => {
-            // TODO: Show notification
-        },
-    });
+    useCreateTask<void>("/system/recreate-indexes");

@@ -24,6 +24,7 @@ const EsTermsLabelGroup = <T,>({
     data,
     state,
     dispatch,
+    bucketsOrder,
     bucketsOrdering,
     renderBucketLabel,
     title,
@@ -33,6 +34,7 @@ const EsTermsLabelGroup = <T,>({
     data?: CollectionData<T>;
     state: EsState;
     dispatch: Dispatch<EsStateAction>;
+    bucketsOrder?: string[];
     bucketsOrdering?: (a: EsTermsBucket, b: EsTermsBucket) => number;
     renderBucketLabel?: (bucket: EsTermsBucket) => React.ReactNode | null;
     title?: React.ReactNode;
@@ -46,7 +48,24 @@ const EsTermsLabelGroup = <T,>({
     const filterState = state.terms?.[field];
     const include = new Set(filterState?.include || []);
 
-    const buckets = selectTermsBuckets(field, state, data, bucketsOrdering);
+    const bucketsOrderingFromOrder = bucketsOrder?.reduce((acc, key) => {
+        acc[key] = true;
+        return acc;
+    }, {} as Record<string, boolean>);
+    const bucketsOrderingFinal = bucketsOrderingFromOrder
+        ? (a: EsTermsBucket, b: EsTermsBucket) => {
+              const aIdx = bucketsOrder?.indexOf(a.key.toString()) || -1;
+              const bIdx = bucketsOrder?.indexOf(b.key.toString()) || -1;
+              return aIdx - bIdx;
+          }
+        : bucketsOrdering;
+
+    const buckets = selectTermsBuckets(
+        field,
+        state,
+        data,
+        bucketsOrderingFinal
+    );
     if (buckets.length === 0) return null;
 
     const renderLabel = (bucket: EsTermsBucket) => {

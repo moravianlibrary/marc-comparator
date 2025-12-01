@@ -4,6 +4,7 @@ from adapters.dependencies import DatabaseSessionDep, WithPermission
 from auth.service import CurrentUser
 from entities.role import Permission
 from entities.task import TaskSchema
+from system.models import SystemInfo
 
 from . import service
 
@@ -13,7 +14,7 @@ router = APIRouter(
 )
 
 
-@router.get("/info")
+@router.get("/info", response_model=SystemInfo)
 async def get_system_info(
     db_session: DatabaseSessionDep,
     _: CurrentUser,

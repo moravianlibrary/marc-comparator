@@ -208,7 +208,6 @@ def _ollama_generate(prompt: str) -> str:
         json={"model": OLLAMA_MODEL, "prompt": prompt, "stream": False},
         timeout=OLLAMA_TIMEOUT,
     )
-    print(r.url, r.status_code, r.content)
     r.raise_for_status()
     return r.json().get("response", "")
 

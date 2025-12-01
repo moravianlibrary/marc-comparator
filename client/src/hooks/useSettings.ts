@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import apiClient from "../services/apiClient";
 import type {
     SettingsDomain,
@@ -12,6 +12,7 @@ import { useMemo } from "react";
 import jsonSchemaToZod from "json-schema-to-zod";
 import { z, ZodType } from "zod";
 import type { FieldValues } from "react-hook-form";
+import { queryClient } from "../services/queryClient";
 
 // -------------------------
 // Queries
@@ -128,7 +129,7 @@ export const useSetSettings = (domain: SettingsDomain, scope: SettingsScope) =>
                 )
             ).data,
         onSuccess: () => {
-            useQueryClient().invalidateQueries({
+            queryClient.invalidateQueries({
                 queryKey: ["settings", domain, scope],
                 exact: true,
             });

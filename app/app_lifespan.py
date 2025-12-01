@@ -1,13 +1,7 @@
-import asyncio
-
 from esorm import setup_mappings
 
 from adapters.database import Base, engine, get_db_session
-from adapters.indexer import (
-    is_indexer_available,
-    shutdown_indexer,
-    startup_indexer,
-)
+from adapters.indexer import shutdown_indexer, startup_indexer
 from auth.models import RegisterUserRequest
 from auth.service import register_user
 from config import config
@@ -61,16 +55,6 @@ async def lifespan(app):
                 continue
 
             Settings.save(db_session, scope, model_cls(), model_cls)
-
-    # Wait for indexer to be available
-    attempt = 1
-    while not await is_indexer_available():
-        await asyncio.sleep(2**attempt)
-
-        if attempt > 5:
-            raise Exception("Indexer is not available")
-
-        attempt += 1
 
     # Setup ES mappings
     await setup_mappings()

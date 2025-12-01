@@ -9,5 +9,9 @@
         "delete-all-items": "Smazat všechny položky",
         "add-item": "Přidat položku",
         "unsuported-field-type": "Nepodporovaný typ pole: {{type}}"
-    }
+    },
+    "running-tasks_zero": "Žádné probíhající úkoly",
+    "running-tasks_one": "1 probíhající úkol",
+    "running-tasks_few": "{{count}} probíhající úkoly",
+    "running-tasks_other": "{{count}} probíhajících úkolů"
 }

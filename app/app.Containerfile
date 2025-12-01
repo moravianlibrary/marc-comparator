@@ -4,6 +4,14 @@ FROM python:3.12-slim
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
 
+# Declare build args
+ARG SYSTEM_VERSION
+ARG SYSTEM_COMMIT
+
+# Set build args as environment variables
+ENV SYSTEM_VERSION=${SYSTEM_VERSION}
+ENV SYSTEM_COMMIT=${SYSTEM_COMMIT}
+
 # Set working directory
 WORKDIR /app
 

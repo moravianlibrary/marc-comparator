@@ -18,6 +18,41 @@ import { useGetMe, useLogout } from "../../hooks/useAuth";
 import userAvatar from "@/assets/icons/user-avatar.svg";
 import { useNotification } from "../../hooks/useNotifications";
 import { useTranslation } from "react-i18next";
+import { TaskIcon } from "@patternfly/react-icons";
+import { useGetUserActiveTasks } from "../../hooks/useTasks";
+
+const UserActiveTasksNotificationBadge = (): ReactElement | null => {
+    const { t } = useTranslation();
+
+    const { data } = useGetUserActiveTasks();
+
+    if (!data) return null;
+
+    const count = data.hits.total.value;
+
+    return (
+        <NotificationBadge
+            icon={<TaskIcon />}
+            // count={getUnreadCount()}
+            // variant={
+            //     getUnreadCount() === 0
+            //         ? NotificationBadgeVariant.read
+            //         : notifications.some(
+            //               (n) =>
+            //                   n.variant === "danger" &&
+            //                   !n.isNotificationRead
+            //           )
+            //         ? NotificationBadgeVariant.attention
+            //         : NotificationBadgeVariant.unread
+            // }
+            // onClick={toggleDrawer}
+            isDisabled={count === 0}
+            aria-label="Notifications"
+        >
+            {t("common:running-tasks", { count })}
+        </NotificationBadge>
+    );
+};
 
 const MainPageMastheadToolbar = (): ReactElement => {
     const { t } = useTranslation();
@@ -37,7 +72,20 @@ const MainPageMastheadToolbar = (): ReactElement => {
                     variant="action-group-inline"
                 >
                     <ToolbarItem>
+                        {me?.permissions.some((p) =>
+                            [
+                                "AddRecords",
+                                "SyncRecordsFromCatalog",
+                                "RunRecordTasks",
+                                "SystemMaintenance",
+                            ].includes(p)
+                        ) ? (
+                            <UserActiveTasksNotificationBadge />
+                        ) : null}
+                    </ToolbarItem>
+                    <ToolbarItem>
                         <NotificationBadge
+                            count={getUnreadCount()}
                             variant={
                                 getUnreadCount() === 0
                                     ? NotificationBadgeVariant.read
@@ -50,7 +98,7 @@ const MainPageMastheadToolbar = (): ReactElement => {
                                     : NotificationBadgeVariant.unread
                             }
                             onClick={toggleDrawer}
-                            disabled={notifications.length === 0}
+                            isDisabled={notifications.length === 0}
                             aria-label="Notifications"
                         />
                     </ToolbarItem>

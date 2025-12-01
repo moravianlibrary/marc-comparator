@@ -1,3 +1,4 @@
+import { type CompareRecordsData } from "../models/api/requests/comparison";
 import {
     useQueries,
     useQuery,
@@ -20,6 +21,8 @@ import apiClient from "../services/apiClient";
 import type { EsHit } from "../models/api/responses/es";
 import type { MarcRecord } from "../models/api/responses/marc_record";
 import { useCreateTask } from "./useTasks";
+import type { AuthorityLinkingData } from "../models/api/requests/authority_linking";
+import type { ValidateRecordsData } from "../models/api/requests/validation";
 
 // -------------------------
 // Queries
@@ -121,6 +124,15 @@ export const useGetMarcRecord = (
 // -------------------------
 // Mutations
 // -------------------------
+export const useLinkToAuthorities = () =>
+    useCreateTask<AuthorityLinkingData>("/authority-linking/task");
+
+export const useCompareRecords = () =>
+    useCreateTask<CompareRecordsData>("/comparison/task");
+
+export const useValidateRecords = () =>
+    useCreateTask<ValidateRecordsData>("/validation/task");
+
 export const useAddOneRecord = () =>
     useCreateTask<AddOneRecordData>("/catalog-records/fetch");
 

@@ -1,5 +1,4 @@
 import { Fragment, useState } from "react";
-import { useLinkToAuthorities } from "../../hooks/useAuthorityLinking";
 import { useGetSystemInfo } from "../../hooks/useSystem";
 import { type CollectionData } from "../../store/collection/domain";
 import { selectSelectedCount } from "../../store/es/selectors";
@@ -17,6 +16,7 @@ import ToggleList from "../../components/molecules/ToggleList";
 import type { CatalogRecord } from "../../models/api/responses/catalog_record";
 import { buildSelectQuery } from "../../store/es/requests_factory";
 import type { EsState } from "../../store/es/domain";
+import { useLinkToAuthorities } from "../../hooks/useCatalogRecords";
 
 interface AuthorityLinkingModalProps {
     state: EsState;

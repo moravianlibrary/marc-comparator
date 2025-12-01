@@ -1,4 +1,5 @@
 import asyncio
+import logging
 from enum import Enum
 from typing import Any, Dict, Generic, List, TypeVar, Union
 
@@ -9,6 +10,8 @@ from esorm.fields import Keyword
 from pydantic import BaseModel, Field
 
 from config import config
+
+logger = logging.getLogger(__name__)
 
 IndexerSchema = ESModel
 IndexerNestedModel = ESBaseModel
@@ -140,9 +143,9 @@ async def is_indexer_available() -> bool:
     try:
         async with ClientSession() as session:
             async with session.get(config.elasticsearch.url) as resp:
-                print(f"Elasticsearch response status: {resp.status}")
                 return resp.status in [200, 401]
-    except Exception:
+    except Exception as e:
+        logger.error(f"Elasticsearch is not available: {str(e)}")
         return False
 
 
@@ -159,10 +162,10 @@ async def startup_indexer(retries: int = 5, backoff: int = 2) -> bool:
                 if es is not None and await es.ping():
                     return True
             except Exception as e:
-                print(f"Elasticsearch ping failed: {e}")
+                logger.error(f"Elasticsearch ping failed: {e}")
         attempt += 1
         wait_time = backoff**attempt
-        print(
+        logger.info(
             f"Retrying Elasticsearch in {wait_time}s "
             f"(attempt {attempt}/{retries})"
         )

@@ -139,7 +139,12 @@ const CatalogRecordsDescription = ({
                 <DescriptionListDescription>
                     {(stateAggs.sum_other_doc_count || 0) +
                         stateAggs.buckets.reduce(
-                            (acc, bucket) => acc + bucket.doc_count,
+                            (acc, bucket) =>
+                                ["Active", "Deleted"].includes(
+                                    bucket.key.toString()
+                                )
+                                    ? acc + bucket.doc_count
+                                    : acc,
                             0
                         )}
                 </DescriptionListDescription>
