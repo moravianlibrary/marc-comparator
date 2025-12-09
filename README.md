@@ -116,6 +116,6 @@ The SDK includes a CLI interface implemented with **Typer**, allowing easy usage
 
 ---
 
-## License
+## Acknowledgment
 
-TBD
+The software was funded by the Institutional support for long term conceptual development of a research organization (The Moravian Library) by the Czech Ministry of Culture.
