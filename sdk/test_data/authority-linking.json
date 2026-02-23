@@ -1,0 +1,1 @@
+{"knihovny-cz": {"api_url": "https://www.knihovny.cz/api/v1", "mappings": [{"base": "MZK01", "pattern": "^mzk\\.MZK01-(\\d{9})$", "id_template": "mzk.MZK01-{system_number}"}, {"base": "MZK03", "pattern": "^mzk\\.MZK03-(\\d{9})$", "id_template": "mzk.MZK03-{system_number}"}, {"base": "SKC", "pattern": "^caslin\\.SKC01-(\\d{9})$", "id_template": "caslin.SKC01-{system_number}"}]}} 

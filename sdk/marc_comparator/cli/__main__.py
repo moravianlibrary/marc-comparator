@@ -1,6 +1,7 @@
 import asyncio
+import json
 from pathlib import Path
-from typing import List, Tuple
+from typing import List
 
 import pandas as pd
 import typer
@@ -113,6 +114,10 @@ def init_validator(validator: Validator, config_path: Path | None):
     with config_path.open("r", encoding="utf-8") as f:
         config_data = f.read()
 
+    data = json.loads(config_data)
+    if isinstance(data, dict) and list(data.keys()) == [str(validator)]:
+        config_data = json.dumps(data[str(validator)])
+
     validator_cls = VALIDATOR_DISPATCHER[validator]
     return validator_cls(
         validator_cls.config_model.model_validate_json(config_data)
@@ -124,11 +129,17 @@ def validate(
     mrc_file_paths: List[Path] = typer.Argument(
         ..., help="Paths to MARC record files"
     ),
-    validators: List[str] = typer.Option(
-        [str(val) for val in VALIDATOR_DISPATCHER.keys()],
+    validators: List[Validator] = typer.Option(
+        VALIDATOR_DISPATCHER.keys(),
         "--validator",
         "-v",
         help="Names of validators to apply",
+    ),
+    config: Path | None = typer.Option(
+        None,
+        "--config",
+        "-c",
+        help="Path to validators configuration file",
     ),
     output: Path = typer.Option(
         Path("report.csv"),
@@ -137,20 +148,15 @@ def validate(
         help="Path to output report file (CSV format).",
     ),
 ):
-    validator_props: List[Tuple[str, Path | None]] = []
-    for pair in validators:
-        if "=" in pair:
-            name, path = pair.split("=", 1)
-            validator_props.append((Validator(name), Path(path)))
-        else:
-            validator_props.append((Validator(pair), None))
-
     report_data = []
 
-    for path in mrc_file_paths:
-        for validator, config_path in validator_props:
-            validator_inst = init_validator(validator, config_path)
+    validators_inst = [
+        (validator, init_validator(validator, config))
+        for validator in validators
+    ]
 
+    for path in mrc_file_paths:
+        for validator, validator_inst in validators_inst:
             with path.open("rb") as f:
                 record = MarcRecord.from_mrc(f.read())
 

@@ -21,6 +21,7 @@ class KrameriusLinksValidatorConfig(BaseModel):
     link_text_pattern: str = r"Digitalizovaný dokument"
 
     kramerius_host: str = "https://api.kramerius.mzk.cz/search"
+    solr_cloud: bool = False
 
 
 VALIDATION_FIELD = ValidationTarget(tag="856", codes=["u", "y"])
@@ -82,7 +83,9 @@ class KrameriusLinksValidator(BaseValidator):
         self.link_text_regex = re.compile(config.link_text_pattern)
 
         self.client = KrameriusClient(
-            KrameriusConfig(host=config.kramerius_host)
+            KrameriusConfig(
+                host=config.kramerius_host, solr_cloud=config.solr_cloud
+            )
         )
 
     async def find_kramerius_links(

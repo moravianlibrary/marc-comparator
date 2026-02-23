@@ -1,0 +1,1 @@
+{"kramerius-links": {"kramerius_host": "https://api.kramerius.mzk.cz/search", "link_text_pattern": "Digitalizovaný dokument", "url_to_pid_pattern": "https?://[^/]+/mzk/uuid/(uuid:[0-9a-fA-F-]+)", "solr_cloud": true}}
