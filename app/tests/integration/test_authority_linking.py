@@ -65,6 +65,8 @@ class TestAuthorityLinkingEndpoints:
                 "created_at": "IGNORE",
                 "started_at": None,
                 "finished_at": None,
+                "progress": 0.0,
+                "traceback_lines": 0,
             },
             exclude_field_paths={("task_id",), ("created_at",)},
         )
@@ -157,6 +159,9 @@ def mock_linker_with_link(mocker: MockerFixture) -> MockerFixture:
 @pytest.fixture(scope="function")
 def mock_linker_with_no_link(mocker: MockerFixture) -> MockerFixture:
     class MockLinker(BaseAuthorityLinker):
+        async def get_target_bases(self, config):
+            return ["SKC"]
+
         async def run(self, base, system_number, record, target_base):
             return None
 

@@ -15,6 +15,7 @@ class SettingsScope(StrEnum):
     Validation = "validators"
     AuthorityLinking = "authority-linkers"
     Comparison = "comparators"
+    ProcessRecords = "process-records"
 
 
 type SystemSettingsScope = Literal[

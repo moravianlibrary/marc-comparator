@@ -9,6 +9,7 @@ from sqlalchemy import (
     UUID,
     Column,
     Enum,
+    Float,
     ForeignKey,
     String,
     Text,
@@ -32,6 +33,7 @@ class TaskType(StrEnum):
     ValidateRecords = "ValidateRecords"
     LinkRecordsToAuthorities = "LinkRecordsToAuthorities"
     CompareRecords = "CompareRecords"
+    ProcessRecords = "ProcessRecords"
     ReindexRecords = "ReindexRecords"
     SetRecordsVisibility = "SetRecordsVisibility"
     DeleteTasks = "DeleteTasks"
@@ -70,6 +72,7 @@ class TaskSchema(IndexerSchema):
     started_at: datetime | None
     finished_at: datetime | None
 
+    progress: float
     traceback_lines: int
 
 
@@ -99,6 +102,7 @@ class Task(
     finished_at = Column(TIMESTAMP, nullable=True)
 
     data = Column(JSON, nullable=True)
+    progress = Column(Float, nullable=False, default=0.0)
     traceback = Column(Text, nullable=True)
 
     @property

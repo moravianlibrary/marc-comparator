@@ -36,7 +36,7 @@ class TestAuthenticationEndpoints:
     async def test_user_registration(self, client: AsyncClient):
         assert_response(
             await client.post(
-                "/auth/register",
+                "/auth/sign-up",
                 json={
                     "email": "new.user@example.com",
                     "first_name": "New",
@@ -51,7 +51,7 @@ class TestAuthenticationEndpoints:
     async def test_user_registration_existing_email(self, client: AsyncClient):
         assert_response(
             await client.post(
-                "/auth/register",
+                "/auth/sign-up",
                 json={
                     "email": "test.user@example.com",
                     "first_name": "Test",

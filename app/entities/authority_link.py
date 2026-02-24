@@ -16,7 +16,7 @@ if TYPE_CHECKING:
 class AuthorityLinkSchema(IndexerNestedModel):
     linker: Keyword
     base: Keyword
-    system_number: Keyword
+    system_number: Keyword | None
     confidence: float | None
     updated_at: datetime
 
@@ -70,4 +70,18 @@ class AuthorityLink(Base, BaseOperationsMixin):
             db_session.query(cls)
             .filter_by(main_record_id=main_record_id, linker=linker, base=base)
             .one_or_none()
+        )
+
+    @classmethod
+    def find_by_main_record_and_base(
+        cls,
+        db_session: DatabaseSession,
+        main_record_id: str,
+        base: str,
+    ) -> Optional["AuthorityLink"]:
+        """Return the single authority link for this record and base, if any."""
+        return (
+            db_session.query(cls)
+            .filter_by(main_record_id=main_record_id, base=base)
+            .first()
         )

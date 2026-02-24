@@ -38,6 +38,8 @@ class TestEndpointsRO:
                 "created_at": "IGNORE",
                 "started_at": None,
                 "finished_at": None,
+                "progress": 0.0,
+                "traceback_lines": 0,
             },
             exclude_field_paths={("task_id",), ("created_at",)},
         )
@@ -69,6 +71,8 @@ class TestEndpointsRO:
                 "created_at": "IGNORE",
                 "started_at": None,
                 "finished_at": None,
+                "progress": 0.0,
+                "traceback_lines": 0,
             },
             exclude_field_paths={("task_id",), ("created_at",)},
         )

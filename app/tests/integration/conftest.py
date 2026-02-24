@@ -69,7 +69,9 @@ async def elasticsearch_container() -> (
 
     # Setup mappings
     indexer_session = await connect(
-        hosts=es.get_url(),
+        hosts=(
+            f"http://{es.get_container_host_ip()}:{es.get_exposed_port(9200)}"
+        ),
         basic_auth=("elastic", "changeme"),
         request_timeout=5,
         node_class="httpxasync",
@@ -134,7 +136,12 @@ async def indexer_session(
     inside the test loop.
     """
     class_mocker.patch.object(
-        config.elasticsearch, "url", elasticsearch_container.get_url()
+        config.elasticsearch,
+        "url",
+        (
+            f"http://{elasticsearch_container.get_container_host_ip()}"
+            f":{elasticsearch_container.get_exposed_port(9200)}"
+        ),
     )
 
     await es_connect()

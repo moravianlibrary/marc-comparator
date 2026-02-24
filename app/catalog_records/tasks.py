@@ -3,7 +3,7 @@ from marcdantic import MarcRecord
 
 from adapters.aleph_client_registry import AlephClientRegistry
 from adapters.indexer import IndexerQuery
-from adapters.tasks import ManagedTask, TaskContext
+from adapters.tasks import ManagedTask
 from catalog_records.models import (
     FetchBatchOfRecordsData,
     FetchRecordData,
@@ -19,7 +19,7 @@ class AlephError(Exception):
 
 
 def save_record_snippet(
-    ctx: TaskContext,
+    ctx: ManagedTask,
     base: str,
     system_number: str,
     record: MarcRecord,
@@ -41,12 +41,15 @@ def save_record_snippet(
 
 
 async def handle_batch_progress_snippet(
-    ctx: TaskContext, catalog_record: CatalogRecord | None = None
+    ctx: ManagedTask, catalog_record: CatalogRecord | None = None
 ):
     ctx.progress += 1
 
     if ctx.progress % ctx.task_settings.progress_update_interval == 0:
         ctx.logger.info(f"Processed {ctx.progress} records so far.")
+
+        ctx.task.progress = ctx.progress / ctx.total
+        await ctx.update_progress()
 
     if catalog_record is None:
         return
@@ -61,7 +64,7 @@ async def handle_batch_progress_snippet(
         ctx.index_batch.clear()
 
 
-async def handle_final_batch_snippet(ctx: TaskContext):
+async def handle_final_batch_snippet(ctx: ManagedTask):
     if not ctx.index_batch:
         return
 
@@ -72,6 +75,7 @@ async def handle_final_batch_snippet(ctx: TaskContext):
     ctx.db_session.commit()
     await CatalogRecord.bulk_index(ctx.index_batch)
     ctx.index_batch.clear()
+    await ctx.update_progress()
 
 
 async def fetch_record_task(task_id: str) -> None:

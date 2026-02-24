@@ -1,6 +1,13 @@
-from marc_comparator.comparators import COMPARATOR_DISPATCHER
+import logging
+
+from marc_comparator.comparators import (
+    COMPARATOR_DISPATCHER,
+    BaseComparator,
+    Comparator,
+)
 from marcdantic import MarcRecord
 
+from adapters.database import DatabaseSession
 from adapters.tasks import ManagedTask
 from catalog_records.tasks import (
     handle_batch_progress_snippet,
@@ -11,6 +18,75 @@ from entities.comparison import Comparison
 from entities.settings import Settings, SettingsScope
 
 from .models import ComparisonSettings, ComparisonTaskData
+
+
+def init_comparator(
+    settings: ComparisonSettings, comparator: Comparator
+) -> BaseComparator:
+    comparator_cls = COMPARATOR_DISPATCHER.get(comparator)
+    if not comparator_cls:
+        raise ValueError(f"Unknown comparator: {comparator}")
+
+    comparator_config = (
+        getattr(settings, comparator.value.replace("-", "_"), None)
+        if comparator_cls.config_model
+        else None
+    )
+
+    return (
+        comparator_cls(comparator_config)
+        if comparator_config
+        else comparator_cls()
+    )
+
+
+async def handle_catalog_record_comparison(
+    db_session: DatabaseSession,
+    comparator_name: str,
+    comparator: BaseComparator,
+    logger: logging.Logger,
+    target_base: str,
+    catalog_record: CatalogRecord,
+) -> None:
+    link = next(
+        (
+            al
+            for al in catalog_record.authority_links
+            if al.base == target_base
+        ),
+        None,
+    )
+
+    if link is None:
+        logger.info(
+            f"No authority link found for {catalog_record.id} "
+            f"to target base {target_base}"
+        )
+        return
+
+    result = await comparator.run(
+        MarcRecord.from_mrc(catalog_record.marc),
+        MarcRecord.from_mrc(link.authority_record.marc),
+    )
+
+    comparison = Comparison.find(
+        db_session,
+        catalog_record.id,
+        comparator_name,
+        link.authority_record.id,
+    )
+
+    if comparison:
+        comparison.result = result.model_dump()
+    else:
+        comparison = Comparison(
+            main_record_id=catalog_record.id,
+            comparator=comparator_name,
+            other_record_id=link.authority_record.id,
+            result=result.model_dump(),
+        )
+
+    comparison.save(db_session)
 
 
 async def compare_records(task_id: str) -> None:
@@ -26,67 +102,24 @@ async def compare_records(task_id: str) -> None:
             ctx.logger.error("Comparison settings not found")
             return
 
-        comparator_cls = COMPARATOR_DISPATCHER.get(data.comparator)
-
-        if not comparator_cls:
-            ctx.logger.error(f"Unknown comparator: {data.comparator}")
+        try:
+            comparator = init_comparator(settings, data.comparator)
+        except ValueError as e:
+            ctx.logger.error(str(e))
             return
-
-        comparator_config = (
-            getattr(settings, data.comparator.value.replace("-", "_"), None)
-            if comparator_cls.config_model
-            else None
-        )
-
-        comparator = (
-            comparator_cls(comparator_config)
-            if comparator_config
-            else comparator_cls()
-        )
 
         async for catalog_record in CatalogRecord.get_by_query(
             ctx.db_session, data.query
         ):
             try:
-                link = next(
-                    (
-                        al
-                        for al in catalog_record.authority_links
-                        if al.base == data.target_base
-                    ),
-                    None,
-                )
-
-                if link is None:
-                    ctx.logger.info(
-                        f"No authority link found for {catalog_record.id} "
-                        f"to base {data.target_base}"
-                    )
-                    continue
-
-                result = await comparator.run(
-                    MarcRecord.from_mrc(catalog_record.marc),
-                    MarcRecord.from_mrc(link.authority_record.marc),
-                )
-
-                comparison = Comparison.find(
+                await handle_catalog_record_comparison(
                     ctx.db_session,
-                    catalog_record.id,
                     data.comparator.value,
-                    link.authority_record.id,
+                    comparator,
+                    ctx.logger,
+                    data.target_base,
+                    catalog_record,
                 )
-
-                if comparison:
-                    comparison.result = result.model_dump()
-                else:
-                    comparison = Comparison(
-                        main_record_id=catalog_record.id,
-                        comparator=data.comparator.value,
-                        other_record_id=link.authority_record.id,
-                        result=result.model_dump(),
-                    )
-
-                comparison.save(ctx.db_session)
 
                 await handle_batch_progress_snippet(ctx, catalog_record)
 

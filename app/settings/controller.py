@@ -3,6 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Body
 
 from adapters.dependencies import DatabaseSessionDep, WithPermission
+from catalog_records.process_records_task import ProcessRecordsSettings
 from entities.role import Permission
 from entities.settings import SettingsScope
 from settings.models import (
@@ -116,6 +117,27 @@ async def set_validation_settings(
     db_session: DatabaseSessionDep,
 ):
     return service.set_settings(SettingsScope.Validation, settings, db_session)
+
+
+@record_tools_settings_router.get(
+    "/process-records", response_model=ProcessRecordsSettings
+)
+async def get_process_records_settings(
+    db_session: DatabaseSessionDep,
+):
+    return service.get_settings(SettingsScope.ProcessRecords, db_session)
+
+
+@record_tools_settings_router.post(
+    "/process-records", response_model=ProcessRecordsSettings
+)
+async def set_process_records_settings(
+    settings: Annotated[ProcessRecordsSettings, Body()],
+    db_session: DatabaseSessionDep,
+):
+    return service.set_settings(
+        SettingsScope.ProcessRecords, settings, db_session
+    )
 
 
 router.include_router(system_settings_router)

@@ -40,6 +40,8 @@ class CatalogRecordState(StrEnum):
     Deleted = "Deleted"
     Visible = "Visible"
     Hidden = "Hidden"
+    Unprocessed = "Unprocessed"
+    Processed = "Processed"
 
 
 class CatalogRecordSchema(IndexerSchema):
@@ -60,6 +62,7 @@ class CatalogRecordSchema(IndexerSchema):
     authors: List[Text]
     latest_transaction: datetime
     latest_sync: datetime
+    processed_at: datetime | None
 
     state: EnumList[CatalogRecordState]
 
@@ -83,6 +86,7 @@ class CatalogRecord(
     latest_sync = Column(TIMESTAMP, nullable=False, default=func.now())
     deleted = Column(Boolean, nullable=False, default=False)
     hidden = Column(Boolean, nullable=False, default=False)
+    processed_at = Column(TIMESTAMP, nullable=True)
 
     source_type = Column(
         String, nullable=False, default=CatalogRecordSource.Main
@@ -174,6 +178,11 @@ class CatalogRecord(
             states.append(CatalogRecordState.Hidden)
         else:
             states.append(CatalogRecordState.Visible)
+
+        if self.processed_at is not None:
+            states.append(CatalogRecordState.Processed)
+        else:
+            states.append(CatalogRecordState.Unprocessed)
 
         return states
 

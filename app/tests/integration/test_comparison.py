@@ -68,6 +68,8 @@ class TestComparisonEndpoints:
                 "created_at": "IGNORE",
                 "started_at": None,
                 "finished_at": None,
+                "progress": 0.0,
+                "traceback_lines": 0,
             },
             exclude_field_paths={("task_id",), ("created_at",)},
         )
@@ -285,7 +287,7 @@ class TestComparisonTaskNoSettingsFound:
 )
 class TestComparisonTaskNoComparatorFound:
     @pytest.mark.asyncio
-    async def test_no_linker_settings_found(self, task: Task):
+    async def test_no_comparator_found(self, task: Task):
         from comparison.tasks import compare_records
 
         await compare_records(task.task_id)

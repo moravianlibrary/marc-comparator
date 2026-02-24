@@ -2,6 +2,7 @@ from typing import Dict
 
 from authority_linking.models import AuthorityLinkingSettings
 from catalog_records.models import CatalogSettings
+from catalog_records.process_records_task import ProcessRecordsSettings
 from comparison.models import ComparisonSettings
 from entities.settings import SettingsSchema, SettingsScope
 from tasks.models import TaskSettings
@@ -18,5 +19,8 @@ SETTINGS_MODEL_DISPATCHER: Dict[SettingsScope, type[SettingsSchema]] = {
 
 AppSettingsSchemas = CatalogSettings | TaskSettings
 TaskSettingsSchemas = (
-    ValidationSettings | AuthorityLinkingSettings | ComparisonSettings
+    ValidationSettings
+    | AuthorityLinkingSettings
+    | ComparisonSettings
+    | ProcessRecordsSettings
 )

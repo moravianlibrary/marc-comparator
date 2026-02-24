@@ -1,5 +1,4 @@
 import logging
-from dataclasses import dataclass, field
 from typing import ContextManager, List, Optional, TypeVar
 
 from celery import Celery
@@ -84,16 +83,6 @@ IndexerOperationsBaseType = TypeVar(
 )
 
 
-@dataclass
-class TaskContext:
-    logger: logging.Logger
-    db_session: DatabaseSession
-    task: Task
-    task_settings: TaskSettings
-    progress: int = 0
-    index_batch: List[IndexerOperationsBaseType] = field(default_factory=list)
-
-
 class ManagedTask:
     """
     Context manager for managing task execution. Handles database
@@ -122,16 +111,26 @@ class ManagedTask:
         self.lock_blocking_timeout = lock_blocking_timeout
         self.lock: Optional[ContextManager[bool]] = None
 
-        self.db_session = None
+        self.logger: logging.Logger | None = None
+        self.db_session: DatabaseSession | None = None
         self.task: Task | None = None
-        self.logger = None
         self.task_settings: TaskSettings | None = None
+
+        self.total: int = 0
+        self.progress: int = 0
+        self.index_batch: List[IndexerOperationsBaseType] = []
 
     async def save_and_index_task(self):
         self.task.save(self.db_session)
         await TaskSchema.model_validate(self.task, from_attributes=True).save()
 
-    async def __aenter__(self) -> TaskContext:
+    async def update_progress(self) -> None:
+        self.task.progress = (
+            self.progress / self.total if self.total > 0 else 0.0
+        )
+        await self.save_and_index_task()
+
+    async def __aenter__(self) -> "ManagedTask":
         # --- DB session ---
         self.db_session = get_db_session()
 
@@ -184,12 +183,7 @@ class ManagedTask:
                         f"Task lock '{self.lock_key}' is already acquired"
                     )
 
-            return TaskContext(
-                logger=self.logger,
-                db_session=self.db_session,
-                task=self.task,
-                task_settings=self.task_settings,
-            )
+            return self
         except Exception:
             await self.__aexit__(None, None, None)
             raise
