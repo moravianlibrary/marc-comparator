@@ -10,8 +10,8 @@ from marc_comparator.validators import (
 from marcdantic import MarcRecord
 
 from adapters.database import DatabaseSession
-from adapters.tasks import ManagedTask
-from catalog_records.tasks import (
+from adapters.tasks import (
+    ManagedTask,
     handle_batch_progress_snippet,
     handle_final_batch_snippet,
 )
@@ -123,6 +123,6 @@ async def validate_records(task_id: str) -> None:
         await handle_final_batch_snippet(ctx)
 
         ctx.logger.info(
-            "Finished comparing of records, "
+            "Finished validating records, "
             f"total records processed: {ctx.progress}"
         )

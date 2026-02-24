@@ -13,8 +13,8 @@ from marc_comparator.authority_linkers import (
 from marcdantic import MarcRecord
 
 from adapters.database import DatabaseSession
-from adapters.tasks import ManagedTask
-from catalog_records.tasks import (
+from adapters.tasks import (
+    ManagedTask,
     handle_batch_progress_snippet,
     handle_final_batch_snippet,
 )

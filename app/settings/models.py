@@ -2,7 +2,7 @@ from typing import Dict
 
 from authority_linking.models import AuthorityLinkingSettings
 from catalog_records.models import CatalogSettings
-from catalog_records.process_records_task import ProcessRecordsSettings
+from catalog_records.models import ProcessRecordsSettings
 from comparison.models import ComparisonSettings
 from entities.settings import SettingsSchema, SettingsScope
 from tasks.models import TaskSettings

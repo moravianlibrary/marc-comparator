@@ -3,7 +3,7 @@ from typing import Annotated
 from fastapi import APIRouter, Body
 
 from adapters.dependencies import DatabaseSessionDep, WithPermission
-from catalog_records.process_records_task import ProcessRecordsSettings
+from catalog_records.models import ProcessRecordsSettings
 from entities.role import Permission
 from entities.settings import SettingsScope
 from settings.models import (

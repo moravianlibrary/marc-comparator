@@ -113,3 +113,18 @@ async def set_records_visibility(
     return await service.set_records_visibility(
         data, current_user.user_id, db_session
     )
+
+
+@router.post(
+    "/process",
+    dependencies=[WithPermission(Permission.RunRecordTasks)],
+    response_model=TaskSchema,
+)
+async def process_records(
+    data: Annotated[IndexerQuery, Body()],
+    current_user: CurrentUser,
+    db_session: DatabaseSessionDep,
+):
+    return await service.process_records(
+        data, current_user.user_id, db_session
+    )

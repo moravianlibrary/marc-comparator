@@ -212,6 +212,48 @@ class ManagedTask:
             await shutdown_indexer()
 
 
+async def handle_batch_progress_snippet(
+    ctx: ManagedTask,
+    catalog_record: IndexerOperationsBaseType | None = None,
+) -> None:
+    """
+    Increment progress, optionally log and update task in ES, and optionally
+    add a record to the index batch and flush when batch is full.
+    """
+    ctx.progress += 1
+
+    if ctx.progress % ctx.task_settings.progress_update_interval == 0:
+        ctx.logger.info(f"Processed {ctx.progress} records so far.")
+        await ctx.update_progress()
+
+    if catalog_record is None:
+        return
+
+    ctx.index_batch.append(catalog_record)
+
+    if len(ctx.index_batch) % ctx.task_settings.indexing_batch_size == 0:
+        ctx.logger.info(
+            f"Indexing batch of {len(ctx.index_batch)} records..."
+        )
+        ctx.db_session.commit()
+        await CatalogRecord.bulk_index(ctx.index_batch)
+        ctx.index_batch.clear()
+
+
+async def handle_final_batch_snippet(ctx: ManagedTask) -> None:
+    """Flush remaining index batch and update task progress."""
+    if not ctx.index_batch:
+        return
+
+    ctx.logger.info(
+        f"Indexing final batch of {len(ctx.index_batch)} records..."
+    )
+    ctx.db_session.commit()
+    await CatalogRecord.bulk_index(ctx.index_batch)
+    ctx.index_batch.clear()
+    await ctx.update_progress()
+
+
 """
 Celery cannot directly run async tasks, so we use asgiref to bridge
 the gap.
@@ -297,6 +339,15 @@ def set_records_visibility_task(self: CeleryTask) -> None:
     return async_to_sync(set_records_visibility)(str(self.request.id))
 
 
+@shared_task(name="process_records_task", bind=True)
+def process_records_task(self: CeleryTask) -> None:
+    from asgiref.sync import async_to_sync
+
+    from catalog_records.tasks import process_records
+
+    return async_to_sync(process_records)(str(self.request.id))
+
+
 @shared_task(name="delete_tasks_task", bind=True)
 def delete_tasks_task(self: CeleryTask) -> None:
     from asgiref.sync import async_to_sync
@@ -354,6 +405,9 @@ def dispatch_task(task: Task) -> None:
 
     elif task.type == TaskType.SetRecordsVisibility:
         set_records_visibility_task.apply_async(task_id=task_id)
+
+    elif task.type == TaskType.ProcessRecords:
+        process_records_task.apply_async(task_id=task_id)
 
     elif task.type == TaskType.DeleteTasks:
         delete_tasks_task.apply_async(task_id=task_id)

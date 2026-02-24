@@ -2,7 +2,10 @@ from datetime import datetime
 from typing import List
 
 from aleph_nought import AlephOAIConfig
-from pydantic import BaseModel
+from marc_comparator.authority_linkers import AuthorityLinker
+from marc_comparator.comparators import Comparator
+from marc_comparator.validators import Validator
+from pydantic import BaseModel, Field
 
 from adapters.indexer import IndexerQuery
 from entities.settings import SettingsSchema
@@ -43,3 +46,10 @@ class SyncRecordsData(BaseModel):
 class SetRecordsVisibilityData(BaseModel):
     query: IndexerQuery
     visible: bool = False
+
+
+class ProcessRecordsSettings(SettingsSchema):
+    target_bases: List[str] = Field(..., min_length=1)
+    authority_linkers: List[AuthorityLinker] = Field(..., min_length=1)
+    comparator: Comparator = Field(...)
+    validators: List[Validator] = Field(..., min_length=1)

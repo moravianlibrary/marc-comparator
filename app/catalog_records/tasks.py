@@ -1,17 +1,36 @@
+from collections import defaultdict
+
 from aleph_nought import RecordStatus
 from marcdantic import MarcRecord
 
 from adapters.aleph_client_registry import AlephClientRegistry
 from adapters.indexer import IndexerQuery
-from adapters.tasks import ManagedTask
+from adapters.tasks import (
+    ManagedTask,
+    handle_batch_progress_snippet,
+    handle_final_batch_snippet,
+)
+from authority_linking.models import AuthorityLinkingSettings
+from authority_linking.tasks import (
+    LinkActionResult,
+    find_best_link_for_record,
+    handle_catalog_record_link_action,
+    init_authority_linkers,
+)
 from catalog_records.models import (
     FetchBatchOfRecordsData,
     FetchRecordData,
+    ProcessRecordsSettings,
     SetRecordsVisibilityData,
     SyncRecordsData,
 )
+from comparison.models import ComparisonSettings
+from comparison.tasks import handle_catalog_record_comparison, init_comparator
 from config import config
 from entities.catalog_record import CatalogRecord
+from entities.settings import Settings, SettingsScope
+from validation.models import ValidationSettings
+from validation.tasks import handle_catalog_record_validation, init_validators
 
 
 class AlephError(Exception):
@@ -38,44 +57,6 @@ def save_record_snippet(
         )
 
     return catalog_record.save(ctx.db_session)
-
-
-async def handle_batch_progress_snippet(
-    ctx: ManagedTask, catalog_record: CatalogRecord | None = None
-):
-    ctx.progress += 1
-
-    if ctx.progress % ctx.task_settings.progress_update_interval == 0:
-        ctx.logger.info(f"Processed {ctx.progress} records so far.")
-
-        ctx.task.progress = ctx.progress / ctx.total
-        await ctx.update_progress()
-
-    if catalog_record is None:
-        return
-
-    ctx.index_batch.append(catalog_record)
-
-    if len(ctx.index_batch) % ctx.task_settings.indexing_batch_size == 0:
-        ctx.logger.info(f"Indexing batch of {len(ctx.index_batch)} records...")
-
-        ctx.db_session.commit()
-        await CatalogRecord.bulk_index(ctx.index_batch)
-        ctx.index_batch.clear()
-
-
-async def handle_final_batch_snippet(ctx: ManagedTask):
-    if not ctx.index_batch:
-        return
-
-    ctx.logger.info(
-        f"Indexing final batch of {len(ctx.index_batch)} records..."
-    )
-
-    ctx.db_session.commit()
-    await CatalogRecord.bulk_index(ctx.index_batch)
-    ctx.index_batch.clear()
-    await ctx.update_progress()
 
 
 async def fetch_record_task(task_id: str) -> None:
@@ -287,4 +268,135 @@ async def set_records_visibility(task_id: str) -> None:
         ctx.logger.info(
             "Finished setting hidden state, "
             f"total records processed: {ctx.progress}"
+        )
+
+
+async def process_records(task_id: str) -> None:
+    """
+    Process catalog records: link to authorities, compare with linked records,
+    validate, and mark as processed.
+    """
+    async with ManagedTask(task_id=task_id) as ctx:
+        settings: ProcessRecordsSettings | None = Settings.get(
+            ctx.db_session,
+            SettingsScope.ProcessRecords,
+            ProcessRecordsSettings,
+        )
+
+        if not settings:
+            ctx.logger.error("Process records settings not found")
+            return
+
+        query = IndexerQuery.model_validate(ctx.task.data)
+        ctx.logger.info("Starting processing of catalog records")
+
+        al_settings = Settings.get(
+            ctx.db_session,
+            SettingsScope.AuthorityLinking,
+            AuthorityLinkingSettings,
+        )
+        if not al_settings:
+            ctx.logger.error("Authority linking settings not found")
+            return
+
+        authority_linkers = init_authority_linkers(
+            al_settings, settings.authority_linkers
+        )
+        if not authority_linkers:
+            ctx.logger.error("No authority linkers could be initialized")
+            return
+
+        c_settings = Settings.get(
+            ctx.db_session,
+            SettingsScope.Comparison,
+            ComparisonSettings,
+        )
+        if not c_settings:
+            ctx.logger.error("Comparison settings not found")
+            return
+
+        try:
+            comparator = init_comparator(c_settings, settings.comparator)
+        except ValueError as e:
+            ctx.logger.error(str(e))
+            return
+
+        validation_settings = Settings.get(
+            ctx.db_session,
+            SettingsScope.Validation,
+            ValidationSettings,
+        )
+        if not validation_settings:
+            ctx.logger.error("Validation settings not found")
+            return
+
+        validator_instances = init_validators(
+            validation_settings, settings.validators, ctx.logger
+        )
+
+        counters: defaultdict[LinkActionResult, int] = defaultdict(int)
+
+        async for catalog_record in CatalogRecord.get_by_query(
+            ctx.db_session, query
+        ):
+            try:
+                marc_record = MarcRecord.from_mrc(catalog_record.marc)
+
+                for target_base in settings.target_bases:
+                    found_link, linker_instance = (
+                        await find_best_link_for_record(
+                            catalog_record,
+                            authority_linkers,
+                            target_base,
+                            marc_record,
+                            ctx.logger,
+                        )
+                    )
+                    results = handle_catalog_record_link_action(
+                        ctx.db_session,
+                        catalog_record,
+                        found_link,
+                        linker_instance,
+                        target_base,
+                    )
+                    for result in results:
+                        counters[result] += 1
+
+                ctx.db_session.refresh(catalog_record)
+
+                for authority_link in catalog_record.authority_links:
+                    await handle_catalog_record_comparison(
+                        ctx.db_session,
+                        settings.comparator.value,
+                        comparator,
+                        ctx.logger,
+                        authority_link.base,
+                        catalog_record,
+                    )
+
+                for validator_instance in validator_instances:
+                    await handle_catalog_record_validation(
+                        ctx.db_session,
+                        catalog_record,
+                        validator_instance,
+                    )
+
+                catalog_record.processed_at = config.timestamp
+                catalog_record.save(ctx.db_session)
+
+                await handle_batch_progress_snippet(ctx, catalog_record)
+
+            except Exception as e:
+                ctx.logger.error(
+                    f"Failed processing record {catalog_record.id}:\n{e}"
+                )
+
+        await handle_final_batch_snippet(ctx)
+        ctx.logger.info(
+            "Finished processing records, "
+            f"total records processed: {ctx.progress}"
+        )
+        ctx.logger.info(
+            "Summary of link actions: %s",
+            {k.value: v for k, v in counters.items()},
         )
