@@ -27,13 +27,13 @@ export const fakeValidationResult = (): Validation => {
         status: fakeValidityStatus(),
         reason: faker.datatype.boolean() ? faker.lorem.sentence() : undefined,
         details: faker.datatype.boolean() ? faker.lorem.paragraph() : undefined,
-        hints: faker.datatype.boolean() ? faker.lorem.sentence() : undefined,
+        hint: faker.datatype.boolean() ? faker.lorem.sentence() : undefined,
         updated_at: faker.date.recent(),
     };
 };
 
 export const fakeValidationResults = (): Validation[] => {
     return Array.from({ length: faker.number.int({ min: 1, max: 5 }) }, () =>
-        fakeValidationResult()
+        fakeValidationResult(),
     );
 };

@@ -22,7 +22,7 @@ const ComparisonLabel = ({
             color={matchQualityColor(match_quality)}
             onClick={() =>
                 navigate(
-                    `/records/details?id=${recordId}&tab=comparisons&comparisons.comparator=${comparator}&comparisons.base=${base}`
+                    `/records/details?id=${recordId}&tab=comparisons&comparisons.comparator=${comparator}&comparisons.base=${base}`,
                 )
             }
         >
@@ -45,13 +45,15 @@ const ComparisonLabelGroup = ({
 
     return (
         <LabelGroup>
-            {comparisons.map((comparison, index) => (
-                <ComparisonLabel
-                    key={index}
-                    comparison={comparison}
-                    recordId={_id}
-                />
-            ))}
+            {comparisons
+                .sort((a, b) => a.overall_score - b.overall_score)
+                .map((comparison, index) => (
+                    <ComparisonLabel
+                        key={index}
+                        comparison={comparison}
+                        recordId={_id}
+                    />
+                ))}
         </LabelGroup>
     );
 };

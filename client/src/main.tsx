@@ -8,7 +8,7 @@ import { makeServer } from "./mocks/server.ts";
 import NotificationProvider from "./hooks/useNotifications.tsx";
 import "./services/locales.ts";
 
-const DISABLE_MOCKS = true;
+const DISABLE_MOCKS = false;
 
 if (import.meta.env.DEV && !DISABLE_MOCKS) {
     makeServer();
@@ -28,5 +28,5 @@ createRoot(document.getElementById("root")!).render(
         >
             <App />
         </WithProviders>
-    </StrictMode>
+    </StrictMode>,
 );

@@ -39,6 +39,8 @@
         "record-state": {
             "Active": "Aktivní",
             "Deleted": "Smazaný",
+            "Unprocessed": "Nezpracovaný",
+            "Processed": "Zpracovaný",
             "Hidden": "Skrytý",
             "Visible": "Viditelný"
         },
@@ -84,12 +86,64 @@
     },
     "actions": {
         "label": "Akce se záznamy",
+        "process-selected": "Zpracovat vybrané",
+        "more-actions": "Další akce",
+        "advanced-actions": "Pokročilé akce",
         "link-authorities": "Propojit záznamy s autoritami",
         "run-comparisons": "Spustit porovnání",
         "run-validations": "Spustit validace",
         "hide-records": "Skrýt záznamy",
         "make-records-visible": "Zobrazit záznamy",
         "reindex-records": "Reindexovat záznamy"
+    },
+    "modals": {
+        "cancel": "Zrušit",
+        "selected-count_one": "Vybrán 1 záznam",
+        "selected-count_few": "Vybrány {{count}} záznamy",
+        "selected-count_other": "Vybráno {{count}} záznamů",
+        "process": {
+            "title": "Zpracovat vybrané záznamy",
+            "body": "Spustí předdefinované zpracování vybraných záznamů: nejprve propojení s autoritami, poté porovnání záznamů s propojenými autoritami a nakonec spuštění validací. Opravdu chcete pokračovat?",
+            "confirm": "Zpracovat"
+        },
+        "hide": {
+            "title": "Skrýt záznamy",
+            "body": "Vybrané záznamy se skryjí z výchozího zobrazení v této tabulce. Lze je znovu zobrazit akcí „Zobrazit záznamy“.",
+            "confirm": "Skrýt"
+        },
+        "make-visible": {
+            "title": "Zobrazit záznamy",
+            "body": "Vybrané záznamy se znovu zobrazí ve výchozím zobrazení v této tabulce.",
+            "confirm": "Zobrazit"
+        },
+        "reindex": {
+            "title": "Reindexovat záznamy",
+            "body": "Vybrané záznamy budou znovu načteny do vyhledávacího indexu. Použijte po změnách v datech nebo při problémech s vyhledáváním.",
+            "confirm": "Reindexovat"
+        },
+        "authority-linking": {
+            "title": "Propojit záznamy s autoritami",
+            "description": "Spustí propojení vybraných katalogových záznamů s autoritními záznamy v zvolené bázi pomocí vybraných propojovačů.",
+            "select-base": "Báze autorit",
+            "select-linkers": "Propojovače",
+            "placeholder-target-base": "Vyberte cílovou bázi",
+            "no-linkers": "Žádné propojovače nejsou k dispozici."
+        },
+        "compare": {
+            "title": "Spustit porovnání",
+            "description": "Porovná vybrané záznamy s autoritami v zvolené bázi pomocí zvoleného komparátoru. Výsledky porovnání se uloží k záznamům.",
+            "target-base": "Cílová báze",
+            "select-comparator": "Komparátor",
+            "placeholder-target-base": "Vyberte cílovou bázi",
+            "placeholder-comparator": "Vyberte komparátor",
+            "no-target-bases": "Žádné cílové báze nebyly nalezeny."
+        },
+        "validate": {
+            "title": "Spustit validace",
+            "description": "Spustí vybrané validátory na vybraných záznamech. Výsledky validace se uloží k záznamům.",
+            "select-validators": "Validátory",
+            "no-validators": "Žádné validátory nejsou k dispozici."
+        }
     },
     "search": {
         "placeholder": "Hledat v záznamech..."

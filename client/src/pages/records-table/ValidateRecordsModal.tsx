@@ -1,4 +1,5 @@
-import { Fragment, useState } from "react";
+import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useGetSystemInfo } from "../../hooks/useSystem";
 import { type CollectionData } from "../../store/collection/domain";
 import { selectSelectedCount } from "../../store/es/selectors";
@@ -29,6 +30,7 @@ const ValidateRecordsModal = ({
     isOpen,
     onClose,
 }: ValidateRecordsModalProps) => {
+    const { t } = useTranslation();
     const { data: systemInfo, isLoading } = useGetSystemInfo();
     const validators = systemInfo?.enabled_validators ?? [];
 
@@ -70,20 +72,22 @@ const ValidateRecordsModal = ({
             onClose={onClose}
             onConfirm={handleConfirm}
             isConfirmDisabled={selectedValidators.size === 0}
-        >
-            {validators.length === 0 ? (
-                <Content>
-                    <p>No validators available.</p>
-                </Content>
-            ) : (
-                <Fragment>
-                    <Content>
-                        <p>Selected {selectedItemsCount} items</p>
-                    </Content>
+            title={t("records:modals.validate.title")}
+            confirmLabel={t("records:actions.run-validations")}
+            cancelLabel={t("records:modals.cancel")}
+            summary={
+                validators.length > 0
+                    ? t("records:modals.selected-count", {
+                          count: selectedItemsCount,
+                      })
+                    : undefined
+            }
+            settings={
+                validators.length > 0 ? (
                     <DescriptionList>
                         <DescriptionListGroup>
                             <DescriptionListTerm>
-                                Select validators
+                                {t("records:modals.validate.select-validators")}
                             </DescriptionListTerm>
                             <DescriptionListDescription>
                                 <ToggleList
@@ -93,7 +97,15 @@ const ValidateRecordsModal = ({
                             </DescriptionListDescription>
                         </DescriptionListGroup>
                     </DescriptionList>
-                </Fragment>
+                ) : undefined
+            }
+        >
+            {validators.length === 0 ? (
+                <Content>
+                    <p>{t("records:modals.validate.no-validators")}</p>
+                </Content>
+            ) : (
+                <p>{t("records:modals.validate.description")}</p>
             )}
         </ConfirmModal>
     );

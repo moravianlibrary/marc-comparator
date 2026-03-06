@@ -1,4 +1,5 @@
-import { Fragment, useState } from "react";
+import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useGetSystemInfo } from "../../hooks/useSystem";
 import { type CollectionData } from "../../store/collection/domain";
 import { selectSelectedCount } from "../../store/es/selectors";
@@ -31,6 +32,7 @@ const AuthorityLinkingModal = ({
     isOpen,
     onClose,
 }: AuthorityLinkingModalProps) => {
+    const { t } = useTranslation();
     const { data: systemInfo, isLoading } = useGetSystemInfo();
     const authorityLinkers = systemInfo?.enabled_authority_linkers ?? [];
 
@@ -79,20 +81,22 @@ const AuthorityLinkingModal = ({
             onClose={onClose}
             onConfirm={handleConfirm}
             isConfirmDisabled={!base || selectedLinkers.size === 0}
-        >
-            {authorityLinkers.length === 0 ? (
-                <Content>
-                    <p>No authority linkers available.</p>
-                </Content>
-            ) : (
-                <Fragment>
-                    <Content>
-                        <p>Selected {selectedItemsCount} items</p>
-                    </Content>
+            title={t("records:modals.authority-linking.title")}
+            confirmLabel={t("records:actions.link-authorities")}
+            cancelLabel={t("records:modals.cancel")}
+            summary={
+                authorityLinkers.length > 0
+                    ? t("records:modals.selected-count", {
+                          count: selectedItemsCount,
+                      })
+                    : undefined
+            }
+            settings={
+                authorityLinkers.length > 0 ? (
                     <DescriptionList>
                         <DescriptionListGroup>
                             <DescriptionListTerm>
-                                Select base
+                                {t("records:modals.authority-linking.select-base")}
                             </DescriptionListTerm>
                             <DescriptionListDescription>
                                 {isLoading ? (
@@ -102,14 +106,16 @@ const AuthorityLinkingModal = ({
                                         availableBases={availableBases}
                                         selected={base}
                                         onChange={setBase}
-                                        placeholder="Select target base"
+                                        placeholder={t(
+                                            "records:modals.authority-linking.placeholder-target-base",
+                                        )}
                                     />
                                 )}
                             </DescriptionListDescription>
                         </DescriptionListGroup>
                         <DescriptionListGroup>
                             <DescriptionListTerm>
-                                Select linkers
+                                {t("records:modals.authority-linking.select-linkers")}
                             </DescriptionListTerm>
                             <DescriptionListDescription>
                                 <ToggleList
@@ -119,7 +125,15 @@ const AuthorityLinkingModal = ({
                             </DescriptionListDescription>
                         </DescriptionListGroup>
                     </DescriptionList>
-                </Fragment>
+                ) : undefined
+            }
+        >
+            {authorityLinkers.length === 0 ? (
+                <Content>
+                    <p>{t("records:modals.authority-linking.no-linkers")}</p>
+                </Content>
+            ) : (
+                <p>{t("records:modals.authority-linking.description")}</p>
             )}
         </ConfirmModal>
     );

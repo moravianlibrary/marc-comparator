@@ -18,7 +18,7 @@ const AuthorityLinkLabel = ({
         <Label
             onClick={() =>
                 navigate(
-                    `/records/details?id=${recordId}&tab=authority_records&authorityLinks.base=${base}`
+                    `/records/details?id=${recordId}&tab=authority_records&authorityLinks.base=${base}`,
                 )
             }
         >
@@ -39,13 +39,15 @@ const AuthorityLinkLabelGroup = ({
 
     return (
         <LabelGroup>
-            {authority_links.map((authorityLink, index) => (
-                <AuthorityLinkLabel
-                    key={index}
-                    authorityLink={authorityLink}
-                    recordId={_id}
-                />
-            ))}
+            {authority_links
+                .sort((a, b) => a.base.localeCompare(b.base))
+                .map((authorityLink, index) => (
+                    <AuthorityLinkLabel
+                        key={index}
+                        authorityLink={authorityLink}
+                        recordId={_id}
+                    />
+                ))}
         </LabelGroup>
     );
 };

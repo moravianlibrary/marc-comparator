@@ -5,12 +5,8 @@ export const fakeCatalogRecordState = (): CatalogRecordState[] => {
     let state: CatalogRecordState[] = [];
 
     state.push(faker.datatype.boolean(0.95) ? "Active" : "Deleted");
-
-    if (faker.datatype.boolean(0.1)) {
-        state.push("Hidden");
-    }
-
-    state.push(faker.datatype.boolean(0.8) ? "Valid" : "Invalid");
+    state.push(faker.datatype.boolean(0.5) ? "Unprocessed" : "Processed");
+    state.push(faker.datatype.boolean(0.9) ? "Visible" : "Hidden");
 
     return state;
 };

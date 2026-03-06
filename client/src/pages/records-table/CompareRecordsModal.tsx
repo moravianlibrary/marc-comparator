@@ -1,4 +1,5 @@
-import { Fragment, useState } from "react";
+import { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { useGetSystemInfo } from "../../hooks/useSystem";
 import { type CollectionData } from "../../store/collection/domain";
 import { selectSelectedCount } from "../../store/es/selectors";
@@ -34,6 +35,7 @@ const CompareRecordsModal = ({
     isOpen,
     onClose,
 }: CompareRecordsModalProps) => {
+    const { t } = useTranslation();
     const { data: availableBases, isLoading: isLoadingBases } =
         useGetAvailableTargetBases();
     const selectedItemsCount = selectSelectedCount(state, data);
@@ -64,20 +66,22 @@ const CompareRecordsModal = ({
             onClose={onClose}
             onConfirm={handleConfirm}
             isConfirmDisabled={!targetBase || !comparator}
-        >
-            {!availableBases || availableBases.length === 0 ? (
-                <Content>
-                    <p>No available target bases found.</p>
-                </Content>
-            ) : (
-                <Fragment>
-                    <Content>
-                        <p>Selected {selectedItemsCount} items</p>
-                    </Content>
+            title={t("records:modals.compare.title")}
+            confirmLabel={t("records:actions.run-comparisons")}
+            cancelLabel={t("records:modals.cancel")}
+            summary={
+                availableBases?.length
+                    ? t("records:modals.selected-count", {
+                          count: selectedItemsCount,
+                      })
+                    : undefined
+            }
+            settings={
+                availableBases?.length ? (
                     <DescriptionList>
                         <DescriptionListGroup>
                             <DescriptionListTerm>
-                                Target base
+                                {t("records:modals.compare.target-base")}
                             </DescriptionListTerm>
                             <DescriptionListDescription>
                                 {isLoadingBases ? (
@@ -87,27 +91,29 @@ const CompareRecordsModal = ({
                                         availableBases={availableBases}
                                         selected={targetBase}
                                         onChange={setTargetBase}
-                                        placeholder="Select target base"
+                                        placeholder={t(
+                                            "records:modals.compare.placeholder-target-base",
+                                        )}
                                     />
                                 )}
                             </DescriptionListDescription>
                         </DescriptionListGroup>
                         <DescriptionListGroup>
                             <DescriptionListTerm>
-                                Select comparator
+                                {t("records:modals.compare.select-comparator")}
                             </DescriptionListTerm>
                             <DescriptionListDescription>
                                 {isLoadingSystemInfo ? (
                                     <Spinner size="lg" />
                                 ) : (
                                     <SingleSelect
-                                        placeholder="Select comparator"
-                                        options={comparators.map(
-                                            (comparator) => ({
-                                                label: comparator,
-                                                value: comparator,
-                                            })
+                                        placeholder={t(
+                                            "records:modals.compare.placeholder-comparator",
                                         )}
+                                        options={comparators.map((comp) => ({
+                                            label: comp,
+                                            value: comp,
+                                        }))}
                                         selected={
                                             comparator
                                                 ? {
@@ -120,7 +126,7 @@ const CompareRecordsModal = ({
                                             setComparator(
                                                 option
                                                     ? (option.value as string)
-                                                    : null
+                                                    : null,
                                             )
                                         }
                                         isDisabled={availableBases.length === 0}
@@ -129,7 +135,15 @@ const CompareRecordsModal = ({
                             </DescriptionListDescription>
                         </DescriptionListGroup>
                     </DescriptionList>
-                </Fragment>
+                ) : undefined
+            }
+        >
+            {!availableBases || availableBases.length === 0 ? (
+                <Content>
+                    <p>{t("records:modals.compare.no-target-bases")}</p>
+                </Content>
+            ) : (
+                <p>{t("records:modals.compare.description")}</p>
             )}
         </ConfirmModal>
     );

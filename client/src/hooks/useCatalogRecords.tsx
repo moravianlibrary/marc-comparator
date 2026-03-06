@@ -37,7 +37,7 @@ export const useSearchCatalogRecords = (request: EsRequest, enabled = true) =>
 
 export const useSearchCatalogRecordsBatch = (
     requests: EsRequest[],
-    enabled = true
+    enabled = true,
 ): UseQueryResult<SearchCatalogRecordsResponse>[] =>
     useQueries({
         queries: requests.map((request, idx) => ({
@@ -45,7 +45,7 @@ export const useSearchCatalogRecordsBatch = (
             queryFn: async () =>
                 SearchCatalogRecordsResponseSchema.parse(
                     (await apiClient.post("/catalog-records/search", request))
-                        .data
+                        .data,
                 ),
             enabled,
         })),
@@ -95,7 +95,7 @@ export const useGetCatalogRecordById = (id: string | null, enabled = true) =>
                     query: {
                         term: { _id: id },
                     },
-                }
+                },
             );
 
             return response.data.hits.hits.length === 1
@@ -108,14 +108,14 @@ export const useGetCatalogRecordById = (id: string | null, enabled = true) =>
 export const useGetMarcRecord = (
     base: string,
     systemNumber: string,
-    enabled = true
+    enabled = true,
 ) =>
     useQuery<MarcRecord>({
         queryKey: ["catalog-records", "get-marc-by-id", base, systemNumber],
         queryFn: async () =>
             apiClient
                 .get<MarcRecord>(
-                    `/catalog-records/${base}/${systemNumber}/marc`
+                    `/catalog-records/${base}/${systemNumber}/marc`,
                 )
                 .then((res) => res.data),
         enabled,
@@ -124,6 +124,9 @@ export const useGetMarcRecord = (
 // -------------------------
 // Mutations
 // -------------------------
+export const useProcessRecords = () =>
+    useCreateTask<EsQuery>("/catalog-records/process");
+
 export const useLinkToAuthorities = () =>
     useCreateTask<AuthorityLinkingData>("/authority-linking/task");
 

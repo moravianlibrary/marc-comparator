@@ -39,7 +39,7 @@ export const fakeFieldComparisonResult = (): FieldComparisonResult => {
                   {
                       length: faker.number.int({ min: 1, max: 5 }),
                   },
-                  fakeSubfieldComparisonResult
+                  fakeSubfieldComparisonResult,
               )
             : undefined,
     };
@@ -52,13 +52,18 @@ export const fakeComparisonResult = (): Comparison => {
         system_number: fakeSystemNumber(),
         overall_score: faker.number.float({
             min: 0,
-            max: 100,
-            fractionDigits: 2,
+            max: 1,
+            fractionDigits: 4,
         }),
+        match_quality: faker.helpers.arrayElement([
+            "Excellent",
+            "Moderate",
+            "Poor",
+        ]),
         summary: faker.lorem.sentence(),
         field_results: Array.from(
             { length: faker.number.int({ min: 1, max: 10 }) },
-            fakeFieldComparisonResult
+            fakeFieldComparisonResult,
         ),
         updated_at: faker.date.recent(),
     };
@@ -67,6 +72,6 @@ export const fakeComparisonResult = (): Comparison => {
 export const fakeComparisonResults = (): Comparison[] => {
     return Array.from(
         { length: faker.number.int({ min: 1, max: 7 }) },
-        fakeComparisonResult
+        fakeComparisonResult,
     );
 };

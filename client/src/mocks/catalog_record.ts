@@ -48,7 +48,7 @@ export function catalogRecordSeeds(server: Server) {
         title: "Special Test Record",
         authoers: "Test Author",
         latest_sync: new Date(),
-        state: ["Valid"],
+        state: ["Active"],
         authority_links: [
             {
                 linker: "TestLinker",
@@ -64,6 +64,7 @@ export function catalogRecordSeeds(server: Server) {
                 base: "SKC",
                 system_number: "000123456",
                 overall_score: 0.9,
+                match_quality: "Excellent",
                 summary: "Very long text summary of the comparison result.",
                 updated_at: new Date(),
                 field_results: [
@@ -147,6 +148,44 @@ export function catalogRecordSeeds(server: Server) {
                 ],
             },
         ],
+        validations: [
+            {
+                validator: "Robert",
+                target: {
+                    tag: "008",
+                },
+                status: "Valid",
+                reason: "I said so",
+                updated_at: faker.date.recent(),
+            },
+            {
+                validator: "Robert",
+                target: {
+                    tag: "008",
+                },
+                status: "Valid",
+                reason: "I said so",
+                updated_at: faker.date.recent(),
+            },
+            {
+                validator: "RRobert",
+                target: {
+                    tag: "008",
+                },
+                status: "Valid",
+                reason: "I said so",
+                updated_at: faker.date.recent(),
+            },
+            {
+                validator: "Robert",
+                target: {
+                    tag: "008",
+                },
+                status: "Valid",
+                reason: "I said so",
+                updated_at: faker.date.recent(),
+            },
+        ],
     });
     server.createList("catalog-record", 72);
 }
@@ -169,24 +208,24 @@ export const marcRecordFactory = Factory.extend<MarcRecord>({
 });
 
 export function catalogRecordRoutes(this: any) {
-    this.post("/records/search", (schema: any, request: any) =>
+    this.post("/catalog-records/search", (schema: any, request: any) =>
         buildSearchResponse(
             schema,
             request,
             "catalog-record",
             (model: Partial<CatalogRecord>) =>
-                `${model.base}-${model.system_number}`
-        )
+                `${model.base}-${model.system_number}`,
+        ),
     );
 
     this.get(
-        "/records/marc/:base/:system_number",
+        "/catalog-records/marc/:base/:system_number",
         (schema: any, request: any) => {
             if (faker.number.float({ min: 0, max: 1 }) < 0.1) {
                 return new Response(
                     404,
                     {},
-                    { error: "Catalog record not found" }
+                    { error: "Catalog record not found" },
                 );
             }
 
@@ -229,27 +268,27 @@ export function catalogRecordRoutes(this: any) {
                               ],
                           }
                         : request.params.system_number === "000000001"
-                        ? {
-                              ...fakeVariableFields(),
-                              "106": [
-                                  {
-                                      ind1: " ",
-                                      ind2: " ",
-                                      subfields: {
-                                          a: [request.params.base, "Extra"],
-                                          // missing 'b' subfield
-                                      },
-                                  },
-                              ],
-                          }
-                        : fakeVariableFields(),
+                          ? {
+                                ...fakeVariableFields(),
+                                "106": [
+                                    {
+                                        ind1: " ",
+                                        ind2: " ",
+                                        subfields: {
+                                            a: [request.params.base, "Extra"],
+                                            // missing 'b' subfield
+                                        },
+                                    },
+                                ],
+                            }
+                          : fakeVariableFields(),
             };
 
             return new Response(200, {}, marc);
-        }
+        },
     );
 
-    this.post("/records/fetch", (schema: any, request: any) => {
+    this.post("/catalog-records/fetch", (schema: any, request: any) => {
         const attrs = JSON.parse(request.requestBody);
         const { base, systemNumber } = attrs;
 
@@ -268,7 +307,7 @@ export function catalogRecordRoutes(this: any) {
         return new Response(200, {}, task);
     });
 
-    this.post("/records/fetch-batch", (schema: any, request: any) => {
+    this.post("/catalog-records/fetch-batch", (schema: any, request: any) => {
         const task: Task = {
             task_id: faker.string.uuid(),
             name: `Fetch batch of records`,
@@ -284,7 +323,7 @@ export function catalogRecordRoutes(this: any) {
         return new Response(200, {}, task);
     });
 
-    this.post("/records/sync", (schema: any, request: any) => {
+    this.post("/catalog-records/sync", (schema: any, request: any) => {
         const task: Task = {
             task_id: faker.string.uuid(),
             name: `Sync catalog records from catalog`,

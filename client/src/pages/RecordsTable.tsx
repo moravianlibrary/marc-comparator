@@ -108,7 +108,7 @@ const RecordsTable = (): ReactElement => {
                     ],
                 },
                 filters: {
-                    state: { type: "terms", size: 4 },
+                    state: { type: "terms", size: 6 },
                     "authority_links.base": {
                         type: "terms",
                         size: 10,
@@ -211,7 +211,7 @@ const RecordsTable = (): ReactElement => {
             JSON.stringify(state.hist),
             state.sortBy,
             JSON.stringify(state.columns),
-        ]
+        ],
     );
 
     const queryResponses = useSearchCatalogRecordsBatch(requests || []);
@@ -231,7 +231,7 @@ const RecordsTable = (): ReactElement => {
 
         const newData = buildCollectionData<CatalogRecord>(
             queryResponses,
-            prevDataRef.current
+            prevDataRef.current,
         );
 
         prevDataRef.current = newData;
@@ -295,7 +295,7 @@ const RecordsTable = (): ReactElement => {
                                     state={state}
                                     dispatch={dispatch}
                                     title={t(
-                                        "fields.authority-links-object.base"
+                                        "fields.authority-links-object.base",
                                     )}
                                 />
                             </StackItem>
@@ -318,7 +318,7 @@ const RecordsTable = (): ReactElement => {
                                         t_comparators(`${key}.title`)
                                     }
                                     title={t(
-                                        "fields.comparisons-object.comparator"
+                                        "fields.comparisons-object.comparator",
                                     )}
                                 />
                             </StackItem>
@@ -330,7 +330,7 @@ const RecordsTable = (): ReactElement => {
                                     dispatch={dispatch}
                                     bucketsOrder={MatchQualitySchema.options}
                                     title={t(
-                                        "fields.comparisons-object.match-quality"
+                                        "fields.comparisons-object.match-quality",
                                     )}
                                 />
                             </StackItem>
@@ -341,7 +341,7 @@ const RecordsTable = (): ReactElement => {
                                     state={state}
                                     dispatch={dispatch}
                                     title={t(
-                                        "fields.comparisons-object.overall-score"
+                                        "fields.comparisons-object.overall-score",
                                     )}
                                 />
                             </StackItem>
@@ -352,7 +352,7 @@ const RecordsTable = (): ReactElement => {
                                     state={state}
                                     dispatch={dispatch}
                                     title={t(
-                                        "fields.comparisons-object.field-results.explanation"
+                                        "fields.comparisons-object.field-results.explanation",
                                     )}
                                 />
                             </StackItem>
@@ -363,7 +363,7 @@ const RecordsTable = (): ReactElement => {
                                     state={state}
                                     dispatch={dispatch}
                                     title={t(
-                                        "fields.comparisons-object.field-results.subfield-results.explanation"
+                                        "fields.comparisons-object.field-results.subfield-results.explanation",
                                     )}
                                 />
                             </StackItem>
@@ -374,7 +374,7 @@ const RecordsTable = (): ReactElement => {
                                     state={state}
                                     dispatch={dispatch}
                                     title={t(
-                                        "fields.validations-object.validator"
+                                        "fields.validations-object.validator",
                                     )}
                                 />
                             </StackItem>
@@ -385,7 +385,7 @@ const RecordsTable = (): ReactElement => {
                                     state={state}
                                     dispatch={dispatch}
                                     title={t(
-                                        "fields.validations-object.status"
+                                        "fields.validations-object.status",
                                     )}
                                 />
                             </StackItem>
@@ -396,7 +396,7 @@ const RecordsTable = (): ReactElement => {
                                     state={state}
                                     dispatch={dispatch}
                                     title={t(
-                                        "fields.validations-object.target.tag"
+                                        "fields.validations-object.target.tag",
                                     )}
                                 />
                             </StackItem>
@@ -407,7 +407,7 @@ const RecordsTable = (): ReactElement => {
                                     state={state}
                                     dispatch={dispatch}
                                     title={t(
-                                        "fields.validations-object.target.codes"
+                                        "fields.validations-object.target.codes",
                                     )}
                                 />
                             </StackItem>
@@ -418,7 +418,7 @@ const RecordsTable = (): ReactElement => {
                                     state={state}
                                     dispatch={dispatch}
                                     title={t(
-                                        "fields.validations-object.reason"
+                                        "fields.validations-object.reason",
                                     )}
                                 />
                             </StackItem>
@@ -563,7 +563,7 @@ const RecordsTable = (): ReactElement => {
                                 (o) => ({
                                     value: o,
                                     title: o.toString(),
-                                })
+                                }),
                             )}
                             itemCount={totalItems}
                             page={state.page}

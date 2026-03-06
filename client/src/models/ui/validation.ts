@@ -6,12 +6,12 @@ const VALIDITY_COLOR_MAP: Record<
 > = {
     Valid: "green",
     Invalid: "red",
-    Warning: "yellow",
-    Info: "blue",
+    ForReview: "yellow",
+    AdditionalInfo: "blue",
 };
 
 export function validityColor(
-    status: ValidityStatus
+    status: ValidityStatus,
 ): "green" | "red" | "yellow" | "blue" {
     return VALIDITY_COLOR_MAP[status];
 }
