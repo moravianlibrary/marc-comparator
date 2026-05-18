@@ -1,4 +1,5 @@
 from __future__ import annotations
+import logging
 from typing import Optional, Dict, Any
 
 from ..normalizers import normalize_by_role
@@ -6,6 +7,8 @@ from ..token_metrics import similarity, jaccard
 from ..config import SIM_HIGH, SIM_MED, TOKEN_JACCARD_MED, ASK_LLM_IF_UNSURE
 from ..llm import verify_label
 from ._parts import PART_SENSITIVE_ROLES, differs_only_by_part_tokens
+
+logger = logging.getLogger(__name__)
 
 
 def damerau_levenshtein(a: str, b: str) -> int:
@@ -62,6 +65,7 @@ def run(a: str, b: str, role: str, context: Optional[Dict[str, Any]] = None) -> 
                 return None
 
             except Exception:
+                logger.warning("LLM verification failed in typo check, defaulting to TYPO with reduced confidence", exc_info=True)
                 return {"label": "TYPO", "confidence": 0.6, "details": {"sim": sim, "jaccard": jac, "llm": "error"}}
 
         return {"label": "TYPO", "confidence": 0.6, "details": {"sim": sim, "jaccard": jac}}

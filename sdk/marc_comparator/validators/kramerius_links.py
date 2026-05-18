@@ -1,3 +1,4 @@
+import asyncio
 import re
 from dataclasses import dataclass
 from typing import Dict, List
@@ -127,7 +128,7 @@ class KrameriusLinksValidator(BaseValidator):
 
             query = G(query) & F(KrameriusField.Model, TARGET_MODELS)
 
-            for doc in self.client.Search.search(query, fl=FL):
+            for doc in await asyncio.to_thread(self.client.Search.search, query, fl=FL):
                 root_pid = doc.own_pid_path.split("/")[0]
                 root_model = Model(doc.model_path.split("/")[-1])
                 has_wrong_model = root_model not in VALID_TOP_LEVEL_MODELS
@@ -138,7 +139,7 @@ class KrameriusLinksValidator(BaseValidator):
 
         for pid in current_kramerius_pids:
             docs = list(
-                self.client.Search.search(F(KrameriusField.Pid, pid), fl=FL),
+                await asyncio.to_thread(self.client.Search.search, F(KrameriusField.Pid, pid), fl=FL),
             )
             if not docs:
                 continue

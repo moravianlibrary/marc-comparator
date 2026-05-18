@@ -1,7 +1,7 @@
 import re
 from typing import Dict, List
 
-import requests
+import httpx
 from lxml import etree
 from marcdantic import MarcRecord
 from pydantic import AnyUrl, BaseModel
@@ -46,8 +46,7 @@ class KnihovnyCZLinker(BaseAuthorityLinker):
 
     def __init__(self, config: KnihovnyCZLinkerConfig):
         self.config = config
-        self.session = requests.Session()
-        self._timeout = 10
+        self.client = httpx.AsyncClient(timeout=10)
 
         self._base_to_id_mapper: Dict[str, str] = {
             mapping.base: mapping.id_template for mapping in config.mappings
@@ -62,25 +61,23 @@ class KnihovnyCZLinker(BaseAuthorityLinker):
     ) -> List[str]:
         return [mapping.base for mapping in config.mappings]
 
-    def _get_dedup_ids(self, id: str):
-        response = self.session.get(
+    async def _get_dedup_ids(self, id: str):
+        response = await self.client.get(
             f"{self.config.api_url}/record",
             params={"id": id, "field[]": "dedupIds"},
-            timeout=self._timeout,
         )
 
         response.raise_for_status()
 
         return response.json()["records"][0]["dedupIds"]
 
-    def _get_record(self, id: str) -> MarcRecord | None:
+    async def _get_record(self, id: str) -> MarcRecord | None:
         """
         Fetch the MARC record by its knihovny.cz ID.
         """
-        response = self.session.get(
+        response = await self.client.get(
             f"{self.config.api_url}/record",
             params={"id": id, "field[]": "fullRecord"},
-            timeout=self._timeout,
         )
 
         response.raise_for_status()
@@ -101,7 +98,7 @@ class KnihovnyCZLinker(BaseAuthorityLinker):
         if base not in self._base_to_id_mapper:
             raise ValueError(f"Unsupported base: {base}")
 
-        dedup_ids = self._get_dedup_ids(
+        dedup_ids = await self._get_dedup_ids(
             self._base_to_id_mapper[base].format(system_number=system_number)
         )
 
@@ -123,7 +120,7 @@ class KnihovnyCZLinker(BaseAuthorityLinker):
         if not target_system_number:
             return None
 
-        target_record = self._get_record(
+        target_record = await self._get_record(
             self._base_to_id_mapper[target_base].format(
                 system_number=target_system_number
             )

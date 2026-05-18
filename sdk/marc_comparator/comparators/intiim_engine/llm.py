@@ -3,9 +3,12 @@ from __future__ import annotations
 from typing import Optional, Literal, Dict, Tuple
 
 import hashlib
+import logging
 import os
 import requests
 import threading
+
+logger = logging.getLogger(__name__)
 
 try:
     from llama_cpp import Llama
@@ -26,9 +29,6 @@ def set_ollama_url(url: str):
     """Programmatically update the module-level OLLAMA_URL."""
     global OLLAMA_URL
     OLLAMA_URL = url
-
-os.environ["LLM_BACKEND"] = "llama_cpp"
-os.environ["LLM_LLAMA_MODEL"] = "path_to_model.gguf"
 
 LLM_LLAMA_MODEL = (
     os.getenv("LLM_LLAMA_MODEL")
@@ -189,7 +189,7 @@ def _llama_generate(prompt: str) -> str:
         if text:
             return text
     except Exception:
-        pass
+        logger.debug("llama chat completion failed, falling back to text completion", exc_info=True)
 
     out = llama.create_completion(
         prompt=prompt,
@@ -230,6 +230,7 @@ def generate_text(prompt: str, *, backend: Optional[BackendLiteral] = None) -> s
         else:
             txt = _llama_generate(prompt)
     except Exception:
+        logger.warning("LLM generation failed on %s backend, attempting fallback", resolved, exc_info=True)
         if resolved == "ollama" and allow_fallback and _has_llama():
             resolved = "llama_cpp"
             key = _cache_key(prompt, resolved)
@@ -260,6 +261,7 @@ def load_llm(*, backend: Optional[BackendLiteral] = None) -> None:
         try:
             _load_llama_model()
         except Exception:
+            logger.warning("Failed to load llama model, attempting ollama fallback", exc_info=True)
             if allow_fallback:
                 requests.get(f"{OLLAMA_URL}/api/tags", timeout=OLLAMA_TIMEOUT).raise_for_status()
             else:
@@ -268,6 +270,7 @@ def load_llm(*, backend: Optional[BackendLiteral] = None) -> None:
         try:
             requests.get(f"{OLLAMA_URL}/api/tags", timeout=OLLAMA_TIMEOUT).raise_for_status()
         except Exception:
+            logger.warning("Ollama health check failed, attempting llama fallback", exc_info=True)
             if allow_fallback and _has_llama():
                 _load_llama_model()
             else:
@@ -293,6 +296,7 @@ def llm_health(*, backend: Optional[BackendLiteral] = None) -> dict:
                 "models": [m.get("name") for m in data.get("models", [])] if isinstance(data, dict) else [],
             }
         except Exception:
+            logger.warning("Ollama health check failed in llm_health", exc_info=True)
             if not allow_fallback or not _has_llama():
                 raise
             resolved = "llama_cpp"
@@ -399,6 +403,7 @@ def _ask_yes_no(role: str, tag: str, code: str|None, a: str, b: str,
         txt = generate_text(prompt, backend=backend)
         return _parse_yes_no_response(txt)
     except Exception:
+        logger.warning("LLM yes/no query failed for label=%s, role=%s", label, role, exc_info=True)
         return None
 
 def _ask_best(role: str, tag: str, code: str|None, a: str, b: str,
@@ -419,6 +424,7 @@ def _ask_best(role: str, tag: str, code: str|None, a: str, b: str,
                 return k, raw
         return None, raw
     except Exception:
+        logger.warning("LLM best-label query failed for role=%s", role, exc_info=True)
         return None, ""
 
 CATEGORY = Literal["IDENTICAL","TYPO","INCOMPLETE","NON_STANDARDIZED","INCORRECT"]
@@ -437,6 +443,7 @@ def ask_same_written_differently(a: str, b: str, role: str, tag: str, code: str|
     try:
         raw = generate_text(prompt, backend=backend)
     except Exception:
+        logger.warning("LLM same-written-differently query failed for role=%s", role, exc_info=True)
         return {"answer": None, "raw": ""}
     return {"answer": _parse_yes_no_response(raw), "raw": raw}
 

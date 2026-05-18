@@ -1,3 +1,4 @@
+import asyncio
 import math
 from collections import defaultdict
 from typing import Any, Dict, List, Set, Tuple
@@ -75,7 +76,8 @@ class IntiimComparator(BaseComparator):
         record_a_dict = self._parse_record_to_dict(record_a)
         record_b_dict = self._parse_record_to_dict(record_b)
 
-        comparison = compare_records(
+        comparison = await asyncio.to_thread(
+            compare_records,
             record_a_dict,
             record_b_dict,
             include_identical=True,
@@ -83,7 +85,9 @@ class IntiimComparator(BaseComparator):
             nonstandard_llm=self.config.nonstandard_llm_enabled,
         )
 
-        scoring = score_differences(comparison.get("differences", []))
+        scoring = await asyncio.to_thread(
+            score_differences, comparison.get("differences", [])
+        )
         field_score_caps = {
             f["tag"]: f.get("cap") or 10.0
             for f in scoring.get("field_contributions", [])
@@ -230,7 +234,7 @@ def get_field_and_subfield_indexes(
         variable_fields = record.variable_fields.root.get(used_tag, [])
 
     if not variable_fields:
-        return [(None, None)] * len(subfields)
+        return [(tag, None, None)] * len(subfields)
 
     # Track used subfield indices per field
     used_subfields: Dict[int, Dict[str, Set[int]]] = {
@@ -298,7 +302,10 @@ def normalize_score(
         raw_x = logistic(x, midpoint, steepness)
 
         # normalize raw curve to (start_y .. end_y)
-        t = (raw_x - raw_start) / (raw_end - raw_start)
+        denom = raw_end - raw_start
+        if abs(denom) < 1e-12:
+            return start_y
+        t = (raw_x - raw_start) / denom
         return start_y + t * (end_y - start_y)
 
     if score <= valid_threshold:

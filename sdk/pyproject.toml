@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "marc-comparator-sdk"
-version = "0.0.1"
+version = "1.0.0-rc3"
 authors = [
     {name = "Robert Randiak", email = "randiak@protonmail.com"}
 ]
@@ -20,6 +20,7 @@ marc-comparator = "marc_comparator.cli:main"
 [tool.setuptools]
 packages = [
     "marc_comparator",
+    "marc_comparator.cli",
     "marc_comparator.authority_linkers",
     "marc_comparator.comparators",
     "marc_comparator.comparators.intiim_engine",

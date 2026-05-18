@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-SCORE_NORMALIZER = 1
-
 RECORD_CAP = 30
 AGGREGATION = "lpnorm"
 AGG_P = 2.0

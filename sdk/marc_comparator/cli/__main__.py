@@ -1,9 +1,9 @@
 import asyncio
+import csv
 import json
 from pathlib import Path
 from typing import List
 
-import pandas as pd
 import typer
 from marcdantic import MarcRecord
 
@@ -72,7 +72,7 @@ def to_json(
     )
 ):
     """
-    Print the paths of the provided MARC record files.
+    Convert MARC binary (.mrc) files to JSON format.
     """
     for path in mrc_file_paths:
         if not path.exists():
@@ -178,8 +178,12 @@ def validate(
                     }
                 )
 
-    report = pd.DataFrame(report_data)
-    report.to_csv(output, index=False)
+    if report_data:
+        fieldnames = report_data[0].keys()
+        with open(output, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer.writeheader()
+            writer.writerows(report_data)
 
 
 @app.command()
