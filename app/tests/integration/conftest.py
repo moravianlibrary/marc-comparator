@@ -33,6 +33,7 @@ async def db_session(db_engine, mocker) -> DatabaseSession:
 
     app.dependency_overrides[db_session_generator] = lambda: session
     mocker.patch("adapters.tasks.get_db_session", lambda: session)
+    mocker.patch("ws.controller.get_db_session", lambda: session)
 
     yield session
 

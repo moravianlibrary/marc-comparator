@@ -4,6 +4,7 @@ import logging
 from esorm import setup_mappings
 
 from adapters.database import Base, engine, get_db_session
+from adapters.events import subscribe_events
 from adapters.indexer import shutdown_indexer, startup_indexer
 from auth.models import RegisterUserRequest
 from auth.service import register_user
@@ -12,6 +13,7 @@ from entities.role import Role
 from entities.settings import Settings
 from entities.user import User
 from settings.models import SETTINGS_MODEL_DISPATCHER
+from ws.manager import manager
 
 logger = logging.getLogger(__name__)
 
@@ -71,7 +73,17 @@ async def lifespan(app):
     # Setup ES mappings
     await setup_mappings()
 
+    # Start Redis Pub/Sub subscriber for WS event fan-out
+    subscriber_task = asyncio.create_task(subscribe_events(manager.broadcast))
+
     yield
+
+    # Shutdown subscriber
+    subscriber_task.cancel()
+    try:
+        await subscriber_task
+    except asyncio.CancelledError:
+        pass
 
     # Shutdown indexer connection
     await shutdown_indexer()

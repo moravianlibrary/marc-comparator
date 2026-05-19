@@ -13,6 +13,7 @@ from settings.controller import router as settings_router
 from system.controller import router as system_router
 from tasks.controller import router as tasks_router
 from validation.controller import router as validation_router
+from ws.controller import router as ws_router
 
 configure_logging(config.log_level)
 
@@ -37,6 +38,7 @@ app.include_router(settings_router)
 app.include_router(system_router)
 app.include_router(tasks_router)
 app.include_router(validation_router)
+app.include_router(ws_router)
 
 if __name__ == "__main__":
     import uvicorn

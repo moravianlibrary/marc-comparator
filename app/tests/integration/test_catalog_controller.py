@@ -528,8 +528,8 @@ class TestCatalogEndpoints:
         from adapters.lock_server import one_at_a_time_lock
 
         # Acquire the lock first
-        with one_at_a_time_lock("catalog_sync_TEST") as acquired:
-            assert acquired is True
+        with one_at_a_time_lock("catalog_sync_TEST") as lock:
+            assert lock is not None
 
             # Now try to sync — should get 409 conflict
             assert_response(

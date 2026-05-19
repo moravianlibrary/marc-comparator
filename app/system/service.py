@@ -8,6 +8,7 @@ from marc_comparator.authority_linkers import (
 )
 
 from adapters.database import DatabaseSession
+from adapters.lock_server import get_active_locks
 from adapters.tasks import enqueue_task
 from authority_linking.models import AuthorityLinkingSettings
 from catalog_records.models import CatalogSettings
@@ -96,6 +97,10 @@ async def get_system_info(db_session: DatabaseSession) -> SystemInfo:
         enabled_comparators=get_enabled_comparators(db_session),
         enabled_validators=get_enabled_validators(db_session),
     )
+
+
+def get_locks() -> List[str]:
+    return get_active_locks()
 
 
 async def recreate_indexes(

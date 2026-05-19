@@ -1,13 +1,19 @@
+import logging
 from contextlib import contextmanager
+from typing import List
 
 from redis import Redis
 from redis.lock import Lock
 
 from config import config
 
+logger = logging.getLogger(__name__)
+
 lock_server_client = Redis(
     host=config.broker.host, port=config.broker.port, db=config.broker.db
 )
+
+ACTIVE_LOCKS_KEY = "active_locks"
 
 
 @contextmanager
@@ -15,6 +21,7 @@ def one_at_a_time_lock(
     lock_name: str,
     blocking: bool = True,
     blocking_timeout: int = 30,
+    timeout: int = 60,
 ):
     """
     Context manager to ensure only one instance of a task runs at a time,
@@ -28,35 +35,70 @@ def one_at_a_time_lock(
         Whether the call should block until the lock is acquired.
         Default is True.
     blocking_timeout : int, optional
-        Maximum number of seconds to wait
-        to acquire the lock if `blocking` is True.
-        If the lock cannot be acquired in this time,
-        the context will yield False.
-        Default is 30.
+        Maximum number of seconds to wait to acquire the lock if
+        `blocking` is True. Default is 30.
+    timeout : int, optional
+        TTL in seconds for the lock key. If the holder crashes, the lock
+        auto-releases after this period. Default is 60.
 
     Yields
     ------
-    bool
-        True if the lock was successfully acquired and the block can proceed.
-        False if the lock could not be acquired (e.g., it is already held).
-
-    Examples
-    --------
-    >>> with one_at_a_time_lock("long-task-lock") as acquired:
-    ...     if not acquired:
-    ...         print("Another instance is running. Exiting.")
-    ...     else:
-    ...         do_long_running_task()
+    Lock | None
+        The Lock object if acquired (truthy), None if not (falsy).
+        Callers can use `if lock:` to check.
+        The Lock object exposes `lock.reacquire()` to extend the TTL.
     """
-    lock = Lock(lock_server_client, name=lock_name)
+    lock = Lock(lock_server_client, name=lock_name, timeout=timeout)
 
     acquired = lock.acquire(
         blocking=blocking, blocking_timeout=blocking_timeout
     )
     if acquired:
+        lock_server_client.sadd(ACTIVE_LOCKS_KEY, lock_name)
+        _publish_lock_acquired(lock_name)
         try:
-            yield True
+            yield lock
         finally:
-            lock.release()
+            try:
+                lock.release()
+            except Exception:
+                logger.warning(f"Failed to release lock '{lock_name}'", exc_info=True)
+            lock_server_client.srem(ACTIVE_LOCKS_KEY, lock_name)
+            _publish_lock_released(lock_name)
     else:
-        yield False
+        yield None
+
+
+def get_active_locks() -> List[str]:
+    """Return the list of currently held locks, cleaning up stale entries."""
+    members = lock_server_client.smembers(ACTIVE_LOCKS_KEY)
+    active = []
+    stale = []
+
+    for name in members:
+        # Lock keys in redis-py are stored under the lock_name directly
+        if lock_server_client.exists(name):
+            active.append(name if isinstance(name, str) else name.decode())
+        else:
+            stale.append(name)
+
+    if stale:
+        lock_server_client.srem(ACTIVE_LOCKS_KEY, *stale)
+
+    return active
+
+
+def _publish_lock_acquired(lock_name: str) -> None:
+    try:
+        from adapters.events import LockAcquiredEvent, publish_event
+        publish_event(LockAcquiredEvent(lock_name=lock_name))
+    except Exception:
+        logger.warning("Failed to publish lock acquired event", exc_info=True)
+
+
+def _publish_lock_released(lock_name: str) -> None:
+    try:
+        from adapters.events import LockReleasedEvent, publish_event
+        publish_event(LockReleasedEvent(lock_name=lock_name))
+    except Exception:
+        logger.warning("Failed to publish lock released event", exc_info=True)

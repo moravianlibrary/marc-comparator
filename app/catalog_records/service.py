@@ -78,8 +78,8 @@ async def sync_records(
     lock_blocking_timeout = 1
     with one_at_a_time_lock(
         lock_key, blocking_timeout=lock_blocking_timeout
-    ) as acquired:
-        if not acquired:
+    ) as lock:
+        if not lock:
             raise SyncTaskAlreadyRunningException(data.base)
 
         return await enqueue_task(

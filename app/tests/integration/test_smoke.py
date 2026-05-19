@@ -44,14 +44,14 @@ async def test_elasticsearch_smoke(indexer_session):
 async def test_one_at_a_time_lock(lock_server_client):
     lock_name = "test-lock"
 
-    with one_at_a_time_lock(lock_name) as acquired1:
-        assert acquired1 is True
+    with one_at_a_time_lock(lock_name) as lock1:
+        assert lock1 is not None
 
-        with one_at_a_time_lock(lock_name, blocking=False) as acquired2:
-            assert acquired2 is False
+        with one_at_a_time_lock(lock_name, blocking=False) as lock2:
+            assert lock2 is None
 
-    with one_at_a_time_lock(lock_name) as acquired3:
-        assert acquired3 is True
+    with one_at_a_time_lock(lock_name) as lock3:
+        assert lock3 is not None
 
 
 @pytest.mark.asyncio

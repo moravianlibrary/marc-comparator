@@ -8,6 +8,7 @@ from esorm import es
 from sqlalchemy.orm import Session
 
 from adapters.database import Base, DatabaseSession, get_db_session
+from adapters.events import TaskProgressEvent, TaskStatusEvent, publish_event
 from adapters.indexer import IndexerSchema, shutdown_indexer, startup_indexer
 from adapters.lock_server import one_at_a_time_lock
 from config import config
@@ -128,7 +129,8 @@ class ManagedTask:
 
         self.lock_key = lock_key
         self.lock_blocking_timeout = lock_blocking_timeout
-        self.lock: Optional[ContextManager[bool]] = None
+        self.lock: Optional[ContextManager] = None
+        self._lock_obj = None
 
         self.logger: logging.Logger | None = None
         self.db_session: DatabaseSession | None = None
@@ -148,6 +150,16 @@ class ManagedTask:
             self.progress / self.total if self.total > 0 else 0.0
         )
         await self.save_and_index_task()
+        publish_event(TaskProgressEvent(
+            task_id=str(self.task.task_id),
+            progress=self.task.progress,
+            created_by=str(self.task.created_by),
+        ))
+        if self._lock_obj:
+            try:
+                self._lock_obj.reacquire()
+            except Exception:
+                pass
 
     async def __aenter__(self) -> "ManagedTask":
         # --- DB session ---
@@ -190,17 +202,24 @@ class ManagedTask:
             self.task.status = TaskStatus.Started
             self.task.started_at = config.timestamp
             await self.save_and_index_task()
+            publish_event(TaskStatusEvent(
+                task_id=str(self.task.task_id),
+                status=self.task.status.value,
+                severity=self.task.severity.value,
+                created_by=str(self.task.created_by),
+            ))
 
             # --- Acquire lock if needed ---
             if self.lock_key:
                 self.lock = one_at_a_time_lock(
                     self.lock_key, self.lock_blocking_timeout
                 )
-                lock_acquired = self.lock.__enter__()
-                if not lock_acquired:
+                lock_obj = self.lock.__enter__()
+                if not lock_obj:
                     raise ValueError(
                         f"Task lock '{self.lock_key}' is already acquired"
                     )
+                self._lock_obj = lock_obj
 
             return self
         except Exception:
@@ -220,6 +239,12 @@ class ManagedTask:
                 )
             self.task.finished_at = config.timestamp
             await self.save_and_index_task()
+            publish_event(TaskStatusEvent(
+                task_id=str(self.task.task_id),
+                status=self.task.status.value,
+                severity=self.task.severity.value,
+                created_by=str(self.task.created_by),
+            ))
         finally:
             # --- Release resources ---
             if self.lock:
@@ -497,5 +522,12 @@ async def revoke_task(task: Task, db_session: DatabaseSession) -> TaskSchema:
 
     task.save(db_session)
     await task.index()
+
+    publish_event(TaskStatusEvent(
+        task_id=str(task.task_id),
+        status=task.status.value,
+        severity=task.severity.value,
+        created_by=str(task.created_by),
+    ))
 
     return TaskSchema.model_validate(task, from_attributes=True)
