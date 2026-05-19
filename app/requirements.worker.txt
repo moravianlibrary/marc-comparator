@@ -1,4 +1,3 @@
-../sdk
 asgiref
 celery
 elasticsearch==8.14.0

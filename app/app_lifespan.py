@@ -1,3 +1,6 @@
+import asyncio
+import logging
+
 from esorm import setup_mappings
 
 from adapters.database import Base, engine, get_db_session
@@ -10,10 +13,19 @@ from entities.settings import Settings
 from entities.user import User
 from settings.models import SETTINGS_MODEL_DISPATCHER
 
+logger = logging.getLogger(__name__)
+
 
 async def lifespan(app):
+    # Warn about insecure default JWT secret
+    if config.auth.secret_key == "your-secret-key":
+        logger.warning(
+            "AUTH SECRET KEY IS SET TO THE DEFAULT VALUE. "
+            "This is insecure — set a strong secret via AUTH_SECRET_KEY env var."
+        )
+
     # Generate database schema
-    Base.metadata.create_all(bind=engine)
+    await asyncio.to_thread(Base.metadata.create_all, bind=engine)
 
     # Start indexer connection
     await startup_indexer()

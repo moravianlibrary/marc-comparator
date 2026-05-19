@@ -121,3 +121,17 @@ async def set_records_visibility(
         ),
         db_session,
     )
+
+
+async def process_records(
+    query: IndexerQuery, created_by: str, db_session: DatabaseSession
+) -> TaskSchema:
+    return await enqueue_task(
+        Task(
+            name="Process catalog records",
+            type=TaskType.ProcessRecords,
+            created_by=created_by,
+            data=query.model_dump(),
+        ),
+        db_session,
+    )

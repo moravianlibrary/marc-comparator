@@ -1,7 +1,7 @@
 from typing import List
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
 from access_control.models import RoleSummary
 from entities.role import Permission
@@ -11,7 +11,7 @@ class RegisterUserRequest(BaseModel):
     email: EmailStr
     first_name: str
     last_name: str
-    password: str
+    password: str = Field(min_length=8)
 
 
 class Token(BaseModel):

@@ -1,27 +1,16 @@
-import asyncio
-import json
-from pathlib import Path
-from typing import Any, AsyncGenerator, Dict, Generator, Optional, Set, Tuple
-
 import pytest
 import pytest_asyncio
 from aleph_nought import AlephClient
 from celery import Celery
 from elasticsearch import AsyncElasticsearch
-from esorm import connect, es, setup_mappings
-from httpx import ASGITransport, AsyncClient, Response
-from marcdantic import MarcRecord
+from esorm import es
+from httpx import ASGITransport, AsyncClient
 from pytest_mock import MockerFixture
 from redis import Redis
-from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
-from testcontainers.elasticsearch import ElasticSearchContainer
-from testcontainers.postgres import PostgresContainer
-from testcontainers.redis import RedisContainer
 
 from adapters.aleph_client_registry import AlephClientRegistry
-from adapters.database import Base, DatabaseSession, db_session_generator
-from adapters.indexer import connect as es_connect
+from adapters.database import DatabaseSession, db_session_generator
 from adapters.tasks import TasksClient
 from app import app
 from auth.models import TokenData
@@ -31,159 +20,76 @@ from entities.catalog_record import CatalogRecord
 from entities.role import Role
 from entities.task import Task, TaskType
 from entities.user import User
-
-POSTGRES_IMAGE = "postgres:17"
-ELASTICSEARCH_IMAGE = "elasticsearch:8.14.0"
-REDIS_IMAGE = "redis:8.0"
+from tests.conftest import FAKE_USER_ID, truncate_all_tables
 
 
-# ------------------------
-# Pytest fixtures
-# ------------------------
-@pytest_asyncio.fixture(scope="session")
-async def postgres_container() -> AsyncGenerator[PostgresContainer, None]:
-    """Start a Postgres container for the test session."""
-    # Start Postgres container
-    postgres = PostgresContainer(POSTGRES_IMAGE)
-    await asyncio.to_thread(postgres.start)
+# --------------------------------------------------------------------------
+# Function-scoped DB session (same pattern as tests/db/)
+# --------------------------------------------------------------------------
+@pytest_asyncio.fixture(scope="function")
+async def db_session(db_engine, mocker) -> DatabaseSession:
+    SessionLocal = sessionmaker(bind=db_engine)
+    session = SessionLocal()
 
-    yield postgres
+    app.dependency_overrides[db_session_generator] = lambda: session
+    mocker.patch("adapters.tasks.get_db_session", lambda: session)
 
-    # Cleanup
-    await asyncio.to_thread(postgres.stop)
+    yield session
 
-
-@pytest_asyncio.fixture(scope="session")
-async def elasticsearch_container() -> (
-    AsyncGenerator[ElasticSearchContainer, None]
-):
-    """
-    Spin up Elasticsearch in a container
-    and yield the container instance.
-    """
-    # Start Elasticsearch container
-    es = ElasticSearchContainer(ELASTICSEARCH_IMAGE)
-    es.with_env("ES_JAVA_OPTS", "-Xms256m -Xmx256m")
-    es.with_env("xpack.security.enabled", "false")
-    await asyncio.to_thread(es.start)
-
-    # Setup mappings
-    indexer_session = await connect(
-        hosts=(
-            f"http://{es.get_container_host_ip()}:{es.get_exposed_port(9200)}"
-        ),
-        basic_auth=("elastic", "changeme"),
-        request_timeout=5,
-        node_class="httpxasync",
-    )
-    await setup_mappings(indexer_session)
-    await indexer_session.close()
-
-    yield es
-
-    # Cleanup
-    await asyncio.to_thread(es.stop)
+    session.close()
+    cleanup_session = SessionLocal()
+    truncate_all_tables(cleanup_session)
+    cleanup_session.close()
 
 
-@pytest_asyncio.fixture(scope="session")
-async def redis_container() -> AsyncGenerator[RedisContainer, None]:
-    # Start Redis container
-    redis = RedisContainer(REDIS_IMAGE)
-    redis.with_env("maxmemory", "64mb")
-    await asyncio.to_thread(redis.start)
-
-    yield redis
-
-    # Cleanup
-    await asyncio.to_thread(redis.stop)
+# --------------------------------------------------------------------------
+# Function-scoped ES indexer session (reuses session-scoped es_client)
+# --------------------------------------------------------------------------
+@pytest_asyncio.fixture(scope="function")
+async def indexer_session(es_client, mocker) -> AsyncElasticsearch:
+    # Patch startup/shutdown to no-ops since ES is already connected
+    mocker.patch("adapters.indexer.startup_indexer", return_value=True)
+    mocker.patch("adapters.indexer.shutdown_indexer")
+    return es_client
 
 
-@pytest_asyncio.fixture(scope="class")
-async def db_session(
-    postgres_container: PostgresContainer, class_mocker: MockerFixture
-) -> AsyncGenerator[DatabaseSession, None]:
-    """Spin up Postgres in a container and yield a SQLAlchemy session."""
-    # SQLAlchemy engine + session
-    from entities.authority_link import AuthorityLink  # noqa: F401
-    from entities.catalog_record import CatalogRecord  # noqa: F401
-
-    engine = create_engine(postgres_container.get_connection_url())
-    SessionLocal = sessionmaker(bind=engine)
-    await asyncio.to_thread(Base.metadata.create_all, engine)
-
-    connection = engine.connect()
-    db_session = SessionLocal(bind=connection)
-
-    # Patch dependencies
-    app.dependency_overrides[db_session_generator] = lambda: db_session
-    class_mocker.patch("adapters.tasks.get_db_session", lambda: db_session)
-
-    yield db_session
-
-    # Cleanup
-    db_session.close()
-    connection.close()
-    Base.metadata.drop_all(bind=engine)
-    engine.dispose()
-
-
-@pytest_asyncio.fixture(scope="class")
-async def indexer_session(
-    elasticsearch_container, class_mocker: MockerFixture
-) -> AsyncGenerator[AsyncElasticsearch, None]:
-    """
-    Yield a function that creates a fresh async indexer session
-    inside the test loop.
-    """
-    class_mocker.patch.object(
-        config.elasticsearch,
-        "url",
-        (
-            f"http://{elasticsearch_container.get_container_host_ip()}"
-            f":{elasticsearch_container.get_exposed_port(9200)}"
-        ),
-    )
-
-    await es_connect()
-
+# --------------------------------------------------------------------------
+# Autouse: clean ES documents after each test
+# --------------------------------------------------------------------------
+@pytest_asyncio.fixture(scope="function", autouse=True)
+async def clean_es_indices(es_client):
+    yield
     for index_name in [
         CatalogRecord.__indexer_schema__.ESConfig.index,
         Task.__indexer_schema__.ESConfig.index,
     ]:
-        if await es.indices.exists(index=index_name):
-            await es.indices.delete(index=index_name)
-
-    yield es
-
-
-@pytest_asyncio.fixture(scope="class")
-async def lock_server_client(
-    redis_container: RedisContainer, class_mocker: MockerFixture
-) -> AsyncGenerator[Redis, None]:
-    """Patch the module's Redis client to use the container Redis."""
-    redis_client = Redis(
-        host=redis_container.get_container_host_ip(),
-        port=redis_container.get_exposed_port(6379),
-        db=0,
-        decode_responses=True,
-    )
-
-    class_mocker.patch("adapters.lock_server.lock_server_client", redis_client)
+        try:
+            await es_client.delete_by_query(
+                index=index_name,
+                body={"query": {"match_all": {}}},
+                refresh=True,
+                conflicts="proceed",
+            )
+        except Exception:
+            pass
 
 
-@pytest_asyncio.fixture(scope="class")
-async def client() -> AsyncGenerator[AsyncClient, None]:
+# --------------------------------------------------------------------------
+# Function-scoped HTTP client
+# --------------------------------------------------------------------------
+@pytest_asyncio.fixture(scope="function")
+async def client():
     async with AsyncClient(
         transport=ASGITransport(app=app), base_url="http://testserver"
-    ) as client:
-        yield client
+    ) as c:
+        yield c
 
 
-FAKE_USER_ID = "12345678-1234-4678-9abc-1234567890ab"
-
-
-@pytest.fixture(scope="class")
-def user(db_session: DatabaseSession) -> Generator[TokenData, None, None]:
+# --------------------------------------------------------------------------
+# Function-scoped user fixture
+# --------------------------------------------------------------------------
+@pytest.fixture(scope="function")
+def user(db_session: DatabaseSession) -> TokenData:
     user = User(
         id=FAKE_USER_ID,
         first_name="Admin",
@@ -198,7 +104,6 @@ def user(db_session: DatabaseSession) -> Generator[TokenData, None, None]:
     db_session.commit()
 
     token_data = TokenData(user_id=FAKE_USER_ID)
-
     app.dependency_overrides[get_current_user] = lambda: token_data
 
     yield token_data
@@ -206,18 +111,16 @@ def user(db_session: DatabaseSession) -> Generator[TokenData, None, None]:
     app.dependency_overrides.pop(get_current_user, None)
 
 
-@pytest.fixture(scope="class")
-def tasks_client(
-    redis_container: RedisContainer, class_mocker: MockerFixture
-) -> TasksClient:
-    # Use the test Redis container
+# --------------------------------------------------------------------------
+# Function-scoped tasks client (Celery pointing to test Redis)
+# --------------------------------------------------------------------------
+@pytest.fixture(scope="function")
+def tasks_client(redis_container, mocker) -> TasksClient:
     redis_host = redis_container.get_container_host_ip()
     redis_port = redis_container.get_exposed_port(6379)
     redis_url = f"redis://{redis_host}:{redis_port}/0"
 
-    class_mocker.patch("adapters.tasks.tasks_client", tasks_client)
-
-    return Celery(
+    celery_app = Celery(
         "tasks",
         broker=redis_url,
         result_backend=redis_url,
@@ -225,19 +128,41 @@ def tasks_client(
         timezone=config.timezone,
     )
 
+    mocker.patch("adapters.tasks.tasks_client", celery_app)
+    return celery_app
 
-@pytest.fixture(scope="class")
-def aleph_client_registry(class_mocker: MockerFixture) -> AlephClientRegistry:
-    fake_client = class_mocker.Mock(spec=AlephClient)
+
+# --------------------------------------------------------------------------
+# Function-scoped lock server client
+# --------------------------------------------------------------------------
+@pytest.fixture(scope="function")
+def lock_server_client(redis_container, mocker) -> Redis:
+    redis_client = Redis(
+        host=redis_container.get_container_host_ip(),
+        port=redis_container.get_exposed_port(6379),
+        db=0,
+        decode_responses=True,
+    )
+    mocker.patch("adapters.lock_server.lock_server_client", redis_client)
+    return redis_client
+
+
+# --------------------------------------------------------------------------
+# Function-scoped Aleph client registry
+# --------------------------------------------------------------------------
+@pytest.fixture(scope="function")
+def aleph_client_registry(mocker) -> AlephClientRegistry:
+    fake_client = mocker.Mock(spec=AlephClient)
     fake_client_map = {"TEST": fake_client}
 
-    class_mocker.patch.object(
-        AlephClientRegistry, "_client_map", fake_client_map
-    )
+    mocker.patch.object(AlephClientRegistry, "_client_map", fake_client_map)
 
     return AlephClientRegistry
 
 
+# --------------------------------------------------------------------------
+# Function-scoped fake task (used by catalog controller tests)
+# --------------------------------------------------------------------------
 @pytest.fixture(scope="function")
 def fake_task(db_session: DatabaseSession, user: TokenData) -> Task:
     task = Task(
@@ -247,80 +172,4 @@ def fake_task(db_session: DatabaseSession, user: TokenData) -> Task:
     )
     db_session.add(task)
     db_session.commit()
-
     return task
-
-
-def load_test_json(filename: str) -> Dict[str, Any]:
-    """Function to load a JSON file from tests/data by filename."""
-
-    path = Path(__file__).parent / "data" / filename
-    with path.open("r", encoding="utf-8") as f:
-        return json.load(f)
-
-
-def load_test_record(filename: str) -> MarcRecord:
-    """Function to load a MARC file from tests/data by filename."""
-
-    path = Path(__file__).parent / "data" / filename
-    with path.open("rb") as f:
-        return MarcRecord.from_mrc(f.read())
-
-
-def assert_response(
-    response: Response,
-    expected_status: int,
-    expected_body: Optional[Dict[str, Any]] = None,
-    exclude_field_paths: Set[Tuple[str, ...]] = frozenset(),
-):
-    """
-    Assert HTTP response status and optionally compare JSON body.
-
-    Args:
-        response:
-            httpx.Response
-        expected_status:
-            expected HTTP status code
-        expected_body:
-            dict of expected JSON keys and values, or None if no body expected
-        exclude_field_paths:
-            set of key paths to ignore, e.g., {("created_at",), ("user", "id")}
-    """
-    # Check status code
-    assert response.status_code == expected_status, (
-        f"Expected status {expected_status}, "
-        f"got {response.status_code} and body: {response.text}"
-    )
-
-    # Parse JSON if possible
-    try:
-        actual_body = response.json()
-    except Exception:
-        actual_body = None
-
-    if expected_body is None:
-        # No body expected
-        assert not actual_body, f"Expected no body, but got: {actual_body}"
-        return
-
-    # Body expected
-    assert actual_body is not None, "Expected response body, but got none"
-
-    def filter_excluded(
-        d: Dict[str, Any], path: Tuple[str, ...] = ()
-    ) -> Dict[str, Any]:
-        """Recursively remove excluded fields from dict."""
-        if not isinstance(d, dict):
-            return d
-        return {
-            k: filter_excluded(v, path + (k,))
-            for k, v in d.items()
-            if path + (k,) not in exclude_field_paths
-        }
-
-    actual_filtered = filter_excluded(actual_body)
-    expected_filtered = filter_excluded(expected_body)
-
-    assert (
-        actual_filtered == expected_filtered
-    ), f"Expected body {expected_filtered}, got {actual_filtered}"

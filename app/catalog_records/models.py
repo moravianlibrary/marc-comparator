@@ -49,7 +49,13 @@ class SetRecordsVisibilityData(BaseModel):
 
 
 class ProcessRecordsSettings(SettingsSchema):
-    target_bases: List[str] = Field(..., min_length=1)
-    authority_linkers: List[AuthorityLinker] = Field(..., min_length=1)
-    comparator: Comparator = Field(...)
-    validators: List[Validator] = Field(..., min_length=1)
+    target_bases: List[str] = Field(
+        default=["MZK01"], min_length=1
+    )
+    authority_linkers: List[AuthorityLinker] = Field(
+        default=[AuthorityLinker.KnihovnyCz], min_length=1
+    )
+    comparator: Comparator = Field(default=Comparator.Intiim)
+    validators: List[Validator] = Field(
+        default=[Validator.KrameriusLinks], min_length=1
+    )

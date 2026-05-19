@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from access_control.controller import router as access_control_router
-from adapters.logger import LogLevels, configure_logging
+from adapters.logger import configure_logging
 from app_lifespan import lifespan
 from auth.controller import router as auth_router
 from authority_linking.controller import router as authority_linking_router
@@ -14,7 +14,7 @@ from system.controller import router as system_router
 from tasks.controller import router as tasks_router
 from validation.controller import router as validation_router
 
-configure_logging(LogLevels.info)
+configure_logging(config.log_level)
 
 
 app = FastAPI(lifespan=lifespan)

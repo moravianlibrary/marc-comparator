@@ -195,28 +195,40 @@ class IndexerOperationsMixin:
 
         scroll_id = None
 
-        while True:
-            response = (
-                await es.scroll(scroll_id=scroll_id, scroll="1m")
-                if scroll_id
-                else await es.search(
-                    index=index_name,
-                    body=query_body,
-                    scroll="1m",
-                    fields=[id_field],
+        try:
+            while True:
+                response = (
+                    await es.scroll(scroll_id=scroll_id, scroll="1m")
+                    if scroll_id
+                    else await es.search(
+                        index=index_name,
+                        body=query_body,
+                        scroll="1m",
+                        fields=[id_field],
+                    )
                 )
-            )
 
-            for hit in response["hits"]["hits"]:
-                yield db_session.query(cls).filter(
-                    id_column == hit["_id"]
-                ).one()
+                hits = response["hits"]["hits"]
+                if not hits:
+                    break
 
-            scroll_id = response.get("_scroll_id")
-            if not scroll_id or not response["hits"]["hits"]:
-                break
+                ids = [hit["_id"] for hit in hits]
+                rows_by_id = {
+                    getattr(row, id_field): row
+                    for row in db_session.query(cls)
+                    .filter(id_column.in_(ids))
+                    .all()
+                }
+                for hit_id in ids:
+                    if hit_id in rows_by_id:
+                        yield rows_by_id[hit_id]
 
-        await es.clear_scroll(scroll_id=scroll_id)
+                scroll_id = response.get("_scroll_id")
+                if not scroll_id:
+                    break
+        finally:
+            if scroll_id:
+                await es.clear_scroll(scroll_id=scroll_id)
 
     @classmethod
     async def search(cls, request: IndexerRequest) -> IndexerResponse:

@@ -13,17 +13,18 @@ from entities.comparison import Comparison
 from entities.settings import Settings, SettingsScope
 from entities.task import Task, TaskType
 from tasks.models import TaskSettings
-from tests.integration.conftest import (
+from tests.conftest import (
     assert_response,
     load_test_json,
     load_test_record,
 )
 
 
-@pytest.fixture(scope="class")
-def comparison_settings(
-    db_session: DatabaseSession,
-) -> Settings:
+# --- Fixtures ---
+
+
+@pytest.fixture(scope="function")
+def comparison_settings(db_session: DatabaseSession) -> Settings:
     test_settings = load_test_json("comparison_settings.json")
     return Settings.save(
         db_session,
@@ -33,17 +34,122 @@ def comparison_settings(
     )
 
 
-@pytest.mark.usefixtures(
-    "db_session",
-    "indexer_session",
-    "client",
-    "user",
-    "tasks_client",
-    "comparison_settings",
-)
+@pytest_asyncio.fixture(scope="function")
+async def main_catalog_record(
+    db_session: DatabaseSession, indexer_session
+) -> CatalogRecord:
+    record = CatalogRecord(
+        base="MZK01",
+        system_number="COMPARISON-TEST",
+        marc=load_test_record("MZK01-001217709.mrc")._marc,
+    ).save(db_session)
+    db_session.flush()
+    await record.index(wait_for=True)
+    return record
+
+
+@pytest.fixture(scope="function")
+def authority_catalog_record(db_session: DatabaseSession) -> CatalogRecord:
+    return CatalogRecord(
+        base="SKC",
+        system_number="COMPARISON-TEST",
+        marc=load_test_record("MZK01-001217729.mrc")._marc,
+    ).save(db_session)
+
+
+@pytest.fixture(scope="function")
+def authority_link(
+    db_session: DatabaseSession,
+    main_catalog_record: CatalogRecord,
+    authority_catalog_record: CatalogRecord,
+) -> AuthorityLink:
+    AuthorityLink(
+        main_record_id=main_catalog_record.id,
+        linker="knihovny-cz",
+        base="SKC",
+        authority_record_id=authority_catalog_record.id,
+        confidence=0.5,
+    ).save(db_session)
+
+
+@pytest.fixture(scope="function")
+def task(db_session: DatabaseSession, user: TokenData) -> Task:
+    return Task(
+        name="Comparison test task",
+        type=TaskType.CompareRecords,
+        created_by=user.user_id,
+        data=ComparisonTaskData(
+            comparator="intiim",
+            target_base="SKC",
+            query={"match_all": {}},
+        ).model_dump(mode="json"),
+    ).save(db_session)
+
+
+@pytest.fixture(scope="function")
+def mock_comparator_result(mocker: MockerFixture) -> MockerFixture:
+    class MockComparator(BaseComparator):
+        async def run(self, record_a, record_b) -> RecordComparisonResult:
+            return RecordComparisonResult(
+                overall_score=0.9, summary="Mock comparison result"
+            )
+
+    return mocker.patch(
+        "comparison.tasks.COMPARATOR_DISPATCHER",
+        {"intiim": MockComparator},
+    )
+
+
+@pytest.fixture(scope="function")
+def mock_no_comparator(mocker: MockerFixture) -> MockerFixture:
+    return mocker.patch(
+        "comparison.tasks.COMPARATOR_DISPATCHER",
+        {},
+    )
+
+
+@pytest.fixture(scope="function")
+def task_settings_one_by_one(db_session: DatabaseSession) -> TaskSettings:
+    settings = TaskSettings(
+        progress_update_interval=1,
+        indexing_batch_size=1,
+    )
+    return Settings.save(
+        db_session,
+        SettingsScope.Tasks,
+        settings,
+        TaskSettings,
+    )
+
+
+@pytest.fixture(scope="function")
+def comparison(
+    db_session: DatabaseSession,
+    main_catalog_record: CatalogRecord,
+    authority_catalog_record: CatalogRecord,
+) -> Comparison:
+    return Comparison(
+        main_record_id=main_catalog_record.id,
+        comparator="intiim",
+        other_record_id=authority_catalog_record.id,
+        result={"overall_score": 0.9, "summary": "Mock comparison result"},
+    ).save(db_session)
+
+
+# --- Test classes ---
+
+
 class TestComparisonEndpoints:
     @pytest.mark.asyncio
-    async def test_comparison_task_creation(self, client: AsyncClient):
+    async def test_comparison_task_creation(
+        self,
+        db_session,
+        indexer_session,
+        user,
+        tasks_client,
+        comparison_settings,
+        client: AsyncClient,
+    ):
         assert_response(
             await client.post(
                 "/comparison/task",
@@ -75,123 +181,16 @@ class TestComparisonEndpoints:
         )
 
 
-@pytest_asyncio.fixture(scope="class")
-async def main_catalog_record(
-    db_session: DatabaseSession, indexer_session
-) -> CatalogRecord:
-    record = CatalogRecord(
-        base="MZK01",
-        system_number="COMPARISON-TEST",
-        marc=load_test_record("MZK01-001217709.mrc")._marc,
-    ).save(db_session)
-    db_session.flush()
-    await record.index(wait_for=True)
-    return record
-
-
-@pytest.fixture(scope="class")
-def authority_catalog_record(
-    db_session: DatabaseSession,
-) -> CatalogRecord:
-    return CatalogRecord(
-        base="SKC",
-        system_number="COMPARISON-TEST",
-        marc=load_test_record("MZK01-001217729.mrc")._marc,
-    ).save(db_session)
-
-
-@pytest.fixture(scope="class")
-def authority_link(
-    db_session: DatabaseSession,
-    main_catalog_record: CatalogRecord,
-    authority_catalog_record: CatalogRecord,
-) -> AuthorityLink:
-    AuthorityLink(
-        main_record_id=main_catalog_record.id,
-        linker="knihovny-cz",
-        base="SKC",
-        authority_record_id=authority_catalog_record.id,
-        confidence=0.5,
-    ).save(db_session)
-
-
-@pytest.fixture(scope="class")
-def task(db_session: DatabaseSession, user: TokenData) -> Task:
-    return Task(
-        name="Comparison test task",
-        type=TaskType.CompareRecords,
-        created_by=user.user_id,
-        data=ComparisonTaskData(
-            comparator="intiim",
-            target_base="SKC",
-            query={"match_all": {}},
-        ).model_dump(mode="json"),
-    ).save(db_session)
-
-
-@pytest.fixture(scope="class")
-def mock_comparator_result(class_mocker: MockerFixture) -> MockerFixture:
-    class MockComparator(BaseComparator):
-        async def run(self, record_a, record_b) -> RecordComparisonResult:
-            return RecordComparisonResult(
-                overall_score=0.9, summary="Mock comparison result"
-            )
-
-    return class_mocker.patch(
-        "comparison.tasks.COMPARATOR_DISPATCHER",
-        {"intiim": MockComparator},
-    )
-
-
-@pytest.fixture(scope="class")
-def mock_no_comparator(class_mocker: MockerFixture) -> MockerFixture:
-    return class_mocker.patch(
-        "comparison.tasks.COMPARATOR_DISPATCHER",
-        {},
-    )
-
-
-@pytest.fixture(scope="class")
-def task_settings_one_by_one(db_session: DatabaseSession) -> TaskSettings:
-    settings = TaskSettings(
-        progress_update_interval=1,
-        indexing_batch_size=1,
-    )
-    return Settings.save(
-        db_session,
-        SettingsScope.Tasks,
-        settings,
-        TaskSettings,
-    )
-
-
-@pytest.fixture(scope="class")
-def comparison(
-    db_session: DatabaseSession,
-    main_catalog_record: CatalogRecord,
-    authority_catalog_record: CatalogRecord,
-) -> Comparison:
-    return Comparison(
-        main_record_id=main_catalog_record.id,
-        comparator="intiim",
-        other_record_id=authority_catalog_record.id,
-        result={"overall_score": 0.9, "summary": "Mock comparison result"},
-    ).save(db_session)
-
-
-@pytest.mark.usefixtures(
-    "tasks_client",
-    "authority_link",
-    "comparison_settings",
-    "task",
-    "mock_comparator_result",
-)
 class TestComparisonTask:
     @pytest.mark.asyncio
     async def test_resulting_in_new_comparison(
         self,
         db_session: DatabaseSession,
+        tasks_client,
+        authority_link,
+        comparison_settings,
         task: Task,
+        mock_comparator_result,
     ):
         from comparison.tasks import compare_records
 
@@ -207,20 +206,17 @@ class TestComparisonTask:
         )
 
 
-@pytest.mark.usefixtures(
-    "tasks_client",
-    "authority_link",
-    "comparison_settings",
-    "task",
-    "mock_comparator_result",
-    "comparison",
-)
 class TestComparisonTaskWithExistingComparison:
     @pytest.mark.asyncio
     async def test_resulting_in_new_comparison(
         self,
         db_session: DatabaseSession,
+        tasks_client,
+        authority_link,
+        comparison_settings,
         task: Task,
+        mock_comparator_result,
+        comparison,
     ):
         from comparison.tasks import compare_records
 
@@ -236,19 +232,16 @@ class TestComparisonTaskWithExistingComparison:
         )
 
 
-@pytest.mark.usefixtures(
-    "tasks_client",
-    "main_catalog_record",
-    "comparison_settings",
-    "task",
-    "mock_comparator_result",
-)
 class TestComparisonTaskWithoutExistingAuthorityLink:
     @pytest.mark.asyncio
     async def test_resulting_in_new_comparison(
         self,
         db_session: DatabaseSession,
+        tasks_client,
+        main_catalog_record,
+        comparison_settings,
         task: Task,
+        mock_comparator_result,
     ):
         from comparison.tasks import compare_records
 
@@ -264,46 +257,49 @@ class TestComparisonTaskWithoutExistingAuthorityLink:
         )
 
 
-@pytest.mark.usefixtures(
-    "tasks_client",
-    "main_catalog_record",
-    "task",
-    "mock_comparator_result",
-)
 class TestComparisonTaskNoSettingsFound:
     @pytest.mark.asyncio
-    async def test_no_linker_settings_found(self, task: Task):
+    async def test_no_linker_settings_found(
+        self,
+        db_session,
+        tasks_client,
+        main_catalog_record,
+        task: Task,
+        mock_comparator_result,
+    ):
         from comparison.tasks import compare_records
 
         await compare_records(task.task_id)
 
 
-@pytest.mark.usefixtures(
-    "tasks_client",
-    "main_catalog_record",
-    "comparison_settings",
-    "task",
-    "mock_no_comparator",
-)
 class TestComparisonTaskNoComparatorFound:
     @pytest.mark.asyncio
-    async def test_no_comparator_found(self, task: Task):
+    async def test_no_comparator_found(
+        self,
+        db_session,
+        tasks_client,
+        main_catalog_record,
+        comparison_settings,
+        task: Task,
+        mock_no_comparator,
+    ):
         from comparison.tasks import compare_records
 
         await compare_records(task.task_id)
 
 
-@pytest.mark.usefixtures(
-    "tasks_client",
-    "authority_link",
-    "comparison_settings",
-    "task",
-    "mock_comparator_result",
-    "task_settings_one_by_one",
-)
 class TestComparisonTaskIndexingOneByOne:
     @pytest.mark.asyncio
-    async def test_indexing_one_by_one(self, task: Task):
+    async def test_indexing_one_by_one(
+        self,
+        db_session,
+        tasks_client,
+        authority_link,
+        comparison_settings,
+        task: Task,
+        mock_comparator_result,
+        task_settings_one_by_one,
+    ):
         from comparison.tasks import compare_records
 
         await compare_records(task.task_id)

@@ -11,11 +11,9 @@ from adapters.database import DatabaseSession
 from adapters.tasks import enqueue_task
 from authority_linking.models import AuthorityLinkingSettings
 from catalog_records.models import CatalogSettings
-from comparison.models import ComparisonSettings
 from entities.settings import Settings, SettingsScope
 from entities.task import Task, TaskSchema, TaskType
 from settings.models import SETTINGS_MODEL_DISPATCHER
-from validation.models import ValidationSettings
 
 from .models import AuthorityLinkerInfo, SystemInfo
 
@@ -36,9 +34,23 @@ def get_available_bases(db_session: DatabaseSession) -> List[str]:
     return [client.base for client in settings.clients] if settings else []
 
 
+def _get_enabled_tools(
+    db_session: DatabaseSession, scope: SettingsScope
+) -> List[str]:
+    settings = get_settings(scope, db_session)
+    if not settings:
+        return []
+
+    enabled = []
+    for name, value in settings.model_dump(by_alias=True).items():
+        if value is not None:
+            enabled.append(name)
+    return enabled
+
+
 async def get_enabled_authority_linkers(
     db_session: DatabaseSession,
-) -> AuthorityLinkerInfo:
+) -> List[AuthorityLinkerInfo]:
     settings: AuthorityLinkingSettings = get_settings(
         SettingsScope.AuthorityLinking, db_session
     )
@@ -47,49 +59,29 @@ async def get_enabled_authority_linkers(
         return []
 
     linkers = []
+    for name, config_obj in settings.model_dump(by_alias=True).items():
+        if config_obj is None:
+            continue
 
-    if settings.knihovny_cz is not None:
-        target_bases = await AUTHORITY_LINKER_DISPATCHER[
-            AuthorityLinker.KnihovnyCz
-        ].get_target_bases(settings.knihovny_cz)
+        linker_enum = AuthorityLinker(name)
+        linker_cls = AUTHORITY_LINKER_DISPATCHER.get(linker_enum)
+        if not linker_cls:
+            continue
 
-        linkers.append(
-            AuthorityLinkerInfo(name="knihovny-cz", target_bases=target_bases)
+        target_bases = await linker_cls.get_target_bases(
+            linker_cls.config_model.model_validate(config_obj)
         )
+        linkers.append(AuthorityLinkerInfo(name=name, target_bases=target_bases))
 
     return linkers
 
 
 def get_enabled_comparators(db_session: DatabaseSession) -> List[str]:
-    settings: ComparisonSettings = get_settings(
-        SettingsScope.Comparison, db_session
-    )
-
-    if not settings:
-        return []
-
-    comparators = []
-
-    if settings.intiim is not None:
-        comparators.append("intiim")
-
-    return comparators
+    return _get_enabled_tools(db_session, SettingsScope.Comparison)
 
 
 def get_enabled_validators(db_session: DatabaseSession) -> List[str]:
-    settings: ValidationSettings = get_settings(
-        SettingsScope.Validation, db_session
-    )
-
-    if not settings:
-        return []
-
-    validators = []
-
-    if settings.kramerius_links is not None:
-        validators.append("kramerius-links")
-
-    return validators
+    return _get_enabled_tools(db_session, SettingsScope.Validation)
 
 
 async def get_system_info(db_session: DatabaseSession) -> SystemInfo:

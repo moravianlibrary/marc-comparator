@@ -18,7 +18,7 @@ from entities.settings import Settings, SettingsScope
 from entities.task import Task, TaskType
 from entities.validation import Validation
 from tasks.models import TaskSettings
-from tests.integration.conftest import (
+from tests.conftest import (
     assert_response,
     load_test_json,
     load_test_record,
@@ -26,10 +26,11 @@ from tests.integration.conftest import (
 from validation.models import ValidationSettings, ValidationTaskData
 
 
-@pytest.fixture(scope="class")
-def validation_settings(
-    db_session: DatabaseSession,
-) -> Settings:
+# --- Fixtures ---
+
+
+@pytest.fixture(scope="function")
+def validation_settings(db_session: DatabaseSession) -> Settings:
     test_settings = load_test_json("validation_settings.json")
     return Settings.save(
         db_session,
@@ -39,17 +40,107 @@ def validation_settings(
     )
 
 
-@pytest.mark.usefixtures(
-    "db_session",
-    "indexer_session",
-    "client",
-    "user",
-    "tasks_client",
-    "validation_settings",
-)
+@pytest_asyncio.fixture(scope="function")
+async def catalog_record(
+    db_session: DatabaseSession, indexer_session
+) -> CatalogRecord:
+    record = CatalogRecord(
+        base="MZK01",
+        system_number="VALIDATION-TEST",
+        marc=load_test_record("MZK01-001217709.mrc")._marc,
+    ).save(db_session)
+    db_session.flush()
+    await record.index(wait_for=True)
+    return record
+
+
+@pytest.fixture(scope="function")
+def task(db_session: DatabaseSession, user: TokenData) -> Task:
+    return Task(
+        name="Validation test task",
+        type=TaskType.ValidateRecords,
+        created_by=user.user_id,
+        data=ValidationTaskData(
+            validators=["kramerius-links"],
+            query={"match_all": {}},
+        ).model_dump(mode="json"),
+    ).save(db_session)
+
+
+@pytest.fixture(scope="function")
+def mock_validator_result(mocker: MockerFixture) -> MockerFixture:
+    class MockValidator(BaseValidator):
+        async def run(self, record) -> List[ValidationResult]:
+            return [
+                ValidationResult(
+                    target=ValidationTarget(tag="001"),
+                    status=ValidityStatus.Valid,
+                    reason="Mock validation passed",
+                )
+            ]
+
+    return mocker.patch(
+        "validation.tasks.VALIDATOR_DISPATCHER",
+        {"kramerius-links": MockValidator},
+    )
+
+
+@pytest.fixture(scope="function")
+def mock_no_validator(mocker: MockerFixture) -> MockerFixture:
+    return mocker.patch(
+        "validation.tasks.VALIDATOR_DISPATCHER",
+        {},
+    )
+
+
+@pytest.fixture(scope="function")
+def task_settings_one_by_one(db_session: DatabaseSession) -> TaskSettings:
+    settings = TaskSettings(
+        progress_update_interval=1,
+        indexing_batch_size=1,
+    )
+    return Settings.save(
+        db_session,
+        SettingsScope.Tasks,
+        settings,
+        TaskSettings,
+    )
+
+
+@pytest.fixture(scope="function")
+def validation(
+    db_session: DatabaseSession,
+    catalog_record: CatalogRecord,
+) -> Validation:
+    validation = Validation(
+        catalog_record_id=catalog_record.id,
+        validator="kramerius-links",
+        result={
+            "target": {"tag": "001"},
+            "status": "valid",
+            "reason": "Mock validation passed",
+        },
+    )
+    db_session.add(validation)
+    db_session.commit()
+    db_session.refresh(validation)
+    return validation
+
+
+# --- Test classes ---
+
+
 class TestValidationEndpoints:
     @pytest.mark.asyncio
-    async def test_validation_task_creation(self, client: AsyncClient):
+    async def test_validation_task_creation(
+        self,
+        db_session,
+        indexer_session,
+        user,
+        tasks_client,
+        validation_settings,
+        client: AsyncClient,
+    ):
         assert_response(
             await client.post(
                 "/validation/task",
@@ -76,108 +167,16 @@ class TestValidationEndpoints:
         )
 
 
-@pytest_asyncio.fixture(scope="class")
-async def catalog_record(
-    db_session: DatabaseSession, indexer_session
-) -> CatalogRecord:
-    record = CatalogRecord(
-        base="MZK01",
-        system_number="VALIDATION-TEST",
-        marc=load_test_record("MZK01-001217709.mrc")._marc,
-    ).save(db_session)
-    db_session.flush()
-    await record.index(wait_for=True)
-    return record
-
-
-@pytest.fixture(scope="class")
-def task(db_session: DatabaseSession, user: TokenData) -> Task:
-    return Task(
-        name="Validation test task",
-        type=TaskType.ValidateRecords,
-        created_by=user.user_id,
-        data=ValidationTaskData(
-            validators=["kramerius-links"],
-            query={"match_all": {}},
-        ).model_dump(mode="json"),
-    ).save(db_session)
-
-
-@pytest.fixture(scope="class")
-def mock_validator_result(class_mocker: MockerFixture) -> MockerFixture:
-    class MockValidator(BaseValidator):
-        async def run(self, record) -> List[ValidationResult]:
-            return [
-                ValidationResult(
-                    target=ValidationTarget(tag="001"),
-                    status=ValidityStatus.Valid,
-                    reason="Mock validation passed",
-                )
-            ]
-
-    return class_mocker.patch(
-        "validation.tasks.VALIDATOR_DISPATCHER",
-        {"kramerius-links": MockValidator},
-    )
-
-
-@pytest.fixture(scope="class")
-def mock_no_validator(class_mocker: MockerFixture) -> MockerFixture:
-    return class_mocker.patch(
-        "validation.tasks.VALIDATOR_DISPATCHER",
-        {},
-    )
-
-
-@pytest.fixture(scope="class")
-def task_settings_one_by_one(db_session: DatabaseSession) -> TaskSettings:
-    settings = TaskSettings(
-        progress_update_interval=1,
-        indexing_batch_size=1,
-    )
-    return Settings.save(
-        db_session,
-        SettingsScope.Tasks,
-        settings,
-        TaskSettings,
-    )
-
-
-@pytest.fixture(scope="class")
-def validation(
-    db_session: DatabaseSession,
-    catalog_record: CatalogRecord,
-) -> Validation:
-    validation = Validation(
-        catalog_record_id=catalog_record.id,
-        validator="kramerius-links",
-        result={
-            "target": {"tag": "001"},
-            "status": "valid",
-            "reason": "Mock validation passed",
-        },
-    )
-
-    db_session.add(validation)
-    db_session.commit()
-    db_session.refresh(validation)
-
-    return validation
-
-
-@pytest.mark.usefixtures(
-    "tasks_client",
-    "catalog_record",
-    "validation_settings",
-    "task",
-    "mock_validator_result",
-)
 class TestValidationTask:
     @pytest.mark.asyncio
     async def test_resulting_in_new_validation(
         self,
         db_session: DatabaseSession,
+        tasks_client,
+        catalog_record,
+        validation_settings,
         task: Task,
+        mock_validator_result,
     ):
         from validation.tasks import validate_records
 
@@ -193,21 +192,17 @@ class TestValidationTask:
         )
 
 
-@pytest.mark.usefixtures(
-    "tasks_client",
-    "catalog_record",
-    "validation_settings",
-    "task",
-    "mock_validator_result",
-    "validation",
-    "indexer_session",
-)
 class TestValidationTaskWithExistingValidation:
     @pytest.mark.asyncio
     async def test_resulting_in_new_comparison(
         self,
         db_session: DatabaseSession,
+        tasks_client,
+        catalog_record,
+        validation_settings,
         task: Task,
+        mock_validator_result,
+        validation,
     ):
         from validation.tasks import validate_records
 
@@ -223,49 +218,49 @@ class TestValidationTaskWithExistingValidation:
         )
 
 
-@pytest.mark.usefixtures(
-    "tasks_client",
-    "catalog_record",
-    "task",
-    "mock_validator_result",
-    "indexer_session",
-)
 class TestValidationTaskNoSettingsFound:
     @pytest.mark.asyncio
-    async def test_no_validator_settings_found(self, task: Task):
+    async def test_no_validator_settings_found(
+        self,
+        db_session,
+        tasks_client,
+        catalog_record,
+        task: Task,
+        mock_validator_result,
+    ):
         from validation.tasks import validate_records
 
         await validate_records(task.task_id)
 
 
-@pytest.mark.usefixtures(
-    "tasks_client",
-    "catalog_record",
-    "validation_settings",
-    "task",
-    "mock_no_validator",
-    "indexer_session",
-)
 class TestValidationTaskNoValidatorFound:
     @pytest.mark.asyncio
-    async def test_no_validator_found(self, task: Task):
+    async def test_no_validator_found(
+        self,
+        db_session,
+        tasks_client,
+        catalog_record,
+        validation_settings,
+        task: Task,
+        mock_no_validator,
+    ):
         from validation.tasks import validate_records
 
         await validate_records(task.task_id)
 
 
-@pytest.mark.usefixtures(
-    "tasks_client",
-    "catalog_record",
-    "validation_settings",
-    "task",
-    "mock_validator_result",
-    "task_settings_one_by_one",
-    "indexer_session",
-)
 class TestValidationTaskIndexingOneByOne:
     @pytest.mark.asyncio
-    async def test_indexing_one_by_one(self, task: Task):
+    async def test_indexing_one_by_one(
+        self,
+        db_session,
+        tasks_client,
+        catalog_record,
+        validation_settings,
+        task: Task,
+        mock_validator_result,
+        task_settings_one_by_one,
+    ):
         from validation.tasks import validate_records
 
         await validate_records(task.task_id)

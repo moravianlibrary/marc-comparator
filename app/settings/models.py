@@ -14,6 +14,7 @@ SETTINGS_MODEL_DISPATCHER: Dict[SettingsScope, type[SettingsSchema]] = {
     SettingsScope.AuthorityLinking: AuthorityLinkingSettings,
     SettingsScope.Comparison: ComparisonSettings,
     SettingsScope.Validation: ValidationSettings,
+    SettingsScope.ProcessRecords: ProcessRecordsSettings,
 }
 
 

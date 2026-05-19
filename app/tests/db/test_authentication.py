@@ -1,14 +1,23 @@
+import time
+
+import jwt
 import pytest
 from httpx import AsyncClient
 
 from adapters.database import DatabaseSession
 from auth.models import RegisterUserRequest
-from auth.service import get_password_hash, register_user
+from auth.service import (
+    create_access_token,
+    get_password_hash,
+    register_user,
+    verify_token,
+)
+from config import config
 from entities.role import Role
-from tests.integration.conftest import assert_response
+from tests.conftest import assert_response
 
 
-@pytest.fixture(scope="class")
+@pytest.fixture(scope="function")
 def test_user(db_session: DatabaseSession):
     Role.create_default_roles(db_session)
 
@@ -23,17 +32,11 @@ def test_user(db_session: DatabaseSession):
     )
 
 
-@pytest.mark.usefixtures(
-    "db_session",
-    "indexer_session",
-    "client",
-    "user",
-    "test_user",
-    "tasks_client",
-)
 class TestAuthenticationEndpoints:
     @pytest.mark.asyncio
-    async def test_user_registration(self, client: AsyncClient):
+    async def test_user_registration(
+        self, db_session, user, client: AsyncClient, test_user
+    ):
         assert_response(
             await client.post(
                 "/auth/sign-up",
@@ -48,7 +51,9 @@ class TestAuthenticationEndpoints:
         )
 
     @pytest.mark.asyncio
-    async def test_user_registration_existing_email(self, client: AsyncClient):
+    async def test_user_registration_existing_email(
+        self, db_session, user, client: AsyncClient, test_user
+    ):
         assert_response(
             await client.post(
                 "/auth/sign-up",
@@ -64,7 +69,9 @@ class TestAuthenticationEndpoints:
         )
 
     @pytest.mark.asyncio
-    async def test_user_login(self, client: AsyncClient):
+    async def test_user_login(
+        self, db_session, user, client: AsyncClient, test_user
+    ):
         assert_response(
             await client.post(
                 "/auth/login",
@@ -82,7 +89,9 @@ class TestAuthenticationEndpoints:
         )
 
     @pytest.mark.asyncio
-    async def test_user_login_invalid_username(self, client: AsyncClient):
+    async def test_user_login_invalid_username(
+        self, db_session, user, client: AsyncClient, test_user
+    ):
         assert_response(
             await client.post(
                 "/auth/login",
@@ -96,7 +105,9 @@ class TestAuthenticationEndpoints:
         )
 
     @pytest.mark.asyncio
-    async def test_user_login_invalid_password(self, client: AsyncClient):
+    async def test_user_login_invalid_password(
+        self, db_session, user, client: AsyncClient, test_user
+    ):
         assert_response(
             await client.post(
                 "/auth/login",
@@ -110,7 +121,9 @@ class TestAuthenticationEndpoints:
         )
 
     @pytest.mark.asyncio
-    async def test_user_login_invalid_hash(self, client: AsyncClient):
+    async def test_user_login_invalid_hash(
+        self, db_session, user, client: AsyncClient, test_user
+    ):
         assert_response(
             await client.post(
                 "/auth/login",
@@ -124,7 +137,9 @@ class TestAuthenticationEndpoints:
         )
 
     @pytest.mark.asyncio
-    async def test_get_current_user(self, client: AsyncClient):
+    async def test_get_current_user(
+        self, db_session, user, client: AsyncClient, test_user
+    ):
         assert_response(
             await client.get("/auth/me"),
             200,
@@ -156,16 +171,11 @@ class TestAuthenticationEndpoints:
         )
 
 
-@pytest.mark.usefixtures(
-    "db_session",
-    "indexer_session",
-    "client",
-    "test_user",
-    "tasks_client",
-)
 class TestAuthenticationEndpointsUnauthenticated:
     @pytest.mark.asyncio
-    async def test_get_current_user(self, client: AsyncClient):
+    async def test_get_current_user(
+        self, db_session, client: AsyncClient, test_user
+    ):
         response = await client.post(
             "/auth/login",
             data={
@@ -192,7 +202,9 @@ class TestAuthenticationEndpointsUnauthenticated:
         )
 
     @pytest.mark.asyncio
-    async def test_get_current_user_unauthenticated(self, client: AsyncClient):
+    async def test_get_current_user_unauthenticated(
+        self, db_session, client: AsyncClient
+    ):
         assert_response(
             await client.get("/auth/me"),
             401,
@@ -200,7 +212,9 @@ class TestAuthenticationEndpointsUnauthenticated:
         )
 
     @pytest.mark.asyncio
-    async def test_get_current_user_invalid_token(self, client: AsyncClient):
+    async def test_get_current_user_invalid_token(
+        self, db_session, client: AsyncClient
+    ):
         assert_response(
             await client.get(
                 "/auth/me", headers={"Authorization": "Bearer invalidtoken"}
@@ -208,3 +222,72 @@ class TestAuthenticationEndpointsUnauthenticated:
             401,
             {"detail": "Invalid token"},
         )
+
+    @pytest.mark.asyncio
+    async def test_get_current_user_expired_token(
+        self, db_session, client: AsyncClient, test_user
+    ):
+        """A token that has already expired should be rejected."""
+        expired_payload = {
+            "sub": "test.user@example.com",
+            "id": "00000000-0000-0000-0000-000000000000",
+            "exp": time.time() - 60,  # expired 60s ago
+        }
+        expired_token = jwt.encode(
+            expired_payload,
+            config.auth.secret_key,
+            algorithm=config.auth.algorithm,
+        )
+        assert_response(
+            await client.get(
+                "/auth/me",
+                headers={"Authorization": f"Bearer {expired_token}"},
+            ),
+            401,
+            {"detail": "Invalid token"},
+        )
+
+    @pytest.mark.asyncio
+    async def test_get_current_user_token_missing_id_claim(
+        self, db_session, client: AsyncClient, test_user
+    ):
+        """A token with no 'id' claim should still decode but return user_id=None."""
+        from datetime import datetime, timedelta, timezone
+
+        payload = {
+            "sub": "test.user@example.com",
+            "exp": datetime.now(timezone.utc) + timedelta(minutes=30),
+        }
+        token = jwt.encode(
+            payload, config.auth.secret_key, algorithm=config.auth.algorithm
+        )
+        # verify_token should succeed but TokenData.user_id will be None
+        token_data = verify_token(token)
+        assert token_data.user_id is None
+
+
+class TestAuthService:
+    def test_verify_token_valid(self, db_session, test_user):
+        from datetime import timedelta
+        from uuid import uuid4
+
+        uid = uuid4()
+        token = create_access_token(
+            "test@example.com", uid, timedelta(minutes=5)
+        )
+        token_data = verify_token(token)
+        assert token_data.user_id == str(uid)
+
+    def test_verify_token_invalid(self, db_session):
+        from auth.exceptions import AuthenticationError
+
+        with pytest.raises(AuthenticationError):
+            verify_token("not.a.valid.token")
+
+    def test_password_hash_roundtrip(self):
+        from auth.service import get_password_hash, verify_password
+
+        password = "testPassword123!"
+        hashed = get_password_hash(password)
+        assert verify_password(password, hashed)
+        assert not verify_password("wrongPassword", hashed)

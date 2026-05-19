@@ -52,7 +52,7 @@ def get_traceback_lines(
 
     if (
         Permission.ManageAllTasks not in user.permissions
-        and task.created_by != user_id
+        and str(task.created_by) != user_id
     ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -76,7 +76,7 @@ async def revoke_task(
 
     if (
         Permission.ManageAllTasks not in user.permissions
-        and task.created_by != user_id
+        and str(task.created_by) != user_id
     ):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,

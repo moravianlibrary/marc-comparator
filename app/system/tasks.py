@@ -3,13 +3,13 @@ from sqlalchemy.orm.attributes import InstrumentedAttribute
 
 from adapters.database import Base
 from adapters.indexer import IndexerSchema
-from adapters.tasks import ManagedTask, TaskContext
+from adapters.tasks import ManagedTask
 from entities.catalog_record import CatalogRecord
 from entities.task import Task
 
 
 async def _recreate_index(
-    ctx: TaskContext,
+    ctx: ManagedTask,
     db_model: type[Base],
     indexer_schema: type[IndexerSchema],
     order_by_column: InstrumentedAttribute,

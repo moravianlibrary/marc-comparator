@@ -17,24 +17,22 @@ from entities.authority_link import AuthorityLink as AuthorityLinkEntity
 from entities.catalog_record import CatalogRecord
 from entities.settings import Settings, SettingsScope
 from entities.task import Task, TaskType
-from tests.integration.conftest import (
+from tests.conftest import (
     assert_response,
     load_test_json,
     load_test_record,
 )
 
 
-@pytest.mark.usefixtures(
-    "db_session",
-    "indexer_session",
-    "client",
-    "user",
-    "tasks_client",
-)
 class TestAuthorityLinkingEndpoints:
     @pytest.mark.asyncio
     async def test_authority_linking_task_creation(
-        self, db_session: DatabaseSession, client: AsyncClient
+        self,
+        db_session: DatabaseSession,
+        indexer_session,
+        user,
+        tasks_client,
+        client: AsyncClient,
     ):
         test_settings = load_test_json("authority_linking_settings.json")
 
@@ -72,7 +70,10 @@ class TestAuthorityLinkingEndpoints:
         )
 
 
-@pytest_asyncio.fixture(scope="class")
+# --- Shared fixtures for task execution tests ---
+
+
+@pytest_asyncio.fixture(scope="function")
 async def catalog_record(
     db_session: DatabaseSession, indexer_session
 ) -> CatalogRecord:
@@ -82,12 +83,11 @@ async def catalog_record(
         marc=load_test_record("MZK01-001217709.mrc")._marc,
     ).save(db_session)
     await record.index(wait_for=True)
+    return record
 
 
-@pytest.fixture(scope="class")
-def authority_linking_settings(
-    db_session: DatabaseSession,
-) -> Settings:
+@pytest.fixture(scope="function")
+def authority_linking_settings(db_session: DatabaseSession) -> Settings:
     return Settings.save(
         db_session,
         SettingsScope.AuthorityLinking,
@@ -98,7 +98,7 @@ def authority_linking_settings(
     )
 
 
-@pytest.fixture(scope="class")
+@pytest.fixture(scope="function")
 def task(db_session: DatabaseSession, user: TokenData) -> Task:
     return Task(
         name="Authority linking for base 'SKC'",
@@ -112,10 +112,8 @@ def task(db_session: DatabaseSession, user: TokenData) -> Task:
     ).save(db_session)
 
 
-@pytest.fixture(scope="class")
-def authority_catalog_record(
-    db_session: DatabaseSession,
-) -> CatalogRecord:
+@pytest.fixture(scope="function")
+def authority_catalog_record(db_session: DatabaseSession) -> CatalogRecord:
     return CatalogRecord(
         base="SKC",
         system_number="001217729",
@@ -123,10 +121,8 @@ def authority_catalog_record(
     ).save(db_session)
 
 
-@pytest.fixture(scope="class")
-def authority_link(
-    db_session: DatabaseSession,
-) -> AuthorityLinkEntity:
+@pytest.fixture(scope="function")
+def authority_link(db_session: DatabaseSession) -> AuthorityLinkEntity:
     main_record_id = CatalogRecord.generate_id("MZK01", "001217709")
     authority_record_id = CatalogRecord.generate_id("SKC", "001217729")
 
@@ -179,17 +175,17 @@ def mock_no_linker(mocker: MockerFixture) -> MockerFixture:
     )
 
 
-@pytest.mark.usefixtures(
-    "tasks_client",
-    "catalog_record",
-    "authority_linking_settings",
-    "task",
-)
+# --- Task execution test classes ---
+
+
 class TestAuthorityLinkingTask:
     @pytest.mark.asyncio
     async def test_new_link_found(
         self,
         db_session: DatabaseSession,
+        tasks_client,
+        catalog_record,
+        authority_linking_settings,
         task: Task,
         mock_linker_with_link: MockerFixture,
     ):
@@ -206,7 +202,13 @@ class TestAuthorityLinkingTask:
 
     @pytest.mark.asyncio
     async def test_no_link_found(
-        self, task: Task, mock_linker_with_no_link: MockerFixture
+        self,
+        db_session,
+        tasks_client,
+        catalog_record,
+        authority_linking_settings,
+        task: Task,
+        mock_linker_with_no_link: MockerFixture,
     ):
         from authority_linking.tasks import authority_linking
 
@@ -214,25 +216,27 @@ class TestAuthorityLinkingTask:
 
     @pytest.mark.asyncio
     async def test_no_linker_found(
-        self, task: Task, mock_no_linker: MockerFixture
+        self,
+        db_session,
+        tasks_client,
+        catalog_record,
+        authority_linking_settings,
+        task: Task,
+        mock_no_linker: MockerFixture,
     ):
         from authority_linking.tasks import authority_linking
 
         await authority_linking(task.task_id)
 
 
-@pytest.mark.usefixtures(
-    "tasks_client",
-    "catalog_record",
-    "authority_linking_settings",
-    "task",
-    "authority_catalog_record",
-)
 class TestAuthorityLinkingTaskExistingRecord:
     @pytest.mark.asyncio
     async def test_new_link_found_with_existing_record(
         self,
         db_session: DatabaseSession,
+        tasks_client,
+        catalog_record,
+        authority_linking_settings,
         task: Task,
         authority_catalog_record: CatalogRecord,
         mock_linker_with_link: MockerFixture,
@@ -251,21 +255,17 @@ class TestAuthorityLinkingTaskExistingRecord:
         )
 
 
-@pytest.mark.usefixtures(
-    "tasks_client",
-    "catalog_record",
-    "authority_linking_settings",
-    "task",
-    "authority_catalog_record",
-    "authority_link",
-)
 class TestAuthorityLinkingTaskExistingRecordExistingLink:
     @pytest.mark.asyncio
     async def test_existing_link_found_with_existing_record(
         self,
         db_session: DatabaseSession,
+        tasks_client,
+        catalog_record,
+        authority_linking_settings,
         task: Task,
         authority_catalog_record: CatalogRecord,
+        authority_link,
         mock_linker_with_link: MockerFixture,
     ):
         latest_sync = authority_catalog_record.latest_sync
@@ -282,15 +282,15 @@ class TestAuthorityLinkingTaskExistingRecordExistingLink:
         )
 
 
-@pytest.mark.usefixtures(
-    "tasks_client",
-    "catalog_record",
-    "task",
-)
 class TestAuthorityLinkingTaskNoLinkerSettings:
     @pytest.mark.asyncio
     async def test_no_linker_settings_found(
-        self, task: Task, mock_linker_with_no_link: MockerFixture
+        self,
+        db_session,
+        tasks_client,
+        catalog_record,
+        task: Task,
+        mock_linker_with_no_link: MockerFixture,
     ):
         from authority_linking.tasks import authority_linking
 

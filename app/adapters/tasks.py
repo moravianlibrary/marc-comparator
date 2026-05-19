@@ -42,13 +42,25 @@ LEVEL_NO_TO_SEVERITY = {
 class TaskHandler(logging.Handler):
     """
     Logging handler that writes messages to a Task.traceback field.
+    Batches commits to reduce DB overhead — flushes every `flush_interval`
+    entries, on severity escalation, and on close.
     """
+
+    FLUSH_INTERVAL = 10
 
     def __init__(self, db: Session, task: Task, level=logging.DEBUG):
         super().__init__(level)
         self.db_session = db
         self.task = task
         self.current_level = logging.INFO
+        self._pending = 0
+
+    def _commit(self):
+        try:
+            self.db_session.commit()
+        except Exception:
+            self.db_session.rollback()
+        self._pending = 0
 
     def emit(self, record: logging.LogRecord):
         msg = self.format(record)
@@ -60,17 +72,24 @@ class TaskHandler(logging.Handler):
         else:
             self.task.traceback = entry
 
+        self._pending += 1
+        severity_changed = False
+
         if record.levelno > self.current_level:
             self.current_level = record.levelno
 
             severity = LEVEL_NO_TO_SEVERITY.get(record.levelno)
             if severity:
                 self.task.severity = severity
+                severity_changed = True
 
-        try:
-            self.db_session.commit()
-        except Exception:
-            self.db_session.rollback()
+        if severity_changed or self._pending >= self.FLUSH_INTERVAL:
+            self._commit()
+
+    def close(self):
+        if self._pending > 0:
+            self._commit()
+        super().close()
 
 
 class IndexerOperationsBase(Base):
@@ -477,6 +496,6 @@ async def revoke_task(task: Task, db_session: DatabaseSession) -> TaskSchema:
     task.finished_at = config.timestamp
 
     task.save(db_session)
-    await task.index(db_session)
+    await task.index()
 
     return TaskSchema.model_validate(task, from_attributes=True)

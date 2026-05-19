@@ -19,7 +19,8 @@ RUN apt-get update \
 # Copy SDK code
 COPY sdk/ /sdk/
 
-# Copy requirements and install
+# Install SDK and worker requirements
+RUN pip install --no-cache-dir /sdk/
 COPY app/requirements.worker.txt requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 

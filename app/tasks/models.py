@@ -15,5 +15,5 @@ class TaskSettings(SettingsSchema):
 
 
 class TracebackLinesRequestParams(BaseModel):
-    start_line: int | None = Field(default=None, alias="from")
-    end_line: int | None = Field(default=None, alias="to")
+    start_line: int | None = Field(default=None, alias="from", ge=0)
+    end_line: int | None = Field(default=None, alias="to", ge=0)
