@@ -1,3 +1,64 @@
-export function TaskSettingsForm({ data, onDirtyChange, onFormRef, onSubmit }: any) {
-  return <div>TaskSettingsForm placeholder</div>;
+import { useEffect } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useTranslation } from "react-i18next";
+import { taskSettingsSchema, type TaskSettingsFormValues } from "./schemas";
+import { Input } from "@/components/ui/input";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormDescription,
+  FormMessage,
+} from "@/components/ui/form";
+import type { TaskSettings } from "@/types/settings";
+
+interface Props {
+  data: TaskSettings;
+  onDirtyChange: (dirty: boolean) => void;
+  onFormRef: (ref: { submit: () => void; reset: () => void }) => void;
+  onSubmit: (data: TaskSettings) => void;
+}
+
+export function TaskSettingsForm({ data, onDirtyChange, onFormRef, onSubmit }: Props) {
+  const { t } = useTranslation("settings");
+
+  const form = useForm<TaskSettingsFormValues>({
+    resolver: zodResolver(taskSettingsSchema),
+    defaultValues: data,
+  });
+
+  useEffect(() => {
+    onFormRef({
+      submit: () => form.handleSubmit(onSubmit)(),
+      reset: () => form.reset(data),
+    });
+  }, [form, onSubmit, data, onFormRef]);
+
+  useEffect(() => {
+    onDirtyChange(form.formState.isDirty);
+  }, [form.formState.isDirty, onDirtyChange]);
+
+  return (
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(onSubmit)} className="max-w-md space-y-4">
+        <FormField
+          control={form.control}
+          name="progress_update_interval"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>{t("tasks-settings.progress-update-interval")}</FormLabel>
+              <FormDescription>{t("tasks-settings.progress-update-interval-description")}</FormDescription>
+              <FormControl>
+                <Input type="number" {...field} onChange={(e) => field.onChange(Number(e.target.value))} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+      </form>
+    </Form>
+  );
 }
