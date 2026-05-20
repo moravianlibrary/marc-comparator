@@ -98,13 +98,13 @@ class TestOIDCAuth:
     ):
         mocker.patch("config.config.oidc.enabled", True)
         mocker.patch(
-            "config.config.oidc.authorization_endpoint",
-            "https://keycloak.example.com/auth",
+            "config.config.oidc.issuer_url",
+            "https://keycloak.example.com/realms/test",
         )
         mocker.patch("config.config.oidc.client_id", "test-client")
         mocker.patch(
-            "config.config.oidc.redirect_uri",
-            "http://testserver/auth/oidc/callback",
+            "config.config.oidc.app_base_url",
+            "http://testserver",
         )
 
         response = await client.get(
