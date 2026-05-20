@@ -27,7 +27,12 @@ export const router = createBrowserRouter([
     children: [
       {
         index: true,
-        element: <div>Records placeholder (Plan 3)</div>,
+        lazy: async () => {
+          const { RecordsPage } = await import(
+            "@/features/records/records-page"
+          );
+          return { Component: RecordsPage };
+        },
       },
       {
         path: "tasks",
