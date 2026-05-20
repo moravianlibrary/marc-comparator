@@ -107,3 +107,73 @@ class SearchRecordsResponse(BaseModel):
     total: int
     page: int
     page_size: int
+
+
+class FacetFilter(BaseModel):
+    """Active filters for cross-filtering. Keys are field names, values are selected values."""
+    base: list[str] | None = None
+    is_deleted: bool | None = None
+    is_hidden: bool | None = None
+    is_processed: bool | None = None
+    type_of_record: list[str] | None = None
+    bibliographic_level: list[str] | None = None
+    comparators: list[str] | None = None
+    comparison_bases: list[str] | None = None
+    match_qualities: list[str] | None = None
+    validators: list[str] | None = None
+    validation_statuses: list[str] | None = None
+    authority_link_bases: list[str] | None = None
+    authority_link_linkers: list[str] | None = None
+    field_explanations: list[str] | None = None
+    validation_target_tags: list[str] | None = None
+    score_min: float | None = None
+    score_max: float | None = None
+
+
+class FacetsRequest(BaseModel):
+    filters: FacetFilter = FacetFilter()
+
+
+class FacetBucket(BaseModel):
+    key: str
+    count: int
+
+
+class FacetResult(BaseModel):
+    field: str
+    buckets: list[FacetBucket]
+
+
+class HistogramBucket(BaseModel):
+    min: float
+    max: float
+    count: int
+
+
+class HistogramResult(BaseModel):
+    field: str
+    buckets: list[HistogramBucket]
+
+
+class FacetsResponse(BaseModel):
+    facets: list[FacetResult]
+    histograms: list[HistogramResult]
+    total: int
+
+
+class FacetsPreviewRequest(BaseModel):
+    filters: FacetFilter = FacetFilter()
+    target_field: str
+
+
+class FacetsPreviewEntry(BaseModel):
+    """Facet distributions for all OTHER fields when target_field == target_value."""
+    target_value: str
+    facets: list[FacetResult]
+    histograms: list[HistogramResult]
+    total: int
+
+
+class FacetsPreviewResponse(BaseModel):
+    target_field: str
+    previews: list[FacetsPreviewEntry]

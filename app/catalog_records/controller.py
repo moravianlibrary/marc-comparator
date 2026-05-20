@@ -10,7 +10,12 @@ from entities.role import Permission
 from entities.task import TaskSchema
 
 from . import service
+from .facets import get_facets, get_facets_preview
 from .models import (
+    FacetsPreviewRequest,
+    FacetsPreviewResponse,
+    FacetsRequest,
+    FacetsResponse,
     FetchBatchOfRecordsData,
     FetchRecordData,
     SearchRecordsRequest,
@@ -33,6 +38,28 @@ async def search_records(
     db_session: DatabaseSessionDep,
 ):
     return pg_search_records(request, db_session)
+
+
+@router.post(
+    "/facets",
+    dependencies=[WithPermission(Permission.ReadRecords)],
+    response_model=FacetsResponse,
+)
+async def get_record_facets(
+    request: Annotated[FacetsRequest, Body()],
+):
+    return get_facets(request)
+
+
+@router.post(
+    "/facets-preview",
+    dependencies=[WithPermission(Permission.ReadRecords)],
+    response_model=FacetsPreviewResponse,
+)
+async def get_record_facets_preview(
+    request: Annotated[FacetsPreviewRequest, Body()],
+):
+    return get_facets_preview(request)
 
 
 @router.get(
