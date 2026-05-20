@@ -1,10 +1,12 @@
 import { Outlet } from "react-router-dom";
 import { useGetMe } from "@/hooks/use-auth";
+import { useWsEvents } from "@/hooks/use-ws-events";
 import { LockBanner } from "./lock-banner";
 import { MainBanner } from "./main-banner";
 
 export function AppLayout() {
   const { data: me, isLoading, isError } = useGetMe();
+  useWsEvents();
 
   if (isLoading) {
     return (
