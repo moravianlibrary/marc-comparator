@@ -2,6 +2,8 @@ import { useNavigate, Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslation } from "react-i18next";
+import { Moon, Sun } from "lucide-react";
+import { useTheme } from "next-themes";
 import { useSignUp } from "@/hooks/use-auth";
 import { signupSchema, type SignupFormValues } from "./schemas";
 import { Button } from "@/components/ui/button";
@@ -20,6 +22,7 @@ export function SignupPage() {
   const { t } = useTranslation("auth");
   const navigate = useNavigate();
   const signUp = useSignUp();
+  const { resolvedTheme, setTheme } = useTheme();
 
   const form = useForm<SignupFormValues>({
     resolver: zodResolver(signupSchema),
@@ -49,9 +52,23 @@ export function SignupPage() {
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-muted/50">
+    <div className="relative flex min-h-screen items-center justify-center bg-muted/50">
+      <Button
+        variant="ghost"
+        size="icon"
+        className="absolute right-4 top-4"
+        onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
+      >
+        <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+        <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+      </Button>
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
+          <img
+            src={resolvedTheme === "dark" ? "/marcomparator-logo-dark-text-transparent.png" : "/marcomparator-logo-transparent.png"}
+            alt="MARC Comparator"
+            className="mx-auto mb-4 h-16 w-auto"
+          />
           <CardTitle>{t("signup.title")}</CardTitle>
           <CardDescription>{t("signup.subtitle")}</CardDescription>
         </CardHeader>
