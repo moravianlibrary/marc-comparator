@@ -28,6 +28,8 @@ ALL_TABLES = [
     "comparisons",
     "validations",
     "catalog_records",
+    "marc_record_index",
+    "marc_sectors",
     "tasks",
     "settings",
     "user_roles",
@@ -75,6 +77,7 @@ async def db_engine(postgres_container):
     from entities.authority_link import AuthorityLink  # noqa: F401
     from entities.catalog_record import CatalogRecord  # noqa: F401
     from entities.comparison import Comparison  # noqa: F401
+    from entities.marc_sector import MarcRecordIndex, MarcSector  # noqa: F401
     from entities.validation import Validation  # noqa: F401
 
     engine = create_engine(postgres_container.get_connection_url())
@@ -125,6 +128,29 @@ def load_test_record(filename: str) -> MarcRecord:
     path = TEST_DATA_DIR / filename
     with path.open("rb") as f:
         return MarcRecord.from_mrc(f.read())
+
+
+def create_catalog_record(
+    db_session: DatabaseSession,
+    base: str,
+    system_number: str,
+    marc_record: MarcRecord,
+    **kwargs,
+):
+    """Create a CatalogRecord and store its MARC in sector storage."""
+    from adapters.marc_sectors import upsert_record_in_sector
+    from entities.catalog_record import CatalogRecord
+
+    record = CatalogRecord(base=base, system_number=system_number, **kwargs)
+    record.type_of_record = marc_record.leader_selector.type_of_record
+    record.bibliographic_level = marc_record.leader_selector.bibliographic_level
+    record.update_search_text_from(marc_record)
+    record.save(db_session)
+
+    upsert_record_in_sector(db_session, base, system_number, marc_record._marc)
+    db_session.flush()
+
+    return record
 
 
 # --------------------------------------------------------------------------

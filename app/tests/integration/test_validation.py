@@ -1,7 +1,6 @@
 from typing import List
 
 import pytest
-import pytest_asyncio
 from httpx import AsyncClient
 from marc_comparator.validators import (
     BaseValidator,
@@ -20,6 +19,7 @@ from entities.validation import Validation
 from tasks.models import TaskSettings
 from tests.conftest import (
     assert_response,
+    create_catalog_record,
     load_test_json,
     load_test_record,
 )
@@ -40,18 +40,14 @@ def validation_settings(db_session: DatabaseSession) -> Settings:
     )
 
 
-@pytest_asyncio.fixture(scope="function")
-async def catalog_record(
+@pytest.fixture(scope="function")
+def catalog_record(
     db_session: DatabaseSession,
 ) -> CatalogRecord:
-    record = CatalogRecord(
-        base="MZK01",
-        system_number="VALIDATION-TEST",
-        marc=load_test_record("MZK01-001217709.mrc")._marc,
-    ).save(db_session)
-    db_session.flush()
-    await record.index(wait_for=True)
-    return record
+    return create_catalog_record(
+        db_session, "MZK01", "000999002",
+        load_test_record("MZK01-001217709.mrc"),
+    )
 
 
 @pytest.fixture(scope="function")
@@ -62,7 +58,6 @@ def task(db_session: DatabaseSession, user: TokenData) -> Task:
         created_by=user.user_id,
         data=ValidationTaskData(
             validators=["kramerius-links"],
-            query={"match_all": {}},
         ).model_dump(mode="json"),
     ).save(db_session)
 
@@ -145,7 +140,6 @@ class TestValidationEndpoints:
                 "/validation/task",
                 json={
                     "validators": ["kramerius-links"],
-                    "query": {"match_all": {}},
                 },
             ),
             200,
@@ -184,7 +178,7 @@ class TestValidationTask:
         assert (
             len(
                 CatalogRecord.find_by_base_and_system_number(
-                    db_session, "MZK01", "VALIDATION-TEST"
+                    db_session, "MZK01", "000999002"
                 ).validations
             )
             == 1
@@ -210,7 +204,7 @@ class TestValidationTaskWithExistingValidation:
         assert (
             len(
                 CatalogRecord.find_by_base_and_system_number(
-                    db_session, "MZK01", "VALIDATION-TEST"
+                    db_session, "MZK01", "000999002"
                 ).validations
             )
             == 1

@@ -14,7 +14,7 @@ from config import config
 
 # Importing entities to register with the ORM
 from entities.catalog_record import CatalogRecord  # noqa: F401
-from entities.marc_sector import MarcSector  # noqa: F401
+from entities.marc_sector import MarcRecordIndex, MarcSector  # noqa: F401
 from entities.role import Role  # noqa: F401
 from entities.settings import Settings, SettingsScope
 from entities.task import Task, TaskSchema, TaskSeverity, TaskStatus, TaskType

@@ -13,11 +13,13 @@ from marc_comparator.authority_linkers import (
 from marcdantic import MarcRecord
 
 from adapters.database import DatabaseSession
+from adapters.marc_sectors import upsert_record_in_sector
 from adapters.tasks import (
     ManagedTask,
     handle_batch_progress_snippet,
     handle_final_batch_snippet,
 )
+from catalog_records.search import build_filtered_query
 from config import config
 from entities.authority_link import AuthorityLink
 from entities.catalog_record import CatalogRecord, CatalogRecordSource
@@ -152,9 +154,15 @@ def scenario_found_link_update(
 ) -> List[LinkActionResult]:
     """Found link matches existing link; update in place."""
     current_link.confidence = found_link.confidence
-    current_link.authority_record.marc = found_link.record._marc
-    current_link.authority_record.latest_sync = config.timestamp
-    current_link.authority_record.source_name = linker_instance.linker.value
+    authority_record = current_link.authority_record
+    authority_record.latest_sync = config.timestamp
+    authority_record.source_name = linker_instance.linker.value
+    authority_record.update_search_text_from(found_link.record)
+
+    upsert_record_in_sector(
+        db_session, authority_record.base,
+        authority_record.system_number, found_link.record._marc,
+    )
 
     current_link.save(db_session)
     return [
@@ -183,18 +191,21 @@ def scenario_found_link_replace(
         authority_record = CatalogRecord(
             base=found_link.base,
             system_number=found_link.system_number,
-            marc=found_link.record._marc,
             source_type=CatalogRecordSource.AuthorityLinker,
             source_name=linker_instance.linker.value,
         )
         results.append(LinkActionResult.CreatedAuthorityRecord)
     else:
-        authority_record.marc = found_link.record._marc
         authority_record.latest_sync = config.timestamp
         authority_record.source_name = linker_instance.linker.value
         results.append(LinkActionResult.UpdatedAuthorityRecord)
 
+    authority_record.update_search_text_from(found_link.record)
     authority_record.save(db_session)
+    upsert_record_in_sector(
+        db_session, found_link.base,
+        found_link.system_number, found_link.record._marc,
+    )
 
     new_link = AuthorityLink(
         main_record_id=catalog_record.id,
@@ -224,18 +235,21 @@ def scenario_found_link_create(
         authority_record = CatalogRecord(
             base=found_link.base,
             system_number=found_link.system_number,
-            marc=found_link.record._marc,
             source_type=CatalogRecordSource.AuthorityLinker,
             source_name=linker_instance.linker.value,
         )
         results.append(LinkActionResult.CreatedAuthorityRecord)
     else:
-        authority_record.marc = found_link.record._marc
         authority_record.latest_sync = config.timestamp
         authority_record.source_name = linker_instance.linker.value
         results.append(LinkActionResult.UpdatedAuthorityRecord)
 
+    authority_record.update_search_text_from(found_link.record)
     authority_record.save(db_session)
+    upsert_record_in_sector(
+        db_session, found_link.base,
+        found_link.system_number, found_link.record._marc,
+    )
 
     new_link = AuthorityLink(
         main_record_id=catalog_record.id,
@@ -322,11 +336,16 @@ async def authority_linking(task_id: str) -> None:
 
         counters: defaultdict[LinkActionResult, int] = defaultdict(int)
 
-        async for catalog_record in CatalogRecord.get_by_query(
-            ctx.db_session, data.query
-        ):
+        record_ids = [
+            r.id for r in build_filtered_query(
+                ctx.db_session, data.filters
+            ).with_entities(CatalogRecord.id).all()
+        ]
+
+        for record_id in record_ids:
+            catalog_record = ctx.db_session.get(CatalogRecord, record_id)
             try:
-                marc_record = MarcRecord.from_mrc(catalog_record.marc)
+                marc_record = catalog_record.get_record(ctx.db_session)
 
                 found_link, linker_instance = await find_best_link_for_record(
                     catalog_record,
@@ -347,14 +366,14 @@ async def authority_linking(task_id: str) -> None:
                 for result in results:
                     counters[result] += 1
 
-                await handle_batch_progress_snippet(ctx, catalog_record)
+                handle_batch_progress_snippet(ctx)
 
             except Exception as e:
                 ctx.logger.error(
                     f"Failed linking record {catalog_record.id}:\n{e}"
                 )
 
-        await handle_final_batch_snippet(ctx)
+        handle_final_batch_snippet(ctx)
 
         ctx.logger.info(
             "Finished authority linking, "

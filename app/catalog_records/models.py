@@ -42,6 +42,35 @@ class SyncRecordsData(BaseModel):
     from_date: datetime | None = None
 
 
+class RecordFilter(BaseModel):
+    text_query: str | None = None
+
+    # Scalar
+    bases: list[str] | None = None
+    type_of_record: list[str] | None = None
+    bibliographic_level: list[str] | None = None
+
+    # Boolean
+    hidden: bool | None = None
+    deleted: bool | None = None
+    processed: bool | None = None
+
+    # Relationship
+    authority_link_linkers: list[str] | None = None
+    authority_link_bases: list[str] | None = None
+    comparators: list[str] | None = None
+    comparison_bases: list[str] | None = None
+    match_qualities: list[str] | None = None
+    field_explanations: list[str] | None = None
+    validators: list[str] | None = None
+    validation_statuses: list[str] | None = None
+    validation_target_tags: list[str] | None = None
+
+    # Score range
+    score_min: float | None = None
+    score_max: float | None = None
+
+
 class SetRecordsVisibilityData(BaseModel):
     filters: RecordFilter = RecordFilter()
     visible: bool = False
@@ -58,24 +87,6 @@ class ProcessRecordsSettings(SettingsSchema):
     validators: List[Validator] = Field(
         default=[Validator.KrameriusLinks], min_length=1
     )
-
-
-class RecordFilter(BaseModel):
-    text_query: str | None = None
-    bases: list[str] | None = None
-    hidden: bool | None = None
-    deleted: bool | None = None
-    processed: bool | None = None
-    authority_link_linkers: list[str] | None = None
-    authority_link_bases: list[str] | None = None
-    comparators: list[str] | None = None
-    comparison_bases: list[str] | None = None
-    match_qualities: list[str] | None = None
-    validators: list[str] | None = None
-    validation_statuses: list[str] | None = None
-    validation_target_tags: list[str] | None = None
-    score_min: float | None = None
-    score_max: float | None = None
 
 
 class SearchRecordsRequest(BaseModel):
@@ -108,29 +119,8 @@ class SearchRecordsResponse(BaseModel):
     page_size: int
 
 
-class FacetFilter(BaseModel):
-    """Active filters for cross-filtering. Keys are field names, values are selected values."""
-    base: list[str] | None = None
-    is_deleted: bool | None = None
-    is_hidden: bool | None = None
-    is_processed: bool | None = None
-    type_of_record: list[str] | None = None
-    bibliographic_level: list[str] | None = None
-    comparators: list[str] | None = None
-    comparison_bases: list[str] | None = None
-    match_qualities: list[str] | None = None
-    validators: list[str] | None = None
-    validation_statuses: list[str] | None = None
-    authority_link_bases: list[str] | None = None
-    authority_link_linkers: list[str] | None = None
-    field_explanations: list[str] | None = None
-    validation_target_tags: list[str] | None = None
-    score_min: float | None = None
-    score_max: float | None = None
-
-
 class FacetsRequest(BaseModel):
-    filters: FacetFilter = FacetFilter()
+    filters: RecordFilter = RecordFilter()
 
 
 class FacetBucket(BaseModel):
@@ -161,7 +151,7 @@ class FacetsResponse(BaseModel):
 
 
 class FacetsPreviewRequest(BaseModel):
-    filters: FacetFilter = FacetFilter()
+    filters: RecordFilter = RecordFilter()
     target_field: str
 
 

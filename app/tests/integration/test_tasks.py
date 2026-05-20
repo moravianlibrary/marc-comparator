@@ -230,7 +230,7 @@ class TestDeleteTasks:
     ):
         response = await client.post(
             "/tasks/delete",
-            json={"query": {"match_all": {}}},
+            json={},
         )
         assert response.status_code == 200
         body = response.json()

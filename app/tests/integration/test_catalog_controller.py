@@ -7,7 +7,12 @@ from adapters.aleph_client_registry import AlephClientRegistry
 from adapters.database import DatabaseSession
 from entities.catalog_record import CatalogRecord
 from entities.task import Task
-from tests.conftest import assert_response, load_test_record, FAKE_USER_ID
+from tests.conftest import (
+    assert_response,
+    create_catalog_record,
+    load_test_record,
+    FAKE_USER_ID,
+)
 
 
 class TestEndpointsRO:
@@ -24,12 +29,12 @@ class TestEndpointsRO:
         assert_response(
             await client.post(
                 "/catalog-records/fetch",
-                json={"base": "TEST", "system_number": "123"},
+                json={"base": "TEST", "system_number": "000000123"},
             ),
             200,
             {
                 "task_id": "IGNORE",
-                "name": "Fetch catalog record TEST-123",
+                "name": "Fetch catalog record TEST-000000123",
                 "type": "FetchRecord",
                 "status": "Pending",
                 "severity": "Info",
@@ -83,27 +88,23 @@ class TestTasks:
         aleph_client_registry: AlephClientRegistry,
         fake_task: Task,
     ):
-        test_marc = load_test_record("MZK01-001217709.mrc")._marc
+        test_record = load_test_record("MZK01-001217709.mrc")
         client = aleph_client_registry.get("TEST")
         client.OAI.is_available.return_value = True
-        client.OAI.get_record.return_value = type(
-            "MarcRecord",
-            (),
-            {"_marc": test_marc},
-        )()
+        client.OAI.get_record.return_value = test_record
 
-        fake_task.data = {"base": "TEST", "system_number": "123"}
+        fake_task.data = {"base": "TEST", "system_number": "000000123"}
         db_session.commit()
 
         from catalog_records.tasks import fetch_record_task
 
         await fetch_record_task(str(fake_task.task_id))
 
-        record = CatalogRecord.get(db_session, "TEST-123")
+        record = CatalogRecord.get(db_session, "TEST-000000123")
         assert record is not None
         assert record.base == "TEST"
-        assert record.system_number == "123"
-        assert record.marc == test_marc
+        assert record.system_number == "000000123"
+        assert record.get_marc(db_session) == test_record._marc
 
     @pytest.mark.asyncio
     async def test_fetch_record_not_found(
@@ -137,7 +138,7 @@ class TestTasks:
         client = aleph_client_registry.get("TEST")
         client.OAI.is_available.return_value = False
 
-        fake_task.data = {"base": "TEST", "system_number": "123"}
+        fake_task.data = {"base": "TEST", "system_number": "000000123"}
         db_session.commit()
 
         from catalog_records.tasks import fetch_record_task
@@ -153,22 +154,16 @@ class TestTasks:
         aleph_client_registry: AlephClientRegistry,
         fake_task: Task,
     ):
-        test_marc_1 = load_test_record("MZK01-001217709.mrc")._marc
-        test_marc_2 = load_test_record("MZK01-001217729.mrc")._marc
+        test_record_1 = load_test_record("MZK01-001217709.mrc")
+        test_record_2 = load_test_record("MZK01-001217729.mrc")
         client = aleph_client_registry.get("TEST")
         client.OAI.is_available.return_value = True
         client.OAI.list_records.return_value = [
             ListRecordResponse(
-                "TEST",
-                "123",
-                RecordStatus.Active,
-                type("Record", (), {"_marc": test_marc_1})(),
+                "TEST", "000000123", RecordStatus.Active, test_record_1,
             ),
             ListRecordResponse(
-                "TEST",
-                "456",
-                RecordStatus.Active,
-                type("Record", (), {"_marc": test_marc_2})(),
+                "TEST", "456", RecordStatus.Active, test_record_2,
             ),
             ListRecordResponse("TEST", "789", RecordStatus.Deleted, None),
             ListRecordResponse("TEST", "000", RecordStatus.Active, None),
@@ -182,17 +177,17 @@ class TestTasks:
 
         await records_sync_task(str(fake_task.task_id), "catalog_sync_TEST", 1)
 
-        record1 = CatalogRecord.get(db_session, "TEST-123")
+        record1 = CatalogRecord.get(db_session, "TEST-000000123")
         assert record1 is not None
         assert record1.base == "TEST"
-        assert record1.system_number == "123"
-        assert record1.marc == test_marc_1
+        assert record1.system_number == "000000123"
+        assert record1.get_marc(db_session) == test_record_1._marc
 
         record2 = CatalogRecord.get(db_session, "TEST-456")
         assert record2 is not None
         assert record2.base == "TEST"
         assert record2.system_number == "456"
-        assert record2.marc == test_marc_2
+        assert record2.get_marc(db_session) == test_record_2._marc
 
     @pytest.mark.asyncio
     async def test_sync_records_with_deleted_existing_record(
@@ -204,19 +199,18 @@ class TestTasks:
         fake_task: Task,
     ):
         """Syncing a deleted record that exists locally should mark it deleted."""
-        test_marc = load_test_record("MZK01-001217709.mrc")._marc
+        test_record = load_test_record("MZK01-001217709.mrc")
 
         # Pre-create the record
-        existing = CatalogRecord(
-            base="TEST", system_number="123", marc=test_marc
+        existing = create_catalog_record(
+            db_session, "TEST", "000000123", test_record
         )
-        existing.save(db_session)
         assert existing.deleted is False
 
         client = aleph_client_registry.get("TEST")
         client.OAI.is_available.return_value = True
         client.OAI.list_records.return_value = [
-            ListRecordResponse("TEST", "123", RecordStatus.Deleted, None),
+            ListRecordResponse("TEST", "000000123", RecordStatus.Deleted, None),
         ]
 
         fake_task.data = {"base": "TEST"}
@@ -227,7 +221,7 @@ class TestTasks:
         await records_sync_task(str(fake_task.task_id), "catalog_sync_TEST", 1)
 
         # ManagedTask uses its own DB session, so re-query
-        updated = CatalogRecord.get(db_session, "TEST-123")
+        updated = CatalogRecord.get(db_session, "TEST-000000123")
         assert updated.deleted is True
 
     @pytest.mark.asyncio
@@ -289,15 +283,12 @@ class TestTasks:
         aleph_client_registry: AlephClientRegistry,
         fake_task: Task,
     ):
-        test_marc_1 = load_test_record("MZK01-001217709.mrc")._marc
-        test_marc_2 = load_test_record("MZK01-001217729.mrc")._marc
+        test_record_1 = load_test_record("MZK01-001217709.mrc")
+        test_record_2 = load_test_record("MZK01-001217729.mrc")
 
         client = aleph_client_registry.get("TEST")
         client.OAI.is_available.return_value = True
-        client.OAI.get_record.side_effect = [
-            type("MarcRecord", (), {"_marc": test_marc_1})(),
-            type("MarcRecord", (), {"_marc": test_marc_2})(),
-        ]
+        client.OAI.get_record.side_effect = [test_record_1, test_record_2]
 
         fake_task.type = "FetchBatchOfRecords"
         fake_task.data = {
@@ -313,11 +304,11 @@ class TestTasks:
 
         record1 = CatalogRecord.get(db_session, "TEST-111")
         assert record1 is not None
-        assert record1.marc == test_marc_1
+        assert record1.get_marc(db_session) == test_record_1._marc
 
         record2 = CatalogRecord.get(db_session, "TEST-222")
         assert record2 is not None
-        assert record2.marc == test_marc_2
+        assert record2.get_marc(db_session) == test_record_2._marc
 
     @pytest.mark.asyncio
     async def test_fetch_batch_record_not_found(
@@ -329,11 +320,11 @@ class TestTasks:
         fake_task: Task,
     ):
         """Batch fetch where one record is None should skip it gracefully."""
-        test_marc = load_test_record("MZK01-001217709.mrc")._marc
+        test_record = load_test_record("MZK01-001217709.mrc")
         client = aleph_client_registry.get("TEST")
         client.OAI.is_available.return_value = True
         client.OAI.get_record.side_effect = [
-            type("MarcRecord", (), {"_marc": test_marc})(),
+            test_record,
             None,  # second record not found
         ]
 
@@ -431,16 +422,15 @@ class TestCatalogEndpoints:
         client: AsyncClient,
     ):
         """Deleted records should return 404."""
-        test_marc = load_test_record("MZK01-001217709.mrc")._marc
-        record = CatalogRecord(
-            base="TEST", system_number="123", marc=test_marc, deleted=True
+        test_record = load_test_record("MZK01-001217709.mrc")
+        create_catalog_record(
+            db_session, "TEST", "000000123", test_record, deleted=True
         )
-        record.save(db_session)
 
         assert_response(
-            await client.get("/catalog-records/TEST/123/marc"),
+            await client.get("/catalog-records/TEST/000000123/marc"),
             404,
-            {"detail": "Catalog record TEST-123 not found."},
+            {"detail": "Catalog record TEST-000000123 not found."},
         )
 
     @pytest.mark.asyncio
@@ -450,13 +440,10 @@ class TestCatalogEndpoints:
         user,
         client: AsyncClient,
     ):
-        test_marc = load_test_record("MZK01-001217709.mrc")._marc
-        record = CatalogRecord(
-            base="TEST", system_number="123", marc=test_marc
-        )
-        record.save(db_session)
+        test_record = load_test_record("MZK01-001217709.mrc")
+        create_catalog_record(db_session, "TEST", "000000123", test_record)
 
-        response = await client.get("/catalog-records/TEST/123/marc")
+        response = await client.get("/catalog-records/TEST/000000123/marc")
         assert response.status_code == 200
 
     @pytest.mark.asyncio
@@ -534,7 +521,7 @@ class TestCatalogEndpoints:
     ):
         response = await client.post(
             "/catalog-records/visibility",
-            json={"query": {"match_all": {}}, "visible": False},
+            json={"visible": False},
         )
         assert response.status_code == 200
         body = response.json()
@@ -550,7 +537,7 @@ class TestCatalogEndpoints:
     ):
         response = await client.post(
             "/catalog-records/process",
-            json={"match_all": {}},
+            json={},
         )
         assert response.status_code == 200
         body = response.json()
@@ -561,22 +548,14 @@ class TestCatalogEndpoints:
 @pytest.fixture
 def sample_records(db_session: DatabaseSession):
     """Create a few CatalogRecord instances for search tests."""
-    test_marc_1 = load_test_record("MZK01-001217709.mrc")._marc
-    test_marc_2 = load_test_record("MZK01-001217729.mrc")._marc
+    test_record_1 = load_test_record("MZK01-001217709.mrc")
+    test_record_2 = load_test_record("MZK01-001217729.mrc")
 
-    r1 = CatalogRecord(base="MZK01", system_number="001217709", marc=test_marc_1)
-    r1.update_search_text()
-    r1.save(db_session)
-
-    r2 = CatalogRecord(base="MZK01", system_number="001217729", marc=test_marc_2)
-    r2.update_search_text()
-    r2.save(db_session)
-
-    r3 = CatalogRecord(
-        base="TEST", system_number="000000001", marc=test_marc_1, deleted=True
+    r1 = create_catalog_record(db_session, "MZK01", "001217709", test_record_1)
+    r2 = create_catalog_record(db_session, "MZK01", "001217729", test_record_2)
+    r3 = create_catalog_record(
+        db_session, "TEST", "000000001", test_record_1, deleted=True
     )
-    r3.update_search_text()
-    r3.save(db_session)
 
     return [r1, r2, r3]
 

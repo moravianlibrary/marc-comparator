@@ -5,7 +5,6 @@ from marc_comparator.comparators import (
     BaseComparator,
     Comparator,
 )
-from marcdantic import MarcRecord
 
 from adapters.database import DatabaseSession
 from adapters.tasks import (
@@ -13,6 +12,7 @@ from adapters.tasks import (
     handle_batch_progress_snippet,
     handle_final_batch_snippet,
 )
+from catalog_records.search import build_filtered_query
 from entities.catalog_record import CatalogRecord
 from entities.comparison import Comparison
 from entities.settings import Settings, SettingsScope
@@ -65,8 +65,8 @@ async def handle_catalog_record_comparison(
         return
 
     result = await comparator.run(
-        MarcRecord.from_mrc(catalog_record.marc),
-        MarcRecord.from_mrc(link.authority_record.marc),
+        catalog_record.get_record(db_session),
+        link.authority_record.get_record(db_session),
     )
 
     comparison = Comparison.find(
@@ -108,9 +108,14 @@ async def compare_records(task_id: str) -> None:
             ctx.logger.error(str(e))
             return
 
-        async for catalog_record in CatalogRecord.get_by_query(
-            ctx.db_session, data.query
-        ):
+        record_ids = [
+            r.id for r in build_filtered_query(
+                ctx.db_session, data.filters
+            ).with_entities(CatalogRecord.id).all()
+        ]
+
+        for record_id in record_ids:
+            catalog_record = ctx.db_session.get(CatalogRecord, record_id)
             try:
                 await handle_catalog_record_comparison(
                     ctx.db_session,
@@ -121,14 +126,14 @@ async def compare_records(task_id: str) -> None:
                     catalog_record,
                 )
 
-                await handle_batch_progress_snippet(ctx, catalog_record)
+                handle_batch_progress_snippet(ctx)
 
             except Exception as e:
                 ctx.logger.error(
                     f"Failed comparing record {catalog_record.id}:\n{e}"
                 )
 
-        await handle_final_batch_snippet(ctx)
+        handle_final_batch_snippet(ctx)
 
         ctx.logger.info(
             "Finished comparing of records, "

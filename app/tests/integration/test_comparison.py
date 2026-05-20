@@ -1,5 +1,4 @@
 import pytest
-import pytest_asyncio
 from httpx import AsyncClient
 from marc_comparator.comparators import BaseComparator, RecordComparisonResult
 from pytest_mock import MockerFixture
@@ -15,6 +14,7 @@ from entities.task import Task, TaskType
 from tasks.models import TaskSettings
 from tests.conftest import (
     assert_response,
+    create_catalog_record,
     load_test_json,
     load_test_record,
 )
@@ -34,27 +34,22 @@ def comparison_settings(db_session: DatabaseSession) -> Settings:
     )
 
 
-@pytest_asyncio.fixture(scope="function")
-async def main_catalog_record(
+@pytest.fixture(scope="function")
+def main_catalog_record(
     db_session: DatabaseSession,
 ) -> CatalogRecord:
-    record = CatalogRecord(
-        base="MZK01",
-        system_number="COMPARISON-TEST",
-        marc=load_test_record("MZK01-001217709.mrc")._marc,
-    ).save(db_session)
-    db_session.flush()
-    await record.index(wait_for=True)
-    return record
+    return create_catalog_record(
+        db_session, "MZK01", "000999001",
+        load_test_record("MZK01-001217709.mrc"),
+    )
 
 
 @pytest.fixture(scope="function")
 def authority_catalog_record(db_session: DatabaseSession) -> CatalogRecord:
-    return CatalogRecord(
-        base="SKC",
-        system_number="COMPARISON-TEST",
-        marc=load_test_record("MZK01-001217729.mrc")._marc,
-    ).save(db_session)
+    return create_catalog_record(
+        db_session, "SKC", "000999001",
+        load_test_record("MZK01-001217729.mrc"),
+    )
 
 
 @pytest.fixture(scope="function")
@@ -81,7 +76,6 @@ def task(db_session: DatabaseSession, user: TokenData) -> Task:
         data=ComparisonTaskData(
             comparator="intiim",
             target_base="SKC",
-            query={"match_all": {}},
         ).model_dump(mode="json"),
     ).save(db_session)
 
@@ -155,7 +149,6 @@ class TestComparisonEndpoints:
                 json={
                     "comparator": "intiim",
                     "target_base": "SKC",
-                    "query": {"match_all": {}},
                 },
             ),
             200,
@@ -198,7 +191,7 @@ class TestComparisonTask:
         assert (
             len(
                 CatalogRecord.find_by_base_and_system_number(
-                    db_session, "MZK01", "COMPARISON-TEST"
+                    db_session, "MZK01", "000999001"
                 ).comparisons
             )
             == 1
@@ -224,7 +217,7 @@ class TestComparisonTaskWithExistingComparison:
         assert (
             len(
                 CatalogRecord.find_by_base_and_system_number(
-                    db_session, "MZK01", "COMPARISON-TEST"
+                    db_session, "MZK01", "000999001"
                 ).comparisons
             )
             == 1
@@ -249,7 +242,7 @@ class TestComparisonTaskWithoutExistingAuthorityLink:
         assert (
             len(
                 CatalogRecord.find_by_base_and_system_number(
-                    db_session, "MZK01", "COMPARISON-TEST"
+                    db_session, "MZK01", "000999001"
                 ).comparisons
             )
             == 0

@@ -1,5 +1,4 @@
 import pytest
-import pytest_asyncio
 from httpx import AsyncClient
 from marc_comparator.authority_linkers import (
     AuthorityLink,
@@ -19,6 +18,7 @@ from entities.settings import Settings, SettingsScope
 from entities.task import Task, TaskType
 from tests.conftest import (
     assert_response,
+    create_catalog_record,
     load_test_json,
     load_test_record,
 )
@@ -48,7 +48,6 @@ class TestAuthorityLinkingEndpoints:
                 json={
                     "linkers": ["knihovny-cz"],
                     "target_base": "SKC",
-                    "query": {"match_all": {}},
                 },
             ),
             200,
@@ -72,17 +71,14 @@ class TestAuthorityLinkingEndpoints:
 # --- Shared fixtures for task execution tests ---
 
 
-@pytest_asyncio.fixture(scope="function")
-async def catalog_record(
+@pytest.fixture(scope="function")
+def catalog_record(
     db_session: DatabaseSession,
 ) -> CatalogRecord:
-    record = CatalogRecord(
-        base="MZK01",
-        system_number="001217709",
-        marc=load_test_record("MZK01-001217709.mrc")._marc,
-    ).save(db_session)
-    await record.index(wait_for=True)
-    return record
+    return create_catalog_record(
+        db_session, "MZK01", "001217709",
+        load_test_record("MZK01-001217709.mrc"),
+    )
 
 
 @pytest.fixture(scope="function")
@@ -106,18 +102,16 @@ def task(db_session: DatabaseSession, user: TokenData) -> Task:
         data=AuthorityLinkingTaskData(
             linkers=["knihovny-cz"],
             target_base="SKC",
-            query={"match_all": {}},
         ).model_dump(mode="json"),
     ).save(db_session)
 
 
 @pytest.fixture(scope="function")
 def authority_catalog_record(db_session: DatabaseSession) -> CatalogRecord:
-    return CatalogRecord(
-        base="SKC",
-        system_number="001217729",
-        marc=load_test_record("MZK01-001217729.mrc")._marc,
-    ).save(db_session)
+    return create_catalog_record(
+        db_session, "SKC", "001217729",
+        load_test_record("MZK01-001217729.mrc"),
+    )
 
 
 @pytest.fixture(scope="function")

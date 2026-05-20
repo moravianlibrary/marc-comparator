@@ -1,7 +1,11 @@
 from functools import cached_property
 from typing import TYPE_CHECKING, List, Optional
 
-from marc_comparator.comparators import MatchQuality, RecordComparisonResult
+from marc_comparator.comparators import (
+    FieldComparisonResult,
+    MatchQuality,
+    RecordComparisonResult,
+)
 from sqlalchemy import TIMESTAMP, Column, ForeignKey, String, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, relationship

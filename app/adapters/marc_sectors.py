@@ -1,10 +1,14 @@
 from collections import defaultdict
 
 import zstandard as zstd
-from marcdantic import MarcRecord
 from sqlalchemy.orm import Session
 
-from entities.marc_sector import MarcSector, SECTOR_SIZE, sysno_to_sector_id
+from entities.marc_sector import (
+    MarcRecordIndex,
+    MarcSector,
+    SECTOR_SIZE,
+    sysno_to_sector_id,
+)
 
 ZSTD_LEVEL = 7
 
@@ -13,14 +17,17 @@ _decompressor = zstd.ZstdDecompressor()
 
 
 def read_marc(db: Session, base: str, system_number: str) -> bytes | None:
-    """Read a single MARC record from its sector."""
-    sector_id = sysno_to_sector_id(system_number)
-    sector = db.get(MarcSector, (base, sector_id))
+    """Read a single MARC record using the record index."""
+    idx = db.get(MarcRecordIndex, (base, system_number))
+    if idx is None:
+        return None
+
+    sector = db.get(MarcSector, (base, idx.sector_id))
     if sector is None:
         return None
 
     raw = _decompressor.decompress(sector.data)
-    return _find_record_in_blob(raw, system_number)
+    return raw[idx.offset_in_sector:idx.offset_in_sector + idx.record_length]
 
 
 def write_records_to_sector(
@@ -28,15 +35,17 @@ def write_records_to_sector(
     base: str,
     sector_id: int,
     records: dict[str, bytes],
-) -> MarcSector:
+) -> None:
     """Write/overwrite a full sector. `records` maps system_number -> raw MARC bytes.
 
     Records are sorted by sysno and concatenated before compression.
+    Index rows are upserted for each record.
     """
     sorted_items = sorted(records.items(), key=lambda kv: int(kv[0]))
     blob = b"".join(marc for _, marc in sorted_items)
     compressed = _compressor.compress(blob)
 
+    # Upsert sector blob
     sector = db.get(MarcSector, (base, sector_id))
     if sector is None:
         sector = MarcSector(
@@ -50,7 +59,24 @@ def write_records_to_sector(
         sector.data = compressed
         sector.record_count = len(records)
 
-    return sector
+    # Upsert index rows
+    offset = 0
+    for sysno, marc_bytes in sorted_items:
+        rec_len = len(marc_bytes)
+        idx = db.get(MarcRecordIndex, (base, sysno))
+        if idx is None:
+            db.add(MarcRecordIndex(
+                base=base,
+                system_number=sysno,
+                sector_id=sector_id,
+                offset_in_sector=offset,
+                record_length=rec_len,
+            ))
+        else:
+            idx.sector_id = sector_id
+            idx.offset_in_sector = offset
+            idx.record_length = rec_len
+        offset += rec_len
 
 
 def upsert_record_in_sector(
@@ -61,46 +87,30 @@ def upsert_record_in_sector(
     sector = db.get(MarcSector, (base, sector_id))
 
     if sector is None:
-        compressed = _compressor.compress(marc_bytes)
-        sector = MarcSector(
-            base=base, sector_id=sector_id,
-            data=compressed, record_count=1,
-        )
-        db.add(sector)
+        # New sector with a single record
+        write_records_to_sector(db, base, sector_id, {system_number: marc_bytes})
         return
 
-    # Decompress, parse all records, replace/add, recompress
+    # Decompress existing sector, merge, rewrite
     raw = _decompressor.decompress(sector.data)
-    records = _parse_blob_to_dict(raw)
+    records = _parse_blob_with_index(db, base, sector_id, raw)
     records[system_number] = marc_bytes
     write_records_to_sector(db, base, sector_id, records)
 
 
-def _find_record_in_blob(blob: bytes, target_sysno: str) -> bytes | None:
-    """Walk concatenated MARC records, return the one matching target_sysno (via 001 field)."""
-    offset = 0
-    while offset < len(blob):
-        rec_len = int(blob[offset:offset + 5])
-        rec_bytes = blob[offset:offset + rec_len]
-        rec = MarcRecord.from_mrc(rec_bytes)
-        if rec.control_fields_selector.system_number == target_sysno:
-            return rec_bytes
-        offset += rec_len
-    return None
-
-
-def _parse_blob_to_dict(blob: bytes) -> dict[str, bytes]:
-    """Parse concatenated MARC blob into {system_number: bytes}."""
-    records = {}
-    offset = 0
-    while offset < len(blob):
-        rec_len = int(blob[offset:offset + 5])
-        rec_bytes = blob[offset:offset + rec_len]
-        rec = MarcRecord.from_mrc(rec_bytes)
-        sysno = rec.control_fields_selector.system_number
-        records[sysno] = rec_bytes
-        offset += rec_len
-    return records
+def _parse_blob_with_index(
+    db: Session, base: str, sector_id: int, raw: bytes
+) -> dict[str, bytes]:
+    """Reconstruct {system_number: bytes} from a decompressed blob using the index."""
+    rows = (
+        db.query(MarcRecordIndex)
+        .filter_by(base=base, sector_id=sector_id)
+        .all()
+    )
+    return {
+        row.system_number: raw[row.offset_in_sector:row.offset_in_sector + row.record_length]
+        for row in rows
+    }
 
 
 class SectorBuffer:
@@ -132,9 +142,8 @@ class SectorBuffer:
         # Merge with existing sector data (if partial update)
         existing = self.db.get(MarcSector, (base, sector_id))
         if existing:
-            existing_records = _parse_blob_to_dict(
-                _decompressor.decompress(existing.data)
-            )
+            raw = _decompressor.decompress(existing.data)
+            existing_records = _parse_blob_with_index(self.db, base, sector_id, raw)
             existing_records.update(records)
             records = existing_records
 

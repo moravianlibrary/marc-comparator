@@ -7,7 +7,6 @@ from marc_comparator.validators import (
     BaseValidator,
     Validator,
 )
-from marcdantic import MarcRecord
 
 from adapters.database import DatabaseSession
 from adapters.tasks import (
@@ -15,6 +14,7 @@ from adapters.tasks import (
     handle_batch_progress_snippet,
     handle_final_batch_snippet,
 )
+from catalog_records.search import build_filtered_query
 from entities.catalog_record import CatalogRecord
 from entities.settings import Settings, SettingsScope
 from entities.validation import Validation
@@ -67,7 +67,7 @@ async def handle_catalog_record_validation(
     validator_instance: ValidatorInstance,
 ) -> None:
     results = await validator_instance.instance.run(
-        MarcRecord.from_mrc(catalog_record.marc)
+        catalog_record.get_record(db_session)
     )
 
     Validation.delete_by_record_and_validator(
@@ -101,9 +101,14 @@ async def validate_records(task_id: str) -> None:
             settings, data.validators, ctx.logger
         )
 
-        async for catalog_record in CatalogRecord.get_by_query(
-            ctx.db_session, data.query
-        ):
+        record_ids = [
+            r.id for r in build_filtered_query(
+                ctx.db_session, data.filters
+            ).with_entities(CatalogRecord.id).all()
+        ]
+
+        for record_id in record_ids:
+            catalog_record = ctx.db_session.get(CatalogRecord, record_id)
             for validator_instance in validator_instances:
                 try:
                     await handle_catalog_record_validation(
@@ -112,7 +117,7 @@ async def validate_records(task_id: str) -> None:
                         validator_instance,
                     )
 
-                    await handle_batch_progress_snippet(ctx, catalog_record)
+                    handle_batch_progress_snippet(ctx)
 
                 except Exception as e:
                     ctx.logger.error(
@@ -120,7 +125,7 @@ async def validate_records(task_id: str) -> None:
                         f"with validator {validator_instance.type.value}:\n{e}"
                     )
 
-        await handle_final_batch_snippet(ctx)
+        handle_final_batch_snippet(ctx)
 
         ctx.logger.info(
             "Finished validating records, "
