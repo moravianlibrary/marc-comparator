@@ -76,6 +76,12 @@ def _apply_filters(query, filters: RecordFilter):
     if filters.bases:
         query = query.filter(CatalogRecord.base.in_(filters.bases))
 
+    if filters.type_of_record:
+        query = query.filter(CatalogRecord._type_of_record.in_(filters.type_of_record))
+
+    if filters.bibliographic_level:
+        query = query.filter(CatalogRecord._bibliographic_level.in_(filters.bibliographic_level))
+
     for attr, column in BOOL_FILTERS.items():
         if (value := getattr(filters, attr)) is not None:
             query = query.filter(column == value)
@@ -153,8 +159,6 @@ def _to_summary(record: CatalogRecord) -> RecordSummary:
         id=record.id,
         base=record.base,
         system_number=record.system_number,
-        title=record.title,
-        authors=record.authors,
         state=[s.value for s in record.state],
         authority_links_count=len(record.authority_links),
         comparisons_count=len(record.comparisons),

@@ -1,7 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
-from functools import cached_property
-from typing import List, Optional
+from typing import TYPE_CHECKING, List, Optional
 
 from marcdantic import MarcRecord
 from marcdantic.selectors import SubtitleJq, TitleJq
@@ -10,13 +9,12 @@ from sqlalchemy import (
     Boolean,
     Column,
     Index,
-    LargeBinary,
     String,
     event,
     func,
 )
 from sqlalchemy.dialects.postgresql import TSVECTOR
-from sqlalchemy.orm import Mapped, relationship
+from sqlalchemy.orm import Mapped, Session, relationship
 
 from adapters.database import Base, DatabaseSession
 
@@ -52,8 +50,6 @@ class CatalogRecord(
     base = Column(String, nullable=False)
     system_number = Column(String, nullable=False)
 
-    _marc = Column(LargeBinary, name="marc", nullable=False)
-
     latest_sync = Column(TIMESTAMP, nullable=False, default=func.now())
     deleted = Column(Boolean, nullable=False, default=False)
     hidden = Column(Boolean, nullable=False, default=False)
@@ -70,6 +66,10 @@ class CatalogRecord(
         server_default=func.now(),
         onupdate=func.now(),
     )
+    _type_of_record = Column("type_of_record", String, nullable=True)
+    _bibliographic_level = Column("bibliographic_level", String, nullable=True)
+    latest_transaction = Column(TIMESTAMP, nullable=True)
+
     search_text = Column(String, nullable=True)
     search_vector = Column(TSVECTOR)
 
@@ -107,48 +107,34 @@ class CatalogRecord(
     ) -> Optional["CatalogRecord"]:
         return cls.find(db_session, cls.generate_id(base, system_number))
 
-    @property
-    def marc(self) -> bytes:
-        return self._marc
+    def get_marc(self, db_session: Session) -> bytes:
+        """Read MARC bytes from sector storage."""
+        from adapters.marc_sectors import read_marc
 
-    @marc.setter
-    def marc(self, value: bytes):
-        self._marc = value
-        # Invalidate cached property
-        if "record" in self.__dict__:
-            del self.__dict__["record"]
+        data = read_marc(db_session, self.base, self.system_number)
+        if data is None:
+            raise ValueError(f"MARC data not found for {self.id}")
+        return data
 
-    @cached_property
-    def record(self) -> MarcRecord:
-        return MarcRecord.from_mrc(self._marc)
+    def get_record(self, db_session: Session) -> MarcRecord:
+        """Parse MARC record from sector storage."""
+        return MarcRecord.from_mrc(self.get_marc(db_session))
 
     @property
-    def type_of_record(self) -> str:
-        return self.record.leader_selector.type_of_record
+    def type_of_record(self) -> str | None:
+        return self._type_of_record
+
+    @type_of_record.setter
+    def type_of_record(self, value: str):
+        self._type_of_record = value
 
     @property
-    def bibliographic_level(self) -> str:
-        return self.record.leader_selector.bibliographic_level
+    def bibliographic_level(self) -> str | None:
+        return self._bibliographic_level
 
-    @property
-    def title(self) -> str | None:
-        stm = self.record.variable_fields.query_subfield_values(TitleJq)
-        return stm[0] if stm else None
-
-    @property
-    def subtitle(self) -> str | None:
-        stm = self.record.variable_fields.query_subfield_values(SubtitleJq)
-        return stm[0] if stm else None
-
-    @property
-    def authors(self) -> List[str]:
-        return self.record.variable_fields.query_subfield_values(
-            '.["100"]?[]?.subfields.a[]?'
-        )
-
-    @property
-    def latest_transaction(self) -> datetime | None:
-        return self.record.control_fields_selector.latest_transaction
+    @bibliographic_level.setter
+    def bibliographic_level(self, value: str):
+        self._bibliographic_level = value
 
     @property
     def state(self) -> List[CatalogRecordState]:
@@ -171,14 +157,20 @@ class CatalogRecord(
 
         return states
 
-    def update_search_text(self):
-        """Update search_text from MARC-derived fields."""
+    def update_search_text_from(self, record: MarcRecord):
+        """Update search_text from a parsed MARC record."""
+        title_vals = record.variable_fields.query_subfield_values(TitleJq)
+        subtitle_vals = record.variable_fields.query_subfield_values(SubtitleJq)
+        authors = record.variable_fields.query_subfield_values(
+            '.["100"]?[]?.subfields.a[]?'
+        )
+
         parts = [self.system_number]
-        if self.title:
-            parts.append(self.title)
-        if self.subtitle:
-            parts.append(self.subtitle)
-        parts.extend(self.authors)
+        if title_vals:
+            parts.append(title_vals[0])
+        if subtitle_vals:
+            parts.append(subtitle_vals[0])
+        parts.extend(authors)
         self.search_text = " ".join(filter(None, parts))
 
 

@@ -44,20 +44,30 @@ def save_record_snippet(
     system_number: str,
     record: MarcRecord,
 ) -> CatalogRecord:
+    from adapters.marc_sectors import upsert_record_in_sector
+
     catalog_record = CatalogRecord.find_by_base_and_system_number(
         ctx.db_session, base, system_number
     )
 
     if catalog_record:
-        catalog_record.marc = record._marc
         catalog_record.deleted = False
         catalog_record.latest_sync = config.timestamp
     else:
         catalog_record = CatalogRecord(
-            base=base, system_number=system_number, marc=record._marc
+            base=base, system_number=system_number,
         )
 
-    return catalog_record.save(ctx.db_session)
+    # Set stored MARC-derived fields
+    catalog_record.type_of_record = record.leader_selector.type_of_record
+    catalog_record.bibliographic_level = record.leader_selector.bibliographic_level
+    catalog_record.update_search_text_from(record)
+    catalog_record.save(ctx.db_session)
+
+    # Store MARC bytes in sector
+    upsert_record_in_sector(ctx.db_session, base, system_number, record._marc)
+
+    return catalog_record
 
 
 async def fetch_record_task(task_id: str) -> None:
@@ -297,7 +307,7 @@ async def process_records(task_id: str) -> None:
         query = build_filtered_query(ctx.db_session, filters)
         for catalog_record in query.yield_per(1000):
             try:
-                marc_record = MarcRecord.from_mrc(catalog_record.marc)
+                marc_record = catalog_record.get_record(ctx.db_session)
 
                 for target_base in settings.target_bases:
                     found_link, linker_instance = (
