@@ -4,7 +4,7 @@ from fastapi import APIRouter, Body
 from marcdantic import MarcRecord
 
 from adapters.dependencies import DatabaseSessionDep, WithPermission
-from adapters.indexer import IndexerQuery, IndexerRequest, IndexerResponse
+from adapters.indexer import IndexerQuery
 from auth.service import CurrentUser
 from entities.role import Permission
 from entities.task import TaskSchema
@@ -13,9 +13,12 @@ from . import service
 from .models import (
     FetchBatchOfRecordsData,
     FetchRecordData,
+    SearchRecordsRequest,
+    SearchRecordsResponse,
     SetRecordsVisibilityData,
     SyncRecordsData,
 )
+from .search import search_records as pg_search_records
 
 router = APIRouter(prefix="/catalog-records", tags=["Catalog Records"])
 
@@ -23,12 +26,13 @@ router = APIRouter(prefix="/catalog-records", tags=["Catalog Records"])
 @router.post(
     "/search",
     dependencies=[WithPermission(Permission.ReadRecords)],
-    response_model=IndexerResponse,
+    response_model=SearchRecordsResponse,
 )
 async def search_records(
-    request: Annotated[IndexerRequest, Body()],
+    request: Annotated[SearchRecordsRequest, Body()],
+    db_session: DatabaseSessionDep,
 ):
-    return await service.search_records(request)
+    return pg_search_records(request, db_session)
 
 
 @router.get(

@@ -1,7 +1,7 @@
 from marcdantic import MarcRecord
 
 from adapters.database import DatabaseSession
-from adapters.indexer import IndexerQuery, IndexerRequest, IndexerResponse
+from adapters.indexer import IndexerQuery
 from adapters.lock_server import one_at_a_time_lock
 from adapters.tasks import enqueue_task
 from entities.catalog_record import CatalogRecord
@@ -17,10 +17,6 @@ from .models import (
     SetRecordsVisibilityData,
     SyncRecordsData,
 )
-
-
-async def search_records(request: IndexerRequest) -> IndexerResponse:
-    return await CatalogRecord.search(request)
 
 
 def get_marc_record(

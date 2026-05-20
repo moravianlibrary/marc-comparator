@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List
+from typing import List, Literal
 
 from aleph_nought import AlephOAIConfig
 from marc_comparator.authority_linkers import AuthorityLinker
@@ -59,3 +59,51 @@ class ProcessRecordsSettings(SettingsSchema):
     validators: List[Validator] = Field(
         default=[Validator.KrameriusLinks], min_length=1
     )
+
+
+class RecordFilter(BaseModel):
+    text_query: str | None = None
+    bases: list[str] | None = None
+    hidden: bool | None = None
+    deleted: bool | None = None
+    processed: bool | None = None
+    authority_link_linkers: list[str] | None = None
+    authority_link_bases: list[str] | None = None
+    comparators: list[str] | None = None
+    comparison_bases: list[str] | None = None
+    match_qualities: list[str] | None = None
+    validators: list[str] | None = None
+    validation_statuses: list[str] | None = None
+    validation_target_tags: list[str] | None = None
+    score_min: float | None = None
+    score_max: float | None = None
+
+
+class SearchRecordsRequest(BaseModel):
+    filters: RecordFilter = RecordFilter()
+    page: int = Field(default=1, ge=1)
+    page_size: int = Field(default=25, ge=1, le=100)
+    sort_by: Literal["id", "base", "system_number", "latest_sync", "updated_at"] = "id"
+    sort_order: Literal["asc", "desc"] = "asc"
+
+
+class RecordSummary(BaseModel):
+    id: str
+    base: str
+    system_number: str
+    title: str | None = None
+    authors: list[str] = []
+    state: list[str] = []
+    authority_links_count: int = 0
+    comparisons_count: int = 0
+    validations_count: int = 0
+    latest_sync: datetime | None = None
+    latest_transaction: datetime | None = None
+    processed_at: datetime | None = None
+
+
+class SearchRecordsResponse(BaseModel):
+    items: list[RecordSummary]
+    total: int
+    page: int
+    page_size: int
