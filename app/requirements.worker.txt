@@ -1,6 +1,6 @@
 asgiref
 celery
-elasticsearch==8.14.0
+clickhouse-connect
 email-validator
 pandas
 psycopg2-binary

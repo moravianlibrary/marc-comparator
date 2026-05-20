@@ -1,6 +1,6 @@
 bcrypt==4.0.1
 celery
-elasticsearch==8.14.0
+clickhouse-connect
 email-validator
 fastapi
 httpx

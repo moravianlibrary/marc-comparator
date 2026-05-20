@@ -38,14 +38,14 @@ class PostgresConfig(BaseSettings):
         )
 
 
-class ElasticsearchConfig(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="ELASTICSEARCH_")
+class ClickHouseConfig(BaseSettings):
+    model_config = SettingsConfigDict(env_prefix="CLICKHOUSE_")
 
-    url: str = Field(default="http://localhost:9200")
-    username: str = Field(default="elastic")
-    password: str = Field(default="replaceMe")
-
-    request_timeout: int = Field(default=30)
+    host: str = Field(default="localhost")
+    port: int = Field(default=8123)
+    database: str = Field(default="marc")
+    user: str = Field(default="default")
+    password: str = Field(default="")
 
 
 class BrokerConfig(BaseSettings):
@@ -120,7 +120,7 @@ class AppConfig(BaseSettings):
     log_level: str = Field(default="info")
 
     postgres: PostgresConfig = PostgresConfig()
-    elasticsearch: ElasticsearchConfig = ElasticsearchConfig()
+    clickhouse: ClickHouseConfig = ClickHouseConfig()
     broker: BrokerConfig = BrokerConfig()
     auth: AuthConfig = AuthConfig()
     oidc: OIDCConfig = OIDCConfig()
