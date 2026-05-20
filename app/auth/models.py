@@ -7,6 +7,11 @@ from access_control.models import RoleSummary
 from entities.role import Permission
 
 
+class LoginRequest(BaseModel):
+    email: EmailStr
+    password: str
+
+
 class RegisterUserRequest(BaseModel):
     email: EmailStr
     first_name: str

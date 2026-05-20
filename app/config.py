@@ -70,7 +70,10 @@ class AdminConfig(BaseSettings):
 class AuthConfig(BaseSettings):
     secret_key: str = Field(default="your-secret-key")
     algorithm: str = Field(default="HS256")
-    access_token_expire_minutes: int = Field(default=30)
+    access_token_expire_minutes: int = Field(default=15)
+    refresh_token_expire_days: int = Field(default=7)
+    cookie_domain: str | None = Field(default=None)
+    cookie_secure: bool = Field(default=True)
 
     admin: AdminConfig = AdminConfig()
 

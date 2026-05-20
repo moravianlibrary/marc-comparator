@@ -4,8 +4,7 @@ from typing import Annotated
 from uuid import UUID, uuid4
 
 import jwt
-from fastapi import Depends
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
+from fastapi import Depends, Request
 from jwt import PyJWTError
 from passlib.context import CryptContext
 from sqlalchemy.orm import Session
@@ -17,7 +16,6 @@ from entities.user import User
 
 from .models import RegisterUserRequest, Token, TokenData
 
-oauth2_bearer = OAuth2PasswordBearer(tokenUrl="auth/token")
 bcrypt_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
 
@@ -43,23 +41,55 @@ def create_access_token(
     encode = {
         "sub": email,
         "id": str(user_id),
+        "type": "access",
         "exp": datetime.now(timezone.utc) + expires_delta,
     }
-    return jwt.encode(
-        encode, config.auth.secret_key, algorithm=config.auth.algorithm
-    )
+    return jwt.encode(encode, config.auth.secret_key, algorithm=config.auth.algorithm)
 
 
-def verify_token(token: str) -> TokenData:
+def create_refresh_token(user_id: UUID, expires_delta: timedelta) -> str:
+    encode = {
+        "id": str(user_id),
+        "type": "refresh",
+        "exp": datetime.now(timezone.utc) + expires_delta,
+    }
+    return jwt.encode(encode, config.auth.secret_key, algorithm=config.auth.algorithm)
+
+
+def verify_access_token(token: str) -> TokenData:
     try:
         payload = jwt.decode(
             token, config.auth.secret_key, algorithms=[config.auth.algorithm]
         )
-        user_id: str = payload.get("id")
-        return TokenData(user_id=user_id)
+        if payload.get("type") != "access":
+            raise AuthenticationError("Invalid token type")
+        return TokenData(user_id=payload.get("id"))
     except PyJWTError as e:
         logging.warning(f"Token verification failed: {str(e)}")
         raise AuthenticationError("Invalid token")
+
+
+def verify_refresh_token(token: str) -> str:
+    """Returns user_id from refresh token."""
+    try:
+        payload = jwt.decode(
+            token, config.auth.secret_key, algorithms=[config.auth.algorithm]
+        )
+        if payload.get("type") != "refresh":
+            raise AuthenticationError("Invalid token type")
+        return payload.get("id")
+    except PyJWTError:
+        raise AuthenticationError("Invalid refresh token")
+
+
+def get_current_user(request: Request) -> TokenData:
+    token = request.cookies.get("access_token")
+    if not token:
+        raise AuthenticationError("Not authenticated")
+    return verify_access_token(token)
+
+
+CurrentUser = Annotated[TokenData, Depends(get_current_user)]
 
 
 def register_user(
@@ -84,29 +114,6 @@ def register_user(
             f"Error: {str(e)}"
         )
         raise RegistrationError()
-
-
-def get_current_user(
-    token: Annotated[str, Depends(oauth2_bearer)],
-) -> TokenData:
-    return verify_token(token)
-
-
-CurrentUser = Annotated[TokenData, Depends(get_current_user)]
-
-
-def login_for_access_token(
-    form_data: Annotated[OAuth2PasswordRequestForm, Depends()], db: Session
-) -> Token:
-    user = authenticate_user(form_data.username, form_data.password, db)
-    if not user:
-        raise AuthenticationError()
-    token = create_access_token(
-        user.email,
-        user.id,
-        timedelta(minutes=config.auth.access_token_expire_minutes),
-    )
-    return Token(access_token=token, token_type="bearer")
 
 
 def get_current_user_data(current_user: TokenData, db: Session) -> User:

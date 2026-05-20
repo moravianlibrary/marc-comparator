@@ -3,7 +3,7 @@ import logging
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from adapters.database import get_db_session
-from auth.service import get_current_user_data, verify_token
+from auth.service import get_current_user_data, verify_access_token
 from ws.manager import Connection, manager
 
 logger = logging.getLogger(__name__)
@@ -18,7 +18,7 @@ async def websocket_endpoint(websocket: WebSocket, token: str = ""):
         return
 
     try:
-        token_data = verify_token(token)
+        token_data = verify_access_token(token)
     except Exception:
         await websocket.close(code=4001, reason="Invalid token")
         return
