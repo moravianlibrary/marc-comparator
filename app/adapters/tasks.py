@@ -30,6 +30,13 @@ tasks_client = Celery(
     timezone=config.timezone,
 )
 
+tasks_client.conf.beat_schedule = {
+    "sync-to-clickhouse": {
+        "task": "adapters.tasks.sync_to_clickhouse",
+        "schedule": 30.0,
+    },
+}
+
 type TasksClient = Celery
 
 LEVEL_NO_TO_SEVERITY = {
@@ -412,6 +419,16 @@ def recreate_indexes_task(
     return async_to_sync(recreate_indexes)(
         str(self.request.id), lock_key, lock_blocking_timeout
     )
+
+
+@shared_task(name="adapters.tasks.sync_to_clickhouse", bind=True)
+def sync_to_clickhouse(self: CeleryTask) -> None:
+    """Celery beat task: sync PG → ClickHouse."""
+    from adapters.analytics import sync_records
+    from adapters.database import database_session
+
+    with database_session() as db:
+        sync_records(db)
 
 
 def dispatch_task(task: Task) -> None:
