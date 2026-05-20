@@ -27,7 +27,7 @@ APP_TEST_TARGET ?= not _smoke
 .PHONY: help \
         build push build-push \
         up down restart logs \
-        logs-app logs-worker logs-client logs-db logs-es \
+        logs-app logs-worker logs-client logs-db \
         up-infra dev-client \
         open-client open-api \
         psql \
@@ -87,13 +87,10 @@ logs-client: ## Tail client (frontend) logs
 logs-db: ## Tail database logs
 	$(COMPOSE) logs -f postgres
 
-logs-es: ## Tail Elasticsearch logs
-	$(COMPOSE) logs -f elasticsearch
-
 # ─── Dev mode (backend in Docker, client local with HMR) ─────────────────────
 
 up-infra: ## Start everything except client (for local frontend dev)
-	TAG=$(VERSION) $(COMPOSE) up -d postgres elasticsearch redis ollama app worker
+	TAG=$(VERSION) $(COMPOSE) up -d postgres redis ollama app worker
 
 dev-client: ## Start frontend in dev mode (Vite HMR)
 	cd client && npm run dev

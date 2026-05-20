@@ -2,8 +2,6 @@ import pytest
 import pytest_asyncio
 from aleph_nought import AlephClient
 from celery import Celery
-from elasticsearch import AsyncElasticsearch
-from esorm import es
 from httpx import ASGITransport, AsyncClient
 from pytest_mock import MockerFixture
 from redis import Redis
@@ -41,38 +39,6 @@ async def db_session(db_engine, mocker) -> DatabaseSession:
     cleanup_session = SessionLocal()
     truncate_all_tables(cleanup_session)
     cleanup_session.close()
-
-
-# --------------------------------------------------------------------------
-# Function-scoped ES indexer session (reuses session-scoped es_client)
-# --------------------------------------------------------------------------
-@pytest_asyncio.fixture(scope="function")
-async def indexer_session(es_client, mocker) -> AsyncElasticsearch:
-    # Patch startup/shutdown to no-ops since ES is already connected
-    mocker.patch("adapters.indexer.startup_indexer", return_value=True)
-    mocker.patch("adapters.indexer.shutdown_indexer")
-    return es_client
-
-
-# --------------------------------------------------------------------------
-# Autouse: clean ES documents after each test
-# --------------------------------------------------------------------------
-@pytest_asyncio.fixture(scope="function", autouse=True)
-async def clean_es_indices(es_client):
-    yield
-    for index_name in [
-        CatalogRecord.__indexer_schema__.ESConfig.index,
-        Task.__indexer_schema__.ESConfig.index,
-    ]:
-        try:
-            await es_client.delete_by_query(
-                index=index_name,
-                body={"query": {"match_all": {}}},
-                refresh=True,
-                conflicts="proceed",
-            )
-        except Exception:
-            pass
 
 
 # --------------------------------------------------------------------------

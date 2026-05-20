@@ -1,6 +1,5 @@
 asgiref
 celery
-clickhouse-connect
 email-validator
 pandas
 psycopg2-binary

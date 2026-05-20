@@ -38,16 +38,6 @@ class PostgresConfig(BaseSettings):
         )
 
 
-class ClickHouseConfig(BaseSettings):
-    model_config = SettingsConfigDict(env_prefix="CLICKHOUSE_")
-
-    host: str = Field(default="localhost")
-    port: int = Field(default=8123)
-    database: str = Field(default="marc")
-    user: str = Field(default="default")
-    password: str = Field(default="")
-
-
 class BrokerConfig(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="BROKER_")
 
@@ -120,7 +110,6 @@ class AppConfig(BaseSettings):
     log_level: str = Field(default="info")
 
     postgres: PostgresConfig = PostgresConfig()
-    clickhouse: ClickHouseConfig = ClickHouseConfig()
     broker: BrokerConfig = BrokerConfig()
     auth: AuthConfig = AuthConfig()
     oidc: OIDCConfig = OIDCConfig()
