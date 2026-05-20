@@ -204,26 +204,6 @@ async def records_sync_task(
         )
 
 
-async def reindex_records(task_id: str):
-    """Trigger a full ClickHouse sync for records matching the filter."""
-    async with ManagedTask(task_id=task_id) as ctx:
-        filters = RecordFilter.model_validate(ctx.task.data)
-
-        ctx.logger.info("Starting reindex (ClickHouse sync) of catalog records")
-
-        query = build_filtered_query(ctx.db_session, filters)
-        for catalog_record in query.yield_per(1000):
-            # Touch updated_at so ClickHouse sync picks it up
-            catalog_record.updated_at = config.timestamp
-            handle_batch_progress_snippet(ctx)
-
-        handle_final_batch_snippet(ctx)
-
-        ctx.logger.info(
-            f"Finished reindexing, total records processed: {ctx.progress}"
-        )
-
-
 async def set_records_visibility(task_id: str) -> None:
     async with ManagedTask(task_id=task_id) as ctx:
         data = SetRecordsVisibilityData.model_validate(ctx.task.data)

@@ -89,20 +89,6 @@ async def sync_records(
         )
 
 
-async def reindex_records(
-    filters: RecordFilter, created_by: str, db_session: DatabaseSession
-) -> TaskSchema:
-    return await enqueue_task(
-        Task(
-            name="Reindex catalog records",
-            type=TaskType.ReindexRecords,
-            created_by=created_by,
-            data=filters.model_dump(),
-        ),
-        db_session,
-    )
-
-
 async def set_records_visibility(
     data: SetRecordsVisibilityData,
     created_by: str,

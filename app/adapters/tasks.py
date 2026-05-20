@@ -4,6 +4,7 @@ from typing import ContextManager, List, Optional
 from celery import Celery
 from celery import Task as CeleryTask
 from celery import shared_task
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from adapters.database import Base, DatabaseSession, get_db_session
@@ -20,6 +21,13 @@ from entities.user import User  # noqa: F401
 from settings.models import CatalogSettings
 from tasks.models import TaskSettings  # noqa: F401
 
+MATVIEW_REFRESH_TASK_TYPES = {
+    TaskType.SyncRecords,
+    TaskType.FetchBatchOfRecords,
+    TaskType.ProcessRecords,
+    TaskType.SetRecordsVisibility,
+}
+
 tasks_client = Celery(
     "tasks",
     broker=config.broker.url,
@@ -27,13 +35,6 @@ tasks_client = Celery(
     result_backend=f"db+{config.postgres.url}",
     timezone=config.timezone,
 )
-
-tasks_client.conf.beat_schedule = {
-    "sync-to-clickhouse": {
-        "task": "adapters.tasks.sync_to_clickhouse",
-        "schedule": 30.0,
-    },
-}
 
 type TasksClient = Celery
 
@@ -234,6 +235,16 @@ class ManagedTask:
                 severity=self.task.severity.value,
                 created_by=str(self.task.created_by),
             ))
+
+            # Refresh analytics matview after successful data-changing tasks
+            if exc_type is None and self.task.type in MATVIEW_REFRESH_TASK_TYPES:
+                try:
+                    self.db_session.execute(text(
+                        "REFRESH MATERIALIZED VIEW CONCURRENTLY catalog_records_analytics"
+                    ))
+                    self.db_session.commit()
+                except Exception as e:
+                    logging.warning(f"Matview refresh failed: {e}")
         finally:
             # --- Release resources ---
             if self.lock:
@@ -329,15 +340,6 @@ def compare_records_task(self: CeleryTask) -> None:
     return async_to_sync(compare_records)(str(self.request.id))
 
 
-@shared_task(name="reindex_records_task", bind=True)
-def reindex_records_task(self: CeleryTask) -> None:
-    from asgiref.sync import async_to_sync
-
-    from catalog_records.tasks import reindex_records
-
-    return async_to_sync(reindex_records)(str(self.request.id))
-
-
 @shared_task(name="set_records_visibility_task", bind=True)
 def set_records_visibility_task(self: CeleryTask) -> None:
     from asgiref.sync import async_to_sync
@@ -363,29 +365,6 @@ def delete_tasks_task(self: CeleryTask) -> None:
     from tasks.tasks import delete_tasks
 
     return async_to_sync(delete_tasks)(str(self.request.id))
-
-
-@shared_task(name="recreate_indexes_task", bind=True)
-def recreate_indexes_task(
-    self: CeleryTask, lock_key: str, lock_blocking_timeout: int
-) -> None:
-    from asgiref.sync import async_to_sync
-
-    from system.tasks import recreate_indexes
-
-    return async_to_sync(recreate_indexes)(
-        str(self.request.id), lock_key, lock_blocking_timeout
-    )
-
-
-@shared_task(name="adapters.tasks.sync_to_clickhouse", bind=True)
-def sync_to_clickhouse(self: CeleryTask) -> None:
-    """Celery beat task: sync PG → ClickHouse."""
-    from adapters.analytics import sync_records
-    from adapters.database import database_session
-
-    with database_session() as db:
-        sync_records(db)
 
 
 def dispatch_task(task: Task) -> None:
@@ -418,9 +397,6 @@ def dispatch_task(task: Task) -> None:
     elif task.type == TaskType.CompareRecords:
         compare_records_task.apply_async(task_id=task_id)
 
-    elif task.type == TaskType.ReindexRecords:
-        reindex_records_task.apply_async(task_id=task_id)
-
     elif task.type == TaskType.SetRecordsVisibility:
         set_records_visibility_task.apply_async(task_id=task_id)
 
@@ -429,11 +405,6 @@ def dispatch_task(task: Task) -> None:
 
     elif task.type == TaskType.DeleteTasks:
         delete_tasks_task.apply_async(task_id=task_id)
-
-    elif task.type == TaskType.RecreateIndexes:
-        recreate_indexes_task.apply_async(
-            args=["recreate-indexes", 1], task_id=task_id
-        )
 
     else:
         raise ValueError(f"Unknown task type: {task.type}")

@@ -47,8 +47,9 @@ async def search_records(
 )
 async def get_record_facets(
     request: Annotated[FacetsRequest, Body()],
+    db_session: DatabaseSessionDep,
 ):
-    return get_facets(request)
+    return get_facets(request, db_session)
 
 
 @router.post(
@@ -58,8 +59,9 @@ async def get_record_facets(
 )
 async def get_record_facets_preview(
     request: Annotated[FacetsPreviewRequest, Body()],
+    db_session: DatabaseSessionDep,
 ):
-    return get_facets_preview(request)
+    return get_facets_preview(request, db_session)
 
 
 @router.get(
@@ -114,21 +116,6 @@ async def sync_records(
     db_session: DatabaseSessionDep,
 ):
     return await service.sync_records(data, current_user.user_id, db_session)
-
-
-@router.post(
-    "/reindex",
-    dependencies=[WithPermission(Permission.RunRecordTasks)],
-    response_model=TaskSchema,
-)
-async def reindex_records(
-    filters: Annotated[RecordFilter, Body()],
-    current_user: CurrentUser,
-    db_session: DatabaseSessionDep,
-):
-    return await service.reindex_records(
-        filters, current_user.user_id, db_session
-    )
 
 
 @router.post(

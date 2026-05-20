@@ -3,7 +3,6 @@ from httpx import AsyncClient
 from unittest.mock import AsyncMock, patch
 
 from adapters.database import DatabaseSession
-from auth.models import TokenData
 from entities.settings import Settings, SettingsScope
 from tests.conftest import assert_response, load_test_json
 
@@ -13,7 +12,6 @@ class TestSystemInfoEndpoint:
     async def test_get_system_info_no_settings(
         self,
         db_session,
-        indexer_session,
         user,
         client: AsyncClient,
     ):
@@ -33,7 +31,6 @@ class TestSystemInfoEndpoint:
     async def test_get_system_info_with_catalog_settings(
         self,
         db_session: DatabaseSession,
-        indexer_session,
         user,
         client: AsyncClient,
     ):
@@ -68,7 +65,6 @@ class TestSystemInfoEndpoint:
     async def test_get_system_info_with_comparison_settings(
         self,
         db_session: DatabaseSession,
-        indexer_session,
         user,
         client: AsyncClient,
     ):
@@ -93,7 +89,6 @@ class TestSystemInfoEndpoint:
     async def test_get_system_info_with_validation_settings(
         self,
         db_session: DatabaseSession,
-        indexer_session,
         user,
         client: AsyncClient,
     ):
@@ -117,7 +112,6 @@ class TestSystemInfoEndpoint:
     async def test_get_system_info_unauthenticated(
         self,
         db_session,
-        indexer_session,
         client: AsyncClient,
     ):
         """System info endpoint requires authentication."""
@@ -126,24 +120,6 @@ class TestSystemInfoEndpoint:
             401,
             {"detail": "Not authenticated"},
         )
-
-
-class TestRecreateIndexesEndpoint:
-    @pytest.mark.asyncio
-    async def test_recreate_indexes(
-        self,
-        db_session,
-        indexer_session,
-        user,
-        tasks_client,
-        client: AsyncClient,
-    ):
-        response = await client.post("/system/recreate-indexes")
-        assert response.status_code == 200
-        body = response.json()
-        assert body["name"] == "Recreating indexes"
-        assert body["type"] == "RecreateIndexes"
-        assert body["status"] == "Pending"
 
 
 class TestSystemServiceUnit:

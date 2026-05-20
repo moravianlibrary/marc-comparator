@@ -15,7 +15,6 @@ class TestEndpointsRO:
     async def test_fetch_record_success(
         self,
         db_session,
-        indexer_session,
         lock_server_client,
         user,
         tasks_client,
@@ -48,7 +47,6 @@ class TestEndpointsRO:
     async def test_sync_records_success(
         self,
         db_session,
-        indexer_session,
         lock_server_client,
         user,
         tasks_client,
@@ -80,7 +78,6 @@ class TestTasks:
     async def test_fetch_record_success(
         self,
         db_session: DatabaseSession,
-        indexer_session,
         lock_server_client,
         user,
         aleph_client_registry: AlephClientRegistry,
@@ -112,7 +109,6 @@ class TestTasks:
     async def test_fetch_record_not_found(
         self,
         db_session: DatabaseSession,
-        indexer_session,
         lock_server_client,
         user,
         aleph_client_registry: AlephClientRegistry,
@@ -133,7 +129,6 @@ class TestTasks:
     async def test_fetch_record_oai_unavailable(
         self,
         db_session: DatabaseSession,
-        indexer_session,
         lock_server_client,
         user,
         aleph_client_registry: AlephClientRegistry,
@@ -153,7 +148,6 @@ class TestTasks:
     async def test_sync_records_success(
         self,
         db_session: DatabaseSession,
-        indexer_session,
         lock_server_client,
         user,
         aleph_client_registry: AlephClientRegistry,
@@ -204,7 +198,6 @@ class TestTasks:
     async def test_sync_records_with_deleted_existing_record(
         self,
         db_session: DatabaseSession,
-        indexer_session,
         lock_server_client,
         user,
         aleph_client_registry: AlephClientRegistry,
@@ -241,7 +234,6 @@ class TestTasks:
     async def test_sync_records_with_from_date(
         self,
         db_session: DatabaseSession,
-        indexer_session,
         lock_server_client,
         user,
         aleph_client_registry: AlephClientRegistry,
@@ -270,7 +262,6 @@ class TestTasks:
     async def test_sync_records_oai_unavailable(
         self,
         db_session: DatabaseSession,
-        indexer_session,
         lock_server_client,
         user,
         aleph_client_registry: AlephClientRegistry,
@@ -293,7 +284,6 @@ class TestTasks:
     async def test_fetch_batch_of_records_success(
         self,
         db_session: DatabaseSession,
-        indexer_session,
         lock_server_client,
         user,
         aleph_client_registry: AlephClientRegistry,
@@ -333,7 +323,6 @@ class TestTasks:
     async def test_fetch_batch_record_not_found(
         self,
         db_session: DatabaseSession,
-        indexer_session,
         lock_server_client,
         user,
         aleph_client_registry: AlephClientRegistry,
@@ -369,7 +358,6 @@ class TestTasks:
     async def test_fetch_batch_oai_unavailable(
         self,
         db_session: DatabaseSession,
-        indexer_session,
         lock_server_client,
         user,
         aleph_client_registry: AlephClientRegistry,
@@ -397,7 +385,6 @@ class TestTasks:
     async def test_fetch_batch_with_exception(
         self,
         db_session: DatabaseSession,
-        indexer_session,
         lock_server_client,
         user,
         aleph_client_registry: AlephClientRegistry,
@@ -427,7 +414,6 @@ class TestCatalogEndpoints:
     async def test_get_marc_record_not_found(
         self,
         db_session,
-        indexer_session,
         user,
         client: AsyncClient,
     ):
@@ -441,7 +427,6 @@ class TestCatalogEndpoints:
     async def test_get_marc_record_deleted(
         self,
         db_session: DatabaseSession,
-        indexer_session,
         user,
         client: AsyncClient,
     ):
@@ -462,7 +447,6 @@ class TestCatalogEndpoints:
     async def test_get_marc_record_success(
         self,
         db_session: DatabaseSession,
-        indexer_session,
         user,
         client: AsyncClient,
     ):
@@ -479,7 +463,6 @@ class TestCatalogEndpoints:
     async def test_fetch_batch_endpoint(
         self,
         db_session,
-        indexer_session,
         lock_server_client,
         user,
         tasks_client,
@@ -517,7 +500,6 @@ class TestCatalogEndpoints:
     async def test_sync_records_lock_contention(
         self,
         db_session,
-        indexer_session,
         lock_server_client,
         user,
         tasks_client,
@@ -543,29 +525,9 @@ class TestCatalogEndpoints:
             )
 
     @pytest.mark.asyncio
-    async def test_reindex_records_endpoint(
-        self,
-        db_session,
-        indexer_session,
-        user,
-        tasks_client,
-        client: AsyncClient,
-    ):
-        response = await client.post(
-            "/catalog-records/reindex",
-            json={"match_all": {}},
-        )
-        assert response.status_code == 200
-        body = response.json()
-        assert body["name"] == "Reindex catalog records"
-        assert body["type"] == "ReindexRecords"
-        assert body["status"] == "Pending"
-
-    @pytest.mark.asyncio
     async def test_set_records_visibility_endpoint(
         self,
         db_session,
-        indexer_session,
         user,
         tasks_client,
         client: AsyncClient,
@@ -582,7 +544,6 @@ class TestCatalogEndpoints:
     async def test_process_records_endpoint(
         self,
         db_session,
-        indexer_session,
         user,
         tasks_client,
         client: AsyncClient,
@@ -623,7 +584,7 @@ def sample_records(db_session: DatabaseSession):
 class TestCatalogSearch:
     @pytest.mark.asyncio
     async def test_search_returns_records(
-        self, db_session, indexer_session, user, client: AsyncClient, sample_records
+        self, db_session, user, client: AsyncClient, sample_records
     ):
         response = await client.post("/catalog-records/search", json={})
         assert response.status_code == 200
@@ -635,7 +596,7 @@ class TestCatalogSearch:
 
     @pytest.mark.asyncio
     async def test_search_filter_by_base(
-        self, db_session, indexer_session, user, client: AsyncClient, sample_records
+        self, db_session, user, client: AsyncClient, sample_records
     ):
         response = await client.post(
             "/catalog-records/search",
@@ -649,7 +610,7 @@ class TestCatalogSearch:
 
     @pytest.mark.asyncio
     async def test_search_filter_by_deleted(
-        self, db_session, indexer_session, user, client: AsyncClient, sample_records
+        self, db_session, user, client: AsyncClient, sample_records
     ):
         response = await client.post(
             "/catalog-records/search",
@@ -662,7 +623,7 @@ class TestCatalogSearch:
 
     @pytest.mark.asyncio
     async def test_search_pagination(
-        self, db_session, indexer_session, user, client: AsyncClient, sample_records
+        self, db_session, user, client: AsyncClient, sample_records
     ):
         response = await client.post(
             "/catalog-records/search",
@@ -676,7 +637,7 @@ class TestCatalogSearch:
 
     @pytest.mark.asyncio
     async def test_search_sort_desc(
-        self, db_session, indexer_session, user, client: AsyncClient, sample_records
+        self, db_session, user, client: AsyncClient, sample_records
     ):
         response = await client.post(
             "/catalog-records/search",
@@ -688,7 +649,7 @@ class TestCatalogSearch:
 
     @pytest.mark.asyncio
     async def test_search_empty_result(
-        self, db_session, indexer_session, user, client: AsyncClient, sample_records
+        self, db_session, user, client: AsyncClient, sample_records
     ):
         response = await client.post(
             "/catalog-records/search",
@@ -700,7 +661,7 @@ class TestCatalogSearch:
 
     @pytest.mark.asyncio
     async def test_search_requires_auth(
-        self, db_session, indexer_session, client: AsyncClient, sample_records
+        self, db_session, client: AsyncClient, sample_records
     ):
         # No user fixture -> no auth override
         response = await client.post("/catalog-records/search", json={})

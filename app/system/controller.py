@@ -2,10 +2,8 @@ from typing import List
 
 from fastapi import APIRouter
 
-from adapters.dependencies import DatabaseSessionDep, WithPermission
+from adapters.dependencies import DatabaseSessionDep
 from auth.service import CurrentUser
-from entities.role import Permission
-from entities.task import TaskSchema
 from system.models import SystemInfo
 
 from . import service
@@ -27,15 +25,3 @@ async def get_system_info(
 @router.get("/locks", response_model=List[str])
 async def get_locks(_: CurrentUser):
     return service.get_locks()
-
-
-@router.post(
-    "/recreate-indexes",
-    dependencies=[WithPermission(Permission.ManageSystem)],
-    response_model=TaskSchema,
-)
-async def recreate_indexes(
-    current_user: CurrentUser,
-    db_session: DatabaseSessionDep,
-):
-    return await service.recreate_indexes(current_user.user_id, db_session)

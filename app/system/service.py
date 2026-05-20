@@ -9,11 +9,9 @@ from marc_comparator.authority_linkers import (
 
 from adapters.database import DatabaseSession
 from adapters.lock_server import get_active_locks
-from adapters.tasks import enqueue_task
 from authority_linking.models import AuthorityLinkingSettings
 from catalog_records.models import CatalogSettings
 from entities.settings import Settings, SettingsScope
-from entities.task import Task, TaskSchema, TaskType
 from settings.models import SETTINGS_MODEL_DISPATCHER
 
 from .models import AuthorityLinkerInfo, SystemInfo
@@ -101,16 +99,3 @@ async def get_system_info(db_session: DatabaseSession) -> SystemInfo:
 
 def get_locks() -> List[str]:
     return get_active_locks()
-
-
-async def recreate_indexes(
-    created_by: str, db_session: DatabaseSession
-) -> TaskSchema:
-    return await enqueue_task(
-        Task(
-            name="Recreating indexes",
-            type=TaskType.RecreateIndexes,
-            created_by=created_by,
-        ),
-        db_session,
-    )
