@@ -14,21 +14,21 @@ _ws_test_app.include_router(ws_router)
 
 class TestWebSocketAuth:
     @pytest.mark.asyncio
-    async def test_connect_without_token_rejected(self, db_session, indexer_session):
+    async def test_connect_without_token_rejected(self, db_session):
         with TestClient(_ws_test_app) as client:
             with pytest.raises(Exception):
                 with client.websocket_connect("/ws"):
                     pass
 
     @pytest.mark.asyncio
-    async def test_connect_with_invalid_token_rejected(self, db_session, indexer_session):
+    async def test_connect_with_invalid_token_rejected(self, db_session):
         with TestClient(_ws_test_app) as client:
             with pytest.raises(Exception):
                 with client.websocket_connect("/ws", cookies={"access_token": "invalid"}):
                     pass
 
     @pytest.mark.asyncio
-    async def test_connect_with_valid_token(self, db_session, indexer_session, user):
+    async def test_connect_with_valid_token(self, db_session, user):
         from datetime import timedelta
 
         from auth.service import create_access_token
@@ -45,7 +45,7 @@ class TestWebSocketAuth:
 class TestGetLocksEndpoint:
     @pytest.mark.asyncio
     async def test_get_locks_empty(
-        self, db_session, indexer_session, user, lock_server_client, client
+        self, db_session, user, lock_server_client, client
     ):
         response = await client.get("/system/locks")
         assert response.status_code == 200
@@ -53,7 +53,7 @@ class TestGetLocksEndpoint:
 
     @pytest.mark.asyncio
     async def test_get_locks_with_active_lock(
-        self, db_session, indexer_session, user, lock_server_client, client
+        self, db_session, user, lock_server_client, client
     ):
         with one_at_a_time_lock("test-visible-lock") as lock:
             assert lock is not None

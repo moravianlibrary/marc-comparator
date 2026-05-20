@@ -5,24 +5,19 @@ from typing import Any, Dict, Optional, Set, Tuple
 
 import pytest
 import pytest_asyncio
-from elasticsearch import AsyncElasticsearch
-from esorm import es, setup_mappings
 from httpx import Response
 from marcdantic import MarcRecord
 from redis import Redis
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
-from testcontainers.elasticsearch import ElasticSearchContainer
 from testcontainers.postgres import PostgresContainer
 from testcontainers.redis import RedisContainer
 
 from adapters.database import Base, DatabaseSession, db_session_generator
-from adapters.indexer import connect as es_connect
 from app import app
 from config import config
 
 POSTGRES_IMAGE = "postgres:17"
-ELASTICSEARCH_IMAGE = "elasticsearch:8.14.0"
 REDIS_IMAGE = "redis:8.0"
 
 FAKE_USER_ID = "12345678-1234-4678-9abc-1234567890ab"
@@ -48,7 +43,6 @@ TEST_DATA_DIR = Path(__file__).parent / "integration" / "data"
 # --------------------------------------------------------------------------
 def pytest_configure(config):
     config.addinivalue_line("markers", "db: test requires only Postgres")
-    config.addinivalue_line("markers", "es: test requires Postgres + Elasticsearch")
     config.addinivalue_line("markers", "redis: test requires Redis")
 
 
@@ -61,20 +55,6 @@ async def postgres_container():
     await asyncio.to_thread(postgres.start)
     yield postgres
     await asyncio.to_thread(postgres.stop)
-
-
-@pytest_asyncio.fixture(scope="session")
-async def elasticsearch_container():
-    es_container = ElasticSearchContainer(ELASTICSEARCH_IMAGE)
-    es_container.with_env("ES_JAVA_OPTS", "-Xms512m -Xmx512m")
-    es_container.with_env("xpack.security.enabled", "false")
-    es_container.with_env("discovery.type", "single-node")
-    es_container.with_env(
-        "cluster.routing.allocation.disk.threshold_enabled", "false"
-    )
-    await asyncio.to_thread(es_container.start)
-    yield es_container
-    await asyncio.to_thread(es_container.stop)
 
 
 @pytest_asyncio.fixture(scope="session")
@@ -102,28 +82,6 @@ async def db_engine(postgres_container):
     yield engine
     await asyncio.to_thread(Base.metadata.drop_all, engine)
     engine.dispose()
-
-
-# --------------------------------------------------------------------------
-# Session-scoped ES client (indices created once)
-# --------------------------------------------------------------------------
-@pytest_asyncio.fixture(scope="session")
-async def es_client(elasticsearch_container) -> AsyncElasticsearch:
-    es_url = (
-        f"http://{elasticsearch_container.get_container_host_ip()}"
-        f":{elasticsearch_container.get_exposed_port(9200)}"
-    )
-
-    # Patch config so any code reading config.elasticsearch.url gets the right value
-    config.elasticsearch.url = es_url
-
-    await es_connect()
-    await setup_mappings()
-    await es.cluster.health(wait_for_status="yellow", timeout="60s")
-
-    yield es
-
-    await es.close()
 
 
 # --------------------------------------------------------------------------

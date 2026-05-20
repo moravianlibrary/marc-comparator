@@ -29,7 +29,6 @@ class TestAuthorityLinkingEndpoints:
     async def test_authority_linking_task_creation(
         self,
         db_session: DatabaseSession,
-        indexer_session,
         user,
         tasks_client,
         client: AsyncClient,
@@ -75,7 +74,7 @@ class TestAuthorityLinkingEndpoints:
 
 @pytest_asyncio.fixture(scope="function")
 async def catalog_record(
-    db_session: DatabaseSession, indexer_session
+    db_session: DatabaseSession,
 ) -> CatalogRecord:
     record = CatalogRecord(
         base="MZK01",

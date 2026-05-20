@@ -1,43 +1,10 @@
-from uuid import uuid4
-
 import pytest
-from httpx import AsyncClient
 
 from adapters.database import DatabaseSession
 from adapters.lock_server import one_at_a_time_lock
 from adapters.tasks import enqueue_task
 from auth.models import TokenData
 from entities.task import Task, TaskType
-
-
-@pytest.mark.asyncio
-async def test_elasticsearch_smoke(indexer_session):
-    health = await indexer_session.cluster.health()
-    assert "status" in health
-    assert health["status"] in {"green", "yellow"}
-
-    # Index a simple document
-    index_name = "test-index"
-    doc_id = str(uuid4())
-    doc = {"message": "hello world", "id": doc_id}
-
-    await indexer_session.index(index=index_name, id=doc_id, document=doc)
-
-    # Retrieve the document
-    retrieved = await indexer_session.get(index=index_name, id=doc_id)
-    assert retrieved["_source"]["message"] == "hello world"
-
-    # Delete it
-    await indexer_session.delete(index=index_name, id=doc_id)
-
-    # Verify deletion
-    with pytest.raises(Exception):
-        await indexer_session.get(index=index_name, id=doc_id)
-
-    # Cleanup the index
-    await indexer_session.indices.delete(
-        index=index_name, ignore_unavailable=True
-    )
 
 
 @pytest.mark.asyncio
@@ -57,7 +24,6 @@ async def test_one_at_a_time_lock(lock_server_client):
 @pytest.mark.asyncio
 async def test_tasks_client_smoke(
     db_session: DatabaseSession,
-    indexer_session,
     user: TokenData,
     tasks_client,
 ):

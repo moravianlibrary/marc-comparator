@@ -42,7 +42,7 @@ def validation_settings(db_session: DatabaseSession) -> Settings:
 
 @pytest_asyncio.fixture(scope="function")
 async def catalog_record(
-    db_session: DatabaseSession, indexer_session
+    db_session: DatabaseSession,
 ) -> CatalogRecord:
     record = CatalogRecord(
         base="MZK01",
@@ -135,7 +135,6 @@ class TestValidationEndpoints:
     async def test_validation_task_creation(
         self,
         db_session,
-        indexer_session,
         user,
         tasks_client,
         validation_settings,

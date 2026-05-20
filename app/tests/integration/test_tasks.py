@@ -80,7 +80,6 @@ class TestTracebackLines:
     async def test_get_traceback_full(
         self,
         db_session,
-        indexer_session,
         user,
         client: AsyncClient,
         task_with_traceback: Task,
@@ -96,7 +95,6 @@ class TestTracebackLines:
     async def test_get_traceback_with_range(
         self,
         db_session,
-        indexer_session,
         user,
         client: AsyncClient,
         task_with_traceback: Task,
@@ -113,7 +111,6 @@ class TestTracebackLines:
     async def test_get_traceback_empty_task(
         self,
         db_session,
-        indexer_session,
         user,
         client: AsyncClient,
         pending_task: Task,
@@ -128,7 +125,6 @@ class TestTracebackLines:
     async def test_get_traceback_permission_denied(
         self,
         db_session,
-        indexer_session,
         user,
         client: AsyncClient,
         guest_user: User,
@@ -162,7 +158,6 @@ class TestRevokeTask:
     async def test_revoke_pending_task(
         self,
         db_session,
-        indexer_session,
         user,
         tasks_client,
         client: AsyncClient,
@@ -179,7 +174,6 @@ class TestRevokeTask:
     async def test_revoke_completed_task_fails(
         self,
         db_session,
-        indexer_session,
         user,
         tasks_client,
         client: AsyncClient,
@@ -197,7 +191,6 @@ class TestRevokeTask:
     async def test_revoke_permission_denied(
         self,
         db_session,
-        indexer_session,
         user,
         tasks_client,
         client: AsyncClient,
@@ -231,7 +224,6 @@ class TestDeleteTasks:
     async def test_delete_tasks_enqueue(
         self,
         db_session,
-        indexer_session,
         user,
         tasks_client,
         client: AsyncClient,
@@ -252,7 +244,6 @@ class TestTaskSearch:
     async def test_search_own_returns_only_own_tasks(
         self,
         db_session,
-        indexer_session,
         user,
         client: AsyncClient,
         pending_task: Task,
@@ -268,7 +259,6 @@ class TestTaskSearch:
     async def test_search_all_returns_tasks(
         self,
         db_session,
-        indexer_session,
         user,
         client: AsyncClient,
         pending_task: Task,
@@ -283,7 +273,6 @@ class TestTaskSearch:
     async def test_search_filter_by_status(
         self,
         db_session,
-        indexer_session,
         user,
         client: AsyncClient,
         pending_task: Task,
@@ -301,7 +290,6 @@ class TestTaskSearch:
     async def test_search_pagination(
         self,
         db_session,
-        indexer_session,
         user,
         client: AsyncClient,
         pending_task: Task,

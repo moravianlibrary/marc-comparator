@@ -1,0 +1,110 @@
+{
+  "tabs": {
+    "plots": "Grafy",
+    "table": "Tabulka",
+    "carousel": "Detail",
+    "addition": "Přidání záznamů"
+  },
+  "plots": {
+    "no-data": "Žádná data k zobrazení",
+    "total-records": "Celkem záznamů: {{count}}"
+  },
+  "table": {
+    "columns": {
+      "id": "ID",
+      "base": "Báze",
+      "system-number": "Systémové číslo",
+      "title": "Název",
+      "authors": "Autoři",
+      "state": "Stav",
+      "authority-links": "Propojení autorit",
+      "comparisons": "Porovnání",
+      "validations": "Validace",
+      "latest-sync": "Poslední synchronizace",
+      "latest-transaction": "Poslední transakce"
+    },
+    "actions": {
+      "process": "Zpracovat",
+      "hide": "Skrýt",
+      "show": "Zobrazit",
+      "advanced": "Pokročilé akce",
+      "link-authorities": "Propojit s autoritami",
+      "compare": "Porovnat",
+      "validate": "Validovat"
+    },
+    "column-config": "Nastavení sloupců",
+    "search-placeholder": "Hledat záznamy..."
+  },
+  "carousel": {
+    "previous": "Předchozí záznam",
+    "next": "Další záznam",
+    "marc-record": "MARC záznam",
+    "comparisons": "Porovnání",
+    "validations": "Validace",
+    "no-record": "Vyberte záznam pro zobrazení",
+    "score": "Skóre",
+    "match-quality": "Kvalita shody",
+    "status": "Stav",
+    "reason": "Důvod",
+    "hint": "Nápověda"
+  },
+  "addition": {
+    "title": "Přidání záznamů",
+    "fetch-single": {
+      "title": "Přidat jednotlivý záznam",
+      "base": "Báze",
+      "system-number": "Systémové číslo",
+      "submit": "Přidat záznam"
+    },
+    "fetch-batch": {
+      "title": "Hromadné přidání záznamů",
+      "description": "Přidejte záznamy po dávkách. Jeden řádek = jedno systémové číslo.",
+      "base": "Báze",
+      "system-numbers": "Systémová čísla (po řádcích)",
+      "submit": "Přidat záznamy"
+    },
+    "sync": {
+      "title": "Synchronizace z katalogu",
+      "base": "Báze",
+      "from-date": "Od data (volitelné)",
+      "submit": "Synchronizovat"
+    }
+  },
+  "facet-fields": {
+    "base": "Báze",
+    "type_of_record": "Typ záznamu",
+    "bibliographic_level": "Bibliografická úroveň",
+    "is_deleted": "Stav smazání",
+    "is_hidden": "Viditelnost",
+    "is_processed": "Zpracování",
+    "authority_link_linkers": "Linkery autorit",
+    "authority_link_bases": "Báze autorit",
+    "comparators": "Porovnávače",
+    "comparison_bases": "Báze porovnání",
+    "match_qualities": "Kvalita shody",
+    "validators": "Validátory",
+    "validation_statuses": "Stav validace",
+    "validation_target_tags": "Validační cílový tag",
+    "field_explanations": "Vysvětlení výsledku",
+    "overall_score": "Celkové skóre porovnání"
+  },
+  "state": {
+    "Active": "Aktivní",
+    "Deleted": "Smazaný",
+    "Visible": "Viditelný",
+    "Hidden": "Skrytý",
+    "Unprocessed": "Nezpracovaný",
+    "Processed": "Zpracovaný"
+  },
+  "match-quality": {
+    "Excellent": "Výborná",
+    "Moderate": "Průměrná",
+    "Poor": "Špatná"
+  },
+  "validity-status": {
+    "Valid": "Platný",
+    "Invalid": "Neplatný",
+    "Warning": "Varování",
+    "Error": "Chyba"
+  }
+}
