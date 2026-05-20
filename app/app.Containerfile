@@ -47,6 +47,7 @@ COPY app/settings/ settings/
 COPY app/system/ system/
 COPY app/tasks/ tasks/
 COPY app/validation/ validation/
+COPY app/ws/ ws/
 COPY app/app.py app.py
 COPY app/app_lifespan.py app_lifespan.py
 COPY app/config.py config.py

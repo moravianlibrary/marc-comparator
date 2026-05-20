@@ -5,7 +5,6 @@ email-validator
 pandas
 psycopg2-binary
 pydantic_settings
-pyesorm
 pyyaml
 redis
 requests
