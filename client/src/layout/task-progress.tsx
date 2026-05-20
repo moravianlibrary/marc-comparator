@@ -15,10 +15,10 @@ interface TaskProgressProps {
 export function TaskProgress({ runningTasks }: TaskProgressProps) {
   const { t } = useTranslation();
 
-  if (runningTasks.length === 0) return null;
+  const task = runningTasks[0];
+  if (!task) return null;
 
   if (runningTasks.length === 1) {
-    const task = runningTasks[0];
     const percent =
       task.progress != null && task.total != null && task.total > 0
         ? Math.round((task.progress / task.total) * 100)
