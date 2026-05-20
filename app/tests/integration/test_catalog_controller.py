@@ -595,3 +595,113 @@ class TestCatalogEndpoints:
         body = response.json()
         assert body["name"] == "Process catalog records"
         assert body["type"] == "ProcessRecords"
+
+
+@pytest.fixture
+def sample_records(db_session: DatabaseSession):
+    """Create a few CatalogRecord instances for search tests."""
+    test_marc_1 = load_test_record("MZK01-001217709.mrc")._marc
+    test_marc_2 = load_test_record("MZK01-001217729.mrc")._marc
+
+    r1 = CatalogRecord(base="MZK01", system_number="001217709", marc=test_marc_1)
+    r1.update_search_text()
+    r1.save(db_session)
+
+    r2 = CatalogRecord(base="MZK01", system_number="001217729", marc=test_marc_2)
+    r2.update_search_text()
+    r2.save(db_session)
+
+    r3 = CatalogRecord(
+        base="TEST", system_number="000000001", marc=test_marc_1, deleted=True
+    )
+    r3.update_search_text()
+    r3.save(db_session)
+
+    return [r1, r2, r3]
+
+
+class TestCatalogSearch:
+    @pytest.mark.asyncio
+    async def test_search_returns_records(
+        self, db_session, indexer_session, user, client: AsyncClient, sample_records
+    ):
+        response = await client.post("/catalog-records/search", json={})
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 3
+        assert len(data["items"]) == 3
+        assert data["page"] == 1
+        assert data["page_size"] == 25
+
+    @pytest.mark.asyncio
+    async def test_search_filter_by_base(
+        self, db_session, indexer_session, user, client: AsyncClient, sample_records
+    ):
+        response = await client.post(
+            "/catalog-records/search",
+            json={"filters": {"bases": ["MZK01"]}},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 2
+        for item in data["items"]:
+            assert item["base"] == "MZK01"
+
+    @pytest.mark.asyncio
+    async def test_search_filter_by_deleted(
+        self, db_session, indexer_session, user, client: AsyncClient, sample_records
+    ):
+        response = await client.post(
+            "/catalog-records/search",
+            json={"filters": {"deleted": True}},
+        )
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] == 1
+        assert data["items"][0]["base"] == "TEST"
+
+    @pytest.mark.asyncio
+    async def test_search_pagination(
+        self, db_session, indexer_session, user, client: AsyncClient, sample_records
+    ):
+        response = await client.post(
+            "/catalog-records/search",
+            json={"page": 1, "page_size": 2},
+        )
+        data = response.json()
+        assert data["page"] == 1
+        assert data["page_size"] == 2
+        assert len(data["items"]) == 2
+        assert data["total"] == 3
+
+    @pytest.mark.asyncio
+    async def test_search_sort_desc(
+        self, db_session, indexer_session, user, client: AsyncClient, sample_records
+    ):
+        response = await client.post(
+            "/catalog-records/search",
+            json={"sort_by": "system_number", "sort_order": "desc"},
+        )
+        data = response.json()
+        ids = [item["system_number"] for item in data["items"]]
+        assert ids == sorted(ids, reverse=True)
+
+    @pytest.mark.asyncio
+    async def test_search_empty_result(
+        self, db_session, indexer_session, user, client: AsyncClient, sample_records
+    ):
+        response = await client.post(
+            "/catalog-records/search",
+            json={"filters": {"bases": ["NONEXISTENT"]}},
+        )
+        data = response.json()
+        assert data["total"] == 0
+        assert data["items"] == []
+
+    @pytest.mark.asyncio
+    async def test_search_requires_auth(
+        self, db_session, indexer_session, client: AsyncClient, sample_records
+    ):
+        # No user fixture -> no auth override
+        response = await client.post("/catalog-records/search", json={})
+        assert response.status_code == 401

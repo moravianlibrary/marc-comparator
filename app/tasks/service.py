@@ -2,43 +2,13 @@ from fastapi import HTTPException, status
 from fastapi.responses import PlainTextResponse
 
 from adapters.database import DatabaseSession
-from adapters.indexer import IndexerRequest, IndexerResponse
+from adapters.indexer import IndexerRequest
 from adapters.tasks import enqueue_task
 from adapters.tasks import revoke_task as execute_task_revoke
 from entities.role import Permission
 from entities.task import Task, TaskSchema, TaskStatus, TaskType
 from entities.user import User
 from tasks.models import TracebackLinesRequestParams
-
-
-async def search_own_tasks(
-    request: IndexerRequest, user_id: str
-) -> IndexerResponse:
-    query_dict = request.model_dump()
-
-    user_filter = {"term": {"created_by": user_id}}
-
-    if "query" in query_dict and query_dict["query"]:
-        q = query_dict["query"]
-        if "bool" in q and "must" in q["bool"]:
-            q["bool"]["must"].append(user_filter)
-        else:
-            query_dict["query"] = {
-                "bool": {
-                    "must": [
-                        q,
-                        user_filter
-                    ]
-                }
-            }
-    else:
-        query_dict["query"] = user_filter
-
-    return await Task.search(IndexerRequest.model_validate(query_dict))
-
-
-async def search_all_tasks(request: IndexerRequest) -> IndexerResponse:
-    return await Task.search(request)
 
 
 def get_traceback_lines(

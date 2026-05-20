@@ -3,13 +3,14 @@ from typing import Annotated
 from fastapi import APIRouter, Body, Query
 
 from adapters.dependencies import DatabaseSessionDep, WithPermission
-from adapters.indexer import IndexerRequest, IndexerResponse
+from adapters.indexer import IndexerRequest
 from auth.service import CurrentUser
 from entities.role import Permission
 from entities.task import TaskSchema
 
 from . import service
-from .models import TracebackLinesRequestParams
+from .models import SearchTasksRequest, SearchTasksResponse, TracebackLinesRequestParams
+from .search import search_tasks
 
 router = APIRouter(prefix="/tasks", tags=["Tasks"])
 
@@ -17,24 +18,27 @@ router = APIRouter(prefix="/tasks", tags=["Tasks"])
 @router.post(
     "/search-own",
     dependencies=[WithPermission(Permission.ManageTasks)],
-    response_model=IndexerResponse,
+    response_model=SearchTasksResponse,
 )
 async def search_own(
-    request: Annotated[IndexerRequest, Body()],
+    request: Annotated[SearchTasksRequest, Body()],
     current_user: CurrentUser,
+    db_session: DatabaseSessionDep,
 ):
-    return await service.search_own_tasks(request, current_user.user_id)
+    request.filters.created_by = current_user.user_id
+    return search_tasks(request, db_session)
 
 
 @router.post(
     "/search-all",
     dependencies=[WithPermission(Permission.ManageAllTasks)],
-    response_model=IndexerResponse,
+    response_model=SearchTasksResponse,
 )
 async def search_all(
-    request: Annotated[IndexerRequest, Body()],
+    request: Annotated[SearchTasksRequest, Body()],
+    db_session: DatabaseSessionDep,
 ):
-    return await service.search_all_tasks(request)
+    return search_tasks(request, db_session)
 
 
 @router.get(

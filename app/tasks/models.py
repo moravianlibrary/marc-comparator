@@ -1,3 +1,7 @@
+from datetime import datetime
+from typing import Literal
+from uuid import UUID
+
 from pydantic import BaseModel, Field
 
 from entities.settings import SettingsSchema
@@ -17,3 +21,39 @@ class TaskSettings(SettingsSchema):
 class TracebackLinesRequestParams(BaseModel):
     start_line: int | None = Field(default=None, alias="from", ge=0)
     end_line: int | None = Field(default=None, alias="to", ge=0)
+
+
+class TaskFilter(BaseModel):
+    types: list[str] | None = None
+    statuses: list[str] | None = None
+    severities: list[str] | None = None
+    created_by: str | None = None
+
+
+class SearchTasksRequest(BaseModel):
+    filters: TaskFilter = TaskFilter()
+    page: int = Field(default=1, ge=1)
+    page_size: int = Field(default=25, ge=1, le=100)
+    sort_by: Literal["created_at", "started_at", "finished_at"] = "created_at"
+    sort_order: Literal["asc", "desc"] = "desc"
+
+
+class TaskSummary(BaseModel):
+    task_id: UUID
+    name: str
+    type: str
+    status: str
+    severity: str
+    created_by: UUID
+    created_at: datetime
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
+    progress: float
+    traceback_lines: int
+
+
+class SearchTasksResponse(BaseModel):
+    items: list[TaskSummary]
+    total: int
+    page: int
+    page_size: int

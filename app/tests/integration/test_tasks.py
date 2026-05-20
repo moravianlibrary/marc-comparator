@@ -245,3 +245,74 @@ class TestDeleteTasks:
         assert body["name"] == "Deleting tasks"
         assert body["type"] == "DeleteTasks"
         assert body["status"] == "Pending"
+
+
+class TestTaskSearch:
+    @pytest.mark.asyncio
+    async def test_search_own_returns_only_own_tasks(
+        self,
+        db_session,
+        indexer_session,
+        user,
+        client: AsyncClient,
+        pending_task: Task,
+    ):
+        response = await client.post("/tasks/search-own", json={})
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] >= 1
+        for item in data["items"]:
+            assert item["created_by"] == FAKE_USER_ID
+
+    @pytest.mark.asyncio
+    async def test_search_all_returns_tasks(
+        self,
+        db_session,
+        indexer_session,
+        user,
+        client: AsyncClient,
+        pending_task: Task,
+        completed_task: Task,
+    ):
+        response = await client.post("/tasks/search-all", json={})
+        assert response.status_code == 200
+        data = response.json()
+        assert data["total"] >= 2
+
+    @pytest.mark.asyncio
+    async def test_search_filter_by_status(
+        self,
+        db_session,
+        indexer_session,
+        user,
+        client: AsyncClient,
+        pending_task: Task,
+        completed_task: Task,
+    ):
+        response = await client.post(
+            "/tasks/search-all",
+            json={"filters": {"statuses": ["Pending"]}},
+        )
+        data = response.json()
+        for item in data["items"]:
+            assert item["status"] == "Pending"
+
+    @pytest.mark.asyncio
+    async def test_search_pagination(
+        self,
+        db_session,
+        indexer_session,
+        user,
+        client: AsyncClient,
+        pending_task: Task,
+        completed_task: Task,
+    ):
+        response = await client.post(
+            "/tasks/search-all",
+            json={"page": 1, "page_size": 1},
+        )
+        data = response.json()
+        assert data["page"] == 1
+        assert data["page_size"] == 1
+        assert len(data["items"]) == 1
+        assert data["total"] >= 2
