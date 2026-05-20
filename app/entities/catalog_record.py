@@ -10,11 +10,13 @@ from sqlalchemy import (
     TIMESTAMP,
     Boolean,
     Column,
+    Index,
     LargeBinary,
     String,
     event,
     func,
 )
+from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlalchemy.orm import Mapped, relationship
 
 from adapters.database import Base, DatabaseSession
@@ -93,6 +95,15 @@ class CatalogRecord(
     )
     source_name = Column(String, nullable=True)
 
+    updated_at = Column(
+        TIMESTAMP(timezone=True),
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+    search_text = Column(String, nullable=True)
+    search_vector = Column(TSVECTOR)
+
     authority_links: Mapped[List[AuthorityLink]] = relationship(
         "AuthorityLink",
         foreign_keys=[AuthorityLink.main_record_id],
@@ -110,6 +121,11 @@ class CatalogRecord(
         foreign_keys=[Validation.catalog_record_id],
         back_populates="catalog_record",
         lazy="select",
+    )
+
+    __table_args__ = (
+        Index("idx_catalog_records_search_vector", "search_vector", postgresql_using="gin"),
+        Index("idx_catalog_records_updated_at", "updated_at"),
     )
 
     @classmethod
@@ -185,6 +201,16 @@ class CatalogRecord(
             states.append(CatalogRecordState.Unprocessed)
 
         return states
+
+    def update_search_text(self):
+        """Update search_text from MARC-derived fields."""
+        parts = [self.system_number]
+        if self.title:
+            parts.append(self.title)
+        if self.subtitle:
+            parts.append(self.subtitle)
+        parts.extend(self.authors)
+        self.search_text = " ".join(filter(None, parts))
 
 
 @event.listens_for(CatalogRecord, "before_insert")

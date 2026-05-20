@@ -3,6 +3,8 @@ import logging
 
 from esorm import setup_mappings
 
+from sqlalchemy import text
+
 from adapters.database import Base, engine, get_db_session
 from adapters.events import subscribe_events
 from adapters.indexer import shutdown_indexer, startup_indexer
@@ -28,6 +30,32 @@ async def lifespan(app):
 
     # Generate database schema
     await asyncio.to_thread(Base.metadata.create_all, bind=engine)
+
+    with get_db_session() as db:
+        db.execute(text("""
+            CREATE OR REPLACE FUNCTION catalog_records_search_vector_update() RETURNS trigger AS $$
+            BEGIN
+                NEW.search_vector := to_tsvector('simple', COALESCE(NEW.search_text, ''));
+                RETURN NEW;
+            END
+            $$ LANGUAGE plpgsql;
+        """))
+        db.execute(text("""
+            DO $$
+            BEGIN
+                IF NOT EXISTS (
+                    SELECT 1 FROM pg_trigger WHERE tgname = 'tsvector_update'
+                    AND tgrelid = 'catalog_records'::regclass
+                ) THEN
+                    CREATE TRIGGER tsvector_update
+                        BEFORE INSERT OR UPDATE OF search_text
+                        ON catalog_records
+                        FOR EACH ROW
+                        EXECUTE FUNCTION catalog_records_search_vector_update();
+                END IF;
+            END $$;
+        """))
+        db.commit()
 
     # Start indexer connection
     await startup_indexer()

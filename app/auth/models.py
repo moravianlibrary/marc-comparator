@@ -19,11 +19,6 @@ class RegisterUserRequest(BaseModel):
     password: str = Field(min_length=8)
 
 
-class Token(BaseModel):
-    access_token: str
-    token_type: str
-
-
 class TokenData(BaseModel):
     user_id: str | None = None
 

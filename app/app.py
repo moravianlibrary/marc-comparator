@@ -5,6 +5,7 @@ from access_control.controller import router as access_control_router
 from adapters.logger import configure_logging
 from app_lifespan import lifespan
 from auth.controller import router as auth_router
+from auth.oidc import router as oidc_router
 from authority_linking.controller import router as authority_linking_router
 from catalog_records.controller import router as catalog_router
 from comparison.controller import router as comparison_router
@@ -31,6 +32,7 @@ app.add_middleware(
 # Register routers
 app.include_router(access_control_router)
 app.include_router(auth_router)
+app.include_router(oidc_router)
 app.include_router(authority_linking_router)
 app.include_router(catalog_router)
 app.include_router(comparison_router)

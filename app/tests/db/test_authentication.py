@@ -10,7 +10,7 @@ from auth.service import (
     create_access_token,
     get_password_hash,
     register_user,
-    verify_token,
+    verify_access_token,
 )
 from config import config
 from entities.role import Role
@@ -72,21 +72,16 @@ class TestAuthenticationEndpoints:
     async def test_user_login(
         self, db_session, user, client: AsyncClient, test_user
     ):
-        assert_response(
-            await client.post(
-                "/auth/login",
-                data={
-                    "username": "test.user@example.com",
-                    "password": "password123",
-                },
-            ),
-            200,
-            {
-                "access_token": "string",
-                "token_type": "bearer",
+        response = await client.post(
+            "/auth/login",
+            json={
+                "email": "test.user@example.com",
+                "password": "password123",
             },
-            {("access_token",)},
         )
+        assert_response(response, 200, {"status": "ok"})
+        assert "access_token" in response.cookies
+        assert "refresh_token" in response.cookies
 
     @pytest.mark.asyncio
     async def test_user_login_invalid_username(
@@ -95,8 +90,8 @@ class TestAuthenticationEndpoints:
         assert_response(
             await client.post(
                 "/auth/login",
-                data={
-                    "username": "invalid@example.com",
+                json={
+                    "email": "invalid@example.com",
                     "password": "wrongpassword",
                 },
             ),
@@ -111,8 +106,8 @@ class TestAuthenticationEndpoints:
         assert_response(
             await client.post(
                 "/auth/login",
-                data={
-                    "username": "test.user@example.com",
+                json={
+                    "email": "test.user@example.com",
                     "password": get_password_hash("wrongpassword"),
                 },
             ),
@@ -127,8 +122,8 @@ class TestAuthenticationEndpoints:
         assert_response(
             await client.post(
                 "/auth/login",
-                data={
-                    "username": "test.user@example.com",
+                json={
+                    "email": "test.user@example.com",
                     "password": "wrongpassword",
                 },
             ),
@@ -178,17 +173,16 @@ class TestAuthenticationEndpointsUnauthenticated:
     ):
         response = await client.post(
             "/auth/login",
-            data={
-                "username": "test.user@example.com",
+            json={
+                "email": "test.user@example.com",
                 "password": "password123",
             },
         )
-        token = response.json()["access_token"]
+        assert response.status_code == 200
+        client.cookies.set("access_token", response.cookies["access_token"])
 
         assert_response(
-            await client.get(
-                "/auth/me", headers={"Authorization": f"Bearer {token}"}
-            ),
+            await client.get("/auth/me"),
             200,
             {
                 "id": "some-id",
@@ -215,10 +209,9 @@ class TestAuthenticationEndpointsUnauthenticated:
     async def test_get_current_user_invalid_token(
         self, db_session, client: AsyncClient
     ):
+        client.cookies.set("access_token", "invalidtoken")
         assert_response(
-            await client.get(
-                "/auth/me", headers={"Authorization": "Bearer invalidtoken"}
-            ),
+            await client.get("/auth/me"),
             401,
             {"detail": "Invalid token"},
         )
@@ -231,6 +224,7 @@ class TestAuthenticationEndpointsUnauthenticated:
         expired_payload = {
             "sub": "test.user@example.com",
             "id": "00000000-0000-0000-0000-000000000000",
+            "type": "access",
             "exp": time.time() - 60,  # expired 60s ago
         }
         expired_token = jwt.encode(
@@ -238,11 +232,9 @@ class TestAuthenticationEndpointsUnauthenticated:
             config.auth.secret_key,
             algorithm=config.auth.algorithm,
         )
+        client.cookies.set("access_token", expired_token)
         assert_response(
-            await client.get(
-                "/auth/me",
-                headers={"Authorization": f"Bearer {expired_token}"},
-            ),
+            await client.get("/auth/me"),
             401,
             {"detail": "Invalid token"},
         )
@@ -251,19 +243,21 @@ class TestAuthenticationEndpointsUnauthenticated:
     async def test_get_current_user_token_missing_id_claim(
         self, db_session, client: AsyncClient, test_user
     ):
-        """A token with no 'id' claim should still decode but return user_id=None."""
+        """A token with type='access' but no 'id' claim should raise AuthenticationError."""
         from datetime import datetime, timedelta, timezone
+
+        from auth.exceptions import AuthenticationError
 
         payload = {
             "sub": "test.user@example.com",
+            "type": "access",
             "exp": datetime.now(timezone.utc) + timedelta(minutes=30),
         }
         token = jwt.encode(
             payload, config.auth.secret_key, algorithm=config.auth.algorithm
         )
-        # verify_token should succeed but TokenData.user_id will be None
-        token_data = verify_token(token)
-        assert token_data.user_id is None
+        with pytest.raises(AuthenticationError):
+            verify_access_token(token)
 
 
 class TestAuthService:
@@ -275,14 +269,14 @@ class TestAuthService:
         token = create_access_token(
             "test@example.com", uid, timedelta(minutes=5)
         )
-        token_data = verify_token(token)
+        token_data = verify_access_token(token)
         assert token_data.user_id == str(uid)
 
     def test_verify_token_invalid(self, db_session):
         from auth.exceptions import AuthenticationError
 
         with pytest.raises(AuthenticationError):
-            verify_token("not.a.valid.token")
+            verify_access_token("not.a.valid.token")
 
     def test_password_hash_roundtrip(self):
         from auth.service import get_password_hash, verify_password

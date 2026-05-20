@@ -12,7 +12,8 @@ router = APIRouter()
 
 
 @router.websocket("/ws")
-async def websocket_endpoint(websocket: WebSocket, token: str = ""):
+async def websocket_endpoint(websocket: WebSocket):
+    token = websocket.cookies.get("access_token")
     if not token:
         await websocket.close(code=4001, reason="Missing token")
         return

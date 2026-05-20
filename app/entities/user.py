@@ -34,6 +34,10 @@ class User(Base, BaseOperationsMixin, RetrievalOperationsMixin):
             perms.update([p.value for p in role.permissions])
         return list(perms)
 
+    @classmethod
+    def find_by_email(cls, db_session, email: str) -> "User | None":
+        return db_session.query(cls).filter_by(email=email).one_or_none()
+
     def __repr__(self):
         return (
             f"<User(email='{self.email}', "

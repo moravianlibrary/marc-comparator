@@ -8,7 +8,9 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class CorsConfig(BaseSettings):
-    allow_origins: List[str] = Field(default=["*"])
+    model_config = SettingsConfigDict(env_prefix="CORS_")
+
+    allow_origins: List[str] = Field(default=["http://localhost:5173", "http://localhost:8080"])
     allow_credentials: bool = Field(default=True)
     allow_methods: List[str] = Field(default=["*"])
     allow_headers: List[str] = Field(default=["*"])
@@ -78,6 +80,33 @@ class AuthConfig(BaseSettings):
     admin: AdminConfig = AdminConfig()
 
 
+class OIDCConfig(BaseSettings):
+    model_config = SettingsConfigDict(env_prefix="OIDC_")
+
+    enabled: bool = Field(default=False)
+    default: bool = Field(default=False)
+    issuer_url: str = Field(default="http://localhost:8080/realms/marc-comparator")
+    client_id: str = Field(default="marc-comparator")
+    client_secret: str = Field(default="")
+    app_base_url: str = Field(default="http://localhost:8000")
+
+    @property
+    def authorization_endpoint(self) -> str:
+        return f"{self.issuer_url}/protocol/openid-connect/auth"
+
+    @property
+    def token_endpoint(self) -> str:
+        return f"{self.issuer_url}/protocol/openid-connect/token"
+
+    @property
+    def userinfo_endpoint(self) -> str:
+        return f"{self.issuer_url}/protocol/openid-connect/userinfo"
+
+    @property
+    def redirect_uri(self) -> str:
+        return f"{self.app_base_url}/auth/oidc/callback"
+
+
 class AppConfig(BaseSettings):
     model_config = SettingsConfigDict(
         env_file=".env", env_file_encoding="utf-8", extra="ignore"
@@ -94,6 +123,7 @@ class AppConfig(BaseSettings):
     elasticsearch: ElasticsearchConfig = ElasticsearchConfig()
     broker: BrokerConfig = BrokerConfig()
     auth: AuthConfig = AuthConfig()
+    oidc: OIDCConfig = OIDCConfig()
 
     index_batch_size: int = Field(default=1000)
 

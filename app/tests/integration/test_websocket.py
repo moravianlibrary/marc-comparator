@@ -24,7 +24,7 @@ class TestWebSocketAuth:
     async def test_connect_with_invalid_token_rejected(self, db_session, indexer_session):
         with TestClient(_ws_test_app) as client:
             with pytest.raises(Exception):
-                with client.websocket_connect("/ws?token=invalid"):
+                with client.websocket_connect("/ws", cookies={"access_token": "invalid"}):
                     pass
 
     @pytest.mark.asyncio
@@ -38,7 +38,7 @@ class TestWebSocketAuth:
         )
 
         with TestClient(_ws_test_app) as client:
-            with client.websocket_connect(f"/ws?token={token}") as ws:
+            with client.websocket_connect("/ws", cookies={"access_token": token}) as ws:
                 assert ws is not None
 
 

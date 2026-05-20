@@ -14,7 +14,7 @@ from config import config
 from entities.role import Role
 from entities.user import User
 
-from .models import RegisterUserRequest, Token, TokenData
+from .models import RegisterUserRequest, TokenData
 
 bcrypt_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 
@@ -27,11 +27,11 @@ def get_password_hash(password: str) -> str:
     return bcrypt_context.hash(password)
 
 
-def authenticate_user(email: str, password: str, db: Session) -> User | bool:
+def authenticate_user(email: str, password: str, db: Session) -> User | None:
     user = db.query(User).filter(User.email == email).first()
     if not user or not verify_password(password, user.password_hash):
         logging.warning(f"Failed authentication attempt for email: {email}")
-        return False
+        return None
     return user
 
 
@@ -63,7 +63,10 @@ def verify_access_token(token: str) -> TokenData:
         )
         if payload.get("type") != "access":
             raise AuthenticationError("Invalid token type")
-        return TokenData(user_id=payload.get("id"))
+        user_id = payload.get("id")
+        if not user_id:
+            raise AuthenticationError("Missing user ID in token")
+        return TokenData(user_id=user_id)
     except PyJWTError as e:
         logging.warning(f"Token verification failed: {str(e)}")
         raise AuthenticationError("Invalid token")
@@ -77,7 +80,10 @@ def verify_refresh_token(token: str) -> str:
         )
         if payload.get("type") != "refresh":
             raise AuthenticationError("Invalid token type")
-        return payload.get("id")
+        user_id = payload.get("id")
+        if not user_id:
+            raise AuthenticationError("Missing user ID in token")
+        return user_id
     except PyJWTError:
         raise AuthenticationError("Invalid refresh token")
 
