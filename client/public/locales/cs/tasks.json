@@ -1,0 +1,48 @@
+{
+  "title": "Úkoly",
+  "fields": {
+    "name": "Název",
+    "type": "Typ",
+    "status": "Stav",
+    "severity": "Úroveň chyb",
+    "run-time": "Doba běhu",
+    "created-by": "Vytvořil",
+    "created-at": "Vytvořeno"
+  },
+  "detail": {
+    "title": "Podrobnosti úkolu",
+    "task-id": "ID úkolu",
+    "select-instructions": "Pro zobrazení podrobností vyberte úkol v tabulce.",
+    "no-traceback": "Pro tento úkol není k dispozici žádný traceback."
+  },
+  "type": {
+    "FetchRecord": "Přidání záznamu",
+    "FetchBatchOfRecords": "Hromadné přidání záznamů",
+    "SyncRecords": "Synchronizace záznamů z katalogu",
+    "LinkRecordsToAuthorities": "Propojení záznamů s autoritami",
+    "CompareRecords": "Porovnání záznamů",
+    "ValidateRecords": "Validace záznamů",
+    "SetRecordVisibility": "Nastavení viditelnosti záznamů",
+    "DeleteTasks": "Odstranění úkolů",
+    "ProcessRecords": "Zpracování záznamů",
+    "RebuildAnalyticalData": "Obnova analytických dat"
+  },
+  "status": {
+    "Pending": "Naplánováno",
+    "Started": "Spuštěno",
+    "Success": "Úspěšně dokončeno",
+    "Failure": "Selhalo",
+    "Revoked": "Zrušeno"
+  },
+  "severity": {
+    "Info": "Žádná",
+    "Warning": "Varování",
+    "Error": "Došlo k chybám",
+    "Critical": "Závažná chyba"
+  },
+  "toast": {
+    "started": "Úkol \"{{name}}\" byl spuštěn",
+    "completed": "Úkol \"{{name}}\" byl úspěšně dokončen",
+    "failed": "Úkol \"{{name}}\" selhal"
+  }
+}

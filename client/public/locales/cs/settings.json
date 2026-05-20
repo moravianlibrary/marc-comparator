@@ -1,0 +1,68 @@
+{
+  "title": "Nastavení",
+  "unsaved-warning": "Máte neuložené změny. Uložte nebo zahoďte změny před přepnutím.",
+  "types": {
+    "catalog": "Nastavení katalogu",
+    "tasks": "Nastavení úkolů",
+    "authority-linkers": "Nastavení propojení autorit",
+    "comparators": "Nastavení porovnávání",
+    "validators": "Nastavení validátorů",
+    "process-records": "Nastavení zpracování záznamů"
+  },
+  "catalog": {
+    "clients": "Klienti katalogu",
+    "add-client": "Přidat klienta",
+    "base": "Báze",
+    "host": "Hostitel",
+    "endpoint": "Endpoint",
+    "timeout": "Timeout (s)",
+    "total-retry": "Počet opakování",
+    "retry-backoff-factor": "Faktor zpoždění opakování",
+    "system-number-pattern": "Vzor systémového čísla",
+    "oai-sets": "OAI sady",
+    "oai-identifier-template": "Šablona OAI identifikátoru"
+  },
+  "tasks-settings": {
+    "progress-update-interval": "Interval aktualizace průběhu",
+    "progress-update-interval-description": "Počet záznamů mezi aktualizacemi průběhu"
+  },
+  "authority-linkers": {
+    "knihovny-cz": {
+      "title": "Knihovny.cz",
+      "enabled": "Aktivní",
+      "api-url": "URL API",
+      "mappings": "Mapování",
+      "add-mapping": "Přidat mapování",
+      "mapping-base": "Báze",
+      "mapping-id-template": "Šablona ID",
+      "mapping-pattern": "Vzor"
+    }
+  },
+  "comparators": {
+    "intiim": {
+      "title": "INTIIM",
+      "enabled": "Aktivní",
+      "ollama-url": "URL Ollama serveru",
+      "llm-enabled": "Povolit LLM",
+      "nonstandard-llm-enabled": "Povolit nestandardní LLM",
+      "valid-threshold": "Práh platnosti",
+      "warning-threshold": "Práh varování"
+    }
+  },
+  "validators": {
+    "kramerius-links": {
+      "title": "Odkazy na Kramerius",
+      "enabled": "Aktivní",
+      "url-to-pid-pattern": "Vzor URL na PID",
+      "link-text-pattern": "Vzor textu odkazu",
+      "kramerius-host": "Hostitel Krameria",
+      "solr-cloud": "SolrCloud"
+    }
+  },
+  "process-records": {
+    "target-bases": "Cílové báze",
+    "authority-linkers": "Propojení s autoritami",
+    "comparator": "Porovnávač",
+    "validators": "Validátory"
+  }
+}

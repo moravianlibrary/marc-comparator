@@ -1,0 +1,42 @@
+{
+  "app-name": "MARC Comparator",
+  "save": "Uložit",
+  "discard": "Zahodit",
+  "cancel": "Zrušit",
+  "delete": "Smazat",
+  "edit": "Upravit",
+  "create": "Vytvořit",
+  "confirm": "Potvrdit",
+  "loading": "Načítání...",
+  "error": "Došlo k chybě",
+  "no-data": "Žádná data",
+  "actions": "Akce",
+  "menu": {
+    "tasks": "Úkoly",
+    "settings": "Nastavení",
+    "access-control": "Přístupová práva",
+    "system": "Údržba systému"
+  },
+  "lock-banner": {
+    "prefix": "Systémový zámek:",
+    "dismiss": "Zavřít"
+  },
+  "task-progress": {
+    "running_one": "1 probíhající úkol",
+    "running_few": "{{count}} probíhající úkoly",
+    "running_other": "{{count}} probíhajících úkolů"
+  },
+  "toast-history": {
+    "title": "Historie oznámení",
+    "empty": "Žádná oznámení",
+    "clear": "Vymazat historii"
+  },
+  "user-menu": {
+    "logout": "Odhlásit se"
+  },
+  "pagination": {
+    "previous": "Předchozí",
+    "next": "Další",
+    "page": "Stránka {{page}} z {{total}}"
+  }
+}

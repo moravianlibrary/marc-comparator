@@ -1,0 +1,19 @@
+{
+  "title": "Údržba systému",
+  "description": "Proveďte údržbu systému.",
+  "info": {
+    "title": "Informace o systému",
+    "version": "Verze",
+    "commit": "Commit",
+    "uptime": "Doba běhu",
+    "bases": "Dostupné báze",
+    "authority-linkers": "Aktivní propojení autorit",
+    "comparators": "Aktivní porovnávače",
+    "validators": "Aktivní validátory"
+  },
+  "rebuild-analytical-data": {
+    "title": "Obnova analytických dat",
+    "description": "Znovu sestaví analytická data v ClickHouse z PostgreSQL. Použijte, pokud jsou analytická data nekonzistentní.",
+    "action": "Obnovit analytická data"
+  }
+}

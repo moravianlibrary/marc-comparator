@@ -1,0 +1,40 @@
+{
+  "title": "Přístupová práva",
+  "roles": {
+    "title": "Správa rolí",
+    "create": "Vytvořit novou roli",
+    "edit": "Upravit roli",
+    "delete-confirm": "Opravdu chcete smazat roli „{{name}}"?",
+    "fields": {
+      "name": "Název role",
+      "permissions": "Oprávnění",
+      "actions": "Akce"
+    },
+    "validation": {
+      "name-min-length": "Název role musí mít alespoň 4 znaky."
+    }
+  },
+  "users": {
+    "title": "Správa uživatelů",
+    "fields": {
+      "email": "E-mail",
+      "first-name": "Jméno",
+      "last-name": "Příjmení",
+      "roles": "Role"
+    },
+    "assign-role": "Přiřadit roli",
+    "unassign-role": "Odebrat roli"
+  },
+  "permissions": {
+    "ReadRecords": "Číst záznamy",
+    "AddRecords": "Přidávat záznamy",
+    "SyncRecordsFromCatalog": "Synchronizovat záznamy z katalogu",
+    "RunRecordTasks": "Spouštět úkoly na záznamech",
+    "ManageTasks": "Spravovat úkoly",
+    "ManageAllTasks": "Spravovat všechny úkoly",
+    "ManageAccessControl": "Spravovat přístupová práva",
+    "ManageAppSettings": "Spravovat nastavení aplikace",
+    "ManageTaskSettings": "Spravovat nastavení úkolů",
+    "ManageSystem": "Spravovat systém"
+  }
+}
