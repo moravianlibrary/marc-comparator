@@ -1,7 +1,6 @@
 from marcdantic import MarcRecord
 
 from adapters.database import DatabaseSession
-from adapters.indexer import IndexerQuery
 from adapters.lock_server import one_at_a_time_lock
 from adapters.tasks import enqueue_task
 from entities.catalog_record import CatalogRecord
@@ -14,6 +13,7 @@ from .exceptions import (
 from .models import (
     FetchBatchOfRecordsData,
     FetchRecordData,
+    RecordFilter,
     SetRecordsVisibilityData,
     SyncRecordsData,
 )
@@ -90,14 +90,14 @@ async def sync_records(
 
 
 async def reindex_records(
-    query: IndexerQuery, created_by: str, db_session: DatabaseSession
+    filters: RecordFilter, created_by: str, db_session: DatabaseSession
 ) -> TaskSchema:
     return await enqueue_task(
         Task(
             name="Reindex catalog records",
             type=TaskType.ReindexRecords,
             created_by=created_by,
-            data=query.model_dump(),
+            data=filters.model_dump(),
         ),
         db_session,
     )
@@ -120,14 +120,14 @@ async def set_records_visibility(
 
 
 async def process_records(
-    query: IndexerQuery, created_by: str, db_session: DatabaseSession
+    filters: RecordFilter, created_by: str, db_session: DatabaseSession
 ) -> TaskSchema:
     return await enqueue_task(
         Task(
             name="Process catalog records",
             type=TaskType.ProcessRecords,
             created_by=created_by,
-            data=query.model_dump(),
+            data=filters.model_dump(),
         ),
         db_session,
     )

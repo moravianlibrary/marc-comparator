@@ -37,6 +37,12 @@ MATCH_QUALITY_RANGES = {
 }
 
 
+def build_filtered_query(db: Session, filters: RecordFilter):
+    """Build a filtered SQLAlchemy query for CatalogRecord. Used by task workers."""
+    query = db.query(CatalogRecord)
+    return _apply_filters(query, filters)
+
+
 def search_records(request: SearchRecordsRequest, db: Session) -> SearchRecordsResponse:
     query = db.query(CatalogRecord)
     query = _apply_filters(query, request.filters)

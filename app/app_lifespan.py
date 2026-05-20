@@ -1,13 +1,11 @@
 import asyncio
 import logging
 
-from esorm import setup_mappings
-
 from sqlalchemy import text
 
+from adapters.clickhouse import close_clickhouse_client, get_clickhouse_client
 from adapters.database import Base, engine, get_db_session
 from adapters.events import subscribe_events
-from adapters.indexer import shutdown_indexer, startup_indexer
 from auth.models import RegisterUserRequest
 from auth.service import register_user
 from config import config
@@ -57,8 +55,13 @@ async def lifespan(app):
         """))
         db.commit()
 
-    # Start indexer connection
-    await startup_indexer()
+    # Verify ClickHouse connection
+    try:
+        ch = get_clickhouse_client()
+        ch.ping()
+        logger.info("ClickHouse connection verified")
+    except Exception as e:
+        logger.warning(f"ClickHouse not available: {e}")
 
     with get_db_session() as db_session:
         # Create default roles
@@ -98,9 +101,6 @@ async def lifespan(app):
 
             Settings.save(db_session, scope, model_cls(), model_cls)
 
-    # Setup ES mappings
-    await setup_mappings()
-
     # Start Redis Pub/Sub subscriber for WS event fan-out
     subscriber_task = asyncio.create_task(subscribe_events(manager.broadcast))
 
@@ -113,5 +113,5 @@ async def lifespan(app):
     except asyncio.CancelledError:
         pass
 
-    # Shutdown indexer connection
-    await shutdown_indexer()
+    # Close ClickHouse connection
+    close_clickhouse_client()

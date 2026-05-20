@@ -1,60 +1,17 @@
-from datetime import datetime
 from functools import cached_property
 from typing import TYPE_CHECKING, List, Optional
 
-from esorm.fields import Keyword, Text
 from marc_comparator.comparators import MatchQuality, RecordComparisonResult
 from sqlalchemy import TIMESTAMP, Column, ForeignKey, String, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, relationship
 
 from adapters.database import Base, DatabaseSession
-from adapters.indexer import IndexerNestedModel
 
 from ._operations import BaseOperationsMixin
 
 if TYPE_CHECKING:
     from .catalog_record import CatalogRecord
-
-
-# --- Indexer Schemas -------------------------------------------------------
-
-
-class SubfieldComparisonResult(IndexerNestedModel):
-    code: Keyword
-    idxA: int | None = None
-    idxB: int | None = None
-    score: float
-    explanation: Keyword | None = None
-    details: Text | None = None
-
-
-class FieldComparisonResult(IndexerNestedModel):
-    tag: Keyword
-    tagB: Keyword | None = None
-    idxA: int | None = None
-    idxB: int | None = None
-    score: float
-    explanation: Keyword | None = None
-    details: Text | None = None
-    subfield_results: List[SubfieldComparisonResult] | None = None
-
-
-class ComparisonSchema(IndexerNestedModel):
-    comparator: Keyword
-    match_quality: MatchQuality
-
-    base: Keyword
-    system_number: Keyword
-
-    overall_score: float
-    summary: str | None = None
-    field_results: List[FieldComparisonResult] | None = None
-
-    updated_at: datetime
-
-
-# --- Database Model -------------------------------------------------------
 
 
 class Comparison(Base, BaseOperationsMixin):

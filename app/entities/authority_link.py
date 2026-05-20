@@ -1,24 +1,13 @@
-from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
-from esorm.fields import Keyword
 from sqlalchemy import TIMESTAMP, Column, Float, ForeignKey, String, func
 from sqlalchemy.orm import Mapped, relationship
 
 from adapters.database import Base, DatabaseSession
-from adapters.indexer import IndexerNestedModel
 from entities._operations import BaseOperationsMixin
 
 if TYPE_CHECKING:
     from .catalog_record import CatalogRecord
-
-
-class AuthorityLinkSchema(IndexerNestedModel):
-    linker: Keyword
-    base: Keyword
-    system_number: Keyword | None
-    confidence: float | None
-    updated_at: datetime
 
 
 class AuthorityLink(Base, BaseOperationsMixin):

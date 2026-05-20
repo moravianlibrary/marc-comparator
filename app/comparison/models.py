@@ -1,7 +1,7 @@
 from marc_comparator.comparators import Comparator, IntiimComparatorConfig
 from pydantic import BaseModel, Field
 
-from adapters.indexer import IndexerQuery
+from catalog_records.models import RecordFilter
 from entities.settings import SettingsSchema
 
 
@@ -12,4 +12,4 @@ class ComparisonSettings(SettingsSchema):
 class ComparisonTaskData(BaseModel):
     comparator: Comparator
     target_base: str
-    query: IndexerQuery
+    filters: RecordFilter = RecordFilter()

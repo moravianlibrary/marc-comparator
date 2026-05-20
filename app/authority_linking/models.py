@@ -6,7 +6,7 @@ from marc_comparator.authority_linkers.knihovny_cz_linker import (
 )
 from pydantic import BaseModel, Field
 
-from adapters.indexer import IndexerQuery
+from catalog_records.models import RecordFilter
 from entities.settings import SettingsSchema
 
 
@@ -19,4 +19,4 @@ class AuthorityLinkingSettings(SettingsSchema):
 class AuthorityLinkingTaskData(BaseModel):
     linkers: List[AuthorityLinker] = Field(..., min_length=1)
     target_base: str
-    query: IndexerQuery
+    filters: RecordFilter = RecordFilter()

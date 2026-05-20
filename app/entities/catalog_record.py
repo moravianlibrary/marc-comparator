@@ -3,7 +3,6 @@ from enum import StrEnum
 from functools import cached_property
 from typing import List, Optional
 
-from esorm.fields import Keyword, Text, TextField
 from marcdantic import MarcRecord
 from marcdantic.selectors import SubtitleJq, TitleJq
 from sqlalchemy import (
@@ -20,16 +19,14 @@ from sqlalchemy.dialects.postgresql import TSVECTOR
 from sqlalchemy.orm import Mapped, relationship
 
 from adapters.database import Base, DatabaseSession
-from adapters.indexer import EnumList, IndexerSchema
 
 from ._operations import (
     BaseOperationsMixin,
-    IndexerOperationsMixin,
     RetrievalOperationsMixin,
 )
-from .authority_link import AuthorityLink, AuthorityLinkSchema
-from .comparison import Comparison, ComparisonSchema
-from .validation import Validation, ValidationSchema
+from .authority_link import AuthorityLink
+from .comparison import Comparison
+from .validation import Validation
 
 
 class CatalogRecordSource(StrEnum):
@@ -46,37 +43,9 @@ class CatalogRecordState(StrEnum):
     Processed = "Processed"
 
 
-class CatalogRecordSchema(IndexerSchema):
-    class ESConfig:
-        index = "catalog-records"
-        id_field = "id"
-
-    id: str
-
-    base: Keyword
-    system_number: Keyword
-
-    type_of_record: Keyword
-    bibliographic_level: Keyword
-
-    title: Text | None = TextField(None, keyword=True)
-    subtitle: Text | None
-    authors: List[Text]
-    latest_transaction: datetime
-    latest_sync: datetime
-    processed_at: datetime | None
-
-    state: EnumList[CatalogRecordState]
-
-    authority_links: List[AuthorityLinkSchema]
-    comparisons: List[ComparisonSchema]
-    validations: List[ValidationSchema]
-
-
 class CatalogRecord(
-    Base, BaseOperationsMixin, RetrievalOperationsMixin, IndexerOperationsMixin
+    Base, BaseOperationsMixin, RetrievalOperationsMixin,
 ):
-    __indexer_schema__ = CatalogRecordSchema
     __tablename__ = "catalog_records"
 
     id = Column(String, primary_key=True)

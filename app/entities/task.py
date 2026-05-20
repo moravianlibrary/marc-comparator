@@ -1,8 +1,7 @@
 from datetime import datetime
 from enum import StrEnum
 
-from esorm.fields import Text as IndexerText
-from pydantic import UUID4
+from pydantic import BaseModel, UUID4
 from sqlalchemy import (
     JSON,
     TIMESTAMP,
@@ -17,11 +16,9 @@ from sqlalchemy import (
 )
 
 from adapters.database import Base
-from adapters.indexer import IndexerSchema
 
 from ._operations import (
     BaseOperationsMixin,
-    IndexerOperationsMixin,
     RetrievalOperationsMixin,
 )
 
@@ -56,30 +53,29 @@ class TaskSeverity(StrEnum):
     Critical = "Critical"
 
 
-class TaskSchema(IndexerSchema):
-    class ESConfig:
-        index = "tasks"
-        id_field = "task_id"
-
+class TaskSchema(BaseModel):
+    """Pydantic response model for Task API endpoints (replaces ES IndexerSchema)."""
     task_id: UUID4
-    name: IndexerText
+    name: str
     type: TaskType
     status: TaskStatus
     severity: TaskSeverity
 
     created_by: UUID4
     created_at: datetime
-    started_at: datetime | None
-    finished_at: datetime | None
+    started_at: datetime | None = None
+    finished_at: datetime | None = None
 
     progress: float
     traceback_lines: int
 
+    class Config:
+        from_attributes = True
+
 
 class Task(
-    Base, BaseOperationsMixin, RetrievalOperationsMixin, IndexerOperationsMixin
+    Base, BaseOperationsMixin, RetrievalOperationsMixin,
 ):
-    __indexer_schema__ = TaskSchema
     __tablename__ = "tasks"
 
     task_id = Column(

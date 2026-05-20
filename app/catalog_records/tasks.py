@@ -4,7 +4,6 @@ from aleph_nought import RecordStatus
 from marcdantic import MarcRecord
 
 from adapters.aleph_client_registry import AlephClientRegistry
-from adapters.indexer import IndexerQuery
 from adapters.tasks import (
     ManagedTask,
     handle_batch_progress_snippet,
@@ -21,9 +20,11 @@ from catalog_records.models import (
     FetchBatchOfRecordsData,
     FetchRecordData,
     ProcessRecordsSettings,
+    RecordFilter,
     SetRecordsVisibilityData,
     SyncRecordsData,
 )
+from catalog_records.search import build_filtered_query
 from comparison.models import ComparisonSettings
 from comparison.tasks import handle_catalog_record_comparison, init_comparator
 from config import config
@@ -78,7 +79,7 @@ async def fetch_record_task(task_id: str) -> None:
             )
             return
 
-        await save_record_snippet(ctx, base, system_number, record).index()
+        save_record_snippet(ctx, base, system_number, record)
 
         ctx.logger.info(f"Finished fetching record {base}-{system_number}")
 
@@ -104,21 +105,19 @@ async def fetch_batch_of_records_task(task_id: str) -> None:
                             f"Record with system number '{system_number}' "
                             f"not found in base '{base}'"
                         )
-                        await handle_batch_progress_snippet(ctx)
+                        handle_batch_progress_snippet(ctx)
                         continue
 
-                    await handle_batch_progress_snippet(
-                        ctx,
-                        save_record_snippet(ctx, base, system_number, record),
-                    )
+                    save_record_snippet(ctx, base, system_number, record)
+                    handle_batch_progress_snippet(ctx)
 
                 except Exception as e:
                     ctx.logger.error(
                         f"Failed processing record {system_number}:\n{e}"
                     )
-                    await handle_batch_progress_snippet(ctx)
+                    handle_batch_progress_snippet(ctx)
 
-        await handle_final_batch_snippet(ctx)
+        handle_final_batch_snippet(ctx)
 
         ctx.logger.info(
             "Finished fetching batch of records, "
@@ -129,24 +128,6 @@ async def fetch_batch_of_records_task(task_id: str) -> None:
 async def records_sync_task(
     task_id: str, lock_key: str, lock_blocking_timeout: int
 ):
-    """
-    Run a catalog synchronization task to update locally stored catalog records
-    from an Aleph server defined by the given base and configuration.
-
-    This task ensures that only one sync runs per catalog base at a time
-    using a distributed lock.
-    It processes records fetched from the external Aleph OAI client
-    and updates the database accordingly.
-
-    Parameters
-    ----------
-    task_id : str
-        The ID of the Celery task instance (used for task context and ID).
-    lock_key : str
-        The key used for acquiring the distributed lock.
-    lock_blocking_timeout : int
-        The maximum time to wait for acquiring the lock.
-    """
     async with ManagedTask(
         task_id=task_id,
         lock_key=lock_key,
@@ -204,22 +185,19 @@ async def records_sync_task(
                     ctx.logger.error(
                         f"Record {base}-{system_number} has no MARC data."
                     )
-                    catalog_record = None
 
                 else:
-                    catalog_record = save_record_snippet(
-                        ctx, base, system_number, record
-                    )
+                    save_record_snippet(ctx, base, system_number, record)
 
-                await handle_batch_progress_snippet(ctx, catalog_record)
+                handle_batch_progress_snippet(ctx)
 
             except Exception as e:
                 ctx.logger.error(
                     f"Failed processing record {system_number}:\n{e}"
                 )
-                await handle_batch_progress_snippet(ctx)
+                handle_batch_progress_snippet(ctx)
 
-        await handle_final_batch_snippet(ctx)
+        handle_final_batch_snippet(ctx)
 
         ctx.logger.info(
             f"Finished catalog sync, total records processed: {ctx.progress}"
@@ -227,17 +205,19 @@ async def records_sync_task(
 
 
 async def reindex_records(task_id: str):
+    """Trigger a full ClickHouse sync for records matching the filter."""
     async with ManagedTask(task_id=task_id) as ctx:
-        query = IndexerQuery.model_validate(ctx.task.data)
+        filters = RecordFilter.model_validate(ctx.task.data)
 
-        ctx.logger.info("Starting reindexing of catalog records")
+        ctx.logger.info("Starting reindex (ClickHouse sync) of catalog records")
 
-        async for catalog_record in CatalogRecord.get_by_query(
-            ctx.db_session, query
-        ):
-            await handle_batch_progress_snippet(ctx, catalog_record)
+        query = build_filtered_query(ctx.db_session, filters)
+        for catalog_record in query.yield_per(1000):
+            # Touch updated_at so ClickHouse sync picks it up
+            catalog_record.updated_at = config.timestamp
+            handle_batch_progress_snippet(ctx)
 
-        await handle_final_batch_snippet(ctx)
+        handle_final_batch_snippet(ctx)
 
         ctx.logger.info(
             f"Finished reindexing, total records processed: {ctx.progress}"
@@ -247,7 +227,7 @@ async def reindex_records(task_id: str):
 async def set_records_visibility(task_id: str) -> None:
     async with ManagedTask(task_id=task_id) as ctx:
         data = SetRecordsVisibilityData.model_validate(ctx.task.data)
-        query = data.query
+        filters = data.filters
         hide = data.visible is False
 
         if hide:
@@ -255,15 +235,13 @@ async def set_records_visibility(task_id: str) -> None:
         else:
             ctx.logger.info("Setting records to visible state")
 
-        async for catalog_record in CatalogRecord.get_by_query(
-            ctx.db_session, query
-        ):
+        query = build_filtered_query(ctx.db_session, filters)
+        for catalog_record in query.yield_per(1000):
             catalog_record.hidden = hide
             ctx.db_session.add(catalog_record)
+            handle_batch_progress_snippet(ctx)
 
-            await handle_batch_progress_snippet(ctx, catalog_record)
-
-        await handle_final_batch_snippet(ctx)
+        handle_final_batch_snippet(ctx)
 
         ctx.logger.info(
             "Finished setting hidden state, "
@@ -287,7 +265,7 @@ async def process_records(task_id: str) -> None:
             ctx.logger.error("Process records settings not found")
             return
 
-        query = IndexerQuery.model_validate(ctx.task.data)
+        filters = RecordFilter.model_validate(ctx.task.data)
         ctx.logger.info("Starting processing of catalog records")
 
         al_settings = Settings.get(
@@ -336,9 +314,8 @@ async def process_records(task_id: str) -> None:
 
         counters: defaultdict[LinkActionResult, int] = defaultdict(int)
 
-        async for catalog_record in CatalogRecord.get_by_query(
-            ctx.db_session, query
-        ):
+        query = build_filtered_query(ctx.db_session, filters)
+        for catalog_record in query.yield_per(1000):
             try:
                 marc_record = MarcRecord.from_mrc(catalog_record.marc)
 
@@ -384,14 +361,14 @@ async def process_records(task_id: str) -> None:
                 catalog_record.processed_at = config.timestamp
                 catalog_record.save(ctx.db_session)
 
-                await handle_batch_progress_snippet(ctx, catalog_record)
+                handle_batch_progress_snippet(ctx)
 
             except Exception as e:
                 ctx.logger.error(
                     f"Failed processing record {catalog_record.id}:\n{e}"
                 )
 
-        await handle_final_batch_snippet(ctx)
+        handle_final_batch_snippet(ctx)
         ctx.logger.info(
             "Finished processing records, "
             f"total records processed: {ctx.progress}"

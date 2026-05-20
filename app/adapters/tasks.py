@@ -1,15 +1,13 @@
 import logging
-from typing import ContextManager, List, Optional, TypeVar
+from typing import ContextManager, List, Optional
 
 from celery import Celery
 from celery import Task as CeleryTask
 from celery import shared_task
-from esorm import es
 from sqlalchemy.orm import Session
 
 from adapters.database import Base, DatabaseSession, get_db_session
 from adapters.events import TaskProgressEvent, TaskStatusEvent, publish_event
-from adapters.indexer import IndexerSchema, shutdown_indexer, startup_indexer
 from adapters.lock_server import one_at_a_time_lock
 from config import config
 
@@ -100,16 +98,6 @@ class TaskHandler(logging.Handler):
         super().close()
 
 
-class IndexerOperationsBase(Base):
-    __abstract__ = True
-    __indexer_schema__: type[IndexerSchema]
-
-
-IndexerOperationsBaseType = TypeVar(
-    "IndexerOperationsBaseType", bound=IndexerOperationsBase
-)
-
-
 class ManagedTask:
     """
     Context manager for managing task execution. Handles database
@@ -146,17 +134,15 @@ class ManagedTask:
 
         self.total: int = 0
         self.progress: int = 0
-        self.index_batch: List[IndexerOperationsBaseType] = []
 
-    async def save_and_index_task(self):
+    def save_task(self):
         self.task.save(self.db_session)
-        await TaskSchema.model_validate(self.task, from_attributes=True).save()
 
-    async def update_progress(self) -> None:
+    def update_progress(self) -> None:
         self.task.progress = (
             self.progress / self.total if self.total > 0 else 0.0
         )
-        await self.save_and_index_task()
+        self.save_task()
         publish_event(TaskProgressEvent(
             task_id=str(self.task.task_id),
             progress=self.task.progress,
@@ -183,10 +169,6 @@ class ManagedTask:
             handler.setFormatter(formatter)
             self.logger.addHandler(handler)
 
-            # --- Indexer session ---
-            await startup_indexer()
-            self.indexer = es
-
             # --- Load task settings ---
             self.task_settings: TaskSettings = (
                 Settings.get(
@@ -208,7 +190,7 @@ class ManagedTask:
             self.logger.info("Task started")
             self.task.status = TaskStatus.Started
             self.task.started_at = config.timestamp
-            await self.save_and_index_task()
+            self.save_task()
             publish_event(TaskStatusEvent(
                 task_id=str(self.task.task_id),
                 status=self.task.status.value,
@@ -245,7 +227,7 @@ class ManagedTask:
                     f"Task failed with exception: {exc_value}", exc_info=True
                 )
             self.task.finished_at = config.timestamp
-            await self.save_and_index_task()
+            self.save_task()
             publish_event(TaskStatusEvent(
                 task_id=str(self.task.task_id),
                 status=self.task.status.value,
@@ -260,49 +242,24 @@ class ManagedTask:
             if self.db_session:
                 self.db_session.close()
 
-            await shutdown_indexer()
 
-
-async def handle_batch_progress_snippet(
-    ctx: ManagedTask,
-    catalog_record: IndexerOperationsBaseType | None = None,
-) -> None:
-    """
-    Increment progress, optionally log and update task in ES, and optionally
-    add a record to the index batch and flush when batch is full.
-    """
+def handle_batch_progress_snippet(ctx: ManagedTask) -> None:
+    """Increment progress and periodically log + persist progress."""
     ctx.progress += 1
 
     if ctx.progress % ctx.task_settings.progress_update_interval == 0:
         ctx.logger.info(f"Processed {ctx.progress} records so far.")
-        await ctx.update_progress()
+        ctx.update_progress()
 
-    if catalog_record is None:
-        return
-
-    ctx.index_batch.append(catalog_record)
-
-    if len(ctx.index_batch) % ctx.task_settings.indexing_batch_size == 0:
-        ctx.logger.info(
-            f"Indexing batch of {len(ctx.index_batch)} records..."
-        )
+    # Periodically commit DB changes
+    if ctx.progress % ctx.task_settings.indexing_batch_size == 0:
         ctx.db_session.commit()
-        await CatalogRecord.bulk_index(ctx.index_batch)
-        ctx.index_batch.clear()
 
 
-async def handle_final_batch_snippet(ctx: ManagedTask) -> None:
-    """Flush remaining index batch and update task progress."""
-    if not ctx.index_batch:
-        return
-
-    ctx.logger.info(
-        f"Indexing final batch of {len(ctx.index_batch)} records..."
-    )
+def handle_final_batch_snippet(ctx: ManagedTask) -> None:
+    """Commit any remaining DB changes and update task progress."""
     ctx.db_session.commit()
-    await CatalogRecord.bulk_index(ctx.index_batch)
-    ctx.index_batch.clear()
-    await ctx.update_progress()
+    ctx.update_progress()
 
 
 """
@@ -486,44 +443,19 @@ async def enqueue_task(task: Task, db_session: DatabaseSession) -> TaskSchema:
     """
     Enqueues a task for processing. Saves the task to the database
     and dispatches it to the Celery worker.
-
-    Parameters
-    ----------
-    task : Task
-        The task to be enqueued.
-    db_session : DatabaseSession
-        The database session used for saving the task.
-    Returns
-    -------
-    TaskSchema
-        The enqueued task as a TaskSchema instance.
     """
     db_session.add(task)
     db_session.commit()
     db_session.refresh(task)
 
-    task_schema = TaskSchema.model_validate(task, from_attributes=True)
-    await task_schema.save()
-
     dispatch_task(task)
 
-    return task_schema
+    return TaskSchema.model_validate(task, from_attributes=True)
 
 
 async def revoke_task(task: Task, db_session: DatabaseSession) -> TaskSchema:
     """
     Revokes a task if it is in a revocable state.
-
-    Parameters
-    ----------
-    task : Task
-        The task to be revoked.
-    db_session : DatabaseSession
-        The database session used for updating the task.
-    Returns
-    -------
-    TaskSchema
-        The revoked task as a TaskSchema instance.
     """
     if task.status not in {TaskStatus.Started, TaskStatus.Pending}:
         raise ValueError(
@@ -538,7 +470,6 @@ async def revoke_task(task: Task, db_session: DatabaseSession) -> TaskSchema:
     task.finished_at = config.timestamp
 
     task.save(db_session)
-    await task.index()
 
     publish_event(TaskStatusEvent(
         task_id=str(task.task_id),

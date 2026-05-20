@@ -3,7 +3,6 @@ from typing import Annotated
 from fastapi import APIRouter, Body, Query
 
 from adapters.dependencies import DatabaseSessionDep, WithPermission
-from adapters.indexer import IndexerRequest
 from auth.service import CurrentUser
 from entities.role import Permission
 from entities.task import TaskSchema
@@ -75,10 +74,9 @@ async def revoke_task(
     response_model=TaskSchema,
 )
 async def delete_tasks(
-    request: Annotated[IndexerRequest, Body()],
     current_user: CurrentUser,
     db_session: DatabaseSessionDep,
 ):
     return await service.delete_tasks(
-        request, current_user.user_id, db_session
+        current_user.user_id, db_session
     )

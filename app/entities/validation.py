@@ -1,8 +1,6 @@
-from datetime import datetime
 from functools import cached_property
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
-from esorm.fields import Keyword, Text
 from marc_comparator.validators import (
     ValidationResult,
     ValidationTarget,
@@ -14,28 +12,9 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, relationship
 
 from adapters.database import Base, DatabaseSession
-from adapters.indexer import IndexerNestedModel
 
 if TYPE_CHECKING:
     from .catalog_record import CatalogRecord
-
-
-class ValidationTargetSchema(IndexerNestedModel):
-    tag: Keyword
-    codes: List[Keyword] | None = None
-
-
-class ValidationSchema(IndexerNestedModel):
-    validator: Validator
-
-    target: ValidationTargetSchema
-    status: ValidityStatus
-
-    reason: Keyword | None = None
-    details: Text | None = None
-    hint: Text | None = None
-
-    updated_at: datetime
 
 
 class Validation(Base):

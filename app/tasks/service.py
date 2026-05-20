@@ -2,7 +2,6 @@ from fastapi import HTTPException, status
 from fastapi.responses import PlainTextResponse
 
 from adapters.database import DatabaseSession
-from adapters.indexer import IndexerRequest
 from adapters.tasks import enqueue_task
 from adapters.tasks import revoke_task as execute_task_revoke
 from entities.role import Permission
@@ -63,14 +62,13 @@ async def revoke_task(
 
 
 async def delete_tasks(
-    request: IndexerRequest, created_by: str, db_session: DatabaseSession
+    created_by: str, db_session: DatabaseSession
 ) -> TaskSchema:
     return await enqueue_task(
         Task(
             name="Deleting tasks",
             type=TaskType.DeleteTasks,
             created_by=created_by,
-            data=request.model_dump(),
         ),
         db_session,
     )

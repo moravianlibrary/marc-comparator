@@ -4,7 +4,6 @@ from fastapi import APIRouter, Body
 from marcdantic import MarcRecord
 
 from adapters.dependencies import DatabaseSessionDep, WithPermission
-from adapters.indexer import IndexerQuery
 from auth.service import CurrentUser
 from entities.role import Permission
 from entities.task import TaskSchema
@@ -18,6 +17,7 @@ from .models import (
     FacetsResponse,
     FetchBatchOfRecordsData,
     FetchRecordData,
+    RecordFilter,
     SearchRecordsRequest,
     SearchRecordsResponse,
     SetRecordsVisibilityData,
@@ -122,12 +122,12 @@ async def sync_records(
     response_model=TaskSchema,
 )
 async def reindex_records(
-    query: Annotated[IndexerQuery, Body()],
+    filters: Annotated[RecordFilter, Body()],
     current_user: CurrentUser,
     db_session: DatabaseSessionDep,
 ):
     return await service.reindex_records(
-        query, current_user.user_id, db_session
+        filters, current_user.user_id, db_session
     )
 
 
@@ -152,10 +152,10 @@ async def set_records_visibility(
     response_model=TaskSchema,
 )
 async def process_records(
-    data: Annotated[IndexerQuery, Body()],
+    filters: Annotated[RecordFilter, Body()],
     current_user: CurrentUser,
     db_session: DatabaseSessionDep,
 ):
     return await service.process_records(
-        data, current_user.user_id, db_session
+        filters, current_user.user_id, db_session
     )

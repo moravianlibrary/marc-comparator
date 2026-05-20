@@ -7,7 +7,6 @@ from marc_comparator.comparators import Comparator
 from marc_comparator.validators import Validator
 from pydantic import BaseModel, Field
 
-from adapters.indexer import IndexerQuery
 from entities.settings import SettingsSchema
 
 
@@ -44,7 +43,7 @@ class SyncRecordsData(BaseModel):
 
 
 class SetRecordsVisibilityData(BaseModel):
-    query: IndexerQuery
+    filters: RecordFilter = RecordFilter()
     visible: bool = False
 
 
