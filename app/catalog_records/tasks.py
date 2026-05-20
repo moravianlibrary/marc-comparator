@@ -38,14 +38,13 @@ class AlephError(Exception):
     pass
 
 
-def save_record_snippet(
+def save_record_metadata(
     ctx: ManagedTask,
     base: str,
     system_number: str,
     record: MarcRecord,
 ) -> CatalogRecord:
-    from adapters.marc_sectors import upsert_record_in_sector
-
+    """Save catalog record metadata (without MARC bytes) to the database."""
     catalog_record = CatalogRecord.find_by_base_and_system_number(
         ctx.db_session, base, system_number
     )
@@ -58,13 +57,24 @@ def save_record_snippet(
             base=base, system_number=system_number,
         )
 
-    # Set stored MARC-derived fields
     catalog_record.type_of_record = record.leader_selector.type_of_record
     catalog_record.bibliographic_level = record.leader_selector.bibliographic_level
     catalog_record.update_search_text_from(record)
     catalog_record.save(ctx.db_session)
 
-    # Store MARC bytes in sector
+    return catalog_record
+
+
+def save_record_snippet(
+    ctx: ManagedTask,
+    base: str,
+    system_number: str,
+    record: MarcRecord,
+) -> CatalogRecord:
+    """Save catalog record metadata and MARC bytes (single-record upsert)."""
+    from adapters.marc_sectors import upsert_record_in_sector
+
+    catalog_record = save_record_metadata(ctx, base, system_number, record)
     upsert_record_in_sector(ctx.db_session, base, system_number, record._marc)
 
     return catalog_record
@@ -138,6 +148,8 @@ async def fetch_batch_of_records_task(task_id: str) -> None:
 async def records_sync_task(
     task_id: str, lock_key: str, lock_blocking_timeout: int
 ):
+    from adapters.marc_sectors import SectorBuffer
+
     async with ManagedTask(
         task_id=task_id,
         lock_key=lock_key,
@@ -164,6 +176,8 @@ async def records_sync_task(
         if not client.OAI.is_available():
             ctx.logger.error(f"OAI service for {base} is not available")
             return
+
+        buffer = SectorBuffer(ctx.db_session)
 
         for base, system_number, status, record in client.OAI.list_records(
             from_date, None
@@ -197,7 +211,8 @@ async def records_sync_task(
                     )
 
                 else:
-                    save_record_snippet(ctx, base, system_number, record)
+                    save_record_metadata(ctx, base, system_number, record)
+                    buffer.add(base, system_number, record._marc)
 
                 handle_batch_progress_snippet(ctx)
 
@@ -207,6 +222,7 @@ async def records_sync_task(
                 )
                 handle_batch_progress_snippet(ctx)
 
+        buffer.flush_all()
         handle_final_batch_snippet(ctx)
 
         ctx.logger.info(
