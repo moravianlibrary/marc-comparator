@@ -54,6 +54,7 @@ export function FetchBatchForm() {
       toast.success(t("addition.fetch-batch.title"));
       form.reset();
     },
+    onError: () => toast.error(t("common:error")),
   });
 
   return (

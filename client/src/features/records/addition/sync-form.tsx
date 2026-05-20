@@ -42,6 +42,7 @@ export function SyncForm() {
       toast.success(t("addition.sync.title"));
       form.reset();
     },
+    onError: () => toast.error(t("common:error")),
   });
 
   return (

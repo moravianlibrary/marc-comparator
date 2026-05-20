@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import {
   useReactTable,
   getCoreRowModel,
@@ -26,6 +26,17 @@ export function TableView() {
   const { t } = useTranslation();
   const { filters, setPage, setSearch, buildSearchPayload } =
     useRecordFilters();
+
+  const [searchInput, setSearchInput] = useState(filters.search);
+
+  useEffect(() => {
+    const timeout = setTimeout(() => setSearch(searchInput), 300);
+    return () => clearTimeout(timeout);
+  }, [searchInput, setSearch]);
+
+  useEffect(() => {
+    setSearchInput(filters.search);
+  }, [filters.search]);
 
   const payload = buildSearchPayload();
 
@@ -61,8 +72,8 @@ export function TableView() {
       <div className="flex items-center gap-4">
         <Input
           placeholder={t("records:table.search-placeholder")}
-          value={filters.search}
-          onChange={(e) => setSearch(e.target.value)}
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
           className="max-w-sm"
         />
         <div className="flex-1" />

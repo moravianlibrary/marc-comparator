@@ -1,12 +1,7 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useCallback } from "react";
 import apiClient from "@/lib/api-client";
 import { useRecordFilters } from "../use-record-filters";
-import type {
-  FacetsResponse,
-  FacetsPreviewResponse,
-  RecordFilter,
-} from "../types";
+import type { FacetsResponse, FacetsPreviewResponse } from "../types";
 
 export function useFacets() {
   const { buildRecordFilter } = useRecordFilters();
@@ -50,28 +45,25 @@ export function usePrefetchFacetPreview() {
   const queryClient = useQueryClient();
   const { buildRecordFilter } = useRecordFilters();
 
-  return useCallback(
-    (targetField: string) => {
-      const recordFilter = buildRecordFilter();
-      queryClient.prefetchQuery({
-        queryKey: [
-          "catalog-records",
-          "facets-preview",
-          targetField,
-          recordFilter,
-        ],
-        queryFn: () =>
-          apiClient
-            .post<FacetsPreviewResponse>("/catalog-records/facets-preview", {
-              filters: recordFilter,
-              target_field: targetField,
-            })
-            .then((r) => r.data),
-        staleTime: 30_000,
-      });
-    },
-    [queryClient, buildRecordFilter],
-  );
+  return (targetField: string) => {
+    const recordFilter = buildRecordFilter();
+    queryClient.prefetchQuery({
+      queryKey: [
+        "catalog-records",
+        "facets-preview",
+        targetField,
+        recordFilter,
+      ],
+      queryFn: () =>
+        apiClient
+          .post<FacetsPreviewResponse>("/catalog-records/facets-preview", {
+            filters: recordFilter,
+            target_field: targetField,
+          })
+          .then((r) => r.data),
+      staleTime: 30_000,
+    });
+  };
 }
 
 export function usePreviewForValue(

@@ -32,12 +32,8 @@ export function CarouselView() {
     }
   }, [records, filters.recordId, setFilters]);
 
-  const [base, systemNumber] = filters.recordId
-    ? [
-        filters.recordId.substring(0, filters.recordId.indexOf("-")),
-        filters.recordId.substring(filters.recordId.indexOf("-") + 1),
-      ]
-    : ["", ""];
+  const base = currentRecord?.base ?? "";
+  const systemNumber = currentRecord?.system_number ?? "";
 
   const { data: marcData, isLoading: marcLoading } = useQuery<MarcRecordData>({
     queryKey: ["catalog-records", "marc", base, systemNumber],

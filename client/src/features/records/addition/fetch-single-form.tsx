@@ -39,6 +39,7 @@ export function FetchSingleForm() {
       toast.success(t("addition.fetch-single.title"));
       form.reset();
     },
+    onError: () => toast.error(t("common:error")),
   });
 
   return (

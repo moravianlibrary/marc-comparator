@@ -1,5 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 import { MoreHorizontal } from "lucide-react";
 import apiClient from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
@@ -7,7 +8,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import type { RecordSummary } from "../types";
@@ -26,6 +26,7 @@ export function RecordActions({ record }: RecordActionsProps) {
         bases: [record.base],
       }),
     onSuccess: () => queryClient.invalidateQueries({ queryKey: ["tasks"] }),
+    onError: () => toast.error(t("common:error")),
   });
 
   const visibilityMutation = useMutation({
@@ -36,6 +37,7 @@ export function RecordActions({ record }: RecordActionsProps) {
       }),
     onSuccess: () =>
       queryClient.invalidateQueries({ queryKey: ["catalog-records"] }),
+    onError: () => toast.error(t("common:error")),
   });
 
   const isHidden = record.state.includes("Hidden");
