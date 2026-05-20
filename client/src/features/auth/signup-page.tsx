@@ -65,7 +65,7 @@ export function SignupPage() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <img
-            src={resolvedTheme === "dark" ? "/marcomparator-logo-dark-text-transparent.png" : "/marcomparator-logo-transparent.png"}
+            src={resolvedTheme === "dark" ? "/marcomparator-logo-transparent.png" : "/marcomparator-logo-dark-text-transparent.png"}
             alt="MARC Comparator"
             className="mx-auto mb-4 h-16 w-auto"
           />
