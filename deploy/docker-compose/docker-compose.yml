@@ -13,20 +13,19 @@ services:
     ports:
       - '5432:5432'
   
-  elasticsearch:
-    image: docker.elastic.co/elasticsearch/elasticsearch:8.14.0
-    container_name: marc-comparator-elasticsearch
-    environment:
-      - discovery.type=single-node
-      - xpack.security.enabled=true
-      - ELASTIC_PASSWORD=replaceMe
-      - ES_JAVA_OPTS=-Xms512m -Xmx512m
+  clickhouse:
+    image: clickhouse/clickhouse-server:24-alpine
+    container_name: marc-comparator-clickhouse
     volumes:
-      - ./es_data:/usr/share/elasticsearch/data
+      - ./ch_data:/var/lib/clickhouse
+      - ./clickhouse/init.sql:/docker-entrypoint-initdb.d/init.sql
+    environment:
+      - CLICKHOUSE_DB=marc
+      - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
     networks:
       - marc-comparator
     ports:
-      - "9200:9200"
+      - "8123:8123"
 
   redis:
     image: redis:7-alpine
@@ -41,7 +40,7 @@ services:
     container_name: marc-comparator-app
     depends_on:
       - postgres
-      - elasticsearch
+      - clickhouse
       - redis
     env_file:
       - app.env
@@ -55,6 +54,7 @@ services:
     container_name: marc-comparator-worker
     depends_on:
       - postgres
+      - clickhouse
       - redis
     env_file:
       - app.env
