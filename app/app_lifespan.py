@@ -3,10 +3,10 @@ import logging
 
 from sqlalchemy import text
 
-from adapters.clickhouse import close_clickhouse_client, get_clickhouse_client
 from adapters.database import Base, engine, get_db_session
 from adapters.events import subscribe_events
 from auth.models import RegisterUserRequest
+from entities.marc_sector import MarcSector  # noqa: F401 — register with ORM
 from auth.service import register_user
 from config import config
 from entities.role import Role
@@ -53,15 +53,78 @@ async def lifespan(app):
                 END IF;
             END $$;
         """))
-        db.commit()
+        # Set STORAGE EXTERNAL on marc_sectors.data to skip TOAST compression
+        db.execute(text(
+            "ALTER TABLE IF EXISTS marc_sectors "
+            "ALTER COLUMN data SET STORAGE EXTERNAL"
+        ))
 
-    # Verify ClickHouse connection
-    try:
-        ch = get_clickhouse_client()
-        ch.ping()
-        logger.info("ClickHouse connection verified")
-    except Exception as e:
-        logger.warning(f"ClickHouse not available: {e}")
+        # Enable pg_duckdb extension
+        db.execute(text("CREATE EXTENSION IF NOT EXISTS pg_duckdb"))
+
+        # Create analytics materialized view for pg_duckdb faceting
+        db.execute(text("""
+            CREATE MATERIALIZED VIEW IF NOT EXISTS catalog_records_analytics AS
+            SELECT
+                cr.id,
+                cr.base,
+                cr.system_number,
+                cr.type_of_record,
+                cr.bibliographic_level,
+                cr.deleted         AS is_deleted,
+                cr.hidden          AS is_hidden,
+                (cr.processed_at IS NOT NULL) AS is_processed,
+
+                array_agg(DISTINCT al.linker)
+                    FILTER (WHERE al.linker IS NOT NULL)            AS authority_link_linkers,
+                array_agg(DISTINCT al.base)
+                    FILTER (WHERE al.base IS NOT NULL)              AS authority_link_bases,
+
+                array_agg(DISTINCT cmp.comparator)
+                    FILTER (WHERE cmp.comparator IS NOT NULL)       AS comparators,
+                array_agg(DISTINCT split_part(cmp.other_record_id, '-', 1))
+                    FILTER (WHERE cmp.other_record_id IS NOT NULL)  AS comparison_bases,
+                array_agg(DISTINCT CASE
+                    WHEN (cmp.result->>'overall_score')::float >= 0.9 THEN 'Excellent'
+                    WHEN (cmp.result->>'overall_score')::float >= 0.7 THEN 'Moderate'
+                    ELSE 'Poor'
+                END)
+                    FILTER (WHERE cmp.result->>'overall_score' IS NOT NULL) AS match_qualities,
+                array_agg((cmp.result->>'overall_score')::float)
+                    FILTER (WHERE cmp.result->>'overall_score' IS NOT NULL) AS overall_scores,
+
+                (SELECT array_agg(DISTINCT expl)
+                 FROM comparisons c2,
+                      jsonb_array_elements(c2.result->'field_results') fr,
+                      jsonb_extract_path_text(fr, 'explanation') expl
+                 WHERE c2.main_record_id = cr.id AND expl IS NOT NULL
+                ) AS field_explanations,
+
+                array_agg(DISTINCT v.validator)
+                    FILTER (WHERE v.validator IS NOT NULL)                  AS validators,
+                array_agg(DISTINCT (v.result->>'status'))
+                    FILTER (WHERE v.result->>'status' IS NOT NULL)         AS validation_statuses,
+                array_agg(DISTINCT (v.result->'target'->>'tag'))
+                    FILTER (WHERE v.result->'target'->>'tag' IS NOT NULL)  AS validation_target_tags,
+
+                cr.latest_sync,
+                cr.latest_transaction,
+                cr.processed_at,
+                cr.updated_at
+            FROM catalog_records cr
+            LEFT JOIN authority_links al ON al.main_record_id = cr.id
+            LEFT JOIN comparisons cmp ON cmp.main_record_id = cr.id
+            LEFT JOIN validations v ON v.catalog_record_id = cr.id
+            GROUP BY cr.id
+        """))
+
+        # Unique index enables REFRESH MATERIALIZED VIEW CONCURRENTLY
+        db.execute(text("""
+            CREATE UNIQUE INDEX IF NOT EXISTS idx_analytics_id
+            ON catalog_records_analytics (id)
+        """))
+
+        db.commit()
 
     with get_db_session() as db_session:
         # Create default roles
@@ -113,5 +176,3 @@ async def lifespan(app):
     except asyncio.CancelledError:
         pass
 
-    # Close ClickHouse connection
-    close_clickhouse_client()

@@ -14,3 +14,4 @@ redis
 requests
 sqlalchemy
 uvicorn
+zstandard
