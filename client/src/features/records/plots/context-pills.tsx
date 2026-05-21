@@ -28,16 +28,21 @@ export function ContextPills({
         const previewBucket = previewBuckets?.find(
           (p) => p.key === bucket.key,
         );
+        const previewCount = previewBucket?.count ?? 0;
+        const isDisabled = isShowingPreview && !isActive && previewCount === 0;
         return (
           <button
             key={bucket.key}
+            disabled={isDisabled}
             className={cn(
               "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-sm font-medium transition-colors",
-              isActive
-                ? "bg-primary text-primary-foreground"
-                : hasActiveFilter
-                  ? "bg-muted text-muted-foreground opacity-50"
-                  : "bg-muted text-foreground hover:bg-accent",
+              isDisabled
+                ? "bg-muted text-muted-foreground opacity-30 cursor-not-allowed"
+                : isActive
+                  ? "bg-primary text-primary-foreground"
+                  : hasActiveFilter
+                    ? "bg-muted text-muted-foreground opacity-50"
+                    : "bg-muted text-foreground hover:bg-accent",
             )}
             onClick={() => onToggle(bucket.key)}
             onMouseEnter={() => onHover(bucket.key)}
