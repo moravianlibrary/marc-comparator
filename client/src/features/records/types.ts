@@ -21,6 +21,26 @@ export interface RecordFilter {
   score_max?: number;
 }
 
+export interface AuthorityLinkSummary {
+  linker: string;
+  base: string;
+  authority_record_id: string;
+}
+
+export interface ComparisonSummary {
+  comparator: string;
+  base: string;
+  other_record_id: string;
+  overall_score: number;
+  match_quality: "Excellent" | "Moderate" | "Poor";
+}
+
+export interface ValidationSummary {
+  validator: string;
+  target_tag: string;
+  status: "Valid" | "ForReview" | "Invalid" | "AdditionalInfo";
+}
+
 export interface RecordSummary {
   id: string;
   base: string;
@@ -28,9 +48,9 @@ export interface RecordSummary {
   title: string | null;
   authors: string[];
   state: string[];
-  authority_links_count: number;
-  comparisons_count: number;
-  validations_count: number;
+  authority_links: AuthorityLinkSummary[];
+  comparisons: ComparisonSummary[];
+  validations: ValidationSummary[];
   latest_sync: string | null;
   latest_transaction: string | null;
   processed_at: string | null;
@@ -110,6 +130,8 @@ export interface MarcRecordData {
 
 export interface SubfieldComparisonResult {
   code: string;
+  value_a: string | null;
+  value_b: string | null;
   score: number;
   explanation: string | null;
   details: string | null;
@@ -136,6 +158,21 @@ export interface ValidationResult {
   reason: string | null;
   details: string | null;
   hint: string | null;
+}
+
+// --- Comparison/validation detail responses (from per-record endpoints) ---
+
+export interface ComparisonDetail {
+  comparator: string;
+  base: string;
+  other_record_id: string;
+  result: ComparisonResult;
+}
+
+export interface ValidationDetail {
+  id: number;
+  validator: string;
+  result: ValidationResult;
 }
 
 // --- Tab type ---

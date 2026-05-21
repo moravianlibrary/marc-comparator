@@ -345,6 +345,10 @@ async def authority_linking(task_id: str) -> None:
         for record_id in record_ids:
             catalog_record = ctx.db_session.get(CatalogRecord, record_id)
             try:
+                if catalog_record.base == data.target_base:
+                    handle_batch_progress_snippet(ctx)
+                    continue
+
                 marc_record = catalog_record.get_record(ctx.db_session)
 
                 found_link, linker_instance = await find_best_link_for_record(

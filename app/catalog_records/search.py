@@ -6,7 +6,15 @@ from entities.catalog_record import CatalogRecord
 from entities.comparison import Comparison
 from entities.validation import Validation
 
-from .models import RecordFilter, RecordSummary, SearchRecordsRequest, SearchRecordsResponse
+from .models import (
+    AuthorityLinkSummary,
+    ComparisonSummary,
+    RecordFilter,
+    RecordSummary,
+    SearchRecordsRequest,
+    SearchRecordsResponse,
+    ValidationSummary,
+)
 
 
 SORT_COLUMNS = {
@@ -159,10 +167,35 @@ def _to_summary(record: CatalogRecord) -> RecordSummary:
         id=record.id,
         base=record.base,
         system_number=record.system_number,
+        title=record.title,
+        authors=record.authors or [],
         state=[s.value for s in record.state],
-        authority_links_count=len(record.authority_links),
-        comparisons_count=len(record.comparisons),
-        validations_count=len(record.validations),
+        authority_links=[
+            AuthorityLinkSummary(
+                linker=al.linker,
+                base=al.base,
+                authority_record_id=al.authority_record_id,
+            )
+            for al in record.authority_links
+        ],
+        comparisons=[
+            ComparisonSummary(
+                comparator=c.comparator,
+                base=c.base,
+                other_record_id=c.other_record_id,
+                overall_score=c.overall_score,
+                match_quality=c.match_quality,
+            )
+            for c in record.comparisons
+        ],
+        validations=[
+            ValidationSummary(
+                validator=v.validator,
+                target_tag=v.target.tag,
+                status=v.status,
+            )
+            for v in record.validations
+        ],
         latest_sync=record.latest_sync,
         latest_transaction=record.latest_transaction,
         processed_at=record.processed_at,

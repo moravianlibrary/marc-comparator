@@ -4,7 +4,9 @@ from adapters.database import DatabaseSession
 from adapters.lock_server import one_at_a_time_lock
 from adapters.tasks import enqueue_task
 from entities.catalog_record import CatalogRecord
+from entities.comparison import Comparison
 from entities.task import Task, TaskSchema, TaskType
+from entities.validation import Validation
 
 from .exceptions import (
     CatalogRecordNotFoundException,
@@ -30,6 +32,45 @@ def get_marc_record(
         raise CatalogRecordNotFoundException(base, system_number)
 
     return catalog_record.get_record(db_session)
+
+
+def get_comparisons(
+    base: str, system_number: str, db_session: DatabaseSession
+) -> list[dict]:
+    record_id = CatalogRecord.generate_id(base, system_number)
+    comparisons = (
+        db_session.query(Comparison)
+        .filter_by(main_record_id=record_id)
+        .all()
+    )
+    return [
+        {
+            "comparator": c.comparator,
+            "base": c.base,
+            "other_record_id": c.other_record_id,
+            "result": c.result,
+        }
+        for c in comparisons
+    ]
+
+
+def get_validations(
+    base: str, system_number: str, db_session: DatabaseSession
+) -> list[dict]:
+    record_id = CatalogRecord.generate_id(base, system_number)
+    validations = (
+        db_session.query(Validation)
+        .filter_by(catalog_record_id=record_id)
+        .all()
+    )
+    return [
+        {
+            "id": v.id,
+            "validator": v.validator,
+            "result": v.result,
+        }
+        for v in validations
+    ]
 
 
 async def fetch_record(

@@ -241,11 +241,25 @@ async def set_records_visibility(task_id: str) -> None:
         else:
             ctx.logger.info("Setting records to visible state")
 
-        query = build_filtered_query(ctx.db_session, filters)
-        for catalog_record in query.yield_per(1000):
-            catalog_record.hidden = hide
-            ctx.db_session.add(catalog_record)
-            handle_batch_progress_snippet(ctx)
+        record_ids = [
+            r.id
+            for r in build_filtered_query(ctx.db_session, filters)
+            .with_entities(CatalogRecord.id)
+            .all()
+        ]
+
+        batch_size = 1000
+        for i in range(0, len(record_ids), batch_size):
+            batch_ids = record_ids[i : i + batch_size]
+            records = (
+                ctx.db_session.query(CatalogRecord)
+                .filter(CatalogRecord.id.in_(batch_ids))
+                .all()
+            )
+            for catalog_record in records:
+                catalog_record.hidden = hide
+                ctx.db_session.add(catalog_record)
+                handle_batch_progress_snippet(ctx)
 
         handle_final_batch_snippet(ctx)
 
@@ -320,59 +334,75 @@ async def process_records(task_id: str) -> None:
 
         counters: defaultdict[LinkActionResult, int] = defaultdict(int)
 
-        query = build_filtered_query(ctx.db_session, filters)
-        for catalog_record in query.yield_per(1000):
-            try:
-                marc_record = catalog_record.get_record(ctx.db_session)
+        record_ids = [
+            r.id
+            for r in build_filtered_query(ctx.db_session, filters)
+            .with_entities(CatalogRecord.id)
+            .all()
+        ]
 
-                for target_base in settings.target_bases:
-                    found_link, linker_instance = (
-                        await find_best_link_for_record(
-                            catalog_record,
-                            authority_linkers,
-                            target_base,
-                            marc_record,
-                            ctx.logger,
+        batch_size = 1000
+        for i in range(0, len(record_ids), batch_size):
+            batch_ids = record_ids[i : i + batch_size]
+            records = (
+                ctx.db_session.query(CatalogRecord)
+                .filter(CatalogRecord.id.in_(batch_ids))
+                .all()
+            )
+            for catalog_record in records:
+                try:
+                    marc_record = catalog_record.get_record(ctx.db_session)
+
+                    for target_base in settings.target_bases:
+                        if target_base == catalog_record.base:
+                            continue
+                        found_link, linker_instance = (
+                            await find_best_link_for_record(
+                                catalog_record,
+                                authority_linkers,
+                                target_base,
+                                marc_record,
+                                ctx.logger,
+                            )
                         )
+                        results = handle_catalog_record_link_action(
+                            ctx.db_session,
+                            catalog_record,
+                            found_link,
+                            linker_instance,
+                            target_base,
+                        )
+                        for result in results:
+                            counters[result] += 1
+
+                    ctx.db_session.refresh(catalog_record)
+
+                    for authority_link in catalog_record.authority_links:
+                        await handle_catalog_record_comparison(
+                            ctx.db_session,
+                            settings.comparator.value,
+                            comparator,
+                            ctx.logger,
+                            authority_link.base,
+                            catalog_record,
+                        )
+
+                    for validator_instance in validator_instances:
+                        await handle_catalog_record_validation(
+                            ctx.db_session,
+                            catalog_record,
+                            validator_instance,
+                        )
+
+                    catalog_record.processed_at = config.timestamp
+                    catalog_record.save(ctx.db_session)
+
+                    handle_batch_progress_snippet(ctx)
+
+                except Exception as e:
+                    ctx.logger.error(
+                        f"Failed processing record {catalog_record.id}:\n{e}"
                     )
-                    results = handle_catalog_record_link_action(
-                        ctx.db_session,
-                        catalog_record,
-                        found_link,
-                        linker_instance,
-                        target_base,
-                    )
-                    for result in results:
-                        counters[result] += 1
-
-                ctx.db_session.refresh(catalog_record)
-
-                for authority_link in catalog_record.authority_links:
-                    await handle_catalog_record_comparison(
-                        ctx.db_session,
-                        settings.comparator.value,
-                        comparator,
-                        ctx.logger,
-                        authority_link.base,
-                        catalog_record,
-                    )
-
-                for validator_instance in validator_instances:
-                    await handle_catalog_record_validation(
-                        ctx.db_session,
-                        catalog_record,
-                        validator_instance,
-                    )
-
-                catalog_record.processed_at = config.timestamp
-                catalog_record.save(ctx.db_session)
-
-                handle_batch_progress_snippet(ctx)
-
-            except Exception as e:
-                ctx.logger.error(
-                    f"Failed processing record {catalog_record.id}:\n{e}"
-                )
 
         handle_final_batch_snippet(ctx)
         ctx.logger.info(

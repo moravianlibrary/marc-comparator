@@ -3,8 +3,8 @@ from typing import List, Literal
 
 from aleph_nought import AlephOAIConfig
 from marc_comparator.authority_linkers import AuthorityLinker
-from marc_comparator.comparators import Comparator
-from marc_comparator.validators import Validator
+from marc_comparator.comparators import Comparator, MatchQuality
+from marc_comparator.validators import Validator, ValidityStatus
 from pydantic import BaseModel, Field
 
 from entities.settings import SettingsSchema
@@ -97,6 +97,26 @@ class SearchRecordsRequest(BaseModel):
     sort_order: Literal["asc", "desc"] = "asc"
 
 
+class AuthorityLinkSummary(BaseModel):
+    linker: str
+    base: str
+    authority_record_id: str
+
+
+class ComparisonSummary(BaseModel):
+    comparator: str
+    base: str
+    other_record_id: str
+    overall_score: float
+    match_quality: MatchQuality
+
+
+class ValidationSummary(BaseModel):
+    validator: str
+    target_tag: str
+    status: ValidityStatus
+
+
 class RecordSummary(BaseModel):
     id: str
     base: str
@@ -104,9 +124,9 @@ class RecordSummary(BaseModel):
     title: str | None = None
     authors: list[str] = []
     state: list[str] = []
-    authority_links_count: int = 0
-    comparisons_count: int = 0
-    validations_count: int = 0
+    authority_links: list[AuthorityLinkSummary] = []
+    comparisons: list[ComparisonSummary] = []
+    validations: list[ValidationSummary] = []
     latest_sync: datetime | None = None
     latest_transaction: datetime | None = None
     processed_at: datetime | None = None
