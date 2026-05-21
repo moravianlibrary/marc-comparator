@@ -61,33 +61,39 @@ export function RadialQuality({
 
   return (
     <div className="flex flex-col items-center">
-      <ChartContainer config={chartConfig} className="w-full" style={{ height: 180 }}>
-        <RadialBarChart
-          data={chartData}
-          startAngle={180}
-          endAngle={0}
-          innerRadius="40%"
-          outerRadius="100%"
-          barSize={16}
-        >
-          <PolarAngleAxis type="number" domain={[0, total || 1]} tick={false} />
-          <ChartTooltip
-            cursor={false}
-            content={<ChartTooltipContent nameKey="name" />}
-          />
-          <RadialBar
-            dataKey="count"
-            cornerRadius={4}
-            cursor="pointer"
-            onClick={(entry) => onToggle(entry.key)}
-            onMouseEnter={(_, index) => onHover(chartData[index].key)}
-            onMouseLeave={onLeave}
-          />
-        </RadialBarChart>
-      </ChartContainer>
-      <p className="text-2xl font-bold tabular-nums -mt-8">
-        {total.toLocaleString("cs-CZ")}
-      </p>
+      <div className="relative w-full" style={{ height: 120 }}>
+        <div className="absolute inset-0" style={{ top: 0, height: 240, overflow: "hidden" }}>
+          <ChartContainer config={chartConfig} className="w-full" style={{ height: 240 }}>
+            <RadialBarChart
+              data={chartData}
+              startAngle={180}
+              endAngle={0}
+              innerRadius="40%"
+              outerRadius="100%"
+              barSize={16}
+            >
+              <PolarAngleAxis type="number" domain={[0, total || 1]} tick={false} />
+              <ChartTooltip
+                cursor={false}
+                content={<ChartTooltipContent nameKey="name" />}
+              />
+              <RadialBar
+                dataKey="count"
+                cornerRadius={4}
+                cursor="pointer"
+                onClick={(entry) => onToggle(entry.key)}
+                onMouseEnter={(_, index) => onHover(chartData[index].key)}
+                onMouseLeave={onLeave}
+              />
+            </RadialBarChart>
+          </ChartContainer>
+        </div>
+        <div className="absolute bottom-0 left-0 right-0 flex justify-center pointer-events-none">
+          <p className="text-2xl font-bold tabular-nums">
+            {total.toLocaleString("cs-CZ")}
+          </p>
+        </div>
+      </div>
       <div className="flex gap-4 mt-2 text-xs">
         {QUALITY_ORDER.toReversed().map((quality) => {
           const bucket = data.find((b) => b.key === quality);
