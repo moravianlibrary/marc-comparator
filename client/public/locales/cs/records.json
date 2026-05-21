@@ -1,13 +1,25 @@
 {
   "tabs": {
-    "plots": "Grafy",
-    "table": "Tabulka",
-    "carousel": "Detail",
+    "plots": "Filtrování",
+    "table": "Výsledky",
+    "carousel": "Detail záznamu",
     "addition": "Přidání záznamů"
   },
   "plots": {
     "no-data": "Žádná data k zobrazení",
-    "total-records": "Celkem záznamů: {{count}}"
+    "total-records": "Celkem záznamů: {{count}}",
+    "record-status": "Stav záznamů",
+    "show-all": "Zobrazit vše",
+    "show-less": "Zobrazit méně",
+    "active-filters": "Aktivní filtry",
+    "clear-all": "Zrušit vše",
+    "sections": {
+      "context": "Kontext",
+      "health": "Stav kvality",
+      "classification": "Klasifikace záznamů",
+      "analysis": "Analýza porovnání"
+    },
+    "section-config": "Nastavení sekcí"
   },
   "table": {
     "columns": {
@@ -42,6 +54,9 @@
     "comparisons": "Porovnání",
     "validations": "Validace",
     "no-record": "Vyberte záznam pro zobrazení",
+    "no-annotation": "Bez anotací",
+    "authority-records": "Autoritní záznamy",
+    "target-fields-only": "Pouze cílová pole",
     "score": "Skóre",
     "match-quality": "Kvalita shody",
     "status": "Stav",
@@ -102,9 +117,9 @@
     "Poor": "Špatná"
   },
   "validity-status": {
-    "Valid": "Platný",
-    "Invalid": "Neplatný",
-    "Warning": "Varování",
-    "Error": "Chyba"
+    "Valid": "Validní",
+    "Invalid": "Nevalidní",
+    "ForReview": "K revizi",
+    "AdditionalInfo": "Doplňující info"
   }
 }
