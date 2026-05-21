@@ -28,10 +28,6 @@ export function ContextPills({
         const previewBucket = previewBuckets?.find(
           (p) => p.key === bucket.key,
         );
-        const displayCount = isShowingPreview
-          ? (previewBucket?.count ?? 0)
-          : bucket.count;
-
         return (
           <button
             key={bucket.key}
@@ -54,11 +50,15 @@ export function ContextPills({
                 isActive
                   ? "text-primary-foreground/70"
                   : "text-muted-foreground",
-                isShowingPreview && !isActive && "text-chart-2",
               )}
             >
-              {displayCount.toLocaleString("cs-CZ")}
+              {bucket.count.toLocaleString("cs-CZ")}
             </span>
+            {isShowingPreview && !isActive && (
+              <span className="text-xs tabular-nums text-chart-2">
+                {(previewBucket?.count ?? 0).toLocaleString("cs-CZ")}
+              </span>
+            )}
           </button>
         );
       })}
