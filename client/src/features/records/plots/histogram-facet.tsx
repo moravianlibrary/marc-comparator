@@ -1,17 +1,25 @@
+import { BarChart, Bar, XAxis, YAxis, Brush, Cell } from "recharts";
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  Brush,
-  ResponsiveContainer,
-} from "recharts";
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "@/components/ui/chart";
 import type { HistogramBucket } from "../types";
 
 interface HistogramFacetProps {
   data: HistogramBucket[];
   onRangeChange: (from: number, to: number) => void;
+}
+
+const chartConfig = {
+  count: { label: "Count", color: "var(--chart-1)" },
+} satisfies ChartConfig;
+
+function getScoreColor(min: number): string {
+  if (min >= 0.9) return "var(--status-success)";
+  if (min >= 0.7) return "var(--status-warning)";
+  return "var(--status-danger)";
 }
 
 export function HistogramFacet({ data, onRangeChange }: HistogramFacetProps) {
@@ -34,19 +42,26 @@ export function HistogramFacet({ data, onRangeChange }: HistogramFacetProps) {
   }
 
   return (
-    <ResponsiveContainer width="100%" height={200}>
+    <ChartContainer config={chartConfig} className="w-full" style={{ height: 200 }}>
       <BarChart data={chartData}>
         <XAxis dataKey="range" tick={{ fontSize: 10 }} />
         <YAxis hide />
-        <Tooltip />
-        <Bar dataKey="count" fill="hsl(var(--chart-1))" />
+        <ChartTooltip
+          cursor={false}
+          content={<ChartTooltipContent />}
+        />
+        <Bar dataKey="count" radius={[4, 4, 0, 0]}>
+          {chartData.map((entry) => (
+            <Cell key={entry.range} fill={getScoreColor(entry.min)} />
+          ))}
+        </Bar>
         <Brush
           dataKey="range"
           height={20}
-          stroke="hsl(var(--border))"
+          stroke="var(--border)"
           onChange={handleBrushChange}
         />
       </BarChart>
-    </ResponsiveContainer>
+    </ChartContainer>
   );
 }
