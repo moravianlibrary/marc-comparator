@@ -48,6 +48,15 @@ const BOOL_LABEL_TO_VALUE: Record<string, Record<string, string>> = {
   processed: { Processed: "true", Unprocessed: "false" },
 };
 
+const EXPLANATION_ORDER: Record<string, number> = {
+  IDENTICAL: 0,
+  NON_STANDARDIZED: 1,
+  TYPO: 2,
+  INCOMPLETE: 3,
+  INCORRECT: 4,
+  MISSING: 5,
+};
+
 export function PlotsView() {
   const { t } = useTranslation("records");
   const {
@@ -148,7 +157,14 @@ export function PlotsView() {
     (h) => h.field === "overall_score",
   );
 
-  const explanationBuckets = getBuckets("field_explanations");
+  const explanationBuckets = [...getBuckets("field_explanations")].sort(
+    (a, b) => {
+      const orderA = EXPLANATION_ORDER[a.key] ?? Number.MAX_SAFE_INTEGER;
+      const orderB = EXPLANATION_ORDER[b.key] ?? Number.MAX_SAFE_INTEGER;
+      if (orderA !== orderB) return orderA - orderB;
+      return b.count - a.count; // fallback: by count descending
+    },
+  );
   const visibleExplanations = showAllExplanations
     ? explanationBuckets
     : explanationBuckets.slice(0, 10);
@@ -487,23 +503,49 @@ export function PlotsView() {
                   activeValues={getActiveValues("field_explanations")}
                   {...makeChartHandlers("field_explanations")}
                 >
-                  {(chartProps) => (
-                    <div>
-                      <BarFacet {...chartProps} />
-                      {explanationBuckets.length > 10 && (
-                        <button
-                          className="text-xs text-muted-foreground hover:text-foreground mt-2"
-                          onClick={() =>
-                            setShowAllExplanations(!showAllExplanations)
+                  {(chartProps) => {
+                    const rawByTranslated = new Map(
+                      chartProps.data.map((b) => [t(`field-explanation.${b.key}`, b.key), b.key]),
+                    );
+                    const translatedData = chartProps.data.map((b) => ({
+                      ...b,
+                      key: t(`field-explanation.${b.key}`, b.key),
+                    }));
+                    const translatedPreview = chartProps.previewData?.map((b) => ({
+                      ...b,
+                      key: t(`field-explanation.${b.key}`, b.key),
+                    }));
+                    return (
+                      <div>
+                        <BarFacet
+                          data={translatedData}
+                          previewData={translatedPreview}
+                          activeValues={chartProps.activeValues.map(
+                            (v) => t(`field-explanation.${v}`, v),
+                          )}
+                          onToggle={(translated) =>
+                            chartProps.onToggle(rawByTranslated.get(translated) ?? translated)
                           }
-                        >
-                          {showAllExplanations
-                            ? t("plots.show-less")
-                            : t("plots.show-all")}
-                        </button>
-                      )}
-                    </div>
-                  )}
+                          onHover={(translated) =>
+                            chartProps.onHover(rawByTranslated.get(translated) ?? translated)
+                          }
+                          onLeave={chartProps.onLeave}
+                        />
+                        {explanationBuckets.length > 10 && (
+                          <button
+                            className="text-xs text-muted-foreground hover:text-foreground mt-2"
+                            onClick={() =>
+                              setShowAllExplanations(!showAllExplanations)
+                            }
+                          >
+                            {showAllExplanations
+                              ? t("plots.show-less")
+                              : t("plots.show-all")}
+                          </button>
+                        )}
+                      </div>
+                    );
+                  }}
                 </FacetChart>
               )}
           </div>

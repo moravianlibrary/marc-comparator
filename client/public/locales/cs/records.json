@@ -121,5 +121,13 @@
     "Invalid": "Nevalidní",
     "ForReview": "K revizi",
     "AdditionalInfo": "Doplňující info"
+  },
+  "field-explanation": {
+    "IDENTICAL": "Identický",
+    "NON_STANDARDIZED": "Nestandardizovaný",
+    "TYPO": "Překlep",
+    "INCOMPLETE": "Neúplný",
+    "INCORRECT": "Nesprávný",
+    "MISSING": "Chybějící"
   }
 }
