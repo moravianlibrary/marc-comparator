@@ -1,0 +1,72 @@
+import { useTranslation } from "react-i18next";
+import { Settings2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import {
+  SECTION_GROUPS,
+  type ChartId,
+} from "./use-section-visibility";
+
+interface SectionConfigProps {
+  isVisible: (chartId: ChartId) => boolean;
+  toggleChart: (chartId: ChartId) => void;
+}
+
+const CHART_LABEL_KEYS: Record<ChartId, string> = {
+  base: "facet-fields.base",
+  comparators: "facet-fields.comparators",
+  validators: "facet-fields.validators",
+  authority_link_linkers: "facet-fields.authority_link_linkers",
+  record_status: "plots.record-status",
+  match_quality: "facet-fields.match_qualities",
+  validation_status: "facet-fields.validation_statuses",
+  type_of_record: "facet-fields.type_of_record",
+  bibliographic_level: "facet-fields.bibliographic_level",
+  authority_link_bases: "facet-fields.authority_link_bases",
+  overall_score: "facet-fields.overall_score",
+  field_explanations: "facet-fields.field_explanations",
+};
+
+export function SectionConfig({ isVisible, toggleChart }: SectionConfigProps) {
+  const { t } = useTranslation("records");
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="outline" size="sm">
+          <Settings2 className="mr-2 h-4 w-4" />
+          {t("plots.section-config")}
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-[220px]" align="end">
+        <div className="space-y-3">
+          {(Object.entries(SECTION_GROUPS) as [keyof typeof SECTION_GROUPS, readonly ChartId[]][]).map(
+            ([section, chartIds]) => (
+              <div key={section}>
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
+                  {t(`plots.sections.${section}`)}
+                </p>
+                <div className="space-y-1">
+                  {chartIds.map((chartId) => (
+                    <label key={chartId} className="flex items-center gap-2">
+                      <Checkbox
+                        checked={isVisible(chartId)}
+                        onCheckedChange={() => toggleChart(chartId)}
+                      />
+                      <span className="text-sm">{t(CHART_LABEL_KEYS[chartId])}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ),
+          )}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
