@@ -62,36 +62,40 @@ export function RadialValidation({
   });
 
   return (
-    <div className="flex flex-col items-center">
-      <ChartContainer config={chartConfig} className="w-full" style={{ height: 220 }}>
-        <RadialBarChart
-          data={chartData}
-          startAngle={-90}
-          endAngle={270}
-          innerRadius="25%"
-          outerRadius="90%"
-          barSize={14}
-        >
-          <PolarAngleAxis type="number" domain={[0, total || 1]} tick={false} />
-          <ChartTooltip
-            cursor={false}
-            content={<ChartTooltipContent nameKey="name" />}
-          />
-          <RadialBar
-            dataKey="count"
-            cornerRadius={4}
-            cursor="pointer"
-            background={{ fill: "var(--muted)" }}
-            onClick={(entry) => onToggle(entry.key)}
-            onMouseEnter={(_, index) => onHover(chartData[index].key)}
-            onMouseLeave={onLeave}
-          />
-        </RadialBarChart>
-      </ChartContainer>
-      <p className="text-2xl font-bold tabular-nums -mt-14">
-        {total.toLocaleString("cs-CZ")}
-      </p>
-      <div className="flex flex-wrap justify-center gap-3 mt-6 text-xs">
+    <div className="flex items-center gap-4">
+      <div className="relative flex-shrink-0">
+        <ChartContainer config={chartConfig} className="aspect-square" style={{ width: 180, height: 180 }}>
+          <RadialBarChart
+            data={chartData}
+            startAngle={-90}
+            endAngle={270}
+            innerRadius="40%"
+            outerRadius="90%"
+            barSize={14}
+          >
+            <PolarAngleAxis type="number" domain={[0, total || 1]} tick={false} />
+            <ChartTooltip
+              cursor={false}
+              content={<ChartTooltipContent nameKey="name" />}
+            />
+            <RadialBar
+              dataKey="count"
+              cornerRadius={4}
+              cursor="pointer"
+              background={{ fill: "var(--muted)" }}
+              onClick={(entry) => onToggle(entry.key)}
+              onMouseEnter={(_, index) => onHover(chartData[index].key)}
+              onMouseLeave={onLeave}
+            />
+          </RadialBarChart>
+        </ChartContainer>
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <p className="text-2xl font-bold tabular-nums">
+            {total.toLocaleString("cs-CZ")}
+          </p>
+        </div>
+      </div>
+      <div className="flex flex-col gap-2 text-xs">
         {STATUS_ORDER.toReversed().map((status) => {
           const bucket = data.find((b) => b.key === status);
           const count = bucket?.count ?? 0;
@@ -99,16 +103,16 @@ export function RadialValidation({
             <button
               key={status}
               className={cn(
-                "flex items-center gap-1 transition-opacity",
+                "flex items-center gap-2 transition-opacity text-left",
                 activeValues.length > 0 && !activeValues.includes(status) && "opacity-40",
               )}
               onClick={() => onToggle(status)}
             >
               <span
-                className="inline-block h-2.5 w-2.5 rounded-full"
+                className="inline-block h-2.5 w-2.5 rounded-full flex-shrink-0"
                 style={{ backgroundColor: STATUS_COLORS[status] }}
               />
-              <span>{t(`validity-status.${status}`)}</span>
+              <span className="whitespace-nowrap">{t(`validity-status.${status}`)}</span>
               <span className="text-muted-foreground tabular-nums">
                 {count.toLocaleString("cs-CZ")}
               </span>
