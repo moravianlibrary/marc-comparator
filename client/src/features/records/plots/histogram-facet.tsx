@@ -22,13 +22,53 @@ function getScoreColor(min: number): string {
   return "var(--status-danger)";
 }
 
+function normalizeBuckets(raw: HistogramBucket[]): HistogramBucket[] {
+  // Build a map from bucket min to count
+  const countByMin = new Map<number, number>();
+  for (const b of raw) {
+    // Merge anything >= 1.0 into the "100%" bucket (min=1.0)
+    if (b.min >= 1.0) {
+      countByMin.set(1.0, (countByMin.get(1.0) ?? 0) + b.count);
+    } else {
+      const key = Math.round(b.min * 100) / 100; // avoid float drift
+      countByMin.set(key, (countByMin.get(key) ?? 0) + b.count);
+    }
+  }
+
+  // Generate all 5%-wide buckets from 0.00 to 0.90 (inclusive)
+  const buckets: HistogramBucket[] = [];
+  for (let i = 0; i < 19; i++) {
+    const min = Math.round(i * 5) / 100;
+    const max = Math.round((i + 1) * 5) / 100;
+    buckets.push({ min, max, count: countByMin.get(min) ?? 0 });
+  }
+  // 95–<100% bucket
+  buckets.push({ min: 0.95, max: 1.0, count: countByMin.get(0.95) ?? 0 });
+  // Special 100% bucket
+  buckets.push({ min: 1.0, max: 1.0, count: countByMin.get(1.0) ?? 0 });
+
+  return buckets;
+}
+
 export function HistogramFacet({ data, onRangeChange }: HistogramFacetProps) {
-  const chartData = data.map((bucket) => ({
-    range: `${(bucket.min * 100).toFixed(0)}–${(bucket.max * 100).toFixed(0)}%`,
-    min: bucket.min,
-    max: bucket.max,
-    count: bucket.count,
-  }));
+  const normalized = normalizeBuckets(data);
+
+  const chartData = normalized.map((bucket) => {
+    let range: string;
+    if (bucket.min === 1.0) {
+      range = "100%";
+    } else if (bucket.min === 0.95) {
+      range = "95–<100%";
+    } else {
+      range = `${(bucket.min * 100).toFixed(0)}–${(bucket.max * 100).toFixed(0)}%`;
+    }
+    return {
+      range,
+      min: bucket.min,
+      max: bucket.max,
+      count: bucket.count,
+    };
+  });
 
   function handleBrushChange(brush: {
     startIndex?: number;
