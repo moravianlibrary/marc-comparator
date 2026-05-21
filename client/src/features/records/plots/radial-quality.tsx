@@ -61,9 +61,9 @@ export function RadialQuality({
 
   return (
     <div className="flex flex-col items-center">
-      <div className="relative w-full" style={{ height: 120 }}>
-        <div className="absolute inset-0" style={{ top: 0, height: 240, overflow: "hidden" }}>
-          <ChartContainer config={chartConfig} className="w-full" style={{ height: 240 }}>
+      <div className="relative w-full" style={{ height: 160 }}>
+        <div className="absolute inset-0" style={{ top: 0, height: 320, overflow: "hidden" }}>
+          <ChartContainer config={chartConfig} className="w-full" style={{ height: 320 }}>
             <RadialBarChart
               data={chartData}
               startAngle={180}

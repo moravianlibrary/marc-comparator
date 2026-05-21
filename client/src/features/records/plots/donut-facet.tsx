@@ -59,7 +59,7 @@ export function DonutFacet({
   return (
     <div className="flex items-center gap-4">
       <div className="relative flex-shrink-0">
-        <ChartContainer config={chartConfig} className="aspect-square" style={{ width: 160, height: 160 }}>
+        <ChartContainer config={chartConfig} className="aspect-square" style={{ width: 180, height: 180 }}>
           <PieChart>
             <Pie
               data={chartData}
@@ -67,8 +67,8 @@ export function DonutFacet({
               nameKey="name"
               cx="50%"
               cy="50%"
-              innerRadius={45}
-              outerRadius={70}
+              innerRadius={50}
+              outerRadius={80}
               cursor="pointer"
               onClick={(entry) => onToggle(entry.name)}
               onMouseEnter={(_, index) => onHover(chartData[index].name)}
