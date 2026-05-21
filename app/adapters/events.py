@@ -12,27 +12,28 @@ CHANNEL = "ws:events"
 
 
 class TaskStatusEvent(BaseModel):
-    type: Literal["task.status"] = "task.status"
+    type: Literal["task_status"] = "task_status"
     task_id: str
+    name: str
     status: str
     severity: str
     created_by: str
 
 
 class TaskProgressEvent(BaseModel):
-    type: Literal["task.progress"] = "task.progress"
+    type: Literal["task_progress"] = "task_progress"
     task_id: str
     progress: float
     created_by: str
 
 
 class LockAcquiredEvent(BaseModel):
-    type: Literal["lock.acquired"] = "lock.acquired"
+    type: Literal["lock_acquired"] = "lock_acquired"
     lock_name: str
 
 
 class LockReleasedEvent(BaseModel):
-    type: Literal["lock.released"] = "lock.released"
+    type: Literal["lock_released"] = "lock_released"
     lock_name: str
 
 

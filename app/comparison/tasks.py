@@ -73,15 +73,17 @@ async def handle_catalog_record_comparison(
         db_session,
         catalog_record.id,
         comparator_name,
-        link.authority_record.id,
+        target_base,
     )
 
     if comparison:
+        comparison.other_record_id = link.authority_record.id
         comparison.result = result.model_dump()
     else:
         comparison = Comparison(
             main_record_id=catalog_record.id,
             comparator=comparator_name,
+            base=target_base,
             other_record_id=link.authority_record.id,
             result=result.model_dump(),
         )
@@ -129,6 +131,7 @@ async def compare_records(task_id: str) -> None:
                 handle_batch_progress_snippet(ctx)
 
             except Exception as e:
+                ctx.db_session.rollback()
                 ctx.logger.error(
                     f"Failed comparing record {catalog_record.id}:\n{e}"
                 )

@@ -13,6 +13,7 @@ class KnihovnyCZBaseMapping(BaseModel):
     base: str
     id_template: str
     pattern: str
+    is_target: bool = False
 
 
 class KnihovnyCZLinkerConfig(BaseModel):
@@ -33,6 +34,7 @@ class KnihovnyCZLinkerConfig(BaseModel):
             base="SKC",
             id_template="caslin.SKC01-{system_number}",
             pattern=r"^caslin\.SKC01-(\d{9})$",
+            is_target=True,
         ),
     ]
 
@@ -59,7 +61,11 @@ class KnihovnyCZLinker(BaseAuthorityLinker):
     async def get_target_bases(
         cls, config: KnihovnyCZLinkerConfig
     ) -> List[str]:
-        return [mapping.base for mapping in config.mappings]
+        return [
+            mapping.base
+            for mapping in config.mappings
+            if mapping.is_target
+        ]
 
     async def _get_dedup_ids(self, id: str):
         response = await self.client.get(

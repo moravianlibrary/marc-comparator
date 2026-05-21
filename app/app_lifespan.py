@@ -82,8 +82,8 @@ async def lifespan(app):
 
                 array_agg(DISTINCT cmp.comparator)
                     FILTER (WHERE cmp.comparator IS NOT NULL)       AS comparators,
-                array_agg(DISTINCT split_part(cmp.other_record_id, '-', 1))
-                    FILTER (WHERE cmp.other_record_id IS NOT NULL)  AS comparison_bases,
+                array_agg(DISTINCT cmp.base)
+                    FILTER (WHERE cmp.base IS NOT NULL)             AS comparison_bases,
                 array_agg(DISTINCT CASE
                     WHEN (cmp.result->>'overall_score')::float >= 0.9 THEN 'Excellent'
                     WHEN (cmp.result->>'overall_score')::float >= 0.7 THEN 'Moderate'
@@ -115,6 +115,7 @@ async def lifespan(app):
             LEFT JOIN authority_links al ON al.main_record_id = cr.id
             LEFT JOIN comparisons cmp ON cmp.main_record_id = cr.id
             LEFT JOIN validations v ON v.catalog_record_id = cr.id
+            WHERE cr.source_type = 'Main'
             GROUP BY cr.id
         """))
 

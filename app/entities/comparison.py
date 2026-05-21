@@ -25,6 +25,7 @@ class Comparison(Base, BaseOperationsMixin):
         String, ForeignKey("catalog_records.id"), primary_key=True
     )
     comparator = Column(String, nullable=False, primary_key=True)
+    base = Column(String, nullable=False, primary_key=True)
     other_record_id = Column(
         String, ForeignKey("catalog_records.id"), nullable=False
     )
@@ -53,21 +54,17 @@ class Comparison(Base, BaseOperationsMixin):
         db_session: DatabaseSession,
         main_record_id: str,
         comparator: str,
-        other_record_id: str,
+        base: str,
     ) -> Optional["Comparison"]:
         return (
             db_session.query(cls)
             .filter_by(
                 main_record_id=main_record_id,
                 comparator=comparator,
-                other_record_id=other_record_id,
+                base=base,
             )
             .one_or_none()
         )
-
-    @property
-    def base(self) -> str:
-        return self.other_record.base
 
     @property
     def system_number(self) -> str:

@@ -373,6 +373,7 @@ async def authority_linking(task_id: str) -> None:
                 handle_batch_progress_snippet(ctx)
 
             except Exception as e:
+                ctx.db_session.rollback()
                 ctx.logger.error(
                     f"Failed linking record {catalog_record.id}:\n{e}"
                 )

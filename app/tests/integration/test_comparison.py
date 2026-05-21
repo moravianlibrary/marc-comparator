@@ -125,6 +125,7 @@ def comparison(
     return Comparison(
         main_record_id=main_catalog_record.id,
         comparator="intiim",
+        base="SKC",
         other_record_id=authority_catalog_record.id,
         result={"overall_score": 0.9, "summary": "Mock comparison result"},
     ).save(db_session)

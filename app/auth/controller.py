@@ -29,7 +29,7 @@ def _set_auth_cookies(response: Response, access_token: str, refresh_token: str)
         httponly=True,
         secure=config.auth.cookie_secure,
         samesite="lax",
-        path="/auth",
+        path="/api/auth",
         max_age=config.auth.refresh_token_expire_days * 86400,
         domain=config.auth.cookie_domain,
     )
@@ -37,7 +37,7 @@ def _set_auth_cookies(response: Response, access_token: str, refresh_token: str)
 
 def _clear_auth_cookies(response: Response):
     response.delete_cookie("access_token", path="/", domain=config.auth.cookie_domain, samesite="lax")
-    response.delete_cookie("refresh_token", path="/auth", domain=config.auth.cookie_domain, samesite="lax")
+    response.delete_cookie("refresh_token", path="/api/auth", domain=config.auth.cookie_domain, samesite="lax")
 
 
 @router.post("/sign-up", status_code=status.HTTP_201_CREATED)

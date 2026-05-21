@@ -132,6 +132,7 @@ async def fetch_batch_of_records_task(task_id: str) -> None:
                     handle_batch_progress_snippet(ctx)
 
                 except Exception as e:
+                    ctx.db_session.rollback()
                     ctx.logger.error(
                         f"Failed processing record {system_number}:\n{e}"
                     )
@@ -217,6 +218,7 @@ async def records_sync_task(
                 handle_batch_progress_snippet(ctx)
 
             except Exception as e:
+                ctx.db_session.rollback()
                 ctx.logger.error(
                     f"Failed processing record {system_number}:\n{e}"
                 )
@@ -400,6 +402,7 @@ async def process_records(task_id: str) -> None:
                     handle_batch_progress_snippet(ctx)
 
                 except Exception as e:
+                    ctx.db_session.rollback()
                     ctx.logger.error(
                         f"Failed processing record {catalog_record.id}:\n{e}"
                     )

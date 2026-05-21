@@ -59,7 +59,11 @@ export function ProcessRecordsSettingsForm({
     onDirtyChange(form.formState.isDirty);
   }, [form.formState.isDirty, onDirtyChange]);
 
-  const availableBases = systemInfo?.available_bases ?? [];
+  const linkerTargetBases = [
+    ...new Set(
+      systemInfo?.enabled_authority_linkers.flatMap((l) => l.target_bases) ?? [],
+    ),
+  ];
 
   return (
     <Form {...form}>
@@ -71,7 +75,7 @@ export function ProcessRecordsSettingsForm({
             <FormItem>
               <FormLabel>{t("process-records.target-bases")}</FormLabel>
               <div className="space-y-2">
-                {availableBases.map((base) => (
+                {linkerTargetBases.map((base) => (
                   <label key={base} className="flex items-center gap-2">
                     <Checkbox
                       checked={field.value.includes(base)}

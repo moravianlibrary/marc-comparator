@@ -2,7 +2,7 @@ from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 
 from entities.authority_link import AuthorityLink
-from entities.catalog_record import CatalogRecord
+from entities.catalog_record import CatalogRecord, CatalogRecordSource
 from entities.comparison import Comparison
 from entities.validation import Validation
 
@@ -52,7 +52,9 @@ def build_filtered_query(db: Session, filters: RecordFilter):
 
 
 def search_records(request: SearchRecordsRequest, db: Session) -> SearchRecordsResponse:
-    query = db.query(CatalogRecord)
+    query = db.query(CatalogRecord).filter(
+        CatalogRecord.source_type == CatalogRecordSource.Main
+    )
     query = _apply_filters(query, request.filters)
 
     total = query.count()
@@ -74,6 +76,9 @@ def search_records(request: SearchRecordsRequest, db: Session) -> SearchRecordsR
 
 
 def _apply_filters(query, filters: RecordFilter):
+    if filters.record_ids:
+        query = query.filter(CatalogRecord.id.in_(filters.record_ids))
+
     if filters.text_query:
         query = query.filter(
             CatalogRecord.search_vector.op("@@")(
@@ -105,14 +110,12 @@ def _apply_filters(query, filters: RecordFilter):
         if values := getattr(filters, attr):
             query = query.filter(relationship.any(column.in_(values)))
 
-    # comparison_bases: the other_record's base is encoded in the other_record_id
-    # as "{base}-{system_number}", so we can filter using a LIKE pattern.
     if filters.comparison_bases:
-        conditions = [
-            Comparison.other_record_id.like(f"{b}-%")
-            for b in filters.comparison_bases
-        ]
-        query = query.filter(CatalogRecord.comparisons.any(or_(*conditions)))
+        query = query.filter(
+            CatalogRecord.comparisons.any(
+                Comparison.base.in_(filters.comparison_bases)
+            )
+        )
 
     # match_qualities: filter via JSONB overall_score
     if filters.match_qualities:

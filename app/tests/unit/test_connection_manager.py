@@ -47,7 +47,7 @@ class TestConnectionManager:
         manager.connect(other)
 
         event = TaskStatusEvent(
-            task_id="t1", status="Success", severity="Info", created_by="user-1"
+            task_id="t1", name="Test", status="Success", severity="Info", created_by="user-1"
         )
         await manager.broadcast(event)
 
@@ -61,7 +61,7 @@ class TestConnectionManager:
         manager.connect(admin)
 
         event = TaskStatusEvent(
-            task_id="t1", status="Success", severity="Info", created_by="user-1"
+            task_id="t1", name="Test", status="Success", severity="Info", created_by="user-1"
         )
         await manager.broadcast(event)
 

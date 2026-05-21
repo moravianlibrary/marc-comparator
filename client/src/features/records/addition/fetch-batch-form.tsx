@@ -1,12 +1,12 @@
+import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import apiClient from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
   Card,
@@ -23,6 +23,14 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import type { SystemInfo } from "@/types/settings";
 
 const schema = z.object({
   base: z.string().min(1),
@@ -34,10 +42,22 @@ type FormValues = z.infer<typeof schema>;
 export function FetchBatchForm() {
   const { t } = useTranslation("records");
 
+  const { data: systemInfo } = useQuery({
+    queryKey: ["system", "info"],
+    queryFn: () => apiClient.get<SystemInfo>("/system/info").then((r) => r.data),
+  });
+  const availableBases = systemInfo?.available_bases ?? [];
+
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { base: "MZK01", system_numbers_text: "" },
+    defaultValues: { base: "", system_numbers_text: "" },
   });
+
+  useEffect(() => {
+    if (availableBases.length > 0 && !form.getValues("base")) {
+      form.setValue("base", availableBases[0]);
+    }
+  }, [availableBases, form]);
 
   const mutation = useMutation({
     mutationFn: (values: FormValues) => {
@@ -50,10 +70,7 @@ export function FetchBatchForm() {
         per_base: [{ base: values.base, system_numbers: systemNumbers }],
       });
     },
-    onSuccess: () => {
-      toast.success(t("addition.fetch-batch.title"));
-      form.reset();
-    },
+    onSuccess: () => form.reset(),
     onError: () => toast.error(t("common:error")),
   });
 
@@ -79,9 +96,20 @@ export function FetchBatchForm() {
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>{t("addition.fetch-batch.base")}</FormLabel>
-                  <FormControl>
-                    <Input {...field} />
-                  </FormControl>
+                  <Select onValueChange={field.onChange} value={field.value}>
+                    <FormControl>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                    </FormControl>
+                    <SelectContent>
+                      {availableBases.map((base) => (
+                        <SelectItem key={base} value={base}>
+                          {base}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                   <FormMessage />
                 </FormItem>
               )}
