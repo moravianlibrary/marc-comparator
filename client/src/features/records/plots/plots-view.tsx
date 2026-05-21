@@ -10,6 +10,7 @@ import {
   useFacets,
   usePrefetchFacetPreview,
   usePreviewForValue,
+  usePerValidatorStatuses,
 } from "./use-facets";
 import { FacetChart } from "./facet-chart";
 import { BarFacet } from "./bar-facet";
@@ -62,6 +63,7 @@ export function PlotsView() {
   const [showAllExplanations, setShowAllExplanations] = useState(false);
   const prefetch = usePrefetchFacetPreview();
   const { isVisible, toggleChart, isSectionVisible } = useSectionVisibility();
+  const perValidatorStatuses = usePerValidatorStatuses();
 
   const previewFacets = usePreviewForValue(
     hoveredField ?? "",
@@ -352,19 +354,23 @@ export function PlotsView() {
                 </FacetChart>
               )}
 
-            {/* Card 3: Validation Status */}
+            {/* Card 3+: Validation Status (one per validator) */}
             {isVisible("validation_status") &&
-              getBuckets("validation_statuses").length > 0 && (
-                <FacetChart
-                  title={t("facet-fields.validation_statuses")}
-                  facetField="validation_statuses"
-                  data={getBuckets("validation_statuses")}
-                  previewData={getPreviewBuckets("validation_statuses")}
-                  activeValues={getActiveValues("validation_statuses")}
-                  {...makeChartHandlers("validation_statuses")}
-                >
-                  {(chartProps) => <RadialValidation {...chartProps} />}
-                </FacetChart>
+              perValidatorStatuses &&
+              perValidatorStatuses.map(({ validator, statuses }) =>
+                statuses.length > 0 ? (
+                  <FacetChart
+                    key={validator}
+                    title={`${t("facet-fields.validation_statuses")} — ${validator}`}
+                    facetField="validation_statuses"
+                    data={statuses}
+                    previewData={getPreviewBuckets("validation_statuses")}
+                    activeValues={getActiveValues("validation_statuses")}
+                    {...makeChartHandlers("validation_statuses")}
+                  >
+                    {(chartProps) => <RadialValidation {...chartProps} />}
+                  </FacetChart>
+                ) : null,
               )}
           </div>
         </section>

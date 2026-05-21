@@ -1,7 +1,7 @@
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { skipToken, useQuery, useQueryClient } from "@tanstack/react-query";
 import apiClient from "@/lib/api-client";
 import { useRecordFilters } from "../use-record-filters";
-import type { FacetsResponse, FacetsPreviewResponse } from "../types";
+import type { FacetBucket, FacetsResponse, FacetsPreviewResponse } from "../types";
 
 export function useFacets() {
   const { buildRecordFilter } = useRecordFilters();
@@ -73,19 +73,20 @@ export function usePreviewForValue(
   const { buildRecordFilter } = useRecordFilters();
   const recordFilter = buildRecordFilter();
 
-  const { data } = useQuery<FacetsPreviewResponse>({
+  const { data } = useQuery({
     queryKey: [
       "catalog-records",
       "facets-preview",
       targetField,
       recordFilter,
-    ],
-    enabled: false,
+    ] as const,
+    queryFn: skipToken,
   });
 
-  if (!data || !targetValue) return undefined;
+  const preview = data as FacetsPreviewResponse | undefined;
+  if (!preview || !targetValue) return undefined;
 
-  const entry = data.previews.find((p) => p.target_value === targetValue);
+  const entry = preview.previews.find((p) => p.target_value === targetValue);
   if (!entry) return undefined;
 
   return {
@@ -93,4 +94,41 @@ export function usePreviewForValue(
     histograms: entry.histograms,
     total: entry.total,
   };
+}
+
+/**
+ * Eagerly fetches the validators preview and returns per-validator
+ * validation_statuses breakdowns. Shares cache with prefetchFacetPreview.
+ */
+export function usePerValidatorStatuses(): {
+  validator: string;
+  statuses: FacetBucket[];
+}[] | undefined {
+  const { buildRecordFilter } = useRecordFilters();
+  const recordFilter = buildRecordFilter();
+
+  const { data } = useQuery<FacetsPreviewResponse>({
+    queryKey: [
+      "catalog-records",
+      "facets-preview",
+      "validators",
+      recordFilter,
+    ],
+    queryFn: () =>
+      apiClient
+        .post<FacetsPreviewResponse>("/catalog-records/facets-preview", {
+          filters: recordFilter,
+          target_field: "validators",
+        })
+        .then((r) => r.data),
+    staleTime: 30_000,
+  });
+
+  if (!data) return undefined;
+
+  return data.previews.map((p) => ({
+    validator: p.target_value,
+    statuses:
+      p.facets.find((f) => f.field === "validation_statuses")?.buckets ?? [],
+  }));
 }
