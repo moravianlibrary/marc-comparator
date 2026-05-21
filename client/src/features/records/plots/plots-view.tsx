@@ -1,40 +1,28 @@
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { X } from "lucide-react";
+import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useRecordFilters } from "../use-record-filters";
-import { useFacets, usePreviewForValue } from "./use-facets";
+import {
+  useFacets,
+  usePrefetchFacetPreview,
+  usePreviewForValue,
+} from "./use-facets";
 import { FacetChart } from "./facet-chart";
 import { BarFacet } from "./bar-facet";
-import { PieFacet } from "./pie-facet";
+import { DonutFacet } from "./donut-facet";
+import { StatusTripleFacet } from "./status-triple-facet";
 import { HistogramFacet } from "./histogram-facet";
+import { ContextPills } from "./context-pills";
+import { RadialQuality } from "./radial-quality";
+import { RadialValidation } from "./radial-validation";
+import { SectionConfig } from "./section-config";
+import { useSectionVisibility } from "./use-section-visibility";
 import type { FacetBucket, FacetResult } from "../types";
 
-/**
- * Layout config: maps backend facet field name to chart type.
- * Order here determines grid order.
- */
-const FACET_LAYOUT: Array<{ field: string; chart: "bar" | "pie" }> = [
-  { field: "base", chart: "bar" },
-  { field: "is_deleted", chart: "pie" },
-  { field: "is_hidden", chart: "pie" },
-  { field: "is_processed", chart: "pie" },
-  { field: "type_of_record", chart: "bar" },
-  { field: "bibliographic_level", chart: "pie" },
-  { field: "authority_link_linkers", chart: "bar" },
-  { field: "authority_link_bases", chart: "bar" },
-  { field: "comparators", chart: "bar" },
-  { field: "comparison_bases", chart: "bar" },
-  { field: "match_qualities", chart: "pie" },
-  { field: "validators", chart: "bar" },
-  { field: "validation_statuses", chart: "pie" },
-  { field: "validation_target_tags", chart: "bar" },
-  { field: "field_explanations", chart: "bar" },
-];
-
-/**
- * Maps backend facet field names to the URL param key in useRecordFilters.
- * Array facets map to their camelCase equivalents.
- * Boolean facets map to the boolean param name.
- */
 const FACET_TO_URL_PARAM: Record<string, string> = {
   base: "bases",
   type_of_record: "typeOfRecord",
@@ -53,7 +41,6 @@ const FACET_TO_URL_PARAM: Record<string, string> = {
   validation_target_tags: "validationTargetTags",
 };
 
-/** Boolean facet labels → filter values */
 const BOOL_LABEL_TO_VALUE: Record<string, Record<string, string>> = {
   deleted: { Deleted: "true", Active: "false" },
   hidden: { Hidden: "true", Visible: "false" },
@@ -62,11 +49,19 @@ const BOOL_LABEL_TO_VALUE: Record<string, Record<string, string>> = {
 
 export function PlotsView() {
   const { t } = useTranslation("records");
-  const { filters, setFilters, toggleArrayFilter, setScoreRange } =
-    useRecordFilters();
+  const {
+    filters,
+    setFilters,
+    toggleArrayFilter,
+    setScoreRange,
+    clearFilters,
+  } = useRecordFilters();
   const { data: facetsData, isLoading } = useFacets();
   const [hoveredField, setHoveredField] = useState<string | null>(null);
   const [hoveredValue, setHoveredValue] = useState<string | null>(null);
+  const [showAllExplanations, setShowAllExplanations] = useState(false);
+  const prefetch = usePrefetchFacetPreview();
+  const { isVisible, toggleChart, isSectionVisible } = useSectionVisibility();
 
   const previewFacets = usePreviewForValue(
     hoveredField ?? "",
@@ -83,28 +78,36 @@ export function PlotsView() {
 
   const facetsByField = new Map(facetsData.facets.map((f) => [f.field, f]));
 
+  function getBuckets(field: string): FacetBucket[] {
+    return facetsByField.get(field)?.buckets ?? [];
+  }
+
   function getActiveValues(facetField: string): string[] {
     const paramKey = FACET_TO_URL_PARAM[facetField];
     if (!paramKey) return [];
-
     const paramValue = (filters as any)[paramKey];
-
-    if (paramKey === "deleted" || paramKey === "hidden" || paramKey === "processed") {
+    if (
+      paramKey === "deleted" ||
+      paramKey === "hidden" ||
+      paramKey === "processed"
+    ) {
       if (!paramValue) return [];
       const labelMap = BOOL_LABEL_TO_VALUE[paramKey];
       return Object.entries(labelMap)
         .filter(([, v]) => v === paramValue)
         .map(([label]) => label);
     }
-
     return Array.isArray(paramValue) ? paramValue : [];
   }
 
   function handleToggle(facetField: string, value: string) {
     const paramKey = FACET_TO_URL_PARAM[facetField];
     if (!paramKey) return;
-
-    if (paramKey === "deleted" || paramKey === "hidden" || paramKey === "processed") {
+    if (
+      paramKey === "deleted" ||
+      paramKey === "hidden" ||
+      paramKey === "processed"
+    ) {
       const labelMap = BOOL_LABEL_TO_VALUE[paramKey];
       const targetValue = labelMap[value];
       const currentValue = (filters as any)[paramKey];
@@ -118,81 +121,367 @@ export function PlotsView() {
   }
 
   function getPreviewBuckets(facetField: string): FacetBucket[] | undefined {
-    if (!previewFacets) return undefined;
+    if (!previewFacets || facetField === hoveredField) return undefined;
     const result = previewFacets.facets.find(
       (f: FacetResult) => f.field === facetField,
     );
     return result?.buckets;
   }
 
+  function makeChartHandlers(field: string) {
+    return {
+      onToggle: (value: string) => handleToggle(field, value),
+      onHover: (value: string) => {
+        setHoveredField(field);
+        setHoveredValue(value);
+      },
+      onLeave: () => {
+        setHoveredField(null);
+        setHoveredValue(null);
+      },
+    };
+  }
+
   const scoreHistogram = facetsData.histograms.find(
     (h) => h.field === "overall_score",
   );
 
+  const explanationBuckets = getBuckets("field_explanations");
+  const visibleExplanations = showAllExplanations
+    ? explanationBuckets
+    : explanationBuckets.slice(0, 10);
+
+  // Collect all active filters for the summary bar
+  const allFacetFields = Object.keys(FACET_TO_URL_PARAM);
+  const activeFilters: {
+    facetField: string;
+    label: string;
+    value: string;
+    valueLabel: string;
+  }[] = [];
+  for (const field of allFacetFields) {
+    const values = getActiveValues(field);
+    const fieldLabel = t(`facet-fields.${field}`);
+    for (const value of values) {
+      const boolFields = ["is_deleted", "is_hidden", "is_processed"];
+      const valueLabel = boolFields.includes(field)
+        ? t(`state.${value}`)
+        : value;
+      activeFilters.push({
+        facetField: field,
+        label: fieldLabel,
+        value,
+        valueLabel,
+      });
+    }
+  }
+  const hasScoreFilter = filters.scoreMin > 0 || filters.scoreMax < 1;
+  const hasAnyFilter = activeFilters.length > 0 || hasScoreFilter;
+
+  // Context pill groups
+  const contextFields = [
+    { field: "base", label: t("facet-fields.base") },
+    { field: "comparators", label: t("facet-fields.comparators") },
+    { field: "validators", label: t("facet-fields.validators") },
+    {
+      field: "authority_link_linkers",
+      label: t("facet-fields.authority_link_linkers"),
+    },
+  ];
+
+  const pillGroups = contextFields
+    .filter(({ field }) => isVisible(field as any) && getBuckets(field).length > 0)
+    .map(({ field, label }) => ({
+      label,
+      facetField: field,
+      buckets: getBuckets(field),
+      previewBuckets: getPreviewBuckets(field),
+      activeValues: getActiveValues(field),
+      ...makeChartHandlers(field),
+    }));
+
   return (
-    <div className="space-y-4">
-      <p className="text-sm text-muted-foreground">
-        {t("plots.total-records", { count: facetsData.total })}
-      </p>
-
-      <div className="grid grid-cols-2 gap-4 xl:grid-cols-3">
-        {FACET_LAYOUT.map(({ field, chart }) => {
-          const facetResult = facetsByField.get(field);
-          if (!facetResult || facetResult.buckets.length === 0) return null;
-
-          const activeValues = getActiveValues(field);
-          const previewBuckets = getPreviewBuckets(field);
-
-          return (
-            <FacetChart
-              key={field}
-              title={t(`facet-fields.${field}`)}
-              facetField={field}
-              data={facetResult.buckets}
-              previewData={previewBuckets}
-              activeValues={activeValues}
-              onToggle={(value) => handleToggle(field, value)}
-              onHover={(value) => {
-                setHoveredField(field);
-                setHoveredValue(value);
-              }}
-              onLeave={() => {
-                setHoveredField(null);
-                setHoveredValue(null);
-              }}
-            >
-              {(chartProps) =>
-                chart === "bar" ? (
-                  <BarFacet {...chartProps} />
-                ) : (
-                  <PieFacet {...chartProps} />
-                )
-              }
-            </FacetChart>
-          );
-        })}
-
-        {scoreHistogram && scoreHistogram.buckets.length > 0 && (
-          <div className="col-span-full">
-            <FacetChart
-              title={t("facet-fields.overall_score")}
-              facetField="overall_score"
-              data={[]}
-              activeValues={[]}
-              onToggle={() => {}}
-              onHover={() => {}}
-              onLeave={() => {}}
-            >
-              {() => (
-                <HistogramFacet
-                  data={scoreHistogram.buckets}
-                  onRangeChange={setScoreRange}
-                />
-              )}
-            </FacetChart>
-          </div>
-        )}
+    <div className="space-y-6">
+      {/* Header: total count + filters + section config */}
+      <div className="flex items-center justify-between gap-4">
+        <p className="text-sm text-muted-foreground">
+          {t("plots.total-records", { count: facetsData.total })}
+        </p>
+        <SectionConfig isVisible={isVisible} toggleChart={toggleChart} />
       </div>
+
+      {hasAnyFilter && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-sm font-medium text-muted-foreground">
+            {t("plots.active-filters")}:
+          </span>
+          {activeFilters.map((af) => (
+            <Badge
+              key={`${af.facetField}-${af.value}`}
+              variant="secondary"
+              className="gap-1 cursor-pointer"
+              onClick={() => handleToggle(af.facetField, af.value)}
+            >
+              <span className="text-muted-foreground">{af.label}:</span>{" "}
+              {af.valueLabel}
+              <X className="h-3 w-3" />
+            </Badge>
+          ))}
+          {hasScoreFilter && (
+            <Badge
+              variant="secondary"
+              className="gap-1 cursor-pointer"
+              onClick={() => setScoreRange(0, 1)}
+            >
+              <span className="text-muted-foreground">
+                {t("facet-fields.overall_score")}:
+              </span>{" "}
+              {(filters.scoreMin * 100).toFixed(0)}–
+              {(filters.scoreMax * 100).toFixed(0)}%
+              <X className="h-3 w-3" />
+            </Badge>
+          )}
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-6 text-xs text-muted-foreground"
+            onClick={clearFilters}
+          >
+            {t("plots.clear-all")}
+          </Button>
+        </div>
+      )}
+
+      {/* Row 1: Kontext (Context Controls) */}
+      {isSectionVisible("context") && pillGroups.length > 0 && (
+        <section className="space-y-2">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+            {t("plots.sections.context")}
+          </h3>
+          <Card>
+            <CardContent className="pt-6">
+              <ContextPills groups={pillGroups} />
+            </CardContent>
+          </Card>
+        </section>
+      )}
+
+      {/* Row 2: Stav kvality (Operational Health) */}
+      {isSectionVisible("health") && (
+        <section className="space-y-2">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+            {t("plots.sections.health")}
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {/* Card 1: Record Status */}
+            {isVisible("record_status") && (
+              <Card
+                className={cn(
+                  (getActiveValues("is_deleted").length > 0 ||
+                    getActiveValues("is_hidden").length > 0 ||
+                    getActiveValues("is_processed").length > 0) &&
+                    "ring-2 ring-primary/30",
+                )}
+                onMouseEnter={() => {
+                  prefetch("is_deleted");
+                  prefetch("is_hidden");
+                  prefetch("is_processed");
+                }}
+              >
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm font-medium">
+                    {t("plots.record-status")}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <StatusTripleFacet
+                    rows={[
+                      {
+                        label: t("facet-fields.is_deleted"),
+                        facetField: "is_deleted",
+                        buckets: getBuckets("is_deleted"),
+                        positiveKey: "Active",
+                        negativeKey: "Deleted",
+                      },
+                      {
+                        label: t("facet-fields.is_hidden"),
+                        facetField: "is_hidden",
+                        buckets: getBuckets("is_hidden"),
+                        positiveKey: "Visible",
+                        negativeKey: "Hidden",
+                      },
+                      {
+                        label: t("facet-fields.is_processed"),
+                        facetField: "is_processed",
+                        buckets: getBuckets("is_processed"),
+                        positiveKey: "Processed",
+                        negativeKey: "Unprocessed",
+                      },
+                    ]}
+                    activeValues={{
+                      is_deleted: getActiveValues("is_deleted"),
+                      is_hidden: getActiveValues("is_hidden"),
+                      is_processed: getActiveValues("is_processed"),
+                    }}
+                    onToggle={handleToggle}
+                    onHover={(field, value) => {
+                      setHoveredField(field);
+                      setHoveredValue(value);
+                    }}
+                    onLeave={() => {
+                      setHoveredField(null);
+                      setHoveredValue(null);
+                    }}
+                  />
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Card 2: Match Quality */}
+            {isVisible("match_quality") &&
+              getBuckets("match_qualities").length > 0 && (
+                <FacetChart
+                  title={t("facet-fields.match_qualities")}
+                  facetField="match_qualities"
+                  data={getBuckets("match_qualities")}
+                  previewData={getPreviewBuckets("match_qualities")}
+                  activeValues={getActiveValues("match_qualities")}
+                  {...makeChartHandlers("match_qualities")}
+                >
+                  {(chartProps) => <RadialQuality {...chartProps} />}
+                </FacetChart>
+              )}
+
+            {/* Card 3: Validation Status */}
+            {isVisible("validation_status") &&
+              getBuckets("validation_statuses").length > 0 && (
+                <FacetChart
+                  title={t("facet-fields.validation_statuses")}
+                  facetField="validation_statuses"
+                  data={getBuckets("validation_statuses")}
+                  previewData={getPreviewBuckets("validation_statuses")}
+                  activeValues={getActiveValues("validation_statuses")}
+                  {...makeChartHandlers("validation_statuses")}
+                >
+                  {(chartProps) => <RadialValidation {...chartProps} />}
+                </FacetChart>
+              )}
+          </div>
+        </section>
+      )}
+
+      {/* Row 3: Klasifikace zaznamov (Record Composition) */}
+      {isSectionVisible("classification") && (
+        <section className="space-y-2">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+            {t("plots.sections.classification")}
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {isVisible("type_of_record") &&
+              getBuckets("type_of_record").length > 0 && (
+                <FacetChart
+                  title={t("facet-fields.type_of_record")}
+                  facetField="type_of_record"
+                  data={getBuckets("type_of_record")}
+                  previewData={getPreviewBuckets("type_of_record")}
+                  activeValues={getActiveValues("type_of_record")}
+                  {...makeChartHandlers("type_of_record")}
+                >
+                  {(chartProps) => <BarFacet {...chartProps} />}
+                </FacetChart>
+              )}
+
+            {isVisible("bibliographic_level") &&
+              getBuckets("bibliographic_level").length > 0 && (
+                <FacetChart
+                  title={t("facet-fields.bibliographic_level")}
+                  facetField="bibliographic_level"
+                  data={getBuckets("bibliographic_level")}
+                  previewData={getPreviewBuckets("bibliographic_level")}
+                  activeValues={getActiveValues("bibliographic_level")}
+                  {...makeChartHandlers("bibliographic_level")}
+                >
+                  {(chartProps) => <DonutFacet {...chartProps} />}
+                </FacetChart>
+              )}
+
+            {isVisible("authority_link_bases") &&
+              getBuckets("authority_link_bases").length > 0 && (
+                <FacetChart
+                  title={t("facet-fields.authority_link_bases")}
+                  facetField="authority_link_bases"
+                  data={getBuckets("authority_link_bases")}
+                  previewData={getPreviewBuckets("authority_link_bases")}
+                  activeValues={getActiveValues("authority_link_bases")}
+                  {...makeChartHandlers("authority_link_bases")}
+                >
+                  {(chartProps) => <BarFacet {...chartProps} />}
+                </FacetChart>
+              )}
+          </div>
+        </section>
+      )}
+
+      {/* Row 4: Analyza porovnani (Deep Analysis) */}
+      {isSectionVisible("analysis") && (
+        <section className="space-y-2">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+            {t("plots.sections.analysis")}
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {isVisible("overall_score") &&
+              scoreHistogram &&
+              scoreHistogram.buckets.length > 0 && (
+                <FacetChart
+                  title={t("facet-fields.overall_score")}
+                  facetField="overall_score"
+                  data={[]}
+                  activeValues={[]}
+                  onToggle={() => {}}
+                  onHover={() => {}}
+                  onLeave={() => {}}
+                >
+                  {() => (
+                    <HistogramFacet
+                      data={scoreHistogram.buckets}
+                      onRangeChange={setScoreRange}
+                    />
+                  )}
+                </FacetChart>
+              )}
+
+            {isVisible("field_explanations") &&
+              explanationBuckets.length > 0 && (
+                <FacetChart
+                  title={t("facet-fields.field_explanations")}
+                  facetField="field_explanations"
+                  data={visibleExplanations}
+                  previewData={getPreviewBuckets("field_explanations")}
+                  activeValues={getActiveValues("field_explanations")}
+                  {...makeChartHandlers("field_explanations")}
+                >
+                  {(chartProps) => (
+                    <div>
+                      <BarFacet {...chartProps} />
+                      {explanationBuckets.length > 10 && (
+                        <button
+                          className="text-xs text-muted-foreground hover:text-foreground mt-2"
+                          onClick={() =>
+                            setShowAllExplanations(!showAllExplanations)
+                          }
+                        >
+                          {showAllExplanations
+                            ? t("plots.show-less")
+                            : t("plots.show-all")}
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </FacetChart>
+              )}
+          </div>
+        </section>
+      )}
     </div>
   );
 }
