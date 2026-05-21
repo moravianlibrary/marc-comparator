@@ -260,11 +260,32 @@ export function PlotsView() {
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
             {t("plots.sections.context")}
           </h3>
-          <Card>
-            <CardContent className="pt-6">
-              <ContextPills groups={pillGroups} />
-            </CardContent>
-          </Card>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            {pillGroups.map((group) => (
+              <FacetChart
+                key={group.facetField}
+                title={group.label}
+                facetField={group.facetField}
+                data={group.buckets}
+                previewData={group.previewBuckets}
+                activeValues={group.activeValues}
+                onToggle={group.onToggle}
+                onHover={group.onHover}
+                onLeave={group.onLeave}
+              >
+                {(chartProps) => (
+                  <ContextPills
+                    buckets={chartProps.data}
+                    previewBuckets={chartProps.previewData}
+                    activeValues={chartProps.activeValues}
+                    onToggle={chartProps.onToggle}
+                    onHover={chartProps.onHover}
+                    onLeave={chartProps.onLeave}
+                  />
+                )}
+              </FacetChart>
+            ))}
+          </div>
         </section>
       )}
 
