@@ -19,7 +19,7 @@ export function useSectionVisibility() {
     {
       hiddenCharts: parseAsString.withDefault(""),
     },
-    { history: "replace" },
+    { history: "replace", shallow: true },
   );
 
   const hiddenSet = useMemo(() => {
@@ -53,5 +53,23 @@ export function useSectionVisibility() {
     [hiddenSet],
   );
 
-  return { isVisible, toggleChart, isSectionVisible, hiddenSet, ALL_CHART_IDS };
+  const toggleSection = useCallback(
+    (section: keyof typeof SECTION_GROUPS) => {
+      const ids = SECTION_GROUPS[section];
+      const anyVisible = ids.some((id) => !hiddenSet.has(id));
+      const next = new Set(hiddenSet);
+      for (const id of ids) {
+        if (anyVisible) {
+          next.add(id);
+        } else {
+          next.delete(id);
+        }
+      }
+      const value = [...next].join(",");
+      setParams({ hiddenCharts: value || "" });
+    },
+    [hiddenSet, setParams],
+  );
+
+  return { isVisible, toggleChart, toggleSection, isSectionVisible, hiddenSet, ALL_CHART_IDS };
 }

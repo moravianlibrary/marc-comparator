@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -22,7 +22,7 @@ import { RadialQuality } from "./radial-quality";
 import { RadialValidation } from "./radial-validation";
 import { SectionConfig } from "./section-config";
 import { useSectionVisibility } from "./use-section-visibility";
-import type { FacetBucket, FacetResult } from "../types";
+import type { FacetBucket, FacetResult, HistogramBucket } from "../types";
 
 const FACET_TO_URL_PARAM: Record<string, string> = {
   base: "bases",
@@ -57,6 +57,67 @@ const EXPLANATION_ORDER: Record<string, number> = {
   MISSING: 5,
 };
 
+function ScoreRangeInputs({
+  scoreMin,
+  scoreMax,
+  onChange,
+}: {
+  scoreMin: number;
+  scoreMax: number;
+  onChange: (from: number, to: number) => void;
+}) {
+  const minRef = useRef<HTMLInputElement>(null);
+  const maxRef = useRef<HTMLInputElement>(null);
+
+  function handleSubmit() {
+    const rawMin = Number(minRef.current?.value);
+    const rawMax = Number(maxRef.current?.value);
+    if (Number.isNaN(rawMin) || Number.isNaN(rawMax)) return;
+    const clampedMin = Math.max(0, Math.min(rawMin, 100));
+    const clampedMax = Math.max(clampedMin, Math.min(rawMax, 100));
+    if (minRef.current) minRef.current.value = String(clampedMin);
+    if (maxRef.current) maxRef.current.value = String(clampedMax);
+    onChange(clampedMin / 100, clampedMax / 100);
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleSubmit();
+      (e.target as HTMLInputElement).blur();
+    }
+  }
+
+  return (
+    <div className="flex items-center gap-1.5 text-xs">
+      <input
+        ref={minRef}
+        type="number"
+        min={0}
+        max={100}
+        key={scoreMin}
+        defaultValue={Math.round(scoreMin * 100)}
+        onKeyDown={handleKeyDown}
+        onBlur={handleSubmit}
+        className="h-6 w-14 rounded border border-input bg-background px-1.5 text-xs tabular-nums text-center"
+      />
+      <span className="text-muted-foreground">–</span>
+      <input
+        ref={maxRef}
+        type="number"
+        min={0}
+        max={100}
+        key={scoreMax}
+        defaultValue={Math.round(scoreMax * 100)}
+        onKeyDown={handleKeyDown}
+        onBlur={handleSubmit}
+        className="h-6 w-14 rounded border border-input bg-background px-1.5 text-xs tabular-nums text-center"
+      />
+      <span className="text-muted-foreground">%</span>
+    </div>
+  );
+}
+
 export function PlotsView() {
   const { t } = useTranslation("records");
   const {
@@ -71,7 +132,7 @@ export function PlotsView() {
   const [hoveredValue, setHoveredValue] = useState<string | null>(null);
   const [showAllExplanations, setShowAllExplanations] = useState(false);
   const prefetch = usePrefetchFacetPreview();
-  const { isVisible, toggleChart, isSectionVisible } = useSectionVisibility();
+  const { isVisible, toggleChart, toggleSection, isSectionVisible } = useSectionVisibility();
   const perValidatorStatuses = usePerValidatorStatuses();
 
   const previewFacets = usePreviewForValue(
@@ -136,7 +197,13 @@ export function PlotsView() {
     const result = previewFacets.facets.find(
       (f: FacetResult) => f.field === facetField,
     );
-    return result?.buckets;
+    return result?.buckets ?? [];
+  }
+
+  function getPreviewHistogramBuckets(field: string): HistogramBucket[] | undefined {
+    if (!previewFacets || field === hoveredField) return undefined;
+    const result = previewFacets.histograms.find((h) => h.field === field);
+    return result?.buckets ?? [];
   }
 
   function makeChartHandlers(field: string) {
@@ -225,7 +292,7 @@ export function PlotsView() {
         <p className="text-sm text-muted-foreground">
           {t("plots.total-records", { count: facetsData.total })}
         </p>
-        <SectionConfig isVisible={isVisible} toggleChart={toggleChart} />
+        <SectionConfig isVisible={isVisible} toggleChart={toggleChart} isSectionVisible={isSectionVisible} toggleSection={toggleSection} />
       </div>
 
       {hasAnyFilter && (
@@ -276,32 +343,23 @@ export function PlotsView() {
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
             {t("plots.sections.context")}
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {pillGroups.map((group) => (
-              <FacetChart
-                key={group.facetField}
-                title={group.label}
-                facetField={group.facetField}
-                data={group.buckets}
-                previewData={group.previewBuckets}
-                activeValues={group.activeValues}
-                onToggle={group.onToggle}
-                onHover={group.onHover}
-                onLeave={group.onLeave}
-              >
-                {(chartProps) => (
+          <Card>
+            <CardContent className="flex flex-wrap gap-x-6 gap-y-3 pt-4">
+              {pillGroups.map((group) => (
+                <div key={group.facetField}>
+                  <p className="text-sm font-medium mb-1">{group.label}</p>
                   <ContextPills
-                    buckets={chartProps.data}
-                    previewBuckets={chartProps.previewData}
-                    activeValues={chartProps.activeValues}
-                    onToggle={chartProps.onToggle}
-                    onHover={chartProps.onHover}
-                    onLeave={chartProps.onLeave}
+                    buckets={group.buckets}
+                    previewBuckets={group.previewBuckets}
+                    activeValues={group.activeValues}
+                    onToggle={group.onToggle}
+                    onHover={group.onHover}
+                    onLeave={group.onLeave}
                   />
-                )}
-              </FacetChart>
-            ))}
-          </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
         </section>
       )}
 
@@ -339,6 +397,7 @@ export function PlotsView() {
                         label: t("facet-fields.is_deleted"),
                         facetField: "is_deleted",
                         buckets: getBuckets("is_deleted"),
+                        previewBuckets: getPreviewBuckets("is_deleted"),
                         positiveKey: "Active",
                         negativeKey: "Deleted",
                       },
@@ -346,6 +405,7 @@ export function PlotsView() {
                         label: t("facet-fields.is_hidden"),
                         facetField: "is_hidden",
                         buckets: getBuckets("is_hidden"),
+                        previewBuckets: getPreviewBuckets("is_hidden"),
                         positiveKey: "Visible",
                         negativeKey: "Hidden",
                       },
@@ -353,6 +413,7 @@ export function PlotsView() {
                         label: t("facet-fields.is_processed"),
                         facetField: "is_processed",
                         buckets: getBuckets("is_processed"),
+                        previewBuckets: getPreviewBuckets("is_processed"),
                         positiveKey: "Processed",
                         negativeKey: "Unprocessed",
                       },
@@ -483,11 +544,18 @@ export function PlotsView() {
                   onToggle={() => {}}
                   onHover={() => {}}
                   onLeave={() => {}}
+                  headerRight={
+                    <ScoreRangeInputs
+                      scoreMin={filters.scoreMin}
+                      scoreMax={filters.scoreMax}
+                      onChange={setScoreRange}
+                    />
+                  }
                 >
                   {() => (
                     <HistogramFacet
                       data={scoreHistogram.buckets}
-                      onRangeChange={setScoreRange}
+                      previewData={getPreviewHistogramBuckets("overall_score")}
                     />
                   )}
                 </FacetChart>
