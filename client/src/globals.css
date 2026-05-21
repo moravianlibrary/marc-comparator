@@ -30,6 +30,10 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
+  --color-status-success: var(--status-success);
+  --color-status-warning: var(--status-warning);
+  --color-status-danger: var(--status-danger);
+  --color-status-info: var(--status-info);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -53,6 +57,9 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
+  }
+  button, [role="button"], a, select, label[for], [type="checkbox"], [type="radio"], summary {
+    cursor: pointer;
   }
   body {
     @apply bg-background text-foreground;
@@ -86,6 +93,11 @@
   --chart-3: oklch(0.666 0.179 58.318);
   --chart-4: oklch(0.555 0.163 48.998);
   --chart-5: oklch(0.473 0.137 46.201);
+  /* Semantic status colors for dashboard indicators */
+  --status-success: oklch(0.60 0.18 145);
+  --status-warning: oklch(0.75 0.18 75);
+  --status-danger: oklch(0.55 0.22 25);
+  --status-info: oklch(0.55 0.18 250);
   --radius: 0.625rem;
   --sidebar: oklch(0.986 0.002 67.8);
   --sidebar-foreground: oklch(0.147 0.004 49.3);
@@ -121,6 +133,10 @@
   --chart-3: oklch(0.666 0.179 58.318);
   --chart-4: oklch(0.555 0.163 48.998);
   --chart-5: oklch(0.473 0.137 46.201);
+  --status-success: oklch(0.70 0.19 148);
+  --status-warning: oklch(0.80 0.16 80);
+  --status-danger: oklch(0.65 0.20 25);
+  --status-info: oklch(0.65 0.16 250);
   --sidebar: oklch(0.214 0.009 43.1);
   --sidebar-foreground: oklch(0.986 0.002 67.8);
   --sidebar-primary: oklch(0.769 0.188 70.08);
