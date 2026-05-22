@@ -28,14 +28,15 @@
   "permissions": {
     "ReadRecords": "Číst záznamy",
     "ReviewRecords": "Revidovat záznamy",
+    "ManageReviews": "Spravovat revize",
     "AddRecords": "Přidávat záznamy",
     "SyncRecordsFromCatalog": "Synchronizovat záznamy z katalogu",
-    "RunRecordTasks": "Spouštět úkoly na záznamech",
+    "ProcessRecords": "Zpracovávat záznamy",
+    "RunPartialRecordTasks": "Spouštět dílčí úkoly na záznamech",
     "ManageTasks": "Spravovat úkoly",
     "ManageAllTasks": "Spravovat všechny úkoly",
     "ManageAccessControl": "Spravovat přístupová práva",
     "ManageAppSettings": "Spravovat nastavení aplikace",
-    "ManageTaskSettings": "Spravovat nastavení úkolů",
-    "ManageSystem": "Spravovat systém"
+    "ManageTaskSettings": "Spravovat nastavení úkolů"
   }
 }

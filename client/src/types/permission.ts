@@ -1,15 +1,16 @@
 export const Permission = {
   ReadRecords: "ReadRecords",
   ReviewRecords: "ReviewRecords",
+  ManageReviews: "ManageReviews",
   AddRecords: "AddRecords",
   SyncRecordsFromCatalog: "SyncRecordsFromCatalog",
-  RunRecordTasks: "RunRecordTasks",
+  ProcessRecords: "ProcessRecords",
+  RunPartialRecordTasks: "RunPartialRecordTasks",
   ManageTasks: "ManageTasks",
   ManageAllTasks: "ManageAllTasks",
   ManageAccessControl: "ManageAccessControl",
   ManageAppSettings: "ManageAppSettings",
   ManageTaskSettings: "ManageTaskSettings",
-  ManageSystem: "ManageSystem",
 } as const;
 
 export type Permission = (typeof Permission)[keyof typeof Permission];
@@ -17,15 +18,16 @@ export type Permission = (typeof Permission)[keyof typeof Permission];
 export const PermissionDependencies: Record<Permission, Permission[]> = {
   ReadRecords: [],
   ReviewRecords: ["ReadRecords"],
+  ManageReviews: ["ReviewRecords"],
   AddRecords: ["ReadRecords"],
   SyncRecordsFromCatalog: ["ReadRecords", "AddRecords", "ManageTasks"],
-  RunRecordTasks: ["ReadRecords"],
-  ManageTasks: ["RunRecordTasks"],
+  ProcessRecords: ["ReadRecords"],
+  RunPartialRecordTasks: ["ReadRecords"],
+  ManageTasks: ["ProcessRecords", "RunPartialRecordTasks"],
   ManageAllTasks: ["ManageTasks"],
   ManageTaskSettings: ["ManageTasks"],
   ManageAccessControl: [],
   ManageAppSettings: [],
-  ManageSystem: ["ManageAppSettings", "ManageAccessControl"],
 };
 
 function getAllDependencies(permission: Permission): Permission[] {

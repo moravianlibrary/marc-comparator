@@ -9,6 +9,8 @@ import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Info } from "lucide-react";
 import apiClient from "@/lib/api-client";
+import { useHasPermission } from "@/hooks/use-permissions";
+import { Permission } from "@/types/permission";
 
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -42,6 +44,9 @@ const PAGE_SIZES = [10, 25, 50, 100, 1000];
 
 export function TableView() {
   const { t } = useTranslation();
+  const { hasPermission } = useHasPermission();
+  const canProcess = hasPermission(Permission.ProcessRecords);
+  const canRunPartial = hasPermission(Permission.RunPartialRecordTasks);
   const { filters, setFilters, setPage, setSearch, buildSearchPayload, buildRecordFilter } =
     useRecordFilters();
 
@@ -145,11 +150,13 @@ export function TableView() {
 
         <div className="flex-1" />
 
-        <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground whitespace-nowrap">{t("records:table.bulk-actions")}</span>
-          <RecordTaskActions filters={buildRecordFilter()} />
-          <AdvancedTaskActions filters={buildRecordFilter()} />
-        </div>
+        {(canProcess || canRunPartial) && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-muted-foreground whitespace-nowrap">{t("records:table.bulk-actions")}</span>
+            {canProcess && <RecordTaskActions filters={buildRecordFilter()} />}
+            {canRunPartial && <AdvancedTaskActions filters={buildRecordFilter()} />}
+          </div>
+        )}
 
         <ColumnConfig table={table} sortedColumnId={filters.sortBy} />
       </div>
