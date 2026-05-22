@@ -28,6 +28,7 @@ import { AuthorityLinkingSettingsForm } from "./authority-linking-settings-form"
 import { ComparisonSettingsForm } from "./comparison-settings-form";
 import { ValidationSettingsForm } from "./validation-settings-form";
 import { ProcessRecordsSettingsForm } from "./process-records-settings-form";
+import { MaintenanceSettingsForm } from "./maintenance-settings-form";
 import { HelpDialog } from "./help-dialog";
 import {
   CatalogHelp,
@@ -42,6 +43,7 @@ const SETTINGS_SCOPES: SettingsScope[] = [
   "comparators",
   "validators",
   "process-records",
+  "maintenance",
 ];
 
 const SETTINGS_ENDPOINTS: Record<SettingsScope, string> = {
@@ -51,6 +53,7 @@ const SETTINGS_ENDPOINTS: Record<SettingsScope, string> = {
   comparators: "/settings/record-tools/comparators",
   validators: "/settings/record-tools/validators",
   "process-records": "/settings/record-tools/process-records",
+  maintenance: "/settings/system/maintenance",
 };
 
 export function SettingsPage() {
@@ -130,6 +133,8 @@ export function SettingsPage() {
         return <ValidationSettingsForm {...commonProps} />;
       case "process-records":
         return <ProcessRecordsSettingsForm {...commonProps} />;
+      case "maintenance":
+        return <MaintenanceSettingsForm {...commonProps} />;
     }
   }
 

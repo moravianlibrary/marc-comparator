@@ -84,3 +84,16 @@ export const processRecordsSettingsSchema = z.object({
 export type ProcessRecordsSettingsFormValues = z.infer<
   typeof processRecordsSettingsSchema
 >;
+
+export const periodicTaskConfigSchema = z.object({
+  enabled: z.boolean(),
+  interval_hours: z.number().int().min(1).max(720),
+});
+
+export const maintenanceSettingsSchema = z.object({
+  task_cleanup: periodicTaskConfigSchema,
+  task_cleanup_max_age_days: z.number().int().min(1).max(365),
+  sector_compaction: periodicTaskConfigSchema,
+});
+
+export type MaintenanceSettingsFormValues = z.infer<typeof maintenanceSettingsSchema>;

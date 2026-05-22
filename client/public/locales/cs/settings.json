@@ -7,7 +7,8 @@
     "authority-linkers": "Nastavení propojení autorit",
     "comparators": "Nastavení porovnávání",
     "validators": "Nastavení validátorů",
-    "process-records": "Nastavení zpracování záznamů"
+    "process-records": "Nastavení zpracování záznamů",
+    "maintenance": "Nastavení údržby"
   },
   "catalog": {
     "clients": "Klienti katalogu",
@@ -62,6 +63,19 @@
     "target-bases": "Cílové báze",
     "authority-linkers": "Propojení s autoritami",
     "validators": "Validátory"
+  },
+  "maintenance": {
+    "task-cleanup": {
+      "title": "Automatické čištění úkolů"
+    },
+    "sector-compaction": {
+      "title": "Automatická kompaktace sektorů"
+    },
+    "enabled": "Aktivní",
+    "interval-hours": "Interval (hodiny)",
+    "interval-hours-description": "Jak často se má úkol spouštět (v hodinách).",
+    "max-age-days": "Maximální stáří (dny)",
+    "max-age-days-description": "Smazat úkoly starší než zadaný počet dní."
   },
   "help": {
     "title": "Nápověda",

@@ -76,13 +76,25 @@ export interface ProcessRecordsSettings {
   validators: Validator[];
 }
 
+export interface PeriodicTaskConfig {
+  enabled: boolean;
+  interval_hours: number;
+}
+
+export interface MaintenanceSettings {
+  task_cleanup: PeriodicTaskConfig;
+  task_cleanup_max_age_days: number;
+  sector_compaction: PeriodicTaskConfig;
+}
+
 export type SettingsScope =
   | "catalog"
   | "tasks"
   | "authority-linkers"
   | "comparators"
   | "validators"
-  | "process-records";
+  | "process-records"
+  | "maintenance";
 
 export interface SystemInfo {
   system_version: string;
