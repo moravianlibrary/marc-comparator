@@ -115,6 +115,23 @@ def lock_server_client(redis_container, mocker) -> Redis:
 
 
 # --------------------------------------------------------------------------
+# Function-scoped marc cache client (no decode_responses — returns raw bytes)
+# --------------------------------------------------------------------------
+@pytest.fixture(scope="function")
+def marc_cache_client(redis_container, mocker) -> Redis:
+    redis_client = Redis(
+        host=redis_container.get_container_host_ip(),
+        port=redis_container.get_exposed_port(6379),
+        db=0,
+    )
+    mocker.patch("adapters.lock_server.lock_server_client", redis_client)
+    mocker.patch("adapters.marc_sectors.lock_server_client", redis_client)
+    yield redis_client
+    redis_client.flushdb()
+    redis_client.close()
+
+
+# --------------------------------------------------------------------------
 # Function-scoped Aleph client registry
 # --------------------------------------------------------------------------
 @pytest.fixture(scope="function")

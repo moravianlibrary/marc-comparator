@@ -1,8 +1,11 @@
+import logging
 from collections import defaultdict
 
 import zstandard as zstd
 from sqlalchemy.orm import Session
 
+from adapters.lock_server import lock_server_client
+from config import config
 from entities.marc_sector import (
     MarcRecordIndex,
     MarcSector,
@@ -10,14 +13,27 @@ from entities.marc_sector import (
     sysno_to_sector_id,
 )
 
+logger = logging.getLogger(__name__)
+
 ZSTD_LEVEL = 7
 
 _compressor = zstd.ZstdCompressor(level=ZSTD_LEVEL)
 _decompressor = zstd.ZstdDecompressor()
 
+CACHE_PREFIX = "marc:"
+
 
 def read_marc(db: Session, base: str, system_number: str) -> bytes | None:
-    """Read a single MARC record using the record index."""
+    """Read a single MARC record, checking Redis cache first."""
+    cache_key = f"{CACHE_PREFIX}{base}:{system_number}"
+
+    try:
+        cached = lock_server_client.get(cache_key)
+        if cached is not None:
+            return bytes(cached)
+    except Exception:
+        logger.debug("Redis cache read failed for %s", cache_key)
+
     idx = db.get(MarcRecordIndex, (base, system_number))
     if idx is None:
         return None
@@ -27,7 +43,25 @@ def read_marc(db: Session, base: str, system_number: str) -> bytes | None:
         return None
 
     raw = _decompressor.decompress(sector.data)
-    return raw[idx.offset_in_sector:idx.offset_in_sector + idx.record_length]
+    result = raw[idx.offset_in_sector:idx.offset_in_sector + idx.record_length]
+
+    try:
+        lock_server_client.set(cache_key, result, ex=config.marc_cache_ttl_seconds)
+    except Exception:
+        logger.debug("Redis cache write failed for %s", cache_key)
+
+    return result
+
+
+def _invalidate_cache(base: str, system_numbers: list[str]) -> None:
+    """Delete cache entries for the given records."""
+    if not system_numbers:
+        return
+    keys = [f"{CACHE_PREFIX}{base}:{sn}" for sn in system_numbers]
+    try:
+        lock_server_client.delete(*keys)
+    except Exception:
+        logger.debug("Redis cache invalidation failed for %d keys", len(keys))
 
 
 def write_records_to_sector(
@@ -81,12 +115,15 @@ def write_records_to_sector(
             idx.record_length = rec_len
         offset += rec_len
 
+    _invalidate_cache(base, list(records.keys()))
+
 
 def upsert_record_in_sector(
     db: Session, base: str, system_number: str, marc_bytes: bytes
 ) -> None:
     """Insert or replace a single record within its sector."""
     sector_id = sysno_to_sector_id(system_number)
+    _invalidate_cache(base, [system_number])
     sector = db.get(MarcSector, (base, sector_id))
 
     if sector is None:
@@ -151,3 +188,4 @@ class SectorBuffer:
             records = existing_records
 
         write_records_to_sector(self.db, base, sector_id, records)
+        _invalidate_cache(base, list(records.keys()))
