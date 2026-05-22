@@ -18,13 +18,14 @@ class Permission(StrEnum):
     AddRecords = "AddRecords"
     SyncRecordsFromCatalog = "SyncRecordsFromCatalog"
     ReviewRecords = "ReviewRecords"
-    RunRecordTasks = "RunRecordTasks"
+    ManageReviews = "ManageReviews"
+    ProcessRecords = "ProcessRecords"
+    RunPartialRecordTasks = "RunPartialRecordTasks"
     ManageTasks = "ManageTasks"
     ManageAllTasks = "ManageAllTasks"
     ManageAccessControl = "ManageAccessControl"
     ManageAppSettings = "ManageAppSettings"
     ManageTaskSettings = "ManageTaskSettings"
-    ManageSystem = "ManageSystem"
 
 
 PERMISSION_DEPENDENCIES: dict[Permission, list[Permission]] = {
@@ -32,13 +33,14 @@ PERMISSION_DEPENDENCIES: dict[Permission, list[Permission]] = {
     Permission.AddRecords: [Permission.ReadRecords],
     Permission.SyncRecordsFromCatalog: [Permission.ReadRecords, Permission.AddRecords, Permission.ManageTasks],
     Permission.ReviewRecords: [Permission.ReadRecords],
-    Permission.RunRecordTasks: [Permission.ReadRecords],
-    Permission.ManageTasks: [Permission.RunRecordTasks],
+    Permission.ManageReviews: [Permission.ReviewRecords],
+    Permission.ProcessRecords: [Permission.ReadRecords],
+    Permission.RunPartialRecordTasks: [Permission.ReadRecords],
+    Permission.ManageTasks: [Permission.ProcessRecords, Permission.RunPartialRecordTasks],
     Permission.ManageAllTasks: [Permission.ManageTasks],
     Permission.ManageTaskSettings: [Permission.ManageTasks],
     Permission.ManageAccessControl: [],
     Permission.ManageAppSettings: [],
-    Permission.ManageSystem: [Permission.ManageAppSettings, Permission.ManageAccessControl],
 }
 
 

@@ -13,7 +13,7 @@ from .models import ComparisonTaskData
 router = APIRouter(
     prefix="/comparison",
     tags=["Comparison"],
-    dependencies=[WithPermission(Permission.RunRecordTasks)],
+    dependencies=[WithPermission(Permission.RunPartialRecordTasks)],
 )
 
 

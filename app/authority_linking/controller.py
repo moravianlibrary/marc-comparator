@@ -13,7 +13,7 @@ from .models import AuthorityLinkingTaskData
 router = APIRouter(
     prefix="/authority-linking",
     tags=["Authority Linking"],
-    dependencies=[WithPermission(Permission.RunRecordTasks)],
+    dependencies=[WithPermission(Permission.RunPartialRecordTasks)],
 )
 
 

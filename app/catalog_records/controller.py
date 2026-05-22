@@ -4,7 +4,7 @@ from fastapi import APIRouter, Body
 from marcdantic import MarcRecord
 
 from adapters.dependencies import DatabaseSessionDep, WithPermission
-from auth.service import CurrentUser
+from auth.service import CurrentUser, get_current_user_data
 from entities.role import Permission
 from entities.task import TaskSchema
 
@@ -183,14 +183,16 @@ async def delete_review(
     current_user: CurrentUser,
     db_session: DatabaseSessionDep,
 ):
+    user_data = get_current_user_data(current_user, db_session)
+    can_manage = Permission.ManageReviews in user_data.permissions
     return service.delete_review(
-        base, system_number, aspect_name, current_user.user_id, db_session
+        base, system_number, aspect_name, current_user.user_id, can_manage, db_session
     )
 
 
 @router.post(
     "/process",
-    dependencies=[WithPermission(Permission.RunRecordTasks)],
+    dependencies=[WithPermission(Permission.ProcessRecords)],
     response_model=TaskSchema,
 )
 async def process_records(

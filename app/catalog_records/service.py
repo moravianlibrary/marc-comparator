@@ -205,12 +205,16 @@ def delete_review(
     system_number: str,
     aspect_name: str,
     user_id: str,
+    can_manage: bool,
     db_session: DatabaseSession,
 ) -> dict:
     record_id = CatalogRecord.generate_id(base, system_number)
     current = RecordReview.find_current(db_session, record_id, aspect_name)
     if not current:
         raise HTTPException(status_code=404, detail="No current review found")
+
+    if not can_manage and str(current.reviewed_by) != user_id:
+        raise HTTPException(status_code=403, detail="You can only delete your own reviews")
 
     current.status = "superseded"
     db_session.commit()

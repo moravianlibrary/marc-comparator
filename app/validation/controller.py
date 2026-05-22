@@ -2,14 +2,19 @@ from typing import Annotated
 
 from fastapi import APIRouter, Body
 
-from adapters.dependencies import DatabaseSessionDep
+from adapters.dependencies import DatabaseSessionDep, WithPermission
 from auth.service import CurrentUser
+from entities.role import Permission
 from entities.task import TaskSchema
 
 from . import service
 from .models import ValidationTaskData
 
-router = APIRouter(prefix="/validation", tags=["Validation"])
+router = APIRouter(
+    prefix="/validation",
+    tags=["Validation"],
+    dependencies=[WithPermission(Permission.RunPartialRecordTasks)],
+)
 
 
 @router.post("/task", response_model=TaskSchema)
