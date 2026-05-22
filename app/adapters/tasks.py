@@ -36,6 +36,8 @@ tasks_client = Celery(
     timezone=config.timezone,
 )
 
+tasks_client.conf.redbeat_redis_url = config.broker.url
+
 type TasksClient = Celery
 
 LEVEL_NO_TO_SEVERITY = {
@@ -394,6 +396,47 @@ def rebuild_search_vectors_task(self: CeleryTask) -> None:
     from maintenance.tasks import rebuild_search_vectors
 
     return async_to_sync(rebuild_search_vectors)(str(self.request.id))
+
+
+@shared_task(name="periodic_task_cleanup")
+def periodic_task_cleanup(max_age_days: int = 30) -> None:
+    """Called by redbeat. Creates a Task DB row and dispatches delete_tasks."""
+    from adapters.database import SessionLocal
+    from entities.task import Task, TaskType
+
+    db = SessionLocal()
+    try:
+        task = Task(
+            name=f"Periodic task cleanup (>{max_age_days} days)",
+            type=TaskType.DeleteTasks,
+            data={"max_age_days": max_age_days},
+        )
+        db.add(task)
+        db.commit()
+        db.refresh(task)
+        dispatch_task(task)
+    finally:
+        db.close()
+
+
+@shared_task(name="periodic_sector_compaction")
+def periodic_sector_compaction() -> None:
+    """Called by redbeat. Creates a Task DB row and dispatches compact_sectors."""
+    from adapters.database import SessionLocal
+    from entities.task import Task, TaskType
+
+    db = SessionLocal()
+    try:
+        task = Task(
+            name="Periodic sector compaction",
+            type=TaskType.CompactSectors,
+        )
+        db.add(task)
+        db.commit()
+        db.refresh(task)
+        dispatch_task(task)
+    finally:
+        db.close()
 
 
 def dispatch_task(task: Task) -> None:

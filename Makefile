@@ -34,7 +34,7 @@ APP_TEST_TARGET ?= not _smoke
         sdk-env sdk-env-clean sdk-env-reset \
         app-env app-env-clean app-env-reset \
         test test-integration test-integration-verbose coverage-report \
-        dev-sdk dev-app dev-worker \
+        dev-sdk dev-app dev-worker dev-beat \
         clean clean-images clean-volumes clean-all
 
 # ─── Help ────────────────────────────────────────────────────────────────────
@@ -160,6 +160,9 @@ dev-app: ## Start FastAPI app locally (requires infra services)
 
 dev-worker: ## Start Celery worker locally (requires infra services)
 	cd app && PYTHONPATH=. $(abspath $(APP_PYTHON)) -m celery -A adapters.tasks worker --loglevel=info
+
+dev-beat: ## Start Celery Beat locally with redbeat scheduler
+	cd app && PYTHONPATH=. $(abspath $(APP_PYTHON)) -m celery -A adapters.tasks beat -S redbeat.RedBeatScheduler --loglevel=info
 
 # ─── Cleanup ─────────────────────────────────────────────────────────────────
 

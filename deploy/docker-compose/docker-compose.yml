@@ -48,6 +48,17 @@ services:
     networks:
       - marc-comparator
 
+  beat:
+    image: marc-comparator-worker:${TAG:-local}
+    container_name: marc-comparator-beat
+    depends_on:
+      - redis
+    env_file:
+      - app.env
+    command: ["celery", "-A", "adapters.tasks", "beat", "-S", "redbeat.RedBeatScheduler", "--loglevel=info"]
+    networks:
+      - marc-comparator
+
   ollama:
     image: ollama/ollama:latest
     container_name: marc-comparator-llm
