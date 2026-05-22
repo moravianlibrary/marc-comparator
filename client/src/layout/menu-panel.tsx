@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
-import { Menu, ListTodo, Settings, Shield, Info } from "lucide-react";
+import { Menu, ListTodo, Settings, Shield, Info, Wrench } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -32,6 +32,12 @@ const menuItems = [
     path: "/access-control",
     icon: Shield,
     permission: Permission.ManageAccessControl,
+  },
+  {
+    labelKey: "common:menu.maintenance",
+    path: "/maintenance",
+    icon: Wrench,
+    permission: Permission.ManageAppSettings,
   },
 ] as const;
 

@@ -52,6 +52,15 @@ export const router = createBrowserRouter([
         element: <AccessControlPage />,
       },
       {
+        path: "maintenance",
+        lazy: async () => {
+          const { MaintenancePage } = await import(
+            "@/features/maintenance/maintenance-page"
+          );
+          return { Component: MaintenancePage };
+        },
+      },
+      {
         path: "*",
         element: <Navigate to="/" replace />,
       },
