@@ -62,13 +62,15 @@ async def revoke_task(
 
 
 async def delete_tasks(
-    created_by: str, db_session: DatabaseSession
+    created_by: str, db_session: DatabaseSession, max_age_days: int | None = None
 ) -> TaskSchema:
+    data = {"max_age_days": max_age_days} if max_age_days is not None else None
     return await enqueue_task(
         Task(
-            name="Deleting tasks",
+            name="Deleting tasks" + (f" older than {max_age_days} days" if max_age_days else ""),
             type=TaskType.DeleteTasks,
             created_by=created_by,
+            data=data,
         ),
         db_session,
     )

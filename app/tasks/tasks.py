@@ -1,11 +1,14 @@
+from datetime import datetime, timedelta, timezone
+
 from adapters.tasks import ManagedTask, handle_batch_progress_snippet
 from entities.task import Task, TaskStatus
 
 
 async def delete_tasks(task_id: str) -> None:
     async with ManagedTask(task_id=task_id) as ctx:
-        # Delete all completed/failed/revoked tasks (not the current one)
-        tasks = (
+        max_age_days = ctx.task.data.get("max_age_days") if ctx.task.data else None
+
+        query = (
             ctx.db_session.query(Task)
             .filter(
                 Task.status.in_([
@@ -15,18 +18,22 @@ async def delete_tasks(task_id: str) -> None:
                 ]),
                 Task.task_id != ctx.task.task_id,
             )
-            .all()
         )
+
+        if max_age_days is not None:
+            cutoff = datetime.now(timezone.utc) - timedelta(days=max_age_days)
+            query = query.filter(Task.created_at < cutoff)
+            ctx.logger.info(f"Deleting tasks older than {max_age_days} days (before {cutoff.isoformat()}).")
+        else:
+            ctx.logger.info("Deleting all completed/failed/revoked tasks.")
+
+        tasks = query.all()
 
         for task in tasks:
             try:
                 task.delete(ctx.db_session)
                 handle_batch_progress_snippet(ctx)
             except Exception as e:
-                ctx.logger.error(
-                    f"Failed to delete task {task.task_id}:\n{e}"
-                )
+                ctx.logger.error(f"Failed to delete task {task.task_id}:\n{e}")
 
-        ctx.logger.info(
-            f"Finished deleting, total tasks processed: {ctx.progress}"
-        )
+        ctx.logger.info(f"Finished deleting, total tasks processed: {ctx.progress}")

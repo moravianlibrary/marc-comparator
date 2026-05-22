@@ -1,6 +1,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Body, Query
+from pydantic import BaseModel
 
 from adapters.dependencies import DatabaseSessionDep, WithPermission
 from auth.service import CurrentUser
@@ -10,6 +11,10 @@ from entities.task import TaskSchema
 from . import service
 from .models import SearchTasksRequest, SearchTasksResponse, TracebackLinesRequestParams
 from .search import search_tasks
+
+class DeleteTasksRequest(BaseModel):
+    max_age_days: int | None = None
+
 
 router = APIRouter(prefix="/tasks", tags=["Tasks"])
 
@@ -76,7 +81,8 @@ async def revoke_task(
 async def delete_tasks(
     current_user: CurrentUser,
     db_session: DatabaseSessionDep,
+    request: Annotated[DeleteTasksRequest, Body()] = DeleteTasksRequest(),
 ):
     return await service.delete_tasks(
-        current_user.user_id, db_session
+        current_user.user_id, db_session, request.max_age_days
     )
