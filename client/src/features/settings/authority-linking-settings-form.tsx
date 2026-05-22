@@ -6,6 +6,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { authorityLinkingSettingsSchema, type AuthorityLinkingSettingsFormValues } from "./schemas";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Form,
@@ -15,6 +16,8 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { HelpDialog } from "./help-dialog";
+import { AuthorityLinkersHelp } from "./help-content";
 import type { AuthorityLinkingSettings } from "@/types/settings";
 
 interface Props {
@@ -35,7 +38,7 @@ export function AuthorityLinkingSettingsForm({
   const defaultValues: AuthorityLinkingSettingsFormValues = {
     "knihovny-cz": data["knihovny-cz"] ?? {
       api_url: "https://www.knihovny.cz/api/v1",
-      mappings: [{ base: "", id_template: "", pattern: "" }],
+      mappings: [{ base: "", id_template: "", pattern: "", is_target: false }],
     },
   };
 
@@ -64,10 +67,11 @@ export function AuthorityLinkingSettingsForm({
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center gap-2">
             <CardTitle className="text-base">
               {t("authority-linkers.knihovny-cz.title")}
             </CardTitle>
+            <HelpDialog titleKey="authority-linkers.knihovny-cz.title"><AuthorityLinkersHelp /></HelpDialog>
           </CardHeader>
           <CardContent className="space-y-4">
             <FormField
@@ -116,6 +120,20 @@ export function AuthorityLinkingSettingsForm({
                         <FormLabel className="text-xs">{t("authority-linkers.knihovny-cz.mapping-pattern")}</FormLabel>
                         <FormControl><Input {...field} /></FormControl>
                         <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name={`knihovny-cz.mappings.${index}.is_target`}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel className="text-xs">{t("authority-linkers.knihovny-cz.mapping-is-target")}</FormLabel>
+                        <FormControl>
+                          <div className="flex h-9 items-center">
+                            <Switch checked={field.value} onCheckedChange={field.onChange} />
+                          </div>
+                        </FormControl>
                       </FormItem>
                     )}
                   />

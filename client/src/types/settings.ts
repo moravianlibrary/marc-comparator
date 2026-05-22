@@ -22,6 +22,7 @@ export interface KnihovnyCZBaseMapping {
   base: string;
   id_template: string;
   pattern: string;
+  is_target: boolean;
 }
 
 export interface KnihovnyCZLinkerConfig {
@@ -33,7 +34,7 @@ export interface AuthorityLinkingSettings {
   "knihovny-cz": KnihovnyCZLinkerConfig | null;
 }
 
-export interface IntiimComparatorConfig {
+export interface ComparatorConfig {
   ollama_url: string;
   llm_enabled: boolean;
   nonstandard_llm_enabled: boolean;
@@ -42,7 +43,7 @@ export interface IntiimComparatorConfig {
 }
 
 export interface ComparisonSettings {
-  intiim: IntiimComparatorConfig | null;
+  comparator: ComparatorConfig | null;
 }
 
 export interface KrameriusLinksValidatorConfig {
@@ -63,12 +64,6 @@ export const AuthorityLinker = {
 export type AuthorityLinker =
   (typeof AuthorityLinker)[keyof typeof AuthorityLinker];
 
-export const Comparator = {
-  Intiim: "intiim",
-} as const;
-
-export type Comparator = (typeof Comparator)[keyof typeof Comparator];
-
 export const Validator = {
   KrameriusLinks: "kramerius-links",
 } as const;
@@ -78,7 +73,6 @@ export type Validator = (typeof Validator)[keyof typeof Validator];
 export interface ProcessRecordsSettings {
   target_bases: string[];
   authority_linkers: AuthorityLinker[];
-  comparator: Comparator;
   validators: Validator[];
 }
 
@@ -96,6 +90,5 @@ export interface SystemInfo {
   uptime_seconds: number;
   available_bases: string[];
   enabled_authority_linkers: Array<{ name: string; target_bases: string[] }>;
-  enabled_comparators: string[];
   enabled_validators: string[];
 }

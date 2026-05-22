@@ -33,7 +33,7 @@ export const TaskSeverity = {
 export type TaskSeverity = (typeof TaskSeverity)[keyof typeof TaskSeverity];
 
 export interface Task {
-  id: string;
+  task_id: string;
   name: string;
   type: TaskType;
   status: TaskStatus;

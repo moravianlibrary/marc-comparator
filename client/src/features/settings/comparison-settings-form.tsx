@@ -14,6 +14,8 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { HelpDialog } from "./help-dialog";
+import { ComparatorsHelp } from "./help-content";
 import type { ComparisonSettings } from "@/types/settings";
 
 interface Props {
@@ -32,7 +34,7 @@ export function ComparisonSettingsForm({
   const { t } = useTranslation("settings");
 
   const defaultValues: ComparisonSettingsFormValues = {
-    intiim: data.intiim ?? {
+    comparator: data.comparator ?? {
       ollama_url: "http://localhost:11434",
       llm_enabled: false,
       nonstandard_llm_enabled: false,
@@ -61,16 +63,17 @@ export function ComparisonSettingsForm({
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <Card>
-          <CardHeader>
-            <CardTitle className="text-base">{t("comparators.intiim.title")}</CardTitle>
+          <CardHeader className="flex flex-row items-center gap-2">
+            <CardTitle className="text-base">{t("comparator.title")}</CardTitle>
+            <HelpDialog titleKey="comparators.comparator.title"><ComparatorsHelp /></HelpDialog>
           </CardHeader>
           <CardContent className="max-w-md space-y-4">
             <FormField
               control={form.control}
-              name="intiim.ollama_url"
+              name="comparator.ollama_url"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("comparators.intiim.ollama-url")}</FormLabel>
+                  <FormLabel>{t("comparator.ollama-url")}</FormLabel>
                   <FormControl><Input {...field} /></FormControl>
                   <FormMessage />
                 </FormItem>
@@ -78,10 +81,10 @@ export function ComparisonSettingsForm({
             />
             <FormField
               control={form.control}
-              name="intiim.llm_enabled"
+              name="comparator.llm_enabled"
               render={({ field }) => (
                 <FormItem className="flex items-center justify-between rounded-md border p-3">
-                  <FormLabel>{t("comparators.intiim.llm-enabled")}</FormLabel>
+                  <FormLabel>{t("comparator.llm-enabled")}</FormLabel>
                   <FormControl>
                     <Switch checked={field.value} onCheckedChange={field.onChange} />
                   </FormControl>
@@ -90,10 +93,10 @@ export function ComparisonSettingsForm({
             />
             <FormField
               control={form.control}
-              name="intiim.nonstandard_llm_enabled"
+              name="comparator.nonstandard_llm_enabled"
               render={({ field }) => (
                 <FormItem className="flex items-center justify-between rounded-md border p-3">
-                  <FormLabel>{t("comparators.intiim.nonstandard-llm-enabled")}</FormLabel>
+                  <FormLabel>{t("comparator.nonstandard-llm-enabled")}</FormLabel>
                   <FormControl>
                     <Switch checked={field.value} onCheckedChange={field.onChange} />
                   </FormControl>
@@ -102,10 +105,10 @@ export function ComparisonSettingsForm({
             />
             <FormField
               control={form.control}
-              name="intiim.valid_threshold"
+              name="comparator.valid_threshold"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("comparators.intiim.valid-threshold")}</FormLabel>
+                  <FormLabel>{t("comparator.valid-threshold")}</FormLabel>
                   <FormControl>
                     <Input type="number" {...field} onChange={(e) => field.onChange(Number(e.target.value))} />
                   </FormControl>
@@ -115,10 +118,10 @@ export function ComparisonSettingsForm({
             />
             <FormField
               control={form.control}
-              name="intiim.warning_threshold"
+              name="comparator.warning_threshold"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("comparators.intiim.warning-threshold")}</FormLabel>
+                  <FormLabel>{t("comparator.warning-threshold")}</FormLabel>
                   <FormControl>
                     <Input type="number" {...field} onChange={(e) => field.onChange(Number(e.target.value))} />
                   </FormControl>

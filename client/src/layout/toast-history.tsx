@@ -68,7 +68,7 @@ export function ToastHistory() {
   return (
     <Sheet onOpenChange={(open) => open && markAllRead()}>
       <SheetTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative">
+        <Button variant="ghost" size="icon" className="relative" title={t("common:toast-history.title")}>
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
             <Badge

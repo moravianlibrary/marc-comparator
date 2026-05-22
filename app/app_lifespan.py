@@ -72,7 +72,6 @@ async def lifespan(app):
                 cr.type_of_record,
                 cr.bibliographic_level,
                 cr.deleted         AS is_deleted,
-                cr.hidden          AS is_hidden,
                 (cr.processed_at IS NOT NULL) AS is_processed,
 
                 array_agg(DISTINCT al.linker)
@@ -80,8 +79,6 @@ async def lifespan(app):
                 array_agg(DISTINCT al.base)
                     FILTER (WHERE al.base IS NOT NULL)              AS authority_link_bases,
 
-                array_agg(DISTINCT cmp.comparator)
-                    FILTER (WHERE cmp.comparator IS NOT NULL)       AS comparators,
                 array_agg(DISTINCT cmp.base)
                     FILTER (WHERE cmp.base IS NOT NULL)             AS comparison_bases,
                 array_agg(DISTINCT CASE
@@ -106,6 +103,27 @@ async def lifespan(app):
                     FILTER (WHERE v.result->>'status' IS NOT NULL)         AS validation_statuses,
                 array_agg(DISTINCT (v.result->'target'->>'tag'))
                     FILTER (WHERE v.result->'target'->>'tag' IS NOT NULL)  AS validation_target_tags,
+                array_agg(DISTINCT (v.result->>'reason'))
+                    FILTER (WHERE v.result->>'reason' IS NOT NULL)         AS validation_reasons,
+
+                array_agg(DISTINCT rr.aspect_name)
+                    FILTER (WHERE rr.id IS NOT NULL)                       AS reviewed_aspects,
+                CASE
+                    WHEN COALESCE(array_length(array_agg(DISTINCT rr.aspect_name)
+                        FILTER (WHERE rr.id IS NOT NULL), 1), 0) > 0
+                        AND COALESCE(array_length(array_agg(DISTINCT rr.aspect_name)
+                            FILTER (WHERE rr.id IS NOT NULL), 1), 0)
+                        >= (
+                            CASE WHEN bool_or(cmp.comparator IS NOT NULL) THEN 1 ELSE 0 END
+                            + COALESCE(array_length(array_agg(DISTINCT v.validator)
+                                FILTER (WHERE v.validator IS NOT NULL), 1), 0)
+                        )
+                    THEN 'Reviewed'
+                    WHEN COALESCE(array_length(array_agg(DISTINCT rr.aspect_name)
+                        FILTER (WHERE rr.id IS NOT NULL), 1), 0) > 0
+                    THEN 'PartiallyReviewed'
+                    ELSE 'Unreviewed'
+                END AS review_status,
 
                 cr.latest_sync,
                 cr.latest_transaction,
@@ -115,6 +133,7 @@ async def lifespan(app):
             LEFT JOIN authority_links al ON al.main_record_id = cr.id
             LEFT JOIN comparisons cmp ON cmp.main_record_id = cr.id
             LEFT JOIN validations v ON v.catalog_record_id = cr.id
+            LEFT JOIN record_reviews rr ON rr.record_id = cr.id AND rr.status = 'current'
             WHERE cr.source_type = 'Main'
             GROUP BY cr.id
         """))

@@ -12,7 +12,6 @@ export function LockBanner() {
   const { data: locks = [] } = useQuery<string[]>({
     queryKey: ["system", "locks"],
     queryFn: () => apiClient.get<string[]>("/system/locks").then((r) => r.data),
-    refetchInterval: 5000,
   });
 
   const visibleLocks = locks.filter((lock) => !dismissed.includes(lock));

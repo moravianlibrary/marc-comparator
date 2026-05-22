@@ -28,6 +28,7 @@ export const knihovnyCZMappingSchema = z.object({
   base: z.string().min(1),
   id_template: z.string().min(1),
   pattern: z.string().min(1),
+  is_target: z.boolean(),
 });
 
 export const knihovnyCZLinkerConfigSchema = z.object({
@@ -43,7 +44,7 @@ export type AuthorityLinkingSettingsFormValues = z.infer<
   typeof authorityLinkingSettingsSchema
 >;
 
-export const intiimComparatorConfigSchema = z.object({
+export const comparatorConfigSchema = z.object({
   ollama_url: z.url(),
   llm_enabled: z.boolean(),
   nonstandard_llm_enabled: z.boolean(),
@@ -52,7 +53,7 @@ export const intiimComparatorConfigSchema = z.object({
 });
 
 export const comparisonSettingsSchema = z.object({
-  intiim: intiimComparatorConfigSchema.nullable(),
+  comparator: comparatorConfigSchema.nullable(),
 });
 
 export type ComparisonSettingsFormValues = z.infer<
@@ -77,7 +78,6 @@ export type ValidationSettingsFormValues = z.infer<
 export const processRecordsSettingsSchema = z.object({
   target_bases: z.array(z.string().min(1)).min(1),
   authority_linkers: z.array(z.enum(["knihovny-cz"])).min(1),
-  comparator: z.enum(["intiim"]),
   validators: z.array(z.enum(["kramerius-links"])).min(1),
 });
 

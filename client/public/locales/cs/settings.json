@@ -13,7 +13,7 @@
     "clients": "Klienti katalogu",
     "add-client": "Přidat klienta",
     "base": "Báze",
-    "host": "Hostitel",
+    "host": "Adresa serveru",
     "endpoint": "Endpoint",
     "timeout": "Timeout (s)",
     "total-retry": "Počet opakování",
@@ -35,19 +35,18 @@
       "add-mapping": "Přidat mapování",
       "mapping-base": "Báze",
       "mapping-id-template": "Šablona ID",
-      "mapping-pattern": "Vzor"
+      "mapping-pattern": "Vzor",
+      "mapping-is-target": "Autoritativní báze"
     }
   },
-  "comparators": {
-    "intiim": {
-      "title": "INTIIM",
-      "enabled": "Aktivní",
-      "ollama-url": "URL Ollama serveru",
-      "llm-enabled": "Povolit LLM",
-      "nonstandard-llm-enabled": "Povolit nestandardní LLM",
-      "valid-threshold": "Práh platnosti",
-      "warning-threshold": "Práh varování"
-    }
+  "comparator": {
+    "title": "Porovnávač",
+    "enabled": "Aktivní",
+    "ollama-url": "URL Ollama serveru",
+    "llm-enabled": "Povolit LLM",
+    "nonstandard-llm-enabled": "Povolit nestandardní LLM",
+    "valid-threshold": "Práh validity",
+    "warning-threshold": "Práh varování"
   },
   "validators": {
     "kramerius-links": {
@@ -55,14 +54,72 @@
       "enabled": "Aktivní",
       "url-to-pid-pattern": "Vzor URL na PID",
       "link-text-pattern": "Vzor textu odkazu",
-      "kramerius-host": "Hostitel Krameria",
+      "kramerius-host": "Adresa serveru Kramerius",
       "solr-cloud": "SolrCloud"
     }
   },
   "process-records": {
     "target-bases": "Cílové báze",
     "authority-linkers": "Propojení s autoritami",
-    "comparator": "Porovnávač",
     "validators": "Validátory"
+  },
+  "help": {
+    "title": "Nápověda",
+    "catalog": {
+      "intro": "Nastavení připojení ke katalogům knihoven přes OAI-PMH protokol. Každý klient představuje jednu bázi katalogu, ze které se sklízejí záznamy.",
+      "fields-title": "Popis polí",
+      "base": "Název báze katalogu (např. MZK01, MZK03). Slouží jako identifikátor v celé aplikaci.",
+      "host": "Adresa serveru OAI poskytovatele, ze kterého se stahují záznamy.",
+      "endpoint": "Typ endpointu pro komunikaci s katalogem (např. OAI).",
+      "timeout": "Maximální doba čekání na odpověď serveru v sekundách. Při překročení se požadavek zopakuje.",
+      "total-retry": "Počet opakovaných pokusů při selhání požadavku, než se úkol označí jako neúspěšný.",
+      "retry-backoff-factor": "Násobitel zpoždění mezi opakovanými pokusy. Vyšší hodnota znamená delší čekání mezi pokusy.",
+      "system-number-pattern": "Regulární výraz pro extrakci systémového čísla ze záznamu. Používá se pro identifikaci záznamů v katalogu.",
+      "oai-identifier-template": "Šablona pro sestavení OAI identifikátoru ze systémového čísla záznamu."
+    },
+    "tasks": {
+      "intro": "Obecné nastavení chování úkolů v systému.",
+      "fields-title": "Popis polí",
+      "progress-update-interval": "Určuje, po kolika zpracovaných záznamech se aktualizuje informace o průběhu úkolu. Nižší hodnota znamená častější aktualizace, ale vyšší zátěž."
+    },
+    "authority-linkers": {
+      "knihovny-cz": {
+        "intro": "Propojení autorit přes službu Knihovny.cz. Při zpracování záznamů se automaticky dohledávají a přiřazují autoritní záznamy.",
+        "fields-title": "Popis polí",
+        "api-url": "Adresa REST API služby Knihovny.cz pro vyhledávání autorit.",
+        "mappings": "Pravidla pro mapování záznamů na autority. Každé mapování definuje, jak se pro danou bázi sestaví identifikátor a kde v záznamu hledat autoritu.",
+        "mapping-fields": "Každé mapování obsahuje:",
+        "mapping-base": "Báze katalogu, pro kterou platí toto mapování.",
+        "mapping-id-template": "Šablona pro sestavení identifikátoru záznamu, který se odešle do API Knihovny.cz.",
+        "mapping-pattern": "Regulární výraz pro vyhledání a extrakci autority v MARC záznamu."
+      }
+    },
+    "comparator": {
+      "intro": "Porovnávač MARC záznamů. Porovnává pole záznamů a vypočítává skóre odchylky pomocí normalizace, párování hodnot a klasifikačních kontrol (identické, překlepy, neúplné, nestandardizované, nesprávné, chybějící).",
+      "fields-title": "Popis polí",
+      "ollama-url": "Adresa lokálního Ollama serveru pro LLM inference. Ollama musí běžet a mít stažený požadovaný model.",
+      "llm-enabled": "Zapnout použití velkého jazykového modelu pro sémantické porovnávání standardních polí záznamu.",
+      "nonstandard-llm-enabled": "Zapnout použití LLM i pro nestandardní pole (např. poznámky, anotace), kde přesné porovnání není možné.",
+      "valid-threshold": "Maximální skóre odchylky, při kterém je záznam považován za validní (bez výrazných změn).",
+      "warning-threshold": "Skóre odchylky, od kterého se zobrazí varování. Záznamy mezi prahem validity a prahem varování vyžadují pozornost.",
+      "thresholds-note": "Záznamy se skóre nad prahem varování jsou označeny jako nevalidní a vyžadují ruční kontrolu."
+    },
+    "validators": {
+      "kramerius-links": {
+        "intro": "Validátor odkazů na systém Kramerius. Kontroluje, zda odkazy na digitalizované dokumenty v MARC záznamech vedou na platné a dostupné dokumenty.",
+        "fields-title": "Popis polí",
+        "url-to-pid-pattern": "Regulární výraz pro extrakci PID (Persistent IDentifier) z URL odkazu na Kramerius.",
+        "link-text-pattern": "Regulární výraz pro rozpoznání textu odkazu, který odkazuje na Kramerius (např. 'Digitalizovaný dokument').",
+        "kramerius-host": "Adresa serveru Kramerius pro ověření dostupnosti odkazovaných dokumentů.",
+        "solr-cloud": "Zda Kramerius používá distribuovaný SolrCloud místo samostatného Solr serveru. Ovlivňuje způsob dotazování."
+      }
+    },
+    "process-records": {
+      "intro": "Nastavení hromadného zpracování záznamů. Definuje, které báze se zpracují a jaké nástroje se při zpracování použijí.",
+      "fields-title": "Popis polí",
+      "target-bases": "Báze katalogů, pro které se spustí zpracování. Vybrané báze musí mít nakonfigurovaného klienta v nastavení katalogu.",
+      "authority-linkers": "Služby pro automatické propojení záznamů s autoritními záznamy. Spouští se před porovnáváním.",
+      "validators": "Validační pravidla aplikovaná na záznamy po zpracování. Výsledky validace se zobrazují u každého záznamu."
+    }
   }
 }

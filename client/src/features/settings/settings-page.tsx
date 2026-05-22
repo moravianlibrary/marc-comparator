@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -28,6 +28,12 @@ import { AuthorityLinkingSettingsForm } from "./authority-linking-settings-form"
 import { ComparisonSettingsForm } from "./comparison-settings-form";
 import { ValidationSettingsForm } from "./validation-settings-form";
 import { ProcessRecordsSettingsForm } from "./process-records-settings-form";
+import { HelpDialog } from "./help-dialog";
+import {
+  CatalogHelp,
+  TasksHelp,
+  ProcessRecordsHelp,
+} from "./help-content";
 
 const SETTINGS_SCOPES: SettingsScope[] = [
   "catalog",
@@ -54,10 +60,16 @@ export function SettingsPage() {
   const [activeScope, setActiveScope] = useState<SettingsScope>("catalog");
   const [isDirty, setIsDirty] = useState(false);
   const [pendingScope, setPendingScope] = useState<SettingsScope | null>(null);
-  const [formRef, setFormRef] = useState<{
+  const formRef = useRef<{
     submit: () => void;
     reset: () => void;
   } | null>(null);
+  const setFormRef = useCallback(
+    (ref: { submit: () => void; reset: () => void }) => {
+      formRef.current = ref;
+    },
+    []
+  );
 
   const endpoint = SETTINGS_ENDPOINTS[activeScope];
 
@@ -71,7 +83,7 @@ export function SettingsPage() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["settings", activeScope] });
       setIsDirty(false);
-      toast.success(t("common:save") + " ✓");
+      toast.success(t("common:saved"));
     },
   });
 
@@ -88,12 +100,12 @@ export function SettingsPage() {
 
   const handleDiscardAndSwitch = useCallback(() => {
     if (pendingScope) {
-      formRef?.reset();
+      formRef.current?.reset();
       setIsDirty(false);
       setActiveScope(pendingScope);
       setPendingScope(null);
     }
-  }, [pendingScope, formRef]);
+  }, [pendingScope]);
 
   function renderForm() {
     if (isLoading || !settings) return null;
@@ -141,8 +153,18 @@ export function SettingsPage() {
           </SelectContent>
         </Select>
 
+        {activeScope === "catalog" && (
+          <HelpDialog titleKey="types.catalog"><CatalogHelp /></HelpDialog>
+        )}
+        {activeScope === "tasks" && (
+          <HelpDialog titleKey="types.tasks"><TasksHelp /></HelpDialog>
+        )}
+        {activeScope === "process-records" && (
+          <HelpDialog titleKey="types.process-records"><ProcessRecordsHelp /></HelpDialog>
+        )}
+
         <Button
-          onClick={() => formRef?.submit()}
+          onClick={() => formRef.current?.submit()}
           disabled={!isDirty || saveMutation.isPending}
         >
           {t("common:save")}
@@ -150,7 +172,7 @@ export function SettingsPage() {
         <Button
           variant="outline"
           onClick={() => {
-            formRef?.reset();
+            formRef.current?.reset();
             setIsDirty(false);
           }}
           disabled={!isDirty}

@@ -122,26 +122,6 @@ export function ProcessRecordsSettingsForm({
         />
         <FormField
           control={form.control}
-          name="comparator"
-          render={({ field }) => (
-            <FormItem>
-              <FormLabel>{t("process-records.comparator")}</FormLabel>
-              <Select onValueChange={field.onChange} value={field.value}>
-                <FormControl>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                </FormControl>
-                <SelectContent>
-                  <SelectItem value="intiim">INTIIM</SelectItem>
-                </SelectContent>
-              </Select>
-              <FormMessage />
-            </FormItem>
-          )}
-        />
-        <FormField
-          control={form.control}
           name="validators"
           render={({ field }) => (
             <FormItem>

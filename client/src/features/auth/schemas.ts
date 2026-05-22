@@ -1,4 +1,5 @@
 import { z } from "zod";
+import i18n from "@/lib/i18n";
 
 export const loginSchema = z.object({
   email: z.email(),
@@ -17,7 +18,7 @@ export const signupSchema = z
   })
   .refine((data) => data.password === data.confirm_password, {
     path: ["confirm_password"],
-    message: "Hesla se neshodují",
+    message: i18n.t("validation.passwords-mismatch"),
   });
 
 export type SignupFormValues = z.infer<typeof signupSchema>;

@@ -1,14 +1,18 @@
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
-import { LogOut, Moon, Sun } from "lucide-react";
+import { CircleHelp, LogOut, Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import apiClient from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { useGetMe, useLogout } from "@/hooks/use-auth";
+import { useHasPermission } from "@/hooks/use-permissions";
+import { Permission } from "@/types/permission";
 import { MenuPanel } from "./menu-panel";
 import { TaskProgress } from "./task-progress";
 import { ToastHistory } from "./toast-history";
+import { HelpDialog } from "./help-dialog";
 import type { Task } from "@/types/task";
 
 export function MainBanner() {
@@ -17,6 +21,10 @@ export function MainBanner() {
   const { data: me } = useGetMe();
   const logout = useLogout();
   const { theme, setTheme } = useTheme();
+  const { hasPermission } = useHasPermission();
+  const [showHelp, setShowHelp] = useState(false);
+
+  const canManageTasks = hasPermission(Permission.ManageTasks);
 
   const { data: tasksData } = useQuery<{ items: Task[] }>({
     queryKey: ["tasks", "running"],
@@ -28,13 +36,15 @@ export function MainBanner() {
           page_size: 20,
         })
         .then((r) => r.data),
-    refetchInterval: 5000,
+    enabled: canManageTasks === true,
+    refetchInterval: 10_000,
   });
 
   const runningTasks = tasksData?.items ?? [];
 
   return (
-    <header className="border-b bg-background px-6 py-2 flex items-center gap-4">
+    <>
+    <header className="sticky top-0 z-50 border-b bg-background px-6 py-2 flex items-center gap-4">
       <Button
         variant="ghost"
         className="font-semibold text-lg p-0 h-auto hover:bg-transparent"
@@ -45,6 +55,16 @@ export function MainBanner() {
 
       <MenuPanel />
 
+      <Button
+        variant="ghost"
+        size="sm"
+        className="gap-1.5 text-muted-foreground"
+        onClick={() => setShowHelp(true)}
+      >
+        <CircleHelp className="h-4 w-4" />
+        {t("common:menu.help")}
+      </Button>
+
       <div className="flex-1" />
 
       <TaskProgress runningTasks={runningTasks} />
@@ -53,11 +73,11 @@ export function MainBanner() {
       <Button
         variant="ghost"
         size="icon"
+        title={theme === "dark" ? t("common:theme.light") : t("common:theme.dark")}
         onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
       >
         <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
         <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-        <span className="sr-only">Toggle theme</span>
       </Button>
 
       {me && (
@@ -68,6 +88,7 @@ export function MainBanner() {
           <Button
             variant="ghost"
             size="icon"
+            title={t("common:user-menu.logout")}
             onClick={() => logout.mutate()}
           >
             <LogOut className="h-4 w-4" />
@@ -75,5 +96,7 @@ export function MainBanner() {
         </div>
       )}
     </header>
+    <HelpDialog open={showHelp} onClose={() => setShowHelp(false)} />
+    </>
   );
 }

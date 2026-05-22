@@ -31,7 +31,9 @@ class WSClient {
       }
     };
 
-    this.ws.onclose = () => {
+    this.ws.onclose = (event) => {
+      // Don't reconnect on auth failures (server returns 4001)
+      if (event.code === 4001) return;
       this.scheduleReconnect();
     };
 

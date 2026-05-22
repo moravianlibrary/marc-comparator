@@ -14,6 +14,8 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { HelpDialog } from "./help-dialog";
+import { ValidatorsHelp } from "./help-content";
 import type { ValidationSettings } from "@/types/settings";
 
 interface Props {
@@ -60,8 +62,9 @@ export function ValidationSettingsForm({
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <Card>
-          <CardHeader>
+          <CardHeader className="flex flex-row items-center gap-2">
             <CardTitle className="text-base">{t("validators.kramerius-links.title")}</CardTitle>
+            <HelpDialog titleKey="validators.kramerius-links.title"><ValidatorsHelp /></HelpDialog>
           </CardHeader>
           <CardContent className="max-w-md space-y-4">
             <FormField

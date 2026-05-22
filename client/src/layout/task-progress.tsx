@@ -51,7 +51,7 @@ export function TaskProgress({ runningTasks }: TaskProgressProps) {
                 : 0;
 
             return (
-              <div key={task.id} className="space-y-1">
+              <div key={task.task_id} className="space-y-1">
                 <div className="flex items-center justify-between text-sm">
                   <span className="truncate">{task.name}</span>
                   <span className="text-muted-foreground">{percent}%</span>

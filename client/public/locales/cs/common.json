@@ -1,6 +1,7 @@
 {
   "app-name": "MARC Comparator",
   "save": "Uložit",
+  "saved": "Uloženo",
   "discard": "Zahodit",
   "cancel": "Zrušit",
   "delete": "Smazat",
@@ -15,7 +16,8 @@
     "tasks": "Úkoly",
     "settings": "Nastavení",
     "access-control": "Přístupová práva",
-    "system": "Údržba systému"
+    "system": "Informace o systému",
+    "help": "Nápověda"
   },
   "lock-banner": {
     "prefix": "Systémový zámek:",
@@ -31,12 +33,31 @@
     "empty": "Žádná oznámení",
     "clear": "Vymazat historii"
   },
+  "theme": {
+    "light": "Světlý režim",
+    "dark": "Tmavý režim"
+  },
   "user-menu": {
     "logout": "Odhlásit se"
+  },
+  "chart": {
+    "count": "Počet",
+    "preview": "Náhled"
   },
   "pagination": {
     "previous": "Předchozí",
     "next": "Další",
     "page": "Stránka {{page}} z {{total}}"
+  },
+  "validation": {
+    "required": "Toto pole je povinné",
+    "email": "Zadejte platnou e-mailovou adresu",
+    "url": "Zadejte platnou URL adresu",
+    "string-min": "Musí mít alespoň {{min}} znaků",
+    "string-max": "Může mít nejvýše {{max}} znaků",
+    "number-min": "Minimální hodnota je {{min}}",
+    "number-max": "Maximální hodnota je {{max}}",
+    "array-min": "Musí obsahovat alespoň {{min}} položku",
+    "passwords-mismatch": "Hesla se neshodují"
   }
 }
