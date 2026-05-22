@@ -512,22 +512,6 @@ class TestCatalogEndpoints:
             )
 
     @pytest.mark.asyncio
-    async def test_set_records_visibility_endpoint(
-        self,
-        db_session,
-        user,
-        tasks_client,
-        client: AsyncClient,
-    ):
-        response = await client.post(
-            "/catalog-records/visibility",
-            json={"visible": False},
-        )
-        assert response.status_code == 200
-        body = response.json()
-        assert body["type"] == "SetRecordsVisibility"
-
-    @pytest.mark.asyncio
     async def test_process_records_endpoint(
         self,
         db_session,

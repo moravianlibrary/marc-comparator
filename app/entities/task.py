@@ -31,7 +31,6 @@ class TaskType(StrEnum):
     LinkRecordsToAuthorities = "LinkRecordsToAuthorities"
     CompareRecords = "CompareRecords"
     ProcessRecords = "ProcessRecords"
-    SetRecordsVisibility = "SetRecordsVisibility"
     DeleteTasks = "DeleteTasks"
 
 

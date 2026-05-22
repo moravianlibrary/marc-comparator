@@ -13,7 +13,7 @@ from sqlalchemy import (
     event,
     func,
 )
-from sqlalchemy.dialects.postgresql import TSVECTOR
+from sqlalchemy.dialects.postgresql import ARRAY, TSVECTOR
 from sqlalchemy.orm import Mapped, Session, relationship
 
 from adapters.database import Base, DatabaseSession
@@ -24,6 +24,7 @@ from ._operations import (
 )
 from .authority_link import AuthorityLink
 from .comparison import Comparison
+from .record_review import RecordReview
 from .validation import Validation
 
 
@@ -35,10 +36,11 @@ class CatalogRecordSource(StrEnum):
 class CatalogRecordState(StrEnum):
     Active = "Active"
     Deleted = "Deleted"
-    Visible = "Visible"
-    Hidden = "Hidden"
     Unprocessed = "Unprocessed"
     Processed = "Processed"
+    Reviewed = "Reviewed"
+    PartiallyReviewed = "PartiallyReviewed"
+    Unreviewed = "Unreviewed"
 
 
 class CatalogRecord(
@@ -49,10 +51,11 @@ class CatalogRecord(
     id = Column(String, primary_key=True)
     base = Column(String, nullable=False)
     system_number = Column(String, nullable=False)
+    title = Column(String, nullable=True)
+    authors = Column(ARRAY(String), nullable=False, default=[])
 
     latest_sync = Column(TIMESTAMP, nullable=False, default=func.now())
     deleted = Column(Boolean, nullable=False, default=False)
-    hidden = Column(Boolean, nullable=False, default=False)
     processed_at = Column(TIMESTAMP, nullable=True)
 
     source_type = Column(
@@ -88,6 +91,12 @@ class CatalogRecord(
     validations: Mapped[List[Validation]] = relationship(
         "Validation",
         foreign_keys=[Validation.catalog_record_id],
+        back_populates="catalog_record",
+        lazy="select",
+    )
+    reviews: Mapped[List[RecordReview]] = relationship(
+        "RecordReview",
+        foreign_keys=[RecordReview.record_id],
         back_populates="catalog_record",
         lazy="select",
     )
@@ -145,32 +154,42 @@ class CatalogRecord(
         else:
             states.append(CatalogRecordState.Deleted)
 
-        if self.hidden:
-            states.append(CatalogRecordState.Hidden)
-        else:
-            states.append(CatalogRecordState.Visible)
-
         if self.processed_at is not None:
             states.append(CatalogRecordState.Processed)
         else:
             states.append(CatalogRecordState.Unprocessed)
 
+        current_reviews = {r.aspect_name for r in self.reviews if r.status == "current"}
+        total_aspects = (
+            {c.comparator for c in self.comparisons}
+            | {v.validator for v in self.validations}
+        )
+        if current_reviews and current_reviews >= total_aspects:
+            states.append(CatalogRecordState.Reviewed)
+        elif current_reviews:
+            states.append(CatalogRecordState.PartiallyReviewed)
+        else:
+            states.append(CatalogRecordState.Unreviewed)
+
         return states
 
     def update_search_text_from(self, record: MarcRecord):
-        """Update search_text from a parsed MARC record."""
+        """Update title, authors, and search_text from a parsed MARC record."""
         title_vals = record.variable_fields.query_subfield_values(TitleJq)
         subtitle_vals = record.variable_fields.query_subfield_values(SubtitleJq)
-        authors = record.variable_fields.query_subfield_values(
+        author_vals = record.variable_fields.query_subfield_values(
             '.["100"]?[]?.subfields.a[]?'
         )
+
+        self.title = title_vals[0] if title_vals else None
+        self.authors = author_vals or []
 
         parts = [self.system_number]
         if title_vals:
             parts.append(title_vals[0])
         if subtitle_vals:
             parts.append(subtitle_vals[0])
-        parts.extend(authors)
+        parts.extend(author_vals)
         self.search_text = " ".join(filter(None, parts))
 
 

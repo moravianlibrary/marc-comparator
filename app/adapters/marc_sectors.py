@@ -59,6 +59,9 @@ def write_records_to_sector(
         sector.data = compressed
         sector.record_count = len(records)
 
+    # Flush so the sector row exists before index rows reference it
+    db.flush()
+
     # Upsert index rows
     offset = 0
     for sysno, marc_bytes in sorted_items:

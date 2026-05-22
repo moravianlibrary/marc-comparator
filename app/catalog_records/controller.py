@@ -11,6 +11,7 @@ from entities.task import TaskSchema
 from . import service
 from .facets import get_facets, get_facets_preview
 from .models import (
+    CreateReviewRequest,
     FacetsPreviewRequest,
     FacetsPreviewResponse,
     FacetsRequest,
@@ -18,9 +19,9 @@ from .models import (
     FetchBatchOfRecordsData,
     FetchRecordData,
     RecordFilter,
+    RecordReviewsResponse,
     SearchRecordsRequest,
     SearchRecordsResponse,
-    SetRecordsVisibilityData,
     SyncRecordsData,
 )
 from .search import search_records as pg_search_records
@@ -77,6 +78,30 @@ async def get_marc_record(
     return service.get_marc_record(base, system_number, db_session)
 
 
+@router.get(
+    "/{base}/{system_number}/comparisons",
+    dependencies=[WithPermission(Permission.ReadRecords)],
+)
+async def get_comparisons(
+    base: str,
+    system_number: str,
+    db_session: DatabaseSessionDep,
+):
+    return service.get_comparisons(base, system_number, db_session)
+
+
+@router.get(
+    "/{base}/{system_number}/validations",
+    dependencies=[WithPermission(Permission.ReadRecords)],
+)
+async def get_validations(
+    base: str,
+    system_number: str,
+    db_session: DatabaseSessionDep,
+):
+    return service.get_validations(base, system_number, db_session)
+
+
 @router.post(
     "/fetch",
     dependencies=[WithPermission(Permission.AddRecords)],
@@ -118,18 +143,48 @@ async def sync_records(
     return await service.sync_records(data, current_user.user_id, db_session)
 
 
-@router.post(
-    "/visibility",
-    dependencies=[WithPermission(Permission.RunRecordTasks)],
-    response_model=TaskSchema,
+@router.get(
+    "/{base}/{system_number}/reviews",
+    dependencies=[WithPermission(Permission.ReadRecords)],
+    response_model=RecordReviewsResponse,
 )
-async def set_records_visibility(
-    data: Annotated[SetRecordsVisibilityData, Body()],
+async def get_reviews(
+    base: str,
+    system_number: str,
+    db_session: DatabaseSessionDep,
+):
+    return service.get_reviews(base, system_number, db_session)
+
+
+@router.post(
+    "/{base}/{system_number}/review",
+    dependencies=[WithPermission(Permission.ReviewRecords)],
+)
+async def create_review(
+    base: str,
+    system_number: str,
+    data: Annotated[CreateReviewRequest, Body()],
     current_user: CurrentUser,
     db_session: DatabaseSessionDep,
 ):
-    return await service.set_records_visibility(
-        data, current_user.user_id, db_session
+    return service.create_review(
+        base, system_number, data, current_user.user_id, db_session
+    )
+
+
+@router.delete(
+    "/{base}/{system_number}/review",
+    dependencies=[WithPermission(Permission.ReviewRecords)],
+)
+async def delete_review(
+    base: str,
+    system_number: str,
+    aspect_name: str,
+    current_user: CurrentUser,
+    db_session: DatabaseSessionDep,
+):
+    return service.delete_review(
+        base, system_number, aspect_name, current_user.user_id, db_session
     )
 
 

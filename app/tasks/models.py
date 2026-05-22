@@ -24,9 +24,9 @@ class TracebackLinesRequestParams(BaseModel):
 
 
 class TaskFilter(BaseModel):
-    types: list[str] | None = None
-    statuses: list[str] | None = None
-    severities: list[str] | None = None
+    type: list[str] | None = None
+    status: list[str] | None = None
+    severity: list[str] | None = None
     created_by: str | None = None
 
 

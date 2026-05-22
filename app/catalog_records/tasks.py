@@ -1,6 +1,7 @@
 from collections import defaultdict
 
 from aleph_nought import RecordStatus
+from comparison import UsedComparator
 from marcdantic import MarcRecord
 
 from adapters.aleph_client_registry import AlephClientRegistry
@@ -21,13 +22,17 @@ from catalog_records.models import (
     FetchRecordData,
     ProcessRecordsSettings,
     RecordFilter,
-    SetRecordsVisibilityData,
     SyncRecordsData,
 )
+import hashlib
+import json
+
 from catalog_records.search import build_filtered_query
 from comparison.models import ComparisonSettings
 from comparison.tasks import handle_catalog_record_comparison, init_comparator
 from config import config
+from entities.record_review import RecordReview
+from entities.result_snapshot import ResultSnapshot
 from entities.catalog_record import CatalogRecord
 from entities.settings import Settings, SettingsScope
 from validation.models import ValidationSettings
@@ -36,6 +41,81 @@ from validation.tasks import handle_catalog_record_validation, init_validators
 
 class AlephError(Exception):
     pass
+
+
+def _compute_result_hashes(
+    db_session, record_id: str
+) -> dict[str, tuple[str, list[dict]]]:
+    """Compute per-aspect content hashes from current comparisons and validations.
+
+    Returns {aspect_name: (hex_hash, [result_dicts])} so we can snapshot old data
+    if the hash changes after reprocessing.
+    """
+    from entities.comparison import Comparison
+    from entities.validation import Validation
+
+    hashes: dict[str, tuple[str, list[dict]]] = {}
+
+    comparisons = (
+        db_session.query(Comparison)
+        .filter_by(main_record_id=record_id)
+        .all()
+    )
+    by_comparator: dict[str, list[dict]] = {}
+    for c in comparisons:
+        by_comparator.setdefault(c.comparator, []).append(c.result)
+    for aspect, results in by_comparator.items():
+        canonical = json.dumps(results, sort_keys=True, ensure_ascii=False)
+        hashes[aspect] = (
+            hashlib.sha256(canonical.encode()).hexdigest(),
+            results,
+        )
+
+    validations = (
+        db_session.query(Validation)
+        .filter_by(catalog_record_id=record_id)
+        .all()
+    )
+    by_validator: dict[str, list[dict]] = {}
+    for v in validations:
+        by_validator.setdefault(v.validator, []).append(v.result)
+    for aspect, results in by_validator.items():
+        canonical = json.dumps(results, sort_keys=True, ensure_ascii=False)
+        hashes[aspect] = (
+            hashlib.sha256(canonical.encode()).hexdigest(),
+            results,
+        )
+
+    return hashes
+
+
+def _handle_result_changes(
+    db_session, record_id: str, old_hashes: dict[str, tuple[str, list[dict]]]
+) -> None:
+    """Compare old vs new result hashes. Snapshot old data and outdate reviews where changed."""
+    new_hashes = _compute_result_hashes(db_session, record_id)
+
+    for aspect_name, (old_hash, old_data) in old_hashes.items():
+        new_entry = new_hashes.get(aspect_name)
+        new_hash = new_entry[0] if new_entry else None
+
+        if new_hash != old_hash:
+            version = ResultSnapshot.next_version(
+                db_session, record_id, aspect_name
+            )
+            snapshot = ResultSnapshot(
+                record_id=record_id,
+                aspect_name=aspect_name,
+                version=version,
+                data=old_data,
+            )
+            db_session.add(snapshot)
+            RecordReview.outdate_current(db_session, record_id, aspect_name)
+
+    # Also outdate reviews for aspects that are new (didn't exist before)
+    for aspect_name in new_hashes:
+        if aspect_name not in old_hashes:
+            RecordReview.outdate_current(db_session, record_id, aspect_name)
 
 
 def save_record_metadata(
@@ -72,10 +152,15 @@ def save_record_snippet(
     record: MarcRecord,
 ) -> CatalogRecord:
     """Save catalog record metadata and MARC bytes (single-record upsert)."""
-    from adapters.marc_sectors import upsert_record_in_sector
+    from adapters.marc_sectors import read_marc, upsert_record_in_sector
 
+    old_marc = read_marc(ctx.db_session, base, system_number)
     catalog_record = save_record_metadata(ctx, base, system_number, record)
     upsert_record_in_sector(ctx.db_session, base, system_number, record._marc)
+
+    if old_marc is not None and old_marc != record._marc:
+        catalog_record.processed_at = None
+        RecordReview.outdate_current(ctx.db_session, catalog_record.id)
 
     return catalog_record
 
@@ -212,8 +297,17 @@ async def records_sync_task(
                     )
 
                 else:
-                    save_record_metadata(ctx, base, system_number, record)
+                    from adapters.marc_sectors import read_marc
+
+                    old_marc = read_marc(ctx.db_session, base, system_number)
+                    cr = save_record_metadata(ctx, base, system_number, record)
                     buffer.add(base, system_number, record._marc)
+
+                    if old_marc is not None and old_marc != record._marc:
+                        cr.processed_at = None
+                        RecordReview.outdate_current(
+                            ctx.db_session, cr.id
+                        )
 
                 handle_batch_progress_snippet(ctx)
 
@@ -229,45 +323,6 @@ async def records_sync_task(
 
         ctx.logger.info(
             f"Finished catalog sync, total records processed: {ctx.progress}"
-        )
-
-
-async def set_records_visibility(task_id: str) -> None:
-    async with ManagedTask(task_id=task_id) as ctx:
-        data = SetRecordsVisibilityData.model_validate(ctx.task.data)
-        filters = data.filters
-        hide = data.visible is False
-
-        if hide:
-            ctx.logger.info("Setting records to hidden state")
-        else:
-            ctx.logger.info("Setting records to visible state")
-
-        record_ids = [
-            r.id
-            for r in build_filtered_query(ctx.db_session, filters)
-            .with_entities(CatalogRecord.id)
-            .all()
-        ]
-
-        batch_size = 1000
-        for i in range(0, len(record_ids), batch_size):
-            batch_ids = record_ids[i : i + batch_size]
-            records = (
-                ctx.db_session.query(CatalogRecord)
-                .filter(CatalogRecord.id.in_(batch_ids))
-                .all()
-            )
-            for catalog_record in records:
-                catalog_record.hidden = hide
-                ctx.db_session.add(catalog_record)
-                handle_batch_progress_snippet(ctx)
-
-        handle_final_batch_snippet(ctx)
-
-        ctx.logger.info(
-            "Finished setting hidden state, "
-            f"total records processed: {ctx.progress}"
         )
 
 
@@ -316,7 +371,7 @@ async def process_records(task_id: str) -> None:
             return
 
         try:
-            comparator = init_comparator(c_settings, settings.comparator)
+            comparator = init_comparator(c_settings)
         except ValueError as e:
             ctx.logger.error(str(e))
             return
@@ -353,6 +408,11 @@ async def process_records(task_id: str) -> None:
             )
             for catalog_record in records:
                 try:
+                    # Capture result hashes before reprocessing
+                    old_hashes = _compute_result_hashes(
+                        ctx.db_session, catalog_record.id
+                    )
+
                     marc_record = catalog_record.get_record(ctx.db_session)
 
                     for target_base in settings.target_bases:
@@ -382,7 +442,6 @@ async def process_records(task_id: str) -> None:
                     for authority_link in catalog_record.authority_links:
                         await handle_catalog_record_comparison(
                             ctx.db_session,
-                            settings.comparator.value,
                             comparator,
                             ctx.logger,
                             authority_link.base,
@@ -395,6 +454,10 @@ async def process_records(task_id: str) -> None:
                             catalog_record,
                             validator_instance,
                         )
+
+                    _handle_result_changes(
+                        ctx.db_session, catalog_record.id, old_hashes
+                    )
 
                     catalog_record.processed_at = config.timestamp
                     catalog_record.save(ctx.db_session)

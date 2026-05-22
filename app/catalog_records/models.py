@@ -3,7 +3,7 @@ from typing import List, Literal
 
 from aleph_nought import AlephOAIConfig
 from marc_comparator.authority_linkers import AuthorityLinker
-from marc_comparator.comparators import Comparator, MatchQuality
+from marc_comparator.comparators import MatchQuality
 from marc_comparator.validators import Validator, ValidityStatus
 from pydantic import BaseModel, Field
 
@@ -43,6 +43,7 @@ class SyncRecordsData(BaseModel):
 
 
 class RecordFilter(BaseModel):
+    record_ids: list[str] | None = None
     text_query: str | None = None
 
     # Scalar
@@ -51,29 +52,47 @@ class RecordFilter(BaseModel):
     bibliographic_level: list[str] | None = None
 
     # Boolean
-    hidden: bool | None = None
     deleted: bool | None = None
     processed: bool | None = None
+
+    # Review status
+    review_statuses: list[str] | None = None
 
     # Relationship
     authority_link_linkers: list[str] | None = None
     authority_link_bases: list[str] | None = None
-    comparators: list[str] | None = None
     comparison_bases: list[str] | None = None
     match_qualities: list[str] | None = None
     field_explanations: list[str] | None = None
     validators: list[str] | None = None
     validation_statuses: list[str] | None = None
     validation_target_tags: list[str] | None = None
+    validation_reasons: list[str] | None = None
 
     # Score range
     score_min: float | None = None
     score_max: float | None = None
 
 
-class SetRecordsVisibilityData(BaseModel):
-    filters: RecordFilter = RecordFilter()
-    visible: bool = False
+class CreateReviewRequest(BaseModel):
+    aspect_name: str
+    note: str | None = None
+
+
+class ReviewResponse(BaseModel):
+    id: str
+    record_id: str
+    aspect_name: str
+    note: str | None
+    reviewed_by: str
+    reviewer_name: str | None = None
+    reviewed_at: datetime
+    status: str
+
+
+class RecordReviewsResponse(BaseModel):
+    current: list[ReviewResponse]
+    history: list[ReviewResponse]
 
 
 class ProcessRecordsSettings(SettingsSchema):
@@ -83,7 +102,6 @@ class ProcessRecordsSettings(SettingsSchema):
     authority_linkers: List[AuthorityLinker] = Field(
         default=[AuthorityLinker.KnihovnyCz], min_length=1
     )
-    comparator: Comparator = Field(default=Comparator.Intiim)
     validators: List[Validator] = Field(
         default=[Validator.KrameriusLinks], min_length=1
     )
@@ -123,6 +141,8 @@ class RecordSummary(BaseModel):
     system_number: str
     title: str | None = None
     authors: list[str] = []
+    type_of_record: str | None = None
+    bibliographic_level: str | None = None
     state: list[str] = []
     authority_links: list[AuthorityLinkSummary] = []
     comparisons: list[ComparisonSummary] = []

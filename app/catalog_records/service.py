@@ -1,10 +1,13 @@
+from fastapi import HTTPException
 from marcdantic import MarcRecord
+from sqlalchemy import text
 
 from adapters.database import DatabaseSession
 from adapters.lock_server import one_at_a_time_lock
 from adapters.tasks import enqueue_task
 from entities.catalog_record import CatalogRecord
 from entities.comparison import Comparison
+from entities.record_review import RecordReview
 from entities.task import Task, TaskSchema, TaskType
 from entities.validation import Validation
 
@@ -13,10 +16,12 @@ from .exceptions import (
     SyncTaskAlreadyRunningException,
 )
 from .models import (
+    CreateReviewRequest,
     FetchBatchOfRecordsData,
     FetchRecordData,
     RecordFilter,
-    SetRecordsVisibilityData,
+    RecordReviewsResponse,
+    ReviewResponse,
     SyncRecordsData,
 )
 
@@ -130,20 +135,93 @@ async def sync_records(
         )
 
 
-async def set_records_visibility(
-    data: SetRecordsVisibilityData,
-    created_by: str,
-    db_session: DatabaseSession,
-) -> TaskSchema:
-    return await enqueue_task(
-        Task(
-            name=f"Set records to {'visible' if data.visible else 'hidden'}",
-            type=TaskType.SetRecordsVisibility,
-            created_by=created_by,
-            data=data.model_dump(),
+def _review_to_response(review: RecordReview) -> ReviewResponse:
+    reviewer = review.reviewer
+    return ReviewResponse(
+        id=str(review.id),
+        record_id=review.record_id,
+        aspect_name=review.aspect_name,
+        note=review.note,
+        reviewed_by=str(review.reviewed_by),
+        reviewer_name=(
+            f"{reviewer.first_name} {reviewer.last_name}"
+            if reviewer else None
         ),
-        db_session,
+        reviewed_at=review.reviewed_at,
+        status=review.status,
     )
+
+
+def get_reviews(
+    base: str, system_number: str, db_session: DatabaseSession
+) -> RecordReviewsResponse:
+    record_id = CatalogRecord.generate_id(base, system_number)
+    reviews = (
+        db_session.query(RecordReview)
+        .filter_by(record_id=record_id)
+        .order_by(RecordReview.reviewed_at.desc())
+        .all()
+    )
+    current = [_review_to_response(r) for r in reviews if r.status == "current"]
+    history = [_review_to_response(r) for r in reviews if r.status != "current"]
+    return RecordReviewsResponse(current=current, history=history)
+
+
+def create_review(
+    base: str,
+    system_number: str,
+    data: CreateReviewRequest,
+    user_id: str,
+    db_session: DatabaseSession,
+) -> ReviewResponse:
+    record_id = CatalogRecord.generate_id(base, system_number)
+    record = CatalogRecord.find(db_session, record_id)
+    if not record:
+        raise CatalogRecordNotFoundException(base, system_number)
+
+    # Supersede any existing current review for this aspect
+    RecordReview.supersede_current(db_session, record_id, data.aspect_name)
+
+    review = RecordReview(
+        record_id=record_id,
+        aspect_name=data.aspect_name,
+        note=data.note,
+        reviewed_by=user_id,
+        status="current",
+    )
+    review.save(db_session)
+
+    # Refresh materialized view
+    db_session.execute(
+        text("REFRESH MATERIALIZED VIEW CONCURRENTLY catalog_records_analytics")
+    )
+    db_session.commit()
+
+    return _review_to_response(review)
+
+
+def delete_review(
+    base: str,
+    system_number: str,
+    aspect_name: str,
+    user_id: str,
+    db_session: DatabaseSession,
+) -> dict:
+    record_id = CatalogRecord.generate_id(base, system_number)
+    current = RecordReview.find_current(db_session, record_id, aspect_name)
+    if not current:
+        raise HTTPException(status_code=404, detail="No current review found")
+
+    current.status = "superseded"
+    db_session.commit()
+
+    # Refresh materialized view
+    db_session.execute(
+        text("REFRESH MATERIALIZED VIEW CONCURRENTLY catalog_records_analytics")
+    )
+    db_session.commit()
+
+    return {"ok": True}
 
 
 async def process_records(

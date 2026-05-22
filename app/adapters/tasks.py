@@ -26,7 +26,6 @@ MATVIEW_REFRESH_TASK_TYPES = {
     TaskType.SyncRecords,
     TaskType.FetchBatchOfRecords,
     TaskType.ProcessRecords,
-    TaskType.SetRecordsVisibility,
 }
 
 tasks_client = Celery(
@@ -343,15 +342,6 @@ def compare_records_task(self: CeleryTask) -> None:
     return async_to_sync(compare_records)(str(self.request.id))
 
 
-@shared_task(name="set_records_visibility_task", bind=True)
-def set_records_visibility_task(self: CeleryTask) -> None:
-    from asgiref.sync import async_to_sync
-
-    from catalog_records.tasks import set_records_visibility
-
-    return async_to_sync(set_records_visibility)(str(self.request.id))
-
-
 @shared_task(name="process_records_task", bind=True)
 def process_records_task(self: CeleryTask) -> None:
     from asgiref.sync import async_to_sync
@@ -399,9 +389,6 @@ def dispatch_task(task: Task) -> None:
 
     elif task.type == TaskType.CompareRecords:
         compare_records_task.apply_async(task_id=task_id)
-
-    elif task.type == TaskType.SetRecordsVisibility:
-        set_records_visibility_task.apply_async(task_id=task_id)
 
     elif task.type == TaskType.ProcessRecords:
         process_records_task.apply_async(task_id=task_id)

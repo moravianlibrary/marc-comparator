@@ -16,30 +16,29 @@ from .models import (
 
 VIEW = "catalog_records_analytics"
 
-SCALAR_FACETS = ["base", "type_of_record", "bibliographic_level"]
+SCALAR_FACETS = ["base", "type_of_record", "bibliographic_level", "review_status"]
 BOOL_FACETS = {
     "is_deleted": ("Active", "Deleted"),
-    "is_hidden": ("Visible", "Hidden"),
-    "is_processed": ("Processed", "Unprocessed"),
+    "is_processed": ("Unprocessed", "Processed"),
 }
 ARRAY_FACETS = [
     "authority_link_linkers",
     "authority_link_bases",
-    "comparators",
     "comparison_bases",
     "match_qualities",
     "validators",
     "validation_statuses",
     "validation_target_tags",
+    "validation_reasons",
     "field_explanations",
 ]
 
 # Maps RecordFilter field names -> matview column names (where they differ)
 _FILTER_TO_MATVIEW = {
     "bases": "base",
-    "hidden": "is_hidden",
     "deleted": "is_deleted",
     "processed": "is_processed",
+    "review_statuses": "review_status",
 }
 
 
@@ -169,14 +168,13 @@ def get_facets_preview(
 
 def _add_target_filter(filters: RecordFilter, field: str, value) -> None:
     """Mutate filters to add a single target value constraint."""
-    if field in ("base", "type_of_record", "bibliographic_level"):
-        attr = {"base": "bases"}.get(field, field)
+    if field in ("base", "type_of_record", "bibliographic_level", "review_status"):
+        attr = {"base": "bases", "review_status": "review_statuses"}.get(field, field)
         current = getattr(filters, attr) or []
         setattr(filters, attr, [*current, str(value)])
     elif field in BOOL_FACETS:
         attr = {
             "is_deleted": "deleted",
-            "is_hidden": "hidden",
             "is_processed": "processed",
         }[field]
         setattr(filters, attr, bool(value))
@@ -195,9 +193,9 @@ def _build_where(filters: RecordFilter) -> tuple[str, dict]:
     if filters.deleted is not None:
         conditions.append("is_deleted = :is_deleted")
         params["is_deleted"] = filters.deleted
-    if filters.hidden is not None:
-        conditions.append("is_hidden = :is_hidden")
-        params["is_hidden"] = filters.hidden
+    if filters.review_statuses:
+        conditions.append("review_status = ANY(:review_statuses)")
+        params["review_statuses"] = filters.review_statuses
     if filters.processed is not None:
         conditions.append("is_processed = :is_processed")
         params["is_processed"] = filters.processed
@@ -211,7 +209,7 @@ def _build_where(filters: RecordFilter) -> tuple[str, dict]:
     # Array overlap: PG's && operator
     for field in ARRAY_FACETS:
         if values := getattr(filters, field, None):
-            conditions.append(f"{field} && :arr_{field}")
+            conditions.append(f"CAST({field} AS text[]) && :arr_{field}")
             params[f"arr_{field}"] = values
 
     if filters.score_min is not None:

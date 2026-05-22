@@ -1,9 +1,9 @@
 asgiref
 celery
 email-validator
-pandas
 psycopg2-binary
 pydantic_settings
+pytz
 pyyaml
 redis
 requests

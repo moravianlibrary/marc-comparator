@@ -35,12 +35,12 @@ def search_tasks(request: SearchTasksRequest, db: Session) -> SearchTasksRespons
 
 
 def _apply_filters(query, filters: TaskFilter):
-    if filters.types:
-        query = query.filter(Task.type.in_(filters.types))
-    if filters.statuses:
-        query = query.filter(Task.status.in_(filters.statuses))
-    if filters.severities:
-        query = query.filter(Task.severity.in_(filters.severities))
+    if filters.type:
+        query = query.filter(Task.type.in_(filters.type))
+    if filters.status:
+        query = query.filter(Task.status.in_(filters.status))
+    if filters.severity:
+        query = query.filter(Task.severity.in_(filters.severity))
     if filters.created_by:
         query = query.filter(Task.created_by == filters.created_by)
     return query

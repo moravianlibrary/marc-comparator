@@ -1,10 +1,6 @@
 import logging
 
-from marc_comparator.comparators import (
-    COMPARATOR_DISPATCHER,
-    BaseComparator,
-    Comparator,
-)
+from marc_comparator.comparators import BaseComparator
 
 from adapters.database import DatabaseSession
 from adapters.tasks import (
@@ -17,32 +13,19 @@ from entities.catalog_record import CatalogRecord
 from entities.comparison import Comparison
 from entities.settings import Settings, SettingsScope
 
+from . import UsedComparator, UsedComparatorClass
 from .models import ComparisonSettings, ComparisonTaskData
 
 
-def init_comparator(
-    settings: ComparisonSettings, comparator: Comparator
-) -> BaseComparator:
-    comparator_cls = COMPARATOR_DISPATCHER.get(comparator)
-    if not comparator_cls:
-        raise ValueError(f"Unknown comparator: {comparator}")
-
-    comparator_config = (
-        getattr(settings, comparator.value.replace("-", "_"), None)
-        if comparator_cls.config_model
-        else None
-    )
-
-    return (
-        comparator_cls(comparator_config)
-        if comparator_config
-        else comparator_cls()
-    )
+def init_comparator(settings: ComparisonSettings) -> BaseComparator:
+    config = settings.comparator
+    if config is not None:
+        return UsedComparatorClass(config)
+    return UsedComparatorClass()
 
 
 async def handle_catalog_record_comparison(
     db_session: DatabaseSession,
-    comparator_name: str,
     comparator: BaseComparator,
     logger: logging.Logger,
     target_base: str,
@@ -72,7 +55,7 @@ async def handle_catalog_record_comparison(
     comparison = Comparison.find(
         db_session,
         catalog_record.id,
-        comparator_name,
+        UsedComparator.value,
         target_base,
     )
 
@@ -82,7 +65,7 @@ async def handle_catalog_record_comparison(
     else:
         comparison = Comparison(
             main_record_id=catalog_record.id,
-            comparator=comparator_name,
+            comparator=UsedComparator.value,
             base=target_base,
             other_record_id=link.authority_record.id,
             result=result.model_dump(),
@@ -105,7 +88,7 @@ async def compare_records(task_id: str) -> None:
             return
 
         try:
-            comparator = init_comparator(settings, data.comparator)
+            comparator = init_comparator(settings)
         except ValueError as e:
             ctx.logger.error(str(e))
             return
@@ -121,7 +104,6 @@ async def compare_records(task_id: str) -> None:
             try:
                 await handle_catalog_record_comparison(
                     ctx.db_session,
-                    data.comparator.value,
                     comparator,
                     ctx.logger,
                     data.target_base,

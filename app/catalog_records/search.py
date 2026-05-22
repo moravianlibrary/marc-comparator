@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 from entities.authority_link import AuthorityLink
 from entities.catalog_record import CatalogRecord, CatalogRecordSource
 from entities.comparison import Comparison
+from entities.record_review import RecordReview
 from entities.validation import Validation
 
 from .models import (
@@ -29,12 +30,10 @@ SORT_COLUMNS = {
 RELATIONSHIP_FILTERS = {
     "authority_link_linkers": (CatalogRecord.authority_links, AuthorityLink.linker),
     "authority_link_bases": (CatalogRecord.authority_links, AuthorityLink.base),
-    "comparators": (CatalogRecord.comparisons, Comparison.comparator),
     "validators": (CatalogRecord.validations, Validation.validator),
 }
 
 BOOL_FILTERS = {
-    "hidden": CatalogRecord.hidden,
     "deleted": CatalogRecord.deleted,
 }
 
@@ -106,6 +105,17 @@ def _apply_filters(query, filters: RecordFilter):
             else CatalogRecord.processed_at.is_(None)
         )
 
+    if filters.review_statuses:
+        has_current = CatalogRecord.reviews.any(RecordReview.status == "current")
+        clauses = []
+        for rs in filters.review_statuses:
+            if rs == "Unreviewed":
+                clauses.append(~has_current)
+            else:
+                # Both Reviewed and PartiallyReviewed require at least one current review
+                clauses.append(has_current)
+        query = query.filter(or_(*clauses))
+
     for attr, (relationship, column) in RELATIONSHIP_FILTERS.items():
         if values := getattr(filters, attr):
             query = query.filter(relationship.any(column.in_(values)))
@@ -172,6 +182,8 @@ def _to_summary(record: CatalogRecord) -> RecordSummary:
         system_number=record.system_number,
         title=record.title,
         authors=record.authors or [],
+        type_of_record=record.type_of_record,
+        bibliographic_level=record.bibliographic_level,
         state=[s.value for s in record.state],
         authority_links=[
             AuthorityLinkSummary(
