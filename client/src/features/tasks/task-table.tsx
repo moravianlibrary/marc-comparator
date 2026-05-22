@@ -44,9 +44,9 @@ export function TaskTable({ tasks, selectedTaskId, onSelectTask, onRevoke }: Tas
       <TableBody>
         {tasks.map((task) => (
           <TableRow
-            key={task.id}
-            className={`cursor-pointer ${selectedTaskId === task.id ? "bg-muted" : ""}`}
-            onClick={() => onSelectTask(task.id)}
+            key={task.task_id}
+            className={`cursor-pointer ${selectedTaskId === task.task_id ? "bg-muted" : ""}`}
+            onClick={() => onSelectTask(task.task_id)}
           >
             <TableCell className="font-medium">{task.name}</TableCell>
             <TableCell>{t(`type.${task.type}`)}</TableCell>
@@ -70,7 +70,7 @@ export function TaskTable({ tasks, selectedTaskId, onSelectTask, onRevoke }: Tas
                   size="sm"
                   onClick={(e) => {
                     e.stopPropagation();
-                    onRevoke(task.id);
+                    onRevoke(task.task_id);
                   }}
                 >
                   {t("fields.revoke")}

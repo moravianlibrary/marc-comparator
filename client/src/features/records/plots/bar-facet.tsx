@@ -1,13 +1,12 @@
-import { useState } from "react";
+import { useRef, useState, useEffect, useMemo } from "react";
+import { useTranslation } from "react-i18next";
+import { Bar, BarChart, Cell, LabelList, XAxis, YAxis } from "recharts";
 import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  Cell,
-} from "recharts";
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "@/components/ui/chart";
 import type { FacetBucket } from "../types";
 
 interface BarFacetProps {
@@ -17,6 +16,9 @@ interface BarFacetProps {
   onToggle: (value: string) => void;
   onHover: (value: string) => void;
   onLeave: () => void;
+  formatLabel?: (key: string) => string;
+  /** Width of the Y-axis label column. A number is pixels; a string like "50%" is relative to container width. Default: 100. */
+  labelWidth?: number | string;
 }
 
 export function BarFacet({
@@ -26,60 +28,114 @@ export function BarFacet({
   onToggle,
   onHover,
   onLeave,
+  formatLabel,
+  labelWidth = 100,
 }: BarFacetProps) {
-  const [hoveredKey, setHoveredKey] = useState<string | null>(null);
+  const { t } = useTranslation();
+  const chartConfig = useMemo<ChartConfig>(() => ({
+    count: { label: t("common:chart.count"), color: "var(--chart-1)" },
+    preview: { label: t("common:chart.preview") },
+  }), [t]);
+
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerWidth, setContainerWidth] = useState(0);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([entry]) => setContainerWidth(entry.contentRect.width));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+
+  const resolvedLabelWidth =
+    typeof labelWidth === "string" && labelWidth.endsWith("%")
+      ? Math.round((parseFloat(labelWidth) / 100) * containerWidth)
+      : (labelWidth as number);
+
+  const isShowingPreview = previewData != null;
 
   const chartData = data.map((bucket) => {
     const preview = previewData?.find((p) => p.key === bucket.key);
     return {
-      name: bucket.key,
+      key: bucket.key,
+      name: formatLabel ? formatLabel(bucket.key) : bucket.key,
       count: bucket.count,
-      preview: preview?.count,
+      preview: preview?.count ?? 0,
     };
   });
 
   return (
-    <ResponsiveContainer width="100%" height={Math.max(120, data.length * 28)}>
-      <BarChart data={chartData} layout="vertical">
-        <XAxis type="number" hide />
+    <div ref={containerRef}>
+    <ChartContainer
+      config={chartConfig}
+      className="w-full"
+      style={{ height: Math.max(120, data.length * 36) }}
+    >
+      <BarChart
+        accessibilityLayer
+        data={chartData}
+        layout="vertical"
+        margin={{ right: 48 }}
+      >
         <YAxis
-          type="category"
           dataKey="name"
-          width={120}
-          tick={{ fontSize: 12 }}
+          type="category"
+          tickLine={false}
+          tickMargin={8}
+          axisLine={false}
+          width={resolvedLabelWidth}
         />
-        <Tooltip />
+        <XAxis dataKey="count" type="number" hide />
+        <ChartTooltip
+          cursor={false}
+          content={<ChartTooltipContent indicator="line" />}
+        />
+        {isShowingPreview && (
+          <Bar
+            dataKey="preview"
+            fill="color-mix(in oklch, var(--muted-foreground) 15%, transparent)"
+            radius={4}
+            isAnimationActive={false}
+          >
+            <LabelList
+              dataKey="preview"
+              position="right"
+              offset={8}
+              className="fill-muted-foreground"
+              fontSize={12}
+            />
+          </Bar>
+        )}
         <Bar
           dataKey="count"
-          cursor="pointer"
-          onClick={(entry) => onToggle(entry.name)}
-          onMouseEnter={(_, index) => {
-            const key = chartData[index].name;
-            setHoveredKey(key);
-            onHover(key);
+          fill="var(--color-count)"
+          radius={4}
+          onClick={(entry) => {
+            if (isShowingPreview && entry.preview === 0) return;
+            onToggle(entry.key);
           }}
-          onMouseLeave={() => {
-            setHoveredKey(null);
-            onLeave();
-          }}
+          onMouseEnter={(_, index) => onHover(chartData[index].key)}
+          onMouseLeave={onLeave}
         >
           {chartData.map((entry) => (
             <Cell
-              key={entry.name}
-              fill={
-                activeValues.includes(entry.name)
-                  ? "hsl(var(--chart-1))"
-                  : hoveredKey === entry.name
-                    ? "hsl(var(--chart-2))"
-                    : "hsl(var(--muted-foreground) / 0.3)"
-              }
+              key={entry.key}
+              fill="var(--color-count)"
+              cursor={isShowingPreview && entry.preview === 0 ? "default" : "pointer"}
+              opacity={isShowingPreview && entry.preview === 0 ? 0.3 : 1}
             />
           ))}
+          <LabelList
+            dataKey="count"
+            position="right"
+            offset={8}
+            className="fill-foreground"
+            fontSize={12}
+          />
         </Bar>
-        {hoveredKey && (
-          <Bar dataKey="preview" fill="hsl(var(--chart-2) / 0.3)" />
-        )}
       </BarChart>
-    </ResponsiveContainer>
+    </ChartContainer>
+    </div>
   );
 }

@@ -12,9 +12,10 @@ import type { RecordSummary } from "../types";
 
 interface ColumnConfigProps {
   table: Table<RecordSummary>;
+  sortedColumnId?: string;
 }
 
-export function ColumnConfig({ table }: ColumnConfigProps) {
+export function ColumnConfig({ table, sortedColumnId }: ColumnConfigProps) {
   const { t } = useTranslation("records");
 
   return (
@@ -30,21 +31,25 @@ export function ColumnConfig({ table }: ColumnConfigProps) {
           {table
             .getAllColumns()
             .filter((col) => col.getCanHide())
-            .map((column) => (
-              <label key={column.id} className="flex items-center gap-2">
-                <Checkbox
-                  checked={column.getIsVisible()}
-                  onCheckedChange={(checked) =>
-                    column.toggleVisibility(!!checked)
-                  }
-                />
-                <span className="text-sm">
-                  {typeof column.columnDef.header === "string"
-                    ? column.columnDef.header
-                    : column.id}
-                </span>
-              </label>
-            ))}
+            .map((column) => {
+              const isSortedColumn = column.id === sortedColumnId;
+              return (
+                <label key={column.id} className="flex items-center gap-2">
+                  <Checkbox
+                    checked={column.getIsVisible()}
+                    disabled={isSortedColumn}
+                    onCheckedChange={(checked) =>
+                      column.toggleVisibility(!!checked)
+                    }
+                  />
+                  <span className="text-sm">
+                    {typeof column.columnDef.header === "string"
+                      ? column.columnDef.header
+                      : column.id}
+                  </span>
+                </label>
+              );
+            })}
         </div>
       </PopoverContent>
     </Popover>

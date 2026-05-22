@@ -3,12 +3,27 @@ import {
   useReactTable,
   getCoreRowModel,
   flexRender,
+  type SortingState,
 } from "@tanstack/react-table";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import { Info } from "lucide-react";
 import apiClient from "@/lib/api-client";
+
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
 import {
   Table,
   TableBody,
@@ -19,20 +34,24 @@ import {
 } from "@/components/ui/table";
 import { useRecordFilters } from "../use-record-filters";
 import type { SearchRecordsResponse } from "../types";
+import { RecordTaskActions, AdvancedTaskActions } from "../record-task-actions";
 import { createColumns } from "./columns";
 import { ColumnConfig } from "./column-config";
 
+const PAGE_SIZES = [10, 25, 50, 100, 1000];
+
 export function TableView() {
   const { t } = useTranslation();
-  const { filters, setPage, setSearch, buildSearchPayload } =
+  const { filters, setFilters, setPage, setSearch, buildSearchPayload, buildRecordFilter } =
     useRecordFilters();
 
   const [searchInput, setSearchInput] = useState(filters.search);
 
   useEffect(() => {
+    if (searchInput === filters.search) return;
     const timeout = setTimeout(() => setSearch(searchInput), 300);
     return () => clearTimeout(timeout);
-  }, [searchInput, setSearch]);
+  }, [searchInput, filters.search, setSearch]);
 
   useEffect(() => {
     setSearchInput(filters.search);
@@ -48,7 +67,19 @@ export function TableView() {
         .then((r) => r.data),
   });
 
-  const columns = useMemo(() => createColumns(t), [t]);
+  const onNavigate = useMemo(
+    () => (rowIndex: number, viewKey: string) => {
+      setFilters({ tab: "carousel", recordIndex: rowIndex, carouselView: viewKey });
+    },
+    [setFilters],
+  );
+
+  const sorting: SortingState = useMemo(
+    () => [{ id: filters.sortBy, desc: filters.sortOrder === "desc" }],
+    [filters.sortBy, filters.sortOrder],
+  );
+
+  const columns = useMemo(() => createColumns(t, onNavigate), [t, onNavigate]);
 
   const totalPages = data ? Math.ceil(data.total / filters.pageSize) : 0;
 
@@ -58,26 +89,69 @@ export function TableView() {
     getCoreRowModel: getCoreRowModel(),
     manualPagination: true,
     manualSorting: true,
+    enableSortingRemoval: false,
     pageCount: totalPages,
     state: {
       pagination: {
         pageIndex: filters.page - 1,
         pageSize: filters.pageSize,
       },
+      sorting,
+    },
+    onSortingChange: (updater) => {
+      const next = typeof updater === "function" ? updater(sorting) : updater;
+      if (next.length > 0) {
+        setFilters({
+          sortBy: next[0].id as typeof filters.sortBy,
+          sortOrder: next[0].desc ? "desc" : "asc",
+          page: 1,
+        });
+      }
     },
   });
 
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-4">
-        <Input
-          placeholder={t("records:table.search-placeholder")}
-          value={searchInput}
-          onChange={(e) => setSearchInput(e.target.value)}
-          className="max-w-sm"
-        />
+        <div className="flex items-center gap-1.5 max-w-sm flex-1">
+          <Input
+            placeholder={t("records:table.search-placeholder")}
+            value={searchInput}
+            onChange={(e) => setSearchInput(e.target.value)}
+          />
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-8 w-8 shrink-0">
+                <Info className="h-4 w-4 text-muted-foreground" />
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[320px]" align="start">
+              <div className="space-y-3">
+                <p className="font-medium text-sm">{t("records:table.search-help.title")}</p>
+                <div className="space-y-2 text-sm">
+                  <div>
+                    <p className="font-medium">{t("records:table.search-help.exact-match")}</p>
+                    <p className="text-muted-foreground">{t("records:table.search-help.exact-match-desc")}</p>
+                  </div>
+                  <div>
+                    <p className="font-medium">{t("records:table.search-help.text-search")}</p>
+                    <p className="text-muted-foreground">{t("records:table.search-help.text-search-desc")}</p>
+                  </div>
+                </div>
+              </div>
+            </PopoverContent>
+          </Popover>
+        </div>
+
         <div className="flex-1" />
-        <ColumnConfig table={table} />
+
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-muted-foreground whitespace-nowrap">{t("records:table.bulk-actions")}</span>
+          <RecordTaskActions filters={buildRecordFilter()} />
+          <AdvancedTaskActions filters={buildRecordFilter()} />
+        </div>
+
+        <ColumnConfig table={table} sortedColumnId={filters.sortBy} />
       </div>
 
       <div className="rounded-md border">
@@ -85,19 +159,32 @@ export function TableView() {
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <TableHead
-                    key={header.id}
-                    style={{ width: header.getSize() }}
-                  >
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(
-                          header.column.columnDef.header,
-                          header.getContext(),
+                {headerGroup.headers.map((header) => {
+                  const canSort = header.column.getCanSort();
+                  const sorted = header.column.getIsSorted();
+                  return (
+                    <TableHead
+                      key={header.id}
+                      style={{ width: header.getSize() }}
+                      className={canSort ? "cursor-pointer select-none" : undefined}
+                      onClick={canSort ? header.column.getToggleSortingHandler() : undefined}
+                    >
+                      <div className="flex items-center gap-1">
+                        {header.isPlaceholder
+                          ? null
+                          : flexRender(
+                              header.column.columnDef.header,
+                              header.getContext(),
+                            )}
+                        {sorted === "asc" && " \u2191"}
+                        {sorted === "desc" && " \u2193"}
+                        {canSort && !sorted && (
+                          <span className="text-muted-foreground/40">{" \u2195"}</span>
                         )}
-                  </TableHead>
-                ))}
+                      </div>
+                    </TableHead>
+                  );
+                })}
               </TableRow>
             ))}
           </TableHeader>
@@ -116,7 +203,11 @@ export function TableView() {
               </TableRow>
             ) : (
               table.getRowModel().rows.map((row) => (
-                <TableRow key={row.id}>
+                <TableRow
+                  key={row.id}
+                  className="cursor-pointer"
+                  onClick={() => setFilters({ tab: "carousel", recordIndex: row.index })}
+                >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
                       {flexRender(
@@ -133,14 +224,34 @@ export function TableView() {
       </div>
 
       <div className="flex items-center justify-between">
-        <p className="text-sm text-muted-foreground">
-          {data
-            ? t("common:pagination.page", {
-                page: filters.page,
-                total: totalPages,
-              })
-            : ""}
-        </p>
+        <div className="flex items-center gap-3">
+          <p className="text-sm text-muted-foreground">
+            {data
+              ? t("common:pagination.page", {
+                  page: filters.page,
+                  total: totalPages,
+                })
+              : ""}
+          </p>
+          <div className="flex items-center gap-1.5">
+            <span className="text-xs text-muted-foreground">{t("records:table.page-size")}</span>
+            <Select
+              value={String(filters.pageSize)}
+              onValueChange={(val) => setFilters({ pageSize: Number(val), page: 1 })}
+            >
+              <SelectTrigger className="h-8 w-fit">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PAGE_SIZES.map((size) => (
+                  <SelectItem key={size} value={String(size)}>
+                    {size}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
         <div className="flex gap-2">
           <Button
             variant="outline"

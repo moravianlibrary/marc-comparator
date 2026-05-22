@@ -1,4 +1,5 @@
 import { cn } from "@/lib/utils";
+import { useTranslation } from "react-i18next";
 import type {
   MarcRecordData,
   FieldComparisonResult,
@@ -26,9 +27,29 @@ export function MarcTable({
   const fixedEntries = Object.entries(marc.fixed_fields)
     .sort(([a], [b]) => parseInt(a) - parseInt(b))
     .filter(([tag]) => !targetTags || targetTags.has(tag));
-  const variableEntries = Object.entries(marc.variable_fields)
+
+  // Build variable entries and inject synthetic rows for missing validation tags
+  const existingTags = new Set([
+    ...Object.keys(marc.fixed_fields),
+    ...Object.keys(marc.variable_fields),
+  ]);
+  const missingValidationTags: string[] = [];
+  if (annotationType === "validation" && validationAnnotations) {
+    for (const va of validationAnnotations) {
+      const tag = va.target.tag;
+      if (!existingTags.has(tag) && !missingValidationTags.includes(tag)) {
+        missingValidationTags.push(tag);
+      }
+    }
+  }
+
+  const variableEntries: [string, { ind1: string | null; ind2: string | null; subfields: Record<string, string[]> }[]][] = [
+    ...Object.entries(marc.variable_fields),
+    ...missingValidationTags.map((tag) => [tag, [{ ind1: null, ind2: null, subfields: {} }]] as [string, { ind1: string | null; ind2: string | null; subfields: Record<string, string[]> }[]]),
+  ]
     .sort(([a], [b]) => parseInt(a) - parseInt(b))
     .filter(([tag]) => !targetTags || targetTags.has(tag));
+
   const showAnnotations = !!annotationType;
   const showLeader = !targetTags;
   let rowIndex = 0;
@@ -201,11 +222,14 @@ function MarcRow({
 }
 
 function ComparisonFieldAnnotation({ annotation }: { annotation: FieldComparisonResult }) {
+  const { t } = useTranslation("records");
   return (
     <div className="flex items-center gap-2 text-xs text-muted-foreground">
       <ScoreBadge score={annotation.score} />
       {annotation.explanation && (
-        <span className="truncate">{annotation.explanation}</span>
+        <span className="truncate">
+          {t(`field-explanation.${annotation.explanation}`, { defaultValue: annotation.explanation })}
+        </span>
       )}
     </div>
   );

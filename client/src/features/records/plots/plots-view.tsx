@@ -10,7 +10,7 @@ import {
   useFacets,
   usePrefetchFacetPreview,
   usePreviewForValue,
-  usePerValidatorStatuses,
+  usePerValidatorData,
 } from "./use-facets";
 import { FacetChart } from "./facet-chart";
 import { BarFacet } from "./bar-facet";
@@ -29,32 +29,31 @@ const FACET_TO_URL_PARAM: Record<string, string> = {
   type_of_record: "typeOfRecord",
   bibliographic_level: "bibliographicLevel",
   is_deleted: "deleted",
-  is_hidden: "hidden",
   is_processed: "processed",
+  review_status: "reviewStatuses",
   authority_link_linkers: "authorityLinkLinkers",
   authority_link_bases: "authorityLinkBases",
-  comparators: "comparators",
   comparison_bases: "comparisonBases",
   match_qualities: "matchQualities",
   field_explanations: "fieldExplanations",
   validators: "validators",
   validation_statuses: "validationStatuses",
   validation_target_tags: "validationTargetTags",
+  validation_reasons: "validationReasons",
 };
 
 const BOOL_LABEL_TO_VALUE: Record<string, Record<string, string>> = {
   deleted: { Deleted: "true", Active: "false" },
-  hidden: { Hidden: "true", Visible: "false" },
   processed: { Processed: "true", Unprocessed: "false" },
 };
 
 const EXPLANATION_ORDER: Record<string, number> = {
-  IDENTICAL: 0,
-  NON_STANDARDIZED: 1,
-  TYPO: 2,
-  INCOMPLETE: 3,
-  INCORRECT: 4,
-  MISSING: 5,
+  Identical: 0,
+  NonStandardized: 1,
+  Typo: 2,
+  Incomplete: 3,
+  Incorrect: 4,
+  Missing: 5,
 };
 
 function ScoreRangeInputs({
@@ -133,7 +132,7 @@ export function PlotsView() {
   const [showAllExplanations, setShowAllExplanations] = useState(false);
   const prefetch = usePrefetchFacetPreview();
   const { isVisible, toggleChart, toggleSection, isSectionVisible } = useSectionVisibility();
-  const perValidatorStatuses = usePerValidatorStatuses();
+  const perValidatorData = usePerValidatorData();
 
   const previewFacets = usePreviewForValue(
     hoveredField ?? "",
@@ -158,11 +157,7 @@ export function PlotsView() {
     const paramKey = FACET_TO_URL_PARAM[facetField];
     if (!paramKey) return [];
     const paramValue = (filters as any)[paramKey];
-    if (
-      paramKey === "deleted" ||
-      paramKey === "hidden" ||
-      paramKey === "processed"
-    ) {
+    if (paramKey === "deleted" || paramKey === "processed") {
       if (!paramValue) return [];
       const labelMap = BOOL_LABEL_TO_VALUE[paramKey];
       return Object.entries(labelMap)
@@ -175,11 +170,7 @@ export function PlotsView() {
   function handleToggle(facetField: string, value: string) {
     const paramKey = FACET_TO_URL_PARAM[facetField];
     if (!paramKey) return;
-    if (
-      paramKey === "deleted" ||
-      paramKey === "hidden" ||
-      paramKey === "processed"
-    ) {
+    if (paramKey === "deleted" || paramKey === "processed") {
       const labelMap = BOOL_LABEL_TO_VALUE[paramKey];
       const targetValue = labelMap[value];
       const currentValue = (filters as any)[paramKey];
@@ -210,6 +201,7 @@ export function PlotsView() {
     return {
       onToggle: (value: string) => handleToggle(field, value),
       onHover: (value: string) => {
+        if (getActiveValues(field).includes(value)) return;
         setHoveredField(field);
         setHoveredValue(value);
       },
@@ -244,19 +236,27 @@ export function PlotsView() {
     value: string;
     valueLabel: string;
   }[] = [];
+  const VALUE_TRANSLATORS: Record<string, (v: string) => string> = {
+    is_deleted: (v) => t(`state.${v}`),
+    is_processed: (v) => t(`state.${v}`),
+    review_status: (v) => t(`state.${v}`),
+    type_of_record: (v) => t(`type-of-record.${v}`, { defaultValue: v }),
+    bibliographic_level: (v) => t(`bibliographic-level.${v}`, { defaultValue: v }),
+    validators: (v) => t(`validator-name.${v}`, { defaultValue: v }),
+    match_qualities: (v) => t(`match-quality.${v}`, { defaultValue: v }),
+    validation_statuses: (v) => t(`validity-status.${v}`, { defaultValue: v }),
+    field_explanations: (v) => t(`field-explanation.${v}`, { defaultValue: v }),
+  };
   for (const field of allFacetFields) {
     const values = getActiveValues(field);
     const fieldLabel = t(`facet-fields.${field}`);
+    const translator = VALUE_TRANSLATORS[field];
     for (const value of values) {
-      const boolFields = ["is_deleted", "is_hidden", "is_processed"];
-      const valueLabel = boolFields.includes(field)
-        ? t(`state.${value}`)
-        : value;
       activeFilters.push({
         facetField: field,
         label: fieldLabel,
         value,
-        valueLabel,
+        valueLabel: translator ? translator(value) : value,
       });
     }
   }
@@ -264,26 +264,50 @@ export function PlotsView() {
   const hasAnyFilter = activeFilters.length > 0 || hasScoreFilter;
 
   // Context pill groups
-  const contextFields = [
+  const contextFields: { field: string; label: string; formatLabel?: (k: string) => string }[] = [
     { field: "base", label: t("facet-fields.base") },
-    { field: "comparators", label: t("facet-fields.comparators") },
-    { field: "validators", label: t("facet-fields.validators") },
+    { field: "validators", label: t("facet-fields.validators"), formatLabel: (k) => t(`validator-name.${k}`, { defaultValue: k }) },
     {
       field: "authority_link_linkers",
       label: t("facet-fields.authority_link_linkers"),
+    },
+    {
+      field: "authority_link_bases",
+      label: t("facet-fields.authority_link_bases"),
     },
   ];
 
   const pillGroups = contextFields
     .filter(({ field }) => isVisible(field as any) && getBuckets(field).length > 0)
-    .map(({ field, label }) => ({
-      label,
-      facetField: field,
-      buckets: getBuckets(field),
-      previewBuckets: getPreviewBuckets(field),
-      activeValues: getActiveValues(field),
-      ...makeChartHandlers(field),
-    }));
+    .map(({ field, label, formatLabel }) => {
+      const handlers = makeChartHandlers(field);
+      return {
+        label,
+        facetField: field,
+        buckets: getBuckets(field),
+        previewBuckets: getPreviewBuckets(field),
+        activeValues: getActiveValues(field),
+        formatLabel,
+        ...handlers,
+        onHover: (value: string) => {
+          prefetch(field);
+          handlers.onHover(value);
+        },
+      };
+    });
+
+  const hasRecordsContent =
+    (isVisible("record_status") && (getBuckets("is_deleted").length > 0 || getBuckets("review_status").length > 0 || getBuckets("is_processed").length > 0)) ||
+    (isVisible("type_of_record") && getBuckets("type_of_record").length > 0) ||
+    (isVisible("bibliographic_level") && getBuckets("bibliographic_level").length > 0);
+
+  const hasComparisonContent =
+    (isVisible("match_quality") && getBuckets("match_qualities").length > 0) ||
+    (isVisible("overall_score") && scoreHistogram && scoreHistogram.buckets.length > 0) ||
+    (isVisible("field_explanations") && explanationBuckets.length > 0);
+
+  const hasValidationContent =
+    perValidatorData && perValidatorData.some(({ statuses }) => statuses.length > 0);
 
   return (
     <div className="space-y-6">
@@ -337,7 +361,7 @@ export function PlotsView() {
         </div>
       )}
 
-      {/* Row 1: Kontext (Context Controls) */}
+      {/* Section 1: Context (full-width pills card) */}
       {isSectionVisible("context") && pillGroups.length > 0 && (
         <section className="space-y-2">
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
@@ -355,6 +379,7 @@ export function PlotsView() {
                     onToggle={group.onToggle}
                     onHover={group.onHover}
                     onLeave={group.onLeave}
+                    formatLabel={group.formatLabel}
                   />
                 </div>
               ))}
@@ -363,25 +388,24 @@ export function PlotsView() {
         </section>
       )}
 
-      {/* Row 2: Stav kvality (Operational Health) */}
-      {isSectionVisible("health") && (
+      {/* Section 2: Record State (3-col grid) */}
+      {isSectionVisible("records") && hasRecordsContent && (
         <section className="space-y-2">
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-            {t("plots.sections.health")}
+            {t("plots.sections.records")}
           </h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {/* Card 1: Record Status */}
             {isVisible("record_status") && (
               <Card
                 className={cn(
                   (getActiveValues("is_deleted").length > 0 ||
-                    getActiveValues("is_hidden").length > 0 ||
+                    getActiveValues("review_status").length > 0 ||
                     getActiveValues("is_processed").length > 0) &&
                     "ring-2 ring-primary/30",
                 )}
                 onMouseEnter={() => {
                   prefetch("is_deleted");
-                  prefetch("is_hidden");
+                  prefetch("review_status");
                   prefetch("is_processed");
                 }}
               >
@@ -398,33 +422,41 @@ export function PlotsView() {
                         facetField: "is_deleted",
                         buckets: getBuckets("is_deleted"),
                         previewBuckets: getPreviewBuckets("is_deleted"),
-                        positiveKey: "Active",
-                        negativeKey: "Deleted",
-                      },
-                      {
-                        label: t("facet-fields.is_hidden"),
-                        facetField: "is_hidden",
-                        buckets: getBuckets("is_hidden"),
-                        previewBuckets: getPreviewBuckets("is_hidden"),
-                        positiveKey: "Visible",
-                        negativeKey: "Hidden",
+                        segments: [
+                          { key: "Active", color: "var(--chart-1)" },
+                          { key: "Deleted", color: "var(--chart-4)" },
+                        ],
                       },
                       {
                         label: t("facet-fields.is_processed"),
                         facetField: "is_processed",
                         buckets: getBuckets("is_processed"),
                         previewBuckets: getPreviewBuckets("is_processed"),
-                        positiveKey: "Processed",
-                        negativeKey: "Unprocessed",
+                        segments: [
+                          { key: "Processed", color: "var(--chart-1)" },
+                          { key: "Unprocessed", color: "var(--chart-4)" },
+                        ],
+                      },
+                      {
+                        label: t("facet-fields.review_status"),
+                        facetField: "review_status",
+                        buckets: getBuckets("review_status"),
+                        previewBuckets: getPreviewBuckets("review_status"),
+                        segments: [
+                          { key: "Reviewed", color: "var(--chart-1)" },
+                          { key: "PartiallyReviewed", color: "var(--chart-3)" },
+                          { key: "Unreviewed", color: "var(--chart-4)" },
+                        ],
                       },
                     ]}
                     activeValues={{
                       is_deleted: getActiveValues("is_deleted"),
-                      is_hidden: getActiveValues("is_hidden"),
                       is_processed: getActiveValues("is_processed"),
+                      review_status: getActiveValues("review_status"),
                     }}
                     onToggle={handleToggle}
                     onHover={(field, value) => {
+                      if (getActiveValues(field).includes(value)) return;
                       setHoveredField(field);
                       setHoveredValue(value);
                     }}
@@ -437,50 +469,6 @@ export function PlotsView() {
               </Card>
             )}
 
-            {/* Card 2: Match Quality */}
-            {isVisible("match_quality") &&
-              getBuckets("match_qualities").length > 0 && (
-                <FacetChart
-                  title={t("facet-fields.match_qualities")}
-                  facetField="match_qualities"
-                  data={getBuckets("match_qualities")}
-                  previewData={getPreviewBuckets("match_qualities")}
-                  activeValues={getActiveValues("match_qualities")}
-                  {...makeChartHandlers("match_qualities")}
-                >
-                  {(chartProps) => <RadialQuality {...chartProps} />}
-                </FacetChart>
-              )}
-
-            {/* Card 3+: Validation Status (one per validator) */}
-            {isVisible("validation_status") &&
-              perValidatorStatuses &&
-              perValidatorStatuses.map(({ validator, statuses }) =>
-                statuses.length > 0 ? (
-                  <FacetChart
-                    key={validator}
-                    title={`${t("facet-fields.validation_statuses")} — ${validator}`}
-                    facetField="validation_statuses"
-                    data={statuses}
-                    previewData={getPreviewBuckets("validation_statuses")}
-                    activeValues={getActiveValues("validation_statuses")}
-                    {...makeChartHandlers("validation_statuses")}
-                  >
-                    {(chartProps) => <RadialValidation {...chartProps} />}
-                  </FacetChart>
-                ) : null,
-              )}
-          </div>
-        </section>
-      )}
-
-      {/* Row 3: Klasifikace zaznamov (Record Composition) */}
-      {isSectionVisible("classification") && (
-        <section className="space-y-2">
-          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-            {t("plots.sections.classification")}
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {isVisible("type_of_record") &&
               getBuckets("type_of_record").length > 0 && (
                 <FacetChart
@@ -489,6 +477,7 @@ export function PlotsView() {
                   data={getBuckets("type_of_record")}
                   previewData={getPreviewBuckets("type_of_record")}
                   activeValues={getActiveValues("type_of_record")}
+                  formatLabel={(k) => t(`type-of-record.${k}`, { defaultValue: k })}
                   {...makeChartHandlers("type_of_record")}
                 >
                   {(chartProps) => <BarFacet {...chartProps} />}
@@ -503,36 +492,38 @@ export function PlotsView() {
                   data={getBuckets("bibliographic_level")}
                   previewData={getPreviewBuckets("bibliographic_level")}
                   activeValues={getActiveValues("bibliographic_level")}
+                  formatLabel={(k) => t(`bibliographic-level.${k}`, { defaultValue: k })}
+                  contentClassName="flex justify-center"
                   {...makeChartHandlers("bibliographic_level")}
                 >
                   {(chartProps) => <DonutFacet {...chartProps} />}
-                </FacetChart>
-              )}
-
-            {isVisible("authority_link_bases") &&
-              getBuckets("authority_link_bases").length > 0 && (
-                <FacetChart
-                  title={t("facet-fields.authority_link_bases")}
-                  facetField="authority_link_bases"
-                  data={getBuckets("authority_link_bases")}
-                  previewData={getPreviewBuckets("authority_link_bases")}
-                  activeValues={getActiveValues("authority_link_bases")}
-                  {...makeChartHandlers("authority_link_bases")}
-                >
-                  {(chartProps) => <BarFacet {...chartProps} />}
                 </FacetChart>
               )}
           </div>
         </section>
       )}
 
-      {/* Row 4: Analyza porovnani (Deep Analysis) */}
-      {isSectionVisible("analysis") && (
+      {/* Section 3: Comparison Analysis (3-col grid) */}
+      {isSectionVisible("comparison") && hasComparisonContent && (
         <section className="space-y-2">
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-            {t("plots.sections.analysis")}
+            {t("plots.sections.comparison")}
           </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {isVisible("match_quality") &&
+              getBuckets("match_qualities").length > 0 && (
+                <FacetChart
+                  title={t("facet-fields.match_qualities")}
+                  facetField="match_qualities"
+                  data={getBuckets("match_qualities")}
+                  previewData={getPreviewBuckets("match_qualities")}
+                  activeValues={getActiveValues("match_qualities")}
+                  {...makeChartHandlers("match_qualities")}
+                >
+                  {(chartProps) => <RadialQuality {...chartProps} />}
+                </FacetChart>
+              )}
+
             {isVisible("overall_score") &&
               scoreHistogram &&
               scoreHistogram.buckets.length > 0 && (
@@ -616,6 +607,80 @@ export function PlotsView() {
                   }}
                 </FacetChart>
               )}
+          </div>
+        </section>
+      )}
+
+      {/* Section 4: Validation Analysis (2-col grid, one row per validator) */}
+      {isSectionVisible("validation") && hasValidationContent && (
+        <section className="space-y-2">
+          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
+            {t("plots.sections.validation")}
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {perValidatorData.map(({ validator, statuses, reasons }) =>
+              statuses.length > 0 ? (
+                <>
+                  {isVisible("validation_status") && (
+                    <FacetChart
+                      key={`status-${validator}`}
+                      title={`${t(`validator-name.${validator}`, validator)}: ${t("facet-fields.validation_statuses")}`}
+                      facetField="validation_statuses"
+                      data={statuses}
+                      previewData={getPreviewBuckets("validation_statuses")}
+                      activeValues={getActiveValues("validation_statuses")}
+                      {...makeChartHandlers("validation_statuses")}
+                      contentClassName="flex justify-center"
+                    >
+                      {(chartProps) => <RadialValidation {...chartProps} />}
+                    </FacetChart>
+                  )}
+                  {isVisible("validation_reasons") && reasons.length > 0 && (
+                    <FacetChart
+                      key={`reasons-${validator}`}
+                      title={`${t(`validator-name.${validator}`, validator)}: ${t("facet-fields.validation_reasons")}`}
+                      facetField="validation_reasons"
+                      data={reasons}
+                      previewData={getPreviewBuckets("validation_reasons")}
+                      activeValues={getActiveValues("validation_reasons")}
+                      {...makeChartHandlers("validation_reasons")}
+                      className="md:col-span-2"
+                    >
+                      {(chartProps) => {
+                        const rawByTranslated = new Map(
+                          chartProps.data.map((b) => [t(`validation-reason.${b.key}`, b.key), b.key]),
+                        );
+                        const translatedData = chartProps.data.map((b) => ({
+                          ...b,
+                          key: t(`validation-reason.${b.key}`, b.key),
+                        }));
+                        const translatedPreview = chartProps.previewData?.map((b) => ({
+                          ...b,
+                          key: t(`validation-reason.${b.key}`, b.key),
+                        }));
+                        return (
+                          <BarFacet
+                            data={translatedData}
+                            previewData={translatedPreview}
+                            activeValues={chartProps.activeValues.map(
+                              (v) => t(`validation-reason.${v}`, v),
+                            )}
+                            onToggle={(translated) =>
+                              chartProps.onToggle(rawByTranslated.get(translated) ?? translated)
+                            }
+                            onHover={(translated) =>
+                              chartProps.onHover(rawByTranslated.get(translated) ?? translated)
+                            }
+                            onLeave={chartProps.onLeave}
+                            labelWidth="50%"
+                          />
+                        );
+                      }}
+                    </FacetChart>
+                  )}
+                </>
+              ) : null,
+            )}
           </div>
         </section>
       )}

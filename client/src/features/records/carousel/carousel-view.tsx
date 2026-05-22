@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import apiClient from "@/lib/api-client";
@@ -29,15 +29,18 @@ import type {
   ComparisonDetail,
   ValidationDetail,
   RecordSummary,
+  RecordReviewsResponse,
 } from "../types";
 import type { AnnotationType } from "./marc-table";
 import { RecordHeader } from "./record-header";
 import { MarcTable } from "./marc-table";
+import { ReviewButton } from "./review-button";
+import { useRecordReviews } from "./use-reviews";
 
 type ViewOption =
   | { kind: "marc" }
   | { kind: "authority"; base: string; systemNumber: string }
-  | { kind: "comparison"; comparisonIdx: number }
+  | { kind: "comparison"; comparator: string; otherRecordId: string }
   | { kind: "validation"; validatorName: string };
 
 function parseViewKey(key: string): ViewOption {
@@ -47,7 +50,9 @@ function parseViewKey(key: string): ViewOption {
     return { kind: "authority", base: rest.slice(0, sepIdx), systemNumber: rest.slice(sepIdx + 1) };
   }
   if (key.startsWith("comp:")) {
-    return { kind: "comparison", comparisonIdx: parseInt(key.slice(5), 10) };
+    const rest = key.slice(5);
+    const sepIdx = rest.indexOf(":");
+    return { kind: "comparison", comparator: rest.slice(0, sepIdx), otherRecordId: rest.slice(sepIdx + 1) };
   }
   if (key.startsWith("val:")) {
     return { kind: "validation", validatorName: key.slice(4) };
@@ -78,17 +83,262 @@ function isViewAvailable(
         (al) => buildAuthorityKey(al.base, al.authority_record_id) === key,
       );
     case "comparison":
-      return !!comparisons && opt.comparisonIdx < comparisons.length;
+      return !!comparisons && comparisons.some(
+        (c) => c.comparator === opt.comparator && c.other_record_id === opt.otherRecordId,
+      );
     case "validation":
       return !!validations && validations.some((v) => v.validator === opt.validatorName);
   }
 }
 
+function RecordDetail({
+  record,
+  selectedView,
+  setSelectedView,
+  targetFieldsOnly,
+  setTargetFieldsOnly,
+}: {
+  record: RecordSummary;
+  selectedView: string;
+  setSelectedView: (v: string) => void;
+  targetFieldsOnly: boolean;
+  setTargetFieldsOnly: (v: boolean) => void;
+}) {
+  const { t } = useTranslation("records");
+
+  const base = record.base;
+  const systemNumber = record.system_number;
+
+  const { data: marcData, isLoading: marcLoading } = useQuery<MarcRecordData>({
+    queryKey: ["catalog-records", "marc", base, systemNumber],
+    queryFn: () =>
+      apiClient
+        .get<MarcRecordData>(`/catalog-records/${base}/${systemNumber}/marc`)
+        .then((r) => r.data),
+  });
+
+  const { data: comparisons, isFetching: comparisonsFetching } = useQuery<ComparisonDetail[]>({
+    queryKey: ["catalog-records", "comparisons", base, systemNumber],
+    queryFn: () =>
+      apiClient
+        .get<ComparisonDetail[]>(`/catalog-records/${base}/${systemNumber}/comparisons`)
+        .then((r) => r.data),
+  });
+
+  const { data: validations, isFetching: validationsFetching } = useQuery<ValidationDetail[]>({
+    queryKey: ["catalog-records", "validations", base, systemNumber],
+    queryFn: () =>
+      apiClient
+        .get<ValidationDetail[]>(`/catalog-records/${base}/${systemNumber}/validations`)
+        .then((r) => r.data),
+  });
+
+  const { data: reviews } = useRecordReviews(base, systemNumber);
+
+  const viewOpt = parseViewKey(selectedView);
+
+  const authorityBase = viewOpt.kind === "authority" ? viewOpt.base : "";
+  const authoritySystemNumber = viewOpt.kind === "authority" ? viewOpt.systemNumber : "";
+  const { data: authorityMarcData, isLoading: authorityMarcLoading } = useQuery<MarcRecordData>({
+    queryKey: ["catalog-records", "marc", authorityBase, authoritySystemNumber],
+    queryFn: () =>
+      apiClient
+        .get<MarcRecordData>(`/catalog-records/${authorityBase}/${authoritySystemNumber}/marc`)
+        .then((r) => r.data),
+    enabled: !!authorityBase && !!authoritySystemNumber,
+  });
+
+  // When switching records, keep selection if available, otherwise fall back to "marc"
+  const prevRecordId = useRef(record.id);
+  useEffect(() => {
+    if (record.id === prevRecordId.current) return;
+    if (comparisonsFetching || validationsFetching) return;
+    prevRecordId.current = record.id;
+    if (selectedView !== "marc" && !isViewAvailable(selectedView, record, comparisons, validations)) {
+      setSelectedView("marc");
+      setTargetFieldsOnly(false);
+    }
+  }, [record, comparisons, validations, selectedView, comparisonsFetching, validationsFetching, setSelectedView, setTargetFieldsOnly]);
+
+  const authorityOptions = record.authority_links.map((al) => ({
+    key: buildAuthorityKey(al.base, al.authority_record_id),
+    label: `${al.base} - ${al.authority_record_id}`,
+  }));
+
+  const comparisonOptions = (comparisons ?? []).map((c) => ({
+    key: `comp:${c.comparator}:${c.other_record_id}`,
+    label: `${c.comparator} → ${c.base}`,
+  }));
+
+  const validatorNames = [...new Set((validations ?? []).map((v) => v.validator))];
+  const validationOptions = validatorNames.map((name) => ({
+    key: `val:${name}`,
+    label: name,
+  }));
+
+  let annotationType: AnnotationType | undefined;
+  let comparisonAnnotations = undefined;
+  let validationAnnotations = undefined;
+
+  const matchedComparison = viewOpt.kind === "comparison" && comparisons
+    ? comparisons.find((c) => c.comparator === viewOpt.comparator && c.other_record_id === viewOpt.otherRecordId)
+    : undefined;
+  if (matchedComparison) {
+    annotationType = "comparison";
+    comparisonAnnotations = matchedComparison.result.field_results ?? undefined;
+  } else if (viewOpt.kind === "validation" && validations) {
+    annotationType = "validation";
+    validationAnnotations = validations
+      .filter((v) => v.validator === viewOpt.validatorName)
+      .map((v) => v.result);
+  }
+
+  const isAuthority = viewOpt.kind === "authority";
+  const displayMarc = isAuthority ? authorityMarcData : marcData;
+  const displayLoading = isAuthority ? authorityMarcLoading : marcLoading;
+
+  const hasAnnotation = annotationType !== undefined;
+  const targetTags = new Set<string>();
+  if (targetFieldsOnly && hasAnnotation) {
+    comparisonAnnotations?.forEach((a) => targetTags.add(a.tag));
+    validationAnnotations?.forEach((a) => targetTags.add(a.target.tag));
+  }
+
+  return (
+    <div className="space-y-4">
+      <RecordHeader record={record} onSelectView={setSelectedView} />
+
+      <div className="flex items-center gap-4">
+        <Select value={selectedView} onValueChange={(v) => {
+          setSelectedView(v);
+          const opt = parseViewKey(v);
+          if (opt.kind !== "comparison" && opt.kind !== "validation") {
+            setTargetFieldsOnly(false);
+          }
+        }}>
+          <SelectTrigger className="w-[320px]">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="marc">{t("carousel.marc-record")}</SelectItem>
+
+            {authorityOptions.length > 0 && (
+              <>
+                <SelectSeparator />
+                <SelectGroup>
+                  <SelectLabel>{t("carousel.authority-records")}</SelectLabel>
+                  {authorityOptions.map((opt) => (
+                    <SelectItem key={opt.key} value={opt.key}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </>
+            )}
+
+            {comparisonOptions.length > 0 && (
+              <>
+                <SelectSeparator />
+                <SelectGroup>
+                  <SelectLabel>{t("carousel.comparisons")}</SelectLabel>
+                  {comparisonOptions.map((opt) => (
+                    <SelectItem key={opt.key} value={opt.key}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </>
+            )}
+
+            {validationOptions.length > 0 && (
+              <>
+                <SelectSeparator />
+                <SelectGroup>
+                  <SelectLabel>{t("carousel.validations")}</SelectLabel>
+                  {validationOptions.map((opt) => (
+                    <SelectItem key={opt.key} value={opt.key}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </>
+            )}
+          </SelectContent>
+        </Select>
+
+        {hasAnnotation && (
+          <div className="flex items-center gap-2">
+            <Checkbox
+              id="target-fields-only"
+              checked={targetFieldsOnly}
+              onCheckedChange={(checked) => setTargetFieldsOnly(checked === true)}
+            />
+            <Label htmlFor="target-fields-only" className="text-sm cursor-pointer">
+              {t("carousel.target-fields-only")}
+            </Label>
+          </div>
+        )}
+
+        {viewOpt.kind === "comparison" && (
+          <ReviewButton
+            base={base}
+            systemNumber={systemNumber}
+            aspectName={viewOpt.comparator}
+            currentReview={reviews?.current.find(
+              (r) => r.aspect_name === viewOpt.comparator,
+            )}
+          />
+        )}
+        {viewOpt.kind === "validation" && (
+          <ReviewButton
+            base={base}
+            systemNumber={systemNumber}
+            aspectName={viewOpt.validatorName}
+            currentReview={reviews?.current.find(
+              (r) => r.aspect_name === viewOpt.validatorName,
+            )}
+          />
+        )}
+      </div>
+
+      {displayLoading ? (
+        <p className="text-muted-foreground">{t("common:loading")}</p>
+      ) : displayMarc ? (
+        <MarcTable
+          marc={displayMarc}
+          annotationType={annotationType}
+          comparisonAnnotations={comparisonAnnotations}
+          validationAnnotations={validationAnnotations}
+          targetTags={targetFieldsOnly && targetTags.size > 0 ? targetTags : undefined}
+        />
+      ) : (
+        <p className="text-muted-foreground">-</p>
+      )}
+    </div>
+  );
+}
+
 export function CarouselView() {
   const { t } = useTranslation("records");
   const { filters, setFilters, buildSearchPayload } = useRecordFilters();
-  const [selectedView, setSelectedView] = useState<string>("marc");
-  const [targetFieldsOnly, setTargetFieldsOnly] = useState(false);
+  const [selectedView, setSelectedView] = useState<string>(
+    filters.carouselView || "marc",
+  );
+  const [targetFieldsOnly, _setTargetFieldsOnly] = useState(
+    () => localStorage.getItem("carousel:targetFieldsOnly") === "true",
+  );
+  const setTargetFieldsOnly = useCallback((v: boolean) => {
+    _setTargetFieldsOnly(v);
+    localStorage.setItem("carousel:targetFieldsOnly", String(v));
+  }, []);
+
+  // Consume carouselView from URL params
+  useEffect(() => {
+    if (filters.carouselView) {
+      setSelectedView(filters.carouselView);
+      setFilters({ carouselView: "" });
+    }
+  }, [filters.carouselView, setFilters]);
   const [api, setApi] = useState<CarouselApi>();
   const prevRef = useRef<HTMLButtonElement>(null);
   const nextRef = useRef<HTMLButtonElement>(null);
@@ -103,186 +353,54 @@ export function CarouselView() {
   });
 
   const records = searchData?.items ?? [];
-  const currentIndex = records.findIndex((r) => r.id === filters.recordId);
-  const currentRecord = currentIndex >= 0 ? records[currentIndex] : null;
+  const total = searchData?.total ?? 0;
+  const recordIndex = Math.min(filters.recordIndex, Math.max(0, records.length - 1));
+  const currentRecord = records.length > 0 ? records[recordIndex] : null;
 
-  // Auto-select first record
+  // Clamp recordIndex when data loads (e.g. last page has fewer items)
   useEffect(() => {
-    if (!filters.recordId && records.length > 0) {
-      setFilters({ recordId: records[0].id } as any);
+    if (records.length > 0 && filters.recordIndex >= records.length) {
+      setFilters({ recordIndex: records.length - 1 });
     }
-  }, [records, filters.recordId, setFilters]);
+  }, [records.length, filters.recordIndex, setFilters]);
 
-  // Sync carousel position when currentIndex changes (e.g. from table click)
-  useEffect(() => {
-    if (api && currentIndex >= 0) {
-      api.scrollTo(currentIndex, true);
+  // Cross-page navigation helpers
+  const canGoPrev = recordIndex > 0 || filters.page > 1;
+  const canGoNext = recordIndex < records.length - 1 || filters.page * filters.pageSize < total;
+
+  function goToPrev() {
+    if (recordIndex > 0) {
+      setFilters({ recordIndex: recordIndex - 1 });
+    } else if (filters.page > 1) {
+      setFilters({ page: filters.page - 1, recordIndex: filters.pageSize - 1 });
     }
-  }, [api, currentIndex]);
-
-  // Listen to carousel slide changes and update record filter
-  useEffect(() => {
-    if (!api) return;
-
-    const onSelect = () => {
-      const idx = api.selectedScrollSnap();
-      if (idx >= 0 && idx < records.length && records[idx].id !== filters.recordId) {
-        setFilters({ recordId: records[idx].id } as any);
-      }
-    };
-
-    api.on("select", onSelect);
-    return () => { api.off("select", onSelect); };
-  }, [api, records, filters.recordId, setFilters]);
-
-  // Shift focus to the other arrow when one becomes disabled at edges
-  useEffect(() => {
-    if (!api) return;
-
-    const handleFocus = () => {
-      setTimeout(() => {
-        const active = document.activeElement;
-        if (prevRef.current?.disabled && (active === prevRef.current || active === document.body)) {
-          nextRef.current?.focus();
-        } else if (nextRef.current?.disabled && (active === nextRef.current || active === document.body)) {
-          prevRef.current?.focus();
-        }
-      }, 0);
-    };
-
-    api.on("select", handleFocus);
-    return () => { api.off("select", handleFocus); };
-  }, [api]);
-
-  // Auto-focus a non-disabled navigation button when entering the carousel tab
-  useEffect(() => {
-    if (!api) return;
-    const timer = setTimeout(() => {
-      if (api.canScrollNext()) {
-        nextRef.current?.focus();
-      } else if (api.canScrollPrev()) {
-        prevRef.current?.focus();
-      }
-    }, 50);
-    return () => clearTimeout(timer);
-  }, [api]);
-
-  const base = currentRecord?.base ?? "";
-  const systemNumber = currentRecord?.system_number ?? "";
-
-  const { data: marcData, isLoading: marcLoading } = useQuery<MarcRecordData>({
-    queryKey: ["catalog-records", "marc", base, systemNumber],
-    queryFn: () =>
-      apiClient
-        .get<MarcRecordData>(
-          `/catalog-records/${base}/${systemNumber}/marc`,
-        )
-        .then((r) => r.data),
-    enabled: !!base && !!systemNumber,
-  });
-
-  const { data: comparisons, isFetching: comparisonsFetching } = useQuery<ComparisonDetail[]>({
-    queryKey: ["catalog-records", "comparisons", base, systemNumber],
-    queryFn: () =>
-      apiClient
-        .get<ComparisonDetail[]>(
-          `/catalog-records/${base}/${systemNumber}/comparisons`,
-        )
-        .then((r) => r.data),
-    enabled: !!base && !!systemNumber,
-  });
-
-  const { data: validations, isFetching: validationsFetching } = useQuery<ValidationDetail[]>({
-    queryKey: ["catalog-records", "validations", base, systemNumber],
-    queryFn: () =>
-      apiClient
-        .get<ValidationDetail[]>(
-          `/catalog-records/${base}/${systemNumber}/validations`,
-        )
-        .then((r) => r.data),
-    enabled: !!base && !!systemNumber,
-  });
-
-  // Resolve view option
-  const viewOpt = parseViewKey(selectedView);
-
-  // Fetch authority record MARC when an authority view is selected
-  const authorityBase = viewOpt.kind === "authority" ? viewOpt.base : "";
-  const authoritySystemNumber = viewOpt.kind === "authority" ? viewOpt.systemNumber : "";
-  const { data: authorityMarcData, isLoading: authorityMarcLoading } = useQuery<MarcRecordData>({
-    queryKey: ["catalog-records", "marc", authorityBase, authoritySystemNumber],
-    queryFn: () =>
-      apiClient
-        .get<MarcRecordData>(
-          `/catalog-records/${authorityBase}/${authoritySystemNumber}/marc`,
-        )
-        .then((r) => r.data),
-    enabled: !!authorityBase && !!authoritySystemNumber,
-  });
-
-  // When switching records, keep selection if available, otherwise fall back to "marc"
-  // Wait until comparisons/validations have finished loading before checking availability
-  const prevRecordId = useRef(currentRecord?.id);
-  useEffect(() => {
-    if (!currentRecord || currentRecord.id === prevRecordId.current) return;
-    if (comparisonsFetching || validationsFetching) return;
-    prevRecordId.current = currentRecord.id;
-    if (selectedView !== "marc" && !isViewAvailable(selectedView, currentRecord, comparisons, validations)) {
-      setSelectedView("marc");
-      setTargetFieldsOnly(false);
-    }
-  }, [currentRecord, comparisons, validations, selectedView, comparisonsFetching, validationsFetching]);
-
-  // Build authority link options
-  const authorityOptions = currentRecord?.authority_links.map((al) => ({
-    key: buildAuthorityKey(al.base, al.authority_record_id),
-    label: `${al.base} - ${al.authority_record_id}`,
-  })) ?? [];
-
-  // Build comparison options
-  const comparisonOptions = (comparisons ?? []).map((c, i) => ({
-    key: `comp:${i}`,
-    label: `${c.comparator} → ${c.base}`,
-  }));
-
-  // Build validation options (deduplicated by validator name)
-  const validatorNames = [...new Set((validations ?? []).map((v) => v.validator))];
-  const validationOptions = validatorNames.map((name) => ({
-    key: `val:${name}`,
-    label: name,
-  }));
-
-  const hasOptions = authorityOptions.length > 0 || comparisonOptions.length > 0 || validationOptions.length > 0;
-
-  // Resolve annotation data for MarcTable
-  let annotationType: AnnotationType | undefined;
-  let comparisonAnnotations = undefined;
-  let validationAnnotations = undefined;
-
-  if (viewOpt.kind === "comparison" && comparisons && viewOpt.comparisonIdx < comparisons.length) {
-    annotationType = "comparison";
-    comparisonAnnotations = comparisons[viewOpt.comparisonIdx].result.field_results ?? undefined;
-  } else if (viewOpt.kind === "validation" && validations) {
-    annotationType = "validation";
-    validationAnnotations = validations
-      .filter((v) => v.validator === viewOpt.validatorName)
-      .map((v) => v.result);
   }
 
-  // Determine which MARC data and loading state to use
-  const isAuthority = viewOpt.kind === "authority";
-  const displayMarc = isAuthority ? authorityMarcData : marcData;
-  const displayLoading = isAuthority ? authorityMarcLoading : marcLoading;
-
-  // Determine target field tags for filtering
-  const hasAnnotation = annotationType !== undefined;
-  const targetTags = new Set<string>();
-  if (targetFieldsOnly && hasAnnotation) {
-    comparisonAnnotations?.forEach((a) => targetTags.add(a.tag));
-    validationAnnotations?.forEach((a) => targetTags.add(a.target.tag));
+  function goToNext() {
+    if (recordIndex < records.length - 1) {
+      setFilters({ recordIndex: recordIndex + 1 });
+    } else if (filters.page * filters.pageSize < total) {
+      setFilters({ page: filters.page + 1, recordIndex: 0 });
+    }
   }
 
-  if (!filters.recordId) {
+  // Keyboard navigation
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.key === "ArrowLeft" && canGoPrev) {
+        e.preventDefault();
+        goToPrev();
+      } else if (e.key === "ArrowRight" && canGoNext) {
+        e.preventDefault();
+        goToNext();
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  });
+
+  if (records.length === 0) {
     return (
       <p className="py-8 text-center text-muted-foreground">
         {t("carousel.no-record")}
@@ -290,113 +408,50 @@ export function CarouselView() {
     );
   }
 
+  // Single record — no carousel chrome
+  if (records.length === 1 && total <= 1) {
+    return (
+      <div className="mx-12">
+        <RecordDetail
+          record={records[0]}
+          selectedView={selectedView}
+          setSelectedView={setSelectedView}
+          targetFieldsOnly={targetFieldsOnly}
+          setTargetFieldsOnly={setTargetFieldsOnly}
+        />
+      </div>
+    );
+  }
+
+  // Multiple records — use carousel
   return (
-    <Carousel
-      setApi={setApi}
-      opts={{ startIndex: currentIndex >= 0 ? currentIndex : 0, watchDrag: false }}
-      className="mx-12"
-    >
-      <CarouselContent>
-        {records.map((record) => (
-          <CarouselItem key={record.id}>
-            {record.id === currentRecord?.id && (
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <RecordHeader record={record} />
-                </div>
-
-                <div className="flex items-center gap-4">
-                  <Select value={selectedView} onValueChange={(v) => {
-                    setSelectedView(v);
-                    const opt = parseViewKey(v);
-                    if (opt.kind !== "comparison" && opt.kind !== "validation") {
-                      setTargetFieldsOnly(false);
-                    }
-                  }}>
-                    <SelectTrigger className="w-[320px]">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="marc">{t("carousel.marc-record")}</SelectItem>
-
-                      {authorityOptions.length > 0 && (
-                        <>
-                          <SelectSeparator />
-                          <SelectGroup>
-                            <SelectLabel>{t("carousel.authority-records")}</SelectLabel>
-                            {authorityOptions.map((opt) => (
-                              <SelectItem key={opt.key} value={opt.key}>
-                                {opt.label}
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                        </>
-                      )}
-
-                      {comparisonOptions.length > 0 && (
-                        <>
-                          <SelectSeparator />
-                          <SelectGroup>
-                            <SelectLabel>{t("carousel.comparisons")}</SelectLabel>
-                            {comparisonOptions.map((opt) => (
-                              <SelectItem key={opt.key} value={opt.key}>
-                                {opt.label}
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                        </>
-                      )}
-
-                      {validationOptions.length > 0 && (
-                        <>
-                          <SelectSeparator />
-                          <SelectGroup>
-                            <SelectLabel>{t("carousel.validations")}</SelectLabel>
-                            {validationOptions.map((opt) => (
-                              <SelectItem key={opt.key} value={opt.key}>
-                                {opt.label}
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                        </>
-                      )}
-                    </SelectContent>
-                  </Select>
-
-                  {hasAnnotation && (
-                    <div className="flex items-center gap-2">
-                      <Checkbox
-                        id="target-fields-only"
-                        checked={targetFieldsOnly}
-                        onCheckedChange={(checked) => setTargetFieldsOnly(checked === true)}
-                      />
-                      <Label htmlFor="target-fields-only" className="text-sm cursor-pointer">
-                        {t("carousel.target-fields-only")}
-                      </Label>
-                    </div>
-                  )}
-                </div>
-
-                {displayLoading ? (
-                  <p className="text-muted-foreground">{t("common:loading")}</p>
-                ) : displayMarc ? (
-                  <MarcTable
-                    marc={displayMarc}
-                    annotationType={annotationType}
-                    comparisonAnnotations={comparisonAnnotations}
-                    validationAnnotations={validationAnnotations}
-                    targetTags={targetFieldsOnly && targetTags.size > 0 ? targetTags : undefined}
-                  />
-                ) : (
-                  <p className="text-muted-foreground">-</p>
-                )}
-              </div>
-            )}
-          </CarouselItem>
-        ))}
-      </CarouselContent>
-      <CarouselPrevious ref={prevRef} className="fixed left-4 top-1/2" />
-      <CarouselNext ref={nextRef} className="fixed right-4 top-1/2" />
-    </Carousel>
+    <div className="mx-12 relative">
+      <RecordDetail
+        key={currentRecord?.id}
+        record={currentRecord!}
+        selectedView={selectedView}
+        setSelectedView={setSelectedView}
+        targetFieldsOnly={targetFieldsOnly}
+        setTargetFieldsOnly={setTargetFieldsOnly}
+      />
+      <button
+        ref={prevRef}
+        onClick={goToPrev}
+        disabled={!canGoPrev}
+        className="fixed left-4 top-1/2 -translate-y-1/2 inline-flex h-8 w-8 items-center justify-center rounded-full border bg-background shadow-sm hover:bg-accent disabled:opacity-50 disabled:pointer-events-none"
+        aria-label={t("carousel.previous")}
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+      </button>
+      <button
+        ref={nextRef}
+        onClick={goToNext}
+        disabled={!canGoNext}
+        className="fixed right-4 top-1/2 -translate-y-1/2 inline-flex h-8 w-8 items-center justify-center rounded-full border bg-background shadow-sm hover:bg-accent disabled:opacity-50 disabled:pointer-events-none"
+        aria-label={t("carousel.next")}
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+      </button>
+    </div>
   );
 }

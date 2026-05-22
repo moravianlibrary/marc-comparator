@@ -1,4 +1,4 @@
-import { skipToken, useQuery, useQueryClient } from "@tanstack/react-query";
+import { skipToken, useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
 import apiClient from "@/lib/api-client";
 import { useRecordFilters } from "../use-record-filters";
 import type { FacetBucket, FacetsResponse, FacetsPreviewResponse } from "../types";
@@ -15,6 +15,7 @@ export function useFacets() {
           filters: recordFilter,
         })
         .then((r) => r.data),
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -100,9 +101,10 @@ export function usePreviewForValue(
  * Eagerly fetches the validators preview and returns per-validator
  * validation_statuses breakdowns. Shares cache with prefetchFacetPreview.
  */
-export function usePerValidatorStatuses(): {
+export function usePerValidatorData(): {
   validator: string;
   statuses: FacetBucket[];
+  reasons: FacetBucket[];
 }[] | undefined {
   const { buildRecordFilter } = useRecordFilters();
   const recordFilter = buildRecordFilter();
@@ -122,6 +124,7 @@ export function usePerValidatorStatuses(): {
         })
         .then((r) => r.data),
     staleTime: 30_000,
+    placeholderData: keepPreviousData,
   });
 
   if (!data) return undefined;
@@ -130,5 +133,7 @@ export function usePerValidatorStatuses(): {
     validator: p.target_value,
     statuses:
       p.facets.find((f) => f.field === "validation_statuses")?.buckets ?? [],
+    reasons:
+      p.facets.find((f) => f.field === "validation_reasons")?.buckets ?? [],
   }));
 }

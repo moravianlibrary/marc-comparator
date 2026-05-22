@@ -8,6 +8,7 @@ interface ContextPillsProps {
   onToggle: (value: string) => void;
   onHover: (value: string) => void;
   onLeave: () => void;
+  formatLabel?: (key: string) => string;
 }
 
 export function ContextPills({
@@ -17,8 +18,9 @@ export function ContextPills({
   onToggle,
   onHover,
   onLeave,
+  formatLabel,
 }: ContextPillsProps) {
-  const isShowingPreview = previewBuckets && previewBuckets.length > 0;
+  const isShowingPreview = previewBuckets != null;
 
   return (
     <div className="flex flex-wrap gap-1.5">
@@ -30,12 +32,13 @@ export function ContextPills({
         );
         const previewCount = previewBucket?.count ?? 0;
         const isDisabled = isShowingPreview && !isActive && previewCount === 0;
+        const showPreviewCount = isShowingPreview && !isActive;
         return (
           <button
             key={bucket.key}
             disabled={isDisabled}
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-sm font-medium transition-colors",
+              "relative inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-sm font-medium transition-colors",
               isDisabled
                 ? "bg-muted text-muted-foreground opacity-30 cursor-not-allowed"
                 : isActive
@@ -48,20 +51,20 @@ export function ContextPills({
             onMouseEnter={() => onHover(bucket.key)}
             onMouseLeave={onLeave}
           >
-            <span>{bucket.key}</span>
+            <span>{formatLabel ? formatLabel(bucket.key) : bucket.key}</span>
             <span
               className={cn(
-                "text-xs tabular-nums",
+                "text-xs tabular-nums rounded px-1 py-0.5",
                 isActive
-                  ? "text-primary-foreground/70"
-                  : "text-muted-foreground",
+                  ? "bg-primary-foreground/20 text-primary-foreground/70"
+                  : "bg-foreground text-background",
               )}
             >
               {bucket.count.toLocaleString("cs-CZ")}
             </span>
-            {isShowingPreview && !isActive && (
-              <span className="text-xs tabular-nums text-chart-2">
-                {(previewBucket?.count ?? 0).toLocaleString("cs-CZ")}
+            {showPreviewCount && (
+              <span className="absolute -top-2 -right-2 text-[10px] tabular-nums leading-none rounded-full bg-primary text-primary-foreground px-1 py-0.5 min-w-[1.25rem] text-center">
+                {previewCount.toLocaleString("cs-CZ")}
               </span>
             )}
           </button>

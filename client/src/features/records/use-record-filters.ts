@@ -24,34 +24,36 @@ export function useRecordFilters() {
       tab: parseAsStringLiteral(tabValues).withDefault("plots"),
       page: parseAsInteger.withDefault(1),
       pageSize: parseAsInteger.withDefault(25),
-      sortBy: parseAsStringLiteral(sortByValues).withDefault("id"),
-      sortOrder: parseAsStringLiteral(sortOrderValues).withDefault("asc"),
+      sortBy: parseAsStringLiteral(sortByValues).withDefault("latest_sync"),
+      sortOrder: parseAsStringLiteral(sortOrderValues).withDefault("desc"),
       search: parseAsString.withDefault(""),
 
       bases: parseAsArrayOf(parseAsString).withDefault([]),
       typeOfRecord: parseAsArrayOf(parseAsString).withDefault([]),
       bibliographicLevel: parseAsArrayOf(parseAsString).withDefault([]),
 
-      hidden: parseAsString.withDefault(""),
+      reviewStatuses: parseAsArrayOf(parseAsString).withDefault([]),
       deleted: parseAsString.withDefault(""),
       processed: parseAsString.withDefault(""),
 
       authorityLinkLinkers: parseAsArrayOf(parseAsString).withDefault([]),
       authorityLinkBases: parseAsArrayOf(parseAsString).withDefault([]),
-      comparators: parseAsArrayOf(parseAsString).withDefault([]),
       comparisonBases: parseAsArrayOf(parseAsString).withDefault([]),
       matchQualities: parseAsArrayOf(parseAsString).withDefault([]),
       fieldExplanations: parseAsArrayOf(parseAsString).withDefault([]),
       validators: parseAsArrayOf(parseAsString).withDefault([]),
       validationStatuses: parseAsArrayOf(parseAsString).withDefault([]),
       validationTargetTags: parseAsArrayOf(parseAsString).withDefault([]),
+      validationReasons: parseAsArrayOf(parseAsString).withDefault([]),
 
       scoreMin: parseAsFloat.withDefault(0),
       scoreMax: parseAsFloat.withDefault(1),
 
       recordId: parseAsString.withDefault(""),
+      recordIndex: parseAsInteger.withDefault(0),
+      carouselView: parseAsString.withDefault(""),
     },
-    { history: "replace" },
+    { history: "replace", shallow: true },
   );
 
   function setTab(tab: RecordTab) {
@@ -84,22 +86,25 @@ export function useRecordFilters() {
       bases: [],
       typeOfRecord: [],
       bibliographicLevel: [],
-      hidden: "",
+      reviewStatuses: [],
       deleted: "",
       processed: "",
       authorityLinkLinkers: [],
       authorityLinkBases: [],
-      comparators: [],
       comparisonBases: [],
       matchQualities: [],
       fieldExplanations: [],
       validators: [],
       validationStatuses: [],
       validationTargetTags: [],
+      validationReasons: [],
       scoreMin: 0,
       scoreMax: 1,
       search: "",
       page: 1,
+      recordId: "",
+      recordIndex: 0,
+      carouselView: "",
     });
   }
 
@@ -110,17 +115,16 @@ export function useRecordFilters() {
     if (filters.typeOfRecord.length) f.type_of_record = filters.typeOfRecord;
     if (filters.bibliographicLevel.length)
       f.bibliographic_level = filters.bibliographicLevel;
-    if (filters.hidden === "true") f.hidden = true;
-    if (filters.hidden === "false") f.hidden = false;
     if (filters.deleted === "true") f.deleted = true;
     if (filters.deleted === "false") f.deleted = false;
     if (filters.processed === "true") f.processed = true;
     if (filters.processed === "false") f.processed = false;
+    if (filters.reviewStatuses.length)
+      f.review_statuses = filters.reviewStatuses;
     if (filters.authorityLinkLinkers.length)
       f.authority_link_linkers = filters.authorityLinkLinkers;
     if (filters.authorityLinkBases.length)
       f.authority_link_bases = filters.authorityLinkBases;
-    if (filters.comparators.length) f.comparators = filters.comparators;
     if (filters.comparisonBases.length)
       f.comparison_bases = filters.comparisonBases;
     if (filters.matchQualities.length)
@@ -132,8 +136,11 @@ export function useRecordFilters() {
       f.validation_statuses = filters.validationStatuses;
     if (filters.validationTargetTags.length)
       f.validation_target_tags = filters.validationTargetTags;
+    if (filters.validationReasons.length)
+      f.validation_reasons = filters.validationReasons;
     if (filters.scoreMin > 0) f.score_min = filters.scoreMin;
     if (filters.scoreMax < 1) f.score_max = filters.scoreMax;
+    if (filters.recordId) f.record_ids = [filters.recordId];
     return f;
   }
 

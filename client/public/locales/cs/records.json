@@ -5,6 +5,51 @@
     "carousel": "Detail záznamu",
     "addition": "Přidání záznamů"
   },
+  "help": {
+    "plots": {
+      "button": "Nápověda k filtrování",
+      "title": "Filtrování záznamů",
+      "description": "Tato záložka zobrazuje souhrnné statistiky a vizualizace všech záznamů v systému. Grafy jsou rozděleny do sekcí podle kontextu, stavu záznamů, analýzy porovnání a validací.",
+      "actions": [
+        "Kliknutím na hodnotu v grafu ji přidáte jako filtr",
+        "Najetím myší na hodnotu zobrazíte náhled filtrace v ostatních grafech",
+        "Aktivní filtry se zobrazují v horní liště a lze je odebrat kliknutím",
+        "Pomocí ozubeného kola můžete skrýt nebo zobrazit jednotlivé grafy a sekce"
+      ]
+    },
+    "table": {
+      "button": "Nápověda k výsledkům",
+      "title": "Tabulka výsledků",
+      "description": "Tabulka zobrazuje záznamy odpovídající aktuálním filtrům. Můžete procházet výsledky, řadit podle sloupců a provádět akce nad záznamy.",
+      "actions": [
+        "Kliknutím na řádek otevřete detail záznamu v záložce Carousel",
+        "Pomocí vyhledávacího pole můžete hledat podle systémového čísla nebo fulltextem v názvech a autorech",
+        "Hromadné akce (zpracování, skrytí, zobrazení) lze provést nad všemi vyfiltrovanými výsledky",
+        "Nastavení sloupců umožňuje zobrazit nebo skrýt jednotlivé sloupce"
+      ]
+    },
+    "carousel": {
+      "button": "Nápověda k detailu",
+      "title": "Detail záznamu",
+      "description": "Záložka zobrazuje detailní pohled na jednotlivý MARC záznam včetně jeho porovnání a validací. Můžete procházet záznamy pomocí šipek.",
+      "actions": [
+        "Šipkami vlevo a vpravo přecházíte mezi záznamy ve výsledcích",
+        "MARC záznam zobrazuje všechna pole s případnými anotacemi z porovnání",
+        "Sekce porovnání a validací zobrazují výsledky jednotlivých porovnávačů a validátorů",
+        "Trvalý odkaz na záznam lze zkopírovat pomocí ikony odkazu"
+      ]
+    },
+    "addition": {
+      "button": "Nápověda k přidání",
+      "title": "Přidání záznamů",
+      "description": "Záložka umožňuje přidávat nové záznamy do systému jednotlivě, hromadně nebo synchronizací z katalogu.",
+      "actions": [
+        "Jednotlivý záznam přidáte zadáním báze a systémového čísla",
+        "Hromadné přidání umožňuje zadat více systémových čísel najednou (jedno na řádek)",
+        "Synchronizace z katalogu stáhne všechny záznamy z vybrané báze, volitelně od zadaného data"
+      ]
+    }
+  },
   "plots": {
     "no-data": "Žádná data k zobrazení",
     "total-records": "Celkem záznamů: {{count}}",
@@ -15,9 +60,9 @@
     "clear-all": "Zrušit vše",
     "sections": {
       "context": "Kontext",
-      "health": "Stav kvality",
-      "classification": "Klasifikace záznamů",
-      "analysis": "Analýza porovnání"
+      "records": "Stav záznamů",
+      "comparison": "Analýza porovnání",
+      "validation": "Analýza validací"
     },
     "section-config": "Nastavení sekcí"
   },
@@ -37,15 +82,23 @@
     },
     "actions": {
       "process": "Zpracovat",
-      "hide": "Skrýt",
-      "show": "Zobrazit",
       "advanced": "Pokročilé akce",
       "link-authorities": "Propojit s autoritami",
       "compare": "Porovnat",
-      "validate": "Validovat"
+      "validate": "Validovat",
+      "confirm-task": "Opravdu chcete spustit úlohu \"{{action}}\"?"
     },
     "column-config": "Nastavení sloupců",
-    "search-placeholder": "Hledat záznamy..."
+    "search-placeholder": "Hledat záznamy...",
+    "search-help": {
+      "title": "Jak funguje vyhledávání",
+      "exact-match": "Přesná shoda systémového čísla",
+      "exact-match-desc": "Zadejte přesné systémové číslo záznamu pro přímé vyhledání.",
+      "text-search": "Fulltextové vyhledávání",
+      "text-search-desc": "Vyhledává v názvech a autorech záznamů."
+    },
+    "bulk-actions": "Akce nad výsledky",
+    "page-size": "Záznamů na stránku"
   },
   "carousel": {
     "previous": "Předchozí záznam",
@@ -61,7 +114,20 @@
     "match-quality": "Kvalita shody",
     "status": "Stav",
     "reason": "Důvod",
-    "hint": "Nápověda"
+    "hint": "Nápověda",
+    "authority-linked": "Propojeno s autoritou {{base}}",
+    "permalink": "Trvalý odkaz na záznam",
+    "link-copied": "Odkaz zkopírován do schránky",
+    "review": {
+      "mark-reviewed": "Označit jako revidováno",
+      "add-note": "Poznámka k revizi (volitelné)",
+      "note-placeholder": "Poznámka...",
+      "confirm": "Potvrdit",
+      "reviewed-by": "Revidoval/a {{name}}",
+      "outdated": "Zastaralé – nutná nová revize",
+      "remove": "Zrušit revizi",
+      "re-review": "Znovu revidovat"
+    }
   },
   "addition": {
     "title": "Přidání záznamů",
@@ -90,26 +156,27 @@
     "type_of_record": "Typ záznamu",
     "bibliographic_level": "Bibliografická úroveň",
     "is_deleted": "Stav smazání",
-    "is_hidden": "Viditelnost",
+    "review_status": "Revize",
     "is_processed": "Zpracování",
     "authority_link_linkers": "Linkery autorit",
     "authority_link_bases": "Báze autorit",
-    "comparators": "Porovnávače",
     "comparison_bases": "Báze porovnání",
     "match_qualities": "Kvalita shody",
     "validators": "Validátory",
-    "validation_statuses": "Stav validace",
+    "validation_statuses": "Výsledky validací",
     "validation_target_tags": "Validační cílový tag",
+    "validation_reasons": "Vysvětlení validací",
     "field_explanations": "Vysvětlení výsledku",
     "overall_score": "Celkové skóre porovnání"
   },
   "state": {
     "Active": "Aktivní",
     "Deleted": "Smazaný",
-    "Visible": "Viditelný",
-    "Hidden": "Skrytý",
     "Unprocessed": "Nezpracovaný",
-    "Processed": "Zpracovaný"
+    "Processed": "Zpracovaný",
+    "Reviewed": "Revidováno",
+    "PartiallyReviewed": "Částečně revidováno",
+    "Unreviewed": "Nerevidováno"
   },
   "match-quality": {
     "Excellent": "Výborná",
@@ -122,12 +189,50 @@
     "ForReview": "K revizi",
     "AdditionalInfo": "Doplňující info"
   },
+  "type-of-record": {
+    "a": "Textový dokument",
+    "c": "Notový zápis",
+    "d": "Rukopisný notový zápis",
+    "e": "Kartografický dokument",
+    "f": "Rukopisný kartografický dokument",
+    "g": "Projekční médium",
+    "i": "Zvukový záznam (nehudebn.)",
+    "j": "Zvukový záznam (hudební)",
+    "k": "Dvourozměrná grafika",
+    "m": "Počítačový soubor",
+    "o": "Komplet",
+    "p": "Smíšené materiály",
+    "r": "Trojrozměrný artefakt",
+    "t": "Rukopisný textový dokument"
+  },
+  "bibliographic-level": {
+    "a": "Analytická část (monografie)",
+    "b": "Analytická část (seriál)",
+    "c": "Sbírka",
+    "d": "Podjednotka",
+    "i": "Integrační zdroj",
+    "m": "Monografie",
+    "s": "Seriál"
+  },
+  "validator-name": {
+    "kramerius-links": "Kramerius odkazy"
+  },
   "field-explanation": {
-    "IDENTICAL": "Identický",
-    "NON_STANDARDIZED": "Nestandardizovaný",
-    "TYPO": "Překlep",
-    "INCOMPLETE": "Neúplný",
-    "INCORRECT": "Nesprávný",
-    "MISSING": "Chybějící"
+    "Identical": "Identický",
+    "NonStandardized": "Nestandardizovaný",
+    "Typo": "Překlep",
+    "Incomplete": "Neúplný",
+    "Incorrect": "Nesprávný",
+    "Missing": "Chybějící"
+  },
+  "validation-reason": {
+    "Missing link text in $y": "Chybějící text odkazu v $y",
+    "Invalid Kramerius link format": "Neplatný formát odkazu Kramerius",
+    "No Kramerius links found or expected": "Žádné odkazy Kramerius nenalezeny ani očekávány",
+    "Kramerius link points to non-top-level document": "Odkaz Kramerius vede na dokument nižší úrovně",
+    "Kramerius link points to invalid model": "Odkaz Kramerius vede na neplatný model",
+    "Link not found in Kramerius": "Odkaz nenalezen v Kramerius",
+    "Missing Kramerius link in MARC": "Chybějící odkaz Kramerius v MARC",
+    "All Kramerius links valid": "Všechny odkazy Kramerius platné"
   }
 }

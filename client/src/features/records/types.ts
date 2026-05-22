@@ -1,22 +1,23 @@
 // --- Search types ---
 
 export interface RecordFilter {
+  record_ids?: string[];
   text_query?: string;
   bases?: string[];
   type_of_record?: string[];
   bibliographic_level?: string[];
-  hidden?: boolean;
   deleted?: boolean;
   processed?: boolean;
+  review_statuses?: string[];
   authority_link_linkers?: string[];
   authority_link_bases?: string[];
-  comparators?: string[];
   comparison_bases?: string[];
   match_qualities?: string[];
   field_explanations?: string[];
   validators?: string[];
   validation_statuses?: string[];
   validation_target_tags?: string[];
+  validation_reasons?: string[];
   score_min?: number;
   score_max?: number;
 }
@@ -47,6 +48,8 @@ export interface RecordSummary {
   system_number: string;
   title: string | null;
   authors: string[];
+  type_of_record: string | null;
+  bibliographic_level: string | null;
   state: string[];
   authority_links: AuthorityLinkSummary[];
   comparisons: ComparisonSummary[];
@@ -175,6 +178,36 @@ export interface ValidationDetail {
   result: ValidationResult;
 }
 
+// --- Review types ---
+
+export interface ReviewDetail {
+  id: string;
+  record_id: string;
+  aspect_name: string;
+  note: string | null;
+  reviewed_by: string;
+  reviewer_name: string | null;
+  reviewed_at: string;
+  status: "current" | "outdated" | "superseded";
+}
+
+export interface RecordReviewsResponse {
+  current: ReviewDetail[];
+  history: ReviewDetail[];
+}
+
 // --- Tab type ---
 
 export type RecordTab = "plots" | "table" | "carousel" | "addition";
+
+// --- Shared style constants ---
+
+export const STATE_COLORS: Record<string, string> = {
+  Active: "border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400",
+  Deleted: "border-red-500 bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-400",
+  Unprocessed: "border-amber-500 bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-400",
+  Processed: "border-violet-500 bg-violet-50 text-violet-700 dark:bg-violet-950 dark:text-violet-400",
+  Reviewed: "border-sky-500 bg-sky-50 text-sky-700 dark:bg-sky-950 dark:text-sky-400",
+  PartiallyReviewed: "border-cyan-500 bg-cyan-50 text-cyan-700 dark:bg-cyan-950 dark:text-cyan-400",
+  Unreviewed: "border-slate-400 bg-slate-50 text-slate-600 dark:bg-slate-900 dark:text-slate-400",
+};

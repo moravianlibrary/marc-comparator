@@ -21,7 +21,6 @@ interface SectionConfigProps {
 
 const CHART_LABEL_KEYS: Record<ChartId, string> = {
   base: "facet-fields.base",
-  comparators: "facet-fields.comparators",
   validators: "facet-fields.validators",
   authority_link_linkers: "facet-fields.authority_link_linkers",
   record_status: "plots.record-status",
@@ -32,6 +31,7 @@ const CHART_LABEL_KEYS: Record<ChartId, string> = {
   authority_link_bases: "facet-fields.authority_link_bases",
   overall_score: "facet-fields.overall_score",
   field_explanations: "facet-fields.field_explanations",
+  validation_reasons: "facet-fields.validation_reasons",
 };
 
 export function SectionConfig({ isVisible, toggleChart, isSectionVisible, toggleSection }: SectionConfigProps) {
@@ -45,7 +45,7 @@ export function SectionConfig({ isVisible, toggleChart, isSectionVisible, toggle
           {t("plots.section-config")}
         </Button>
       </PopoverTrigger>
-      <PopoverContent className="w-[220px]" align="end">
+      <PopoverContent className="w-[300px]" align="end">
         <div className="space-y-3">
           {(Object.entries(SECTION_GROUPS) as [keyof typeof SECTION_GROUPS, readonly ChartId[]][]).map(
             ([section, chartIds]) => (
