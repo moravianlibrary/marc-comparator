@@ -360,6 +360,42 @@ def delete_tasks_task(self: CeleryTask) -> None:
     return async_to_sync(delete_tasks)(str(self.request.id))
 
 
+@shared_task(name="refresh_analytics_task", bind=True)
+def refresh_analytics_task(self: CeleryTask) -> None:
+    from asgiref.sync import async_to_sync
+
+    from maintenance.tasks import refresh_analytics
+
+    return async_to_sync(refresh_analytics)(str(self.request.id))
+
+
+@shared_task(name="cleanup_stale_locks_task", bind=True)
+def cleanup_stale_locks_task(self: CeleryTask) -> None:
+    from asgiref.sync import async_to_sync
+
+    from maintenance.tasks import cleanup_stale_locks
+
+    return async_to_sync(cleanup_stale_locks)(str(self.request.id))
+
+
+@shared_task(name="compact_sectors_task", bind=True)
+def compact_sectors_task(self: CeleryTask) -> None:
+    from asgiref.sync import async_to_sync
+
+    from maintenance.tasks import compact_sectors
+
+    return async_to_sync(compact_sectors)(str(self.request.id))
+
+
+@shared_task(name="rebuild_search_vectors_task", bind=True)
+def rebuild_search_vectors_task(self: CeleryTask) -> None:
+    from asgiref.sync import async_to_sync
+
+    from maintenance.tasks import rebuild_search_vectors
+
+    return async_to_sync(rebuild_search_vectors)(str(self.request.id))
+
+
 def dispatch_task(task: Task) -> None:
     """
     Dispatches a task to the Celery based on its type.
@@ -395,6 +431,18 @@ def dispatch_task(task: Task) -> None:
 
     elif task.type == TaskType.DeleteTasks:
         delete_tasks_task.apply_async(task_id=task_id)
+
+    elif task.type == TaskType.RefreshAnalytics:
+        refresh_analytics_task.apply_async(task_id=task_id)
+
+    elif task.type == TaskType.CleanupStaleLocks:
+        cleanup_stale_locks_task.apply_async(task_id=task_id)
+
+    elif task.type == TaskType.CompactSectors:
+        compact_sectors_task.apply_async(task_id=task_id)
+
+    elif task.type == TaskType.RebuildSearchVectors:
+        rebuild_search_vectors_task.apply_async(task_id=task_id)
 
     else:
         raise ValueError(f"Unknown task type: {task.type}")
