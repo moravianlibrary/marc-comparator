@@ -32,6 +32,10 @@ class TaskType(StrEnum):
     CompareRecords = "CompareRecords"
     ProcessRecords = "ProcessRecords"
     DeleteTasks = "DeleteTasks"
+    RefreshAnalytics = "RefreshAnalytics"
+    CleanupStaleLocks = "CleanupStaleLocks"
+    CompactSectors = "CompactSectors"
+    RebuildSearchVectors = "RebuildSearchVectors"
 
 
 class TaskStatus(StrEnum):
