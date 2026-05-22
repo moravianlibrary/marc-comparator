@@ -115,7 +115,7 @@ class AppConfig(BaseSettings):
     oidc: OIDCConfig = OIDCConfig()
 
     index_batch_size: int = Field(default=1000)
-    marc_cache_ttl_seconds: int = Field(default=3600)
+    marc_cache_ttl_seconds: int = Field(default=3600, ge=1)
 
     @property
     def timezone(self) -> tzinfo:

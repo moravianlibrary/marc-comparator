@@ -123,7 +123,6 @@ def upsert_record_in_sector(
 ) -> None:
     """Insert or replace a single record within its sector."""
     sector_id = sysno_to_sector_id(system_number)
-    _invalidate_cache(base, [system_number])
     sector = db.get(MarcSector, (base, sector_id))
 
     if sector is None:
@@ -188,4 +187,3 @@ class SectorBuffer:
             records = existing_records
 
         write_records_to_sector(self.db, base, sector_id, records)
-        _invalidate_cache(base, list(records.keys()))
