@@ -6,6 +6,7 @@ from adapters.dependencies import DatabaseSessionDep, WithPermission
 from catalog_records.models import ProcessRecordsSettings
 from entities.role import Permission
 from entities.settings import SettingsScope
+from maintenance.models import MaintenanceSettings
 from settings.models import (
     AuthorityLinkingSettings,
     CatalogSettings,
@@ -138,6 +139,24 @@ async def set_process_records_settings(
     return service.set_settings(
         SettingsScope.ProcessRecords, settings, db_session
     )
+
+
+@system_settings_router.get("/maintenance", response_model=MaintenanceSettings)
+async def get_maintenance_settings(
+    db_session: DatabaseSessionDep,
+):
+    return service.get_settings(SettingsScope.Maintenance, db_session)
+
+
+@system_settings_router.post("/maintenance", response_model=MaintenanceSettings)
+async def set_maintenance_settings(
+    settings: Annotated[MaintenanceSettings, Body()],
+    db_session: DatabaseSessionDep,
+):
+    saved = service.set_settings(SettingsScope.Maintenance, settings, db_session)
+    from maintenance.schedule import sync_redbeat_schedule
+    sync_redbeat_schedule(settings)
+    return saved
 
 
 router.include_router(system_settings_router)

@@ -16,11 +16,13 @@ class SettingsScope(StrEnum):
     AuthorityLinking = "authority-linkers"
     Comparison = "comparators"
     ProcessRecords = "process-records"
+    Maintenance = "maintenance"
 
 
 type SystemSettingsScope = Literal[
     SettingsScope.Catalog,
     SettingsScope.Tasks,
+    SettingsScope.Maintenance,
 ]
 type RecordToolsSettingsScope = Literal[
     SettingsScope.Validation,

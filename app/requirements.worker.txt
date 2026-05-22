@@ -1,5 +1,6 @@
 asgiref
 celery
+celery-redbeat
 email-validator
 psycopg2-binary
 pydantic_settings
