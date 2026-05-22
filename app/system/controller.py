@@ -1,6 +1,7 @@
 from typing import List
 
 from fastapi import APIRouter
+from fastapi.responses import JSONResponse
 
 from adapters.dependencies import DatabaseSessionDep
 from auth.service import CurrentUser
@@ -12,6 +13,13 @@ router = APIRouter(
     prefix="/system",
     tags=["System"],
 )
+
+
+@router.get("/health")
+async def health_check(db_session: DatabaseSessionDep):
+    result = service.check_health(db_session)
+    status_code = 200 if result.status == "ok" else 503
+    return JSONResponse(content=result.model_dump(exclude_none=True), status_code=status_code)
 
 
 @router.get("/info", response_model=SystemInfo)

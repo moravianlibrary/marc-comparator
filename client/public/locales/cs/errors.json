@@ -1,0 +1,14 @@
+{
+  "service-unavailable": {
+    "title": "Služba je dočasně nedostupná",
+    "message": "Aplikační server je momentálně nedostupný. Zkuste to prosím později.",
+    "contact-prefix": "Pokud problém přetrvává, kontaktujte:",
+    "try-again": "Zkusit znovu"
+  },
+  "api-error": {
+    "title": "Požadavek selhal",
+    "copy": "Kopírovat",
+    "copied": "Zkopírováno",
+    "contact-instructions": "Kontaktujte prosím administrátora s těmito informacemi."
+  }
+}

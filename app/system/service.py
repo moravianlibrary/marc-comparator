@@ -7,14 +7,16 @@ from marc_comparator.authority_linkers import (
     AuthorityLinker,
 )
 
+from sqlalchemy import text
+
 from adapters.database import DatabaseSession
-from adapters.lock_server import get_active_locks
+from adapters.lock_server import get_active_locks, lock_server_client as redis_client
 from authority_linking.models import AuthorityLinkingSettings
 from catalog_records.models import CatalogSettings
 from entities.settings import Settings, SettingsScope
 from settings.models import SETTINGS_MODEL_DISPATCHER
 
-from .models import AuthorityLinkerInfo, SystemInfo
+from .models import AuthorityLinkerInfo, HealthStatus, SystemInfo
 
 START_TS = time.time()
 
@@ -75,10 +77,6 @@ async def get_enabled_authority_linkers(
     return linkers
 
 
-def get_enabled_comparators(db_session: DatabaseSession) -> List[str]:
-    return _get_enabled_tools(db_session, SettingsScope.Comparison)
-
-
 def get_enabled_validators(db_session: DatabaseSession) -> List[str]:
     return _get_enabled_tools(db_session, SettingsScope.Validation)
 
@@ -92,8 +90,31 @@ async def get_system_info(db_session: DatabaseSession) -> SystemInfo:
         enabled_authority_linkers=await get_enabled_authority_linkers(
             db_session
         ),
-        enabled_comparators=get_enabled_comparators(db_session),
         enabled_validators=get_enabled_validators(db_session),
+    )
+
+
+def check_health(db_session: DatabaseSession) -> HealthStatus:
+    details = {}
+    healthy = True
+
+    try:
+        db_session.execute(text("SELECT 1"))
+        details["db"] = "ok"
+    except Exception:
+        details["db"] = "error"
+        healthy = False
+
+    try:
+        redis_client.ping()
+        details["lock_server"] = "ok"
+    except Exception:
+        details["lock_server"] = "error"
+        healthy = False
+
+    return HealthStatus(
+        status="ok" if healthy else "error",
+        details=details if not healthy else None,
     )
 
 

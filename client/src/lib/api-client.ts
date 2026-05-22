@@ -23,12 +23,38 @@ function processQueue(error: unknown) {
   refreshQueue = [];
 }
 
+function dispatchApiError(status: number, url: string, message: string) {
+  window.dispatchEvent(
+    new CustomEvent("api-error", {
+      detail: {
+        status,
+        url,
+        message,
+        timestamp: new Date().toISOString(),
+      },
+    })
+  );
+}
+
+async function isBackendHealthy(): Promise<boolean> {
+  try {
+    const response = await axios.get("/api/system/health", { timeout: 3000 });
+    return response.status === 200;
+  } catch {
+    return false;
+  }
+}
+
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    if (
+      error.response?.status === 401 &&
+      !originalRequest._retry &&
+      !originalRequest.url?.endsWith("/auth/refresh")
+    ) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           refreshQueue.push({ resolve, reject });
@@ -53,6 +79,36 @@ apiClient.interceptors.response.use(
       } finally {
         isRefreshing = false;
       }
+    }
+
+    if (error.response?.status === 401) {
+      const currentPath = window.location.pathname;
+      if (currentPath !== "/login" && currentPath !== "/signup") {
+        window.location.href =
+          "/login?redirect=" + encodeURIComponent(currentPath);
+      }
+      return Promise.reject(error);
+    }
+
+    // --- Non-401 error handling ---
+    const status = error.response?.status;
+    if (status && status >= 400) {
+      // Skip health check if the failing request is the health endpoint itself
+      const url = originalRequest.url || "";
+      if (!url.endsWith("/system/health")) {
+        const healthy = await isBackendHealthy();
+        if (!healthy) {
+          window.location.href = "/service-unavailable";
+          return Promise.reject(error);
+        }
+      }
+
+      // Backend is healthy but this request failed — show error toast
+      const message =
+        error.response?.data?.detail ||
+        error.response?.statusText ||
+        "Unknown error";
+      dispatchApiError(status, url, message);
     }
 
     return Promise.reject(error);

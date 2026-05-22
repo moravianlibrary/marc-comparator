@@ -6,12 +6,17 @@ import { LogoutPage } from "@/features/auth/logout-page";
 import { SettingsPage } from "@/features/settings/settings-page";
 import { TasksPage } from "@/features/tasks/tasks-page";
 import { AccessControlPage } from "@/features/access-control/access-control-page";
-import { SystemPage } from "@/features/system/system-page";
+import { ServiceUnavailablePage } from "@/features/errors/service-unavailable-page";
+
 
 export const router = createBrowserRouter([
   {
     path: "/login",
     element: <LoginPage />,
+  },
+  {
+    path: "/service-unavailable",
+    element: <ServiceUnavailablePage />,
   },
   {
     path: "/signup",
@@ -45,10 +50,6 @@ export const router = createBrowserRouter([
       {
         path: "access-control",
         element: <AccessControlPage />,
-      },
-      {
-        path: "system",
-        element: <SystemPage />,
       },
       {
         path: "*",

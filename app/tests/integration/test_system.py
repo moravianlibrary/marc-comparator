@@ -7,6 +7,67 @@ from entities.settings import Settings, SettingsScope
 from tests.conftest import assert_response, load_test_json
 
 
+class TestHealthEndpoint:
+    @pytest.mark.asyncio
+    async def test_health_ok(
+        self,
+        db_session,
+        lock_server_client,
+        client: AsyncClient,
+    ):
+        """Health endpoint returns 200 when DB and lock server are reachable."""
+        with patch("system.service.redis_client", lock_server_client):
+            response = await client.get("/system/health")
+            assert response.status_code == 200
+            body = response.json()
+            assert body["status"] == "ok"
+            assert "details" not in body
+
+    @pytest.mark.asyncio
+    async def test_health_no_auth_required(
+        self,
+        db_session,
+        lock_server_client,
+        client: AsyncClient,
+    ):
+        """Health endpoint works without authentication (no user fixture)."""
+        with patch("system.service.redis_client", lock_server_client):
+            response = await client.get("/system/health")
+            assert response.status_code == 200
+            assert response.json()["status"] == "ok"
+
+    @pytest.mark.asyncio
+    async def test_health_db_down(
+        self,
+        db_session,
+        lock_server_client,
+        client: AsyncClient,
+    ):
+        """Health endpoint returns 503 when DB is unreachable."""
+        with patch("system.service.DatabaseSession.execute", side_effect=Exception("DB down")):
+            response = await client.get("/system/health")
+            assert response.status_code == 503
+            body = response.json()
+            assert body["status"] == "error"
+            assert body["details"]["db"] == "error"
+
+    @pytest.mark.asyncio
+    async def test_health_lock_server_down(
+        self,
+        db_session,
+        lock_server_client,
+        client: AsyncClient,
+    ):
+        """Health endpoint returns 503 when lock server is unreachable."""
+        with patch("system.service.redis_client") as mock_redis:
+            mock_redis.ping.side_effect = Exception("Redis down")
+            response = await client.get("/system/health")
+            assert response.status_code == 503
+            body = response.json()
+            assert body["status"] == "error"
+            assert body["details"]["lock_server"] == "error"
+
+
 class TestSystemInfoEndpoint:
     @pytest.mark.asyncio
     async def test_get_system_info_no_settings(

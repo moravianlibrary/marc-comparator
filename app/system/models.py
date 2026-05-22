@@ -1,4 +1,4 @@
-from typing import List
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel
 
@@ -14,5 +14,9 @@ class SystemInfo(BaseModel):
     uptime_seconds: float
     available_bases: List[str]
     enabled_authority_linkers: List[AuthorityLinkerInfo]
-    enabled_comparators: List[str]
     enabled_validators: List[str]
+
+
+class HealthStatus(BaseModel):
+    status: str
+    details: Optional[Dict[str, str]] = None
