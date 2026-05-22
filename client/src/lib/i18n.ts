@@ -19,6 +19,7 @@ i18n
       "access-control",
       "system",
       "records",
+      "maintenance",
     ],
     defaultNS: "common",
     backend: {

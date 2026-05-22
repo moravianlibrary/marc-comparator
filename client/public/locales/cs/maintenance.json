@@ -1,0 +1,30 @@
+{
+  "title": "Údržba",
+  "actions": {
+    "delete-tasks": {
+      "title": "Vyčistit úkoly",
+      "description": "Smazat dokončené, neúspěšné a zrušené úkoly.",
+      "max-age-label": "Starší než (dny)",
+      "max-age-placeholder": "Všechny"
+    },
+    "refresh-analytics": {
+      "title": "Obnovit analytiku",
+      "description": "Přepočítat materialized view s analytickými daty."
+    },
+    "cleanup-stale-locks": {
+      "title": "Vyčistit zamčené zámky",
+      "description": "Odstranit zastaralé záznamy o systémových zámcích."
+    },
+    "compact-sectors": {
+      "title": "Kompaktovat sektory",
+      "description": "Přepsat MARC sektory a odstranit mezery po smazaných záznamech."
+    },
+    "rebuild-search-vectors": {
+      "title": "Přestavět vyhledávací vektory",
+      "description": "Přegenerovat vyhledávací text pro všechny záznamy z MARC dat."
+    }
+  },
+  "run": "Spustit",
+  "running": "Spouští se...",
+  "started": "Úkol byl úspěšně spuštěn."
+}
