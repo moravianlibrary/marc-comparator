@@ -28,6 +28,17 @@ class MatchQuality(StrEnum):
     Poor = "Poor"
 
 
+class Explanation(StrEnum):
+    """Classification of a field/subfield comparison result."""
+
+    Identical = "Identical"
+    NonStandardized = "NonStandardized"
+    Typo = "Typo"
+    Incomplete = "Incomplete"
+    Incorrect = "Incorrect"
+    Missing = "Missing"
+
+
 class SubfieldComparisonResult(BaseModel):
     """
     Represents the result of comparing a MARC subfield.
@@ -42,8 +53,8 @@ class SubfieldComparisonResult(BaseModel):
         The index of the subfield in record B, if applicable.
     score: float
         The similarity score for this subfield.
-    explanation: str | None
-        Optional explanation describing the score.
+    explanation: Explanation | None
+        Classification of the comparison result.
     details: str | None
         Optional additional details about the comparison.
     """
@@ -51,8 +62,10 @@ class SubfieldComparisonResult(BaseModel):
     code: str
     idxA: int | None = None
     idxB: int | None = None
+    value_a: str | None = None
+    value_b: str | None = None
     score: float
-    explanation: str | None = None
+    explanation: Explanation | None = None
     details: str | None = None
 
 
@@ -72,11 +85,11 @@ class FieldComparisonResult(BaseModel):
         The index of the field in record B, if applicable.
     score: float
         The similarity score for this field.
-    explanation: str | None
-        Optional explanation describing the score.
+    explanation: Explanation | None
+        Classification of the comparison result.
     details: str | None
         Optional additional details about the comparison.
-    subfield_results: List[SubfieldResult] | None
+    subfield_results: List[SubfieldComparisonResult] | None
         Detailed comparison results for subfields within this field.
     """
 
@@ -85,7 +98,7 @@ class FieldComparisonResult(BaseModel):
     idxA: int | None = None
     idxB: int | None = None
     score: float
-    explanation: str | None = None
+    explanation: Explanation | None = None
     details: str | None = None
     subfield_results: List[SubfieldComparisonResult] | None = None
 

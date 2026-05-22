@@ -8,6 +8,7 @@ from pydantic import BaseModel
 
 from ._base import (
     BaseComparator,
+    Explanation,
     FieldComparisonResult,
     RecordComparisonResult,
     SubfieldComparisonResult,
@@ -17,7 +18,17 @@ from .intiim_engine.llm import set_ollama_url
 from .intiim_engine.scoring import score_differences
 
 
-class IntiimComparatorConfig(BaseModel):
+_LABEL_TO_EXPLANATION: dict[str, Explanation] = {
+    "IDENTICAL": Explanation.Identical,
+    "NON_STANDARDIZED": Explanation.NonStandardized,
+    "TYPO": Explanation.Typo,
+    "INCOMPLETE": Explanation.Incomplete,
+    "INCORRECT": Explanation.Incorrect,
+    "MISSING": Explanation.Missing,
+}
+
+
+class DefaultComparatorConfig(BaseModel):
     ollama_url: str = "http://localhost:11434"
     llm_enabled: bool = False
     nonstandard_llm_enabled: bool = False
@@ -25,7 +36,7 @@ class IntiimComparatorConfig(BaseModel):
     warning_threshold: int = 12
 
 
-class IntiimComparator(BaseComparator):
+class DefaultComparator(BaseComparator):
     """
     Comparator that uses multiple checks to compare MARC records:
     - Identical Check
@@ -36,9 +47,9 @@ class IntiimComparator(BaseComparator):
     - Missing Check
     """
 
-    config_model = IntiimComparatorConfig
+    config_model = DefaultComparatorConfig
 
-    def __init__(self, config: IntiimComparatorConfig):
+    def __init__(self, config: DefaultComparatorConfig):
         self.config = config
         set_ollama_url(config.ollama_url)
 
@@ -133,7 +144,7 @@ class IntiimComparator(BaseComparator):
                         idxA=0 if group.get("value_main", "") != "" else None,
                         idxB=0 if group.get("value_test", "") != "" else None,
                         score=field_scoring.get(tag, 1.0),
-                        explanation=group.get("label"),
+                        explanation=_LABEL_TO_EXPLANATION.get(group.get("label")),
                         details=group.get("details", {}).get("reason"),
                     )
                 )
@@ -160,11 +171,13 @@ class IntiimComparator(BaseComparator):
                         code=group["code"],
                         idxA=idxA[2],
                         idxB=idxB[2],
+                        value_a=group.get("value_main"),
+                        value_b=group.get("value_test"),
                         score=subfield_scoring.get(
                             f"{tag}|{group['code']}|{group.get('value_main')}",
                             1.0,
                         ),
-                        explanation=group.get("label"),
+                        explanation=_LABEL_TO_EXPLANATION.get(group.get("label")),
                         details=group.get("details", {}).get("reason"),
                     )
                 )

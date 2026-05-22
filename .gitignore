@@ -408,3 +408,6 @@ client/package-lock.json
 .env
 sdk/build/
 sdk/*.egg-info/
+.superpowers/
+CLAUDE.md
+docs/superpowers/

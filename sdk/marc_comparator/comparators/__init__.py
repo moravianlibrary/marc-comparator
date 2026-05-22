@@ -3,29 +3,31 @@ from typing import Type
 
 from ._base import (
     BaseComparator,
+    Explanation,
     FieldComparisonResult,
     MatchQuality,
     RecordComparisonResult,
     SubfieldComparisonResult,
 )
-from .intiim import IntiimComparator, IntiimComparatorConfig
+from .default import DefaultComparator, DefaultComparatorConfig
 
 
 class Comparator(StrEnum):
-    Intiim = "intiim"
+    Default = "default"
 
 
 COMPARATOR_DISPATCHER: dict[Comparator, Type[BaseComparator]] = {
-    Comparator.Intiim: IntiimComparator,
+    Comparator.Default: DefaultComparator,
 }
 
 __all__ = [
     "BaseComparator",
     "COMPARATOR_DISPATCHER",
     "Comparator",
+    "DefaultComparator",
+    "DefaultComparatorConfig",
+    "Explanation",
     "FieldComparisonResult",
-    "IntiimComparator",
-    "IntiimComparatorConfig",
     "MatchQuality",
     "RecordComparisonResult",
     "SubfieldComparisonResult",
