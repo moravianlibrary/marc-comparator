@@ -3,6 +3,10 @@ set -euo pipefail
 
 APP_URL="http://localhost:8000"
 
+# httpie sessions (cookies are persisted per session)
+TEST_SESSION="demo-test-user"
+ADMIN_SESSION="demo-admin"
+
 # Colors for nicer output
 YELLOW='\033[1;33m'
 CYAN='\033[1;36m'
@@ -44,17 +48,13 @@ http POST "$APP_URL/auth/sign-up" \
 pause
 
 ###############################################################################
-# 2. Login as test user
+# 2. Login as test user (cookie-based auth)
 ###############################################################################
 print_step "Logging in as test user"
 
-http --form POST "$APP_URL/auth/login" \
-    username="$TEST_EMAIL" \
+http --session="$TEST_SESSION" POST "$APP_URL/auth/login" \
+    email="$TEST_EMAIL" \
     password="$TEST_PASSWORD"
-
-TEST_TOKEN=$(http --form --print=b POST "$APP_URL/auth/login" \
-    username="$TEST_EMAIL" \
-    password="$TEST_PASSWORD" | jq -r .access_token)
 
 pause
 
@@ -63,25 +63,21 @@ pause
 ###############################################################################
 print_step "Fetching /auth/me for test user"
 
-http GET "$APP_URL/auth/me" "Authorization: Bearer $TEST_TOKEN"
+http --session="$TEST_SESSION" GET "$APP_URL/auth/me"
 
-TEST_USER_ID=$(http GET "$APP_URL/auth/me" \
-    "Authorization: Bearer $TEST_TOKEN" | jq -r '.id')
+TEST_USER_ID=$(http --session="$TEST_SESSION" --print=b GET "$APP_URL/auth/me" \
+    | jq -r '.id')
 
 pause
 
 ###############################################################################
-# 4. Login as admin
+# 4. Login as admin (cookie-based auth)
 ###############################################################################
 print_step "Logging in as admin"
 
-http --form POST "$APP_URL/auth/login" \
-    username="$ADMIN_EMAIL" \
+http --session="$ADMIN_SESSION" POST "$APP_URL/auth/login" \
+    email="$ADMIN_EMAIL" \
     password="$ADMIN_PASSWORD"
-
-ADMIN_TOKEN=$(http --form --print=b POST "$APP_URL/auth/login" \
-    username="$ADMIN_EMAIL" \
-    password="$ADMIN_PASSWORD" | jq -r .access_token)
 
 pause
 
@@ -90,7 +86,7 @@ pause
 ###############################################################################
 print_step "Fetching /auth/me for admin"
 
-http GET "$APP_URL/auth/me" "Authorization: Bearer $ADMIN_TOKEN"
+http --session="$ADMIN_SESSION" GET "$APP_URL/auth/me"
 
 pause
 
@@ -99,7 +95,7 @@ pause
 ###############################################################################
 print_step "Fetching all roles"
 
-http GET "$APP_URL/access-control/roles" "Authorization: Bearer $ADMIN_TOKEN"
+http --session="$ADMIN_SESSION" GET "$APP_URL/access-control/roles"
 
 pause
 
@@ -108,14 +104,12 @@ pause
 ###############################################################################
 print_step "Creating new role"
 
-http POST "$APP_URL/access-control/roles" \
-    "Authorization:Bearer $ADMIN_TOKEN" \
-    Content-Type:application/json \
+http --session="$ADMIN_SESSION" POST "$APP_URL/access-control/roles" \
     name="DemoRole" \
     permissions:='["ReadRecords"]'
 
-ROLE_ID=$(http GET "$APP_URL/access-control/roles" \
-    "Authorization: Bearer $ADMIN_TOKEN" | jq -r '.items[-1].id')
+ROLE_ID=$(http --session="$ADMIN_SESSION" --print=b GET "$APP_URL/access-control/roles" \
+    | jq -r '.items[-1].id')
 
 pause
 
@@ -124,8 +118,7 @@ pause
 ###############################################################################
 print_step "Updating role $ROLE_ID"
 
-http PUT "$APP_URL/access-control/roles/$ROLE_ID" \
-    "Authorization: Bearer $ADMIN_TOKEN" \
+http --session="$ADMIN_SESSION" PUT "$APP_URL/access-control/roles/$ROLE_ID" \
     name="DemoRoleUpdated" \
     permissions:='["ReadRecords"]'
 
@@ -136,8 +129,7 @@ pause
 ###############################################################################
 print_step "Fetching all users"
 
-http GET "$APP_URL/access-control/users" \
-    "Authorization: Bearer $ADMIN_TOKEN" 
+http --session="$ADMIN_SESSION" GET "$APP_URL/access-control/users"
 
 pause
 
@@ -146,8 +138,7 @@ pause
 ###############################################################################
 print_step "Fetching users filtered by email (test*)"
 
-http GET "$APP_URL/access-control/users?email=test" \
-    "Authorization: Bearer $ADMIN_TOKEN"
+http --session="$ADMIN_SESSION" GET "$APP_URL/access-control/users?email=test"
 
 pause
 
@@ -156,8 +147,8 @@ pause
 ###############################################################################
 print_step "Assigning new role $ROLE_ID to user $TEST_USER_ID"
 
-http PATCH "$APP_URL/access-control/users/$TEST_USER_ID/assign-role/$ROLE_ID" \
-  "Authorization: Bearer $ADMIN_TOKEN"
+http --session="$ADMIN_SESSION" PATCH \
+    "$APP_URL/access-control/users/$TEST_USER_ID/assign-role/$ROLE_ID"
 
 pause
 
@@ -166,7 +157,7 @@ pause
 ###############################################################################
 print_step "Fetching /auth/me for test user"
 
-http GET "$APP_URL/auth/me" "Authorization: Bearer $TEST_TOKEN"
+http --session="$TEST_SESSION" GET "$APP_URL/auth/me"
 
 pause
 
@@ -175,8 +166,8 @@ pause
 ###############################################################################
 print_step "Unassigning new role $ROLE_ID from user $TEST_USER_ID"
 
-http PATCH "$APP_URL/access-control/users/$TEST_USER_ID/unassign-role/$ROLE_ID" \
-  "Authorization: Bearer $ADMIN_TOKEN"
+http --session="$ADMIN_SESSION" PATCH \
+    "$APP_URL/access-control/users/$TEST_USER_ID/unassign-role/$ROLE_ID"
 
 pause
 
@@ -185,7 +176,7 @@ pause
 ###############################################################################
 print_step "Fetching /auth/me for test user"
 
-http GET "$APP_URL/auth/me" "Authorization: Bearer $TEST_TOKEN"
+http --session="$TEST_SESSION" GET "$APP_URL/auth/me"
 
 pause
 
@@ -194,7 +185,6 @@ pause
 ###############################################################################
 print_step "Deleting role $ROLE_ID"
 
-http DELETE "$APP_URL/access-control/roles/$ROLE_ID" \
-    "Authorization: Bearer $ADMIN_TOKEN"
+http --session="$ADMIN_SESSION" DELETE "$APP_URL/access-control/roles/$ROLE_ID"
 
 echo -e "\n${CYAN}=== Demo completed successfully! ===${NC}\n"

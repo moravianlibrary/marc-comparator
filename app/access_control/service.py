@@ -1,7 +1,7 @@
 from adapters.database import DatabaseSession
 from auth.models import UserSchema
 from common.models import Page, PageRequestParams
-from entities.role import Role
+from entities.role import Role, resolve_permissions
 from entities.user import User
 
 from .exceptions import (
@@ -31,7 +31,7 @@ def get_roles(
 def create_role(role: RoleSchema, db_session: DatabaseSession) -> Role:
     db_role = Role(
         name=role.name,
-        permissions=role.permissions,
+        permissions=resolve_permissions(role.permissions),
     )
     return db_role.save(db_session)
 
@@ -47,7 +47,7 @@ def update_role(
         raise ProtectedRoleRenameException()
 
     db_role.name = role.name
-    db_role.permissions = role.permissions
+    db_role.permissions = resolve_permissions(role.permissions)
 
     return db_role.save(db_session)
 

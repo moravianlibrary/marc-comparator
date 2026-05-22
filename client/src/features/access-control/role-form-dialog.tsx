@@ -3,7 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslation } from "react-i18next";
 import { roleSchema, type RoleFormValues } from "./schemas";
-import { Permission } from "@/types/permission";
+import { Permission, togglePermission } from "@/types/permission";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -89,13 +89,9 @@ export function RoleFormDialog({ open, onClose, onSubmit, role }: RoleFormDialog
                           checked={field.value.includes(perm)}
                           disabled={role?.immutable}
                           onCheckedChange={(checked) => {
-                            if (checked) {
-                              field.onChange([...field.value, perm]);
-                            } else {
-                              field.onChange(
-                                field.value.filter((p) => p !== perm)
-                              );
-                            }
+                            field.onChange(
+                              togglePermission(field.value, perm, !!checked)
+                            );
                           }}
                         />
                         <span className="text-sm">

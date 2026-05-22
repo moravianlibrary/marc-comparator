@@ -17,6 +17,7 @@ class Permission(StrEnum):
     ReadRecords = "ReadRecords"
     AddRecords = "AddRecords"
     SyncRecordsFromCatalog = "SyncRecordsFromCatalog"
+    ReviewRecords = "ReviewRecords"
     RunRecordTasks = "RunRecordTasks"
     ManageTasks = "ManageTasks"
     ManageAllTasks = "ManageAllTasks"
@@ -24,6 +25,32 @@ class Permission(StrEnum):
     ManageAppSettings = "ManageAppSettings"
     ManageTaskSettings = "ManageTaskSettings"
     ManageSystem = "ManageSystem"
+
+
+PERMISSION_DEPENDENCIES: dict[Permission, list[Permission]] = {
+    Permission.ReadRecords: [],
+    Permission.AddRecords: [Permission.ReadRecords],
+    Permission.SyncRecordsFromCatalog: [Permission.ReadRecords, Permission.AddRecords, Permission.ManageTasks],
+    Permission.ReviewRecords: [Permission.ReadRecords],
+    Permission.RunRecordTasks: [Permission.ReadRecords],
+    Permission.ManageTasks: [Permission.RunRecordTasks],
+    Permission.ManageAllTasks: [Permission.ManageTasks],
+    Permission.ManageTaskSettings: [Permission.ManageTasks],
+    Permission.ManageAccessControl: [],
+    Permission.ManageAppSettings: [],
+    Permission.ManageSystem: [Permission.ManageAppSettings, Permission.ManageAccessControl],
+}
+
+
+def resolve_permissions(permissions: list[Permission]) -> list[Permission]:
+    """Expand a permission list to include all transitive dependencies."""
+    resolved: set[Permission] = set()
+    for perm in permissions:
+        resolved.add(perm)
+        for dep in PERMISSION_DEPENDENCIES.get(perm, []):
+            if dep not in resolved:
+                resolved.update(resolve_permissions([dep]))
+    return sorted(resolved, key=lambda p: list(Permission).index(p))
 
 
 class Role(Base, BaseOperationsMixin, RetrievalOperationsMixin):

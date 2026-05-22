@@ -491,6 +491,8 @@ class TestAccessControlEndpoints:
                     "ReadRecords",
                     "AddRecords",
                     "SyncRecordsFromCatalog",
+                    "RunRecordTasks",
+                    "ManageTasks",
                 ],
                 "immutable": False,
                 "protected": True,

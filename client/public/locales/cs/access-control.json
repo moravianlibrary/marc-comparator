@@ -4,7 +4,7 @@
     "title": "Správa rolí",
     "create": "Vytvořit novou roli",
     "edit": "Upravit roli",
-    "delete-confirm": "Opravdu chcete smazat roli „{{name}}"?",
+    "delete-confirm": "Opravdu chcete smazat roli '{{name}}'?",
     "fields": {
       "name": "Název role",
       "permissions": "Oprávnění",
@@ -27,6 +27,7 @@
   },
   "permissions": {
     "ReadRecords": "Číst záznamy",
+    "ReviewRecords": "Revidovat záznamy",
     "AddRecords": "Přidávat záznamy",
     "SyncRecordsFromCatalog": "Synchronizovat záznamy z katalogu",
     "RunRecordTasks": "Spouštět úkoly na záznamech",

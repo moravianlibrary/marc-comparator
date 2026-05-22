@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import apiClient from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import {
   Table,
   TableBody,
@@ -33,11 +34,17 @@ export function RolesSection() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deletingRole, setDeletingRole] = useState<Role | null>(null);
 
-  const { data: roles = [] } = useQuery<Role[]>({
+  const { data: rolesData } = useQuery<{ items: Role[]; num_found: number }>({
     queryKey: ["access-control", "roles"],
     queryFn: () =>
-      apiClient.get<Role[]>("/access-control/roles").then((r) => r.data),
+      apiClient
+        .get<{ items: Role[]; num_found: number }>("/access-control/roles", {
+          params: { page: 1, page_size: 100 },
+        })
+        .then((r) => r.data),
   });
+
+  const roles = rolesData?.items ?? [];
 
   const createMutation = useMutation({
     mutationFn: (data: RoleFormValues) =>
@@ -102,8 +109,14 @@ export function RolesSection() {
           {roles.map((role) => (
             <TableRow key={role.id}>
               <TableCell className="font-medium">{role.name}</TableCell>
-              <TableCell className="text-sm text-muted-foreground">
-                {role.permissions.map((p) => t(`permissions.${p}`)).join(", ")}
+              <TableCell>
+                <div className="flex flex-wrap gap-1">
+                  {role.permissions.map((p) => (
+                    <Badge key={p} variant="outline">
+                      {t(`permissions.${p}`)}
+                    </Badge>
+                  ))}
+                </div>
               </TableCell>
               <TableCell>
                 <div className="flex gap-1">
