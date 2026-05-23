@@ -4,7 +4,7 @@ from typing import Dict, List
 import httpx
 from lxml import etree
 from marcdantic import MarcRecord
-from pydantic import AnyUrl, BaseModel
+from pydantic import BaseModel
 
 from ._base import AuthorityLink, BaseAuthorityLinker
 
@@ -17,7 +17,7 @@ class KnihovnyCZBaseMapping(BaseModel):
 
 
 class KnihovnyCZLinkerConfig(BaseModel):
-    api_url: AnyUrl = "https://www.knihovny.cz/api/v1"
+    api_url: str = "https://www.knihovny.cz/api/v1"
 
     mappings: List[KnihovnyCZBaseMapping] = [
         KnihovnyCZBaseMapping(
