@@ -1,26 +1,9 @@
 {
-    "rule-based": {
-        "rules": [
-            {
-                "tag": "20",
-                "subfields": ["a"],
-                "rule_scores": {}
-            },
-            {
-                "tag": "100",
-                "subfields": ["a", "b", "c"],
-                "rule_scores": {}
-            },
-            {
-                "tag": "245",
-                "subfields": ["a", "b", "c"],
-                "rule_scores": {}
-            },
-            {
-                "tag": "650",
-                "subfields": ["a", "2", "7"],
-                "rule_scores": {}
-            }
-        ]
+    "comparator": {
+        "ollama_url": "http://localhost:11434",
+        "llm_enabled": false,
+        "nonstandard_llm_enabled": false,
+        "valid_threshold": 6,
+        "warning_threshold": 12
     }
 }

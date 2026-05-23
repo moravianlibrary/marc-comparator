@@ -280,7 +280,7 @@ class TestTaskSearch:
     ):
         response = await client.post(
             "/tasks/search-all",
-            json={"filters": {"statuses": ["Pending"]}},
+            json={"filters": {"status": ["Pending"]}},
         )
         data = response.json()
         for item in data["items"]:

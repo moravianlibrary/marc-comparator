@@ -43,6 +43,7 @@ COPY app/catalog_records/ catalog_records/
 COPY app/common/ common/
 COPY app/comparison/ comparison/
 COPY app/entities/ entities/
+COPY app/maintenance/ maintenance/
 COPY app/settings/ settings/
 COPY app/system/ system/
 COPY app/tasks/ tasks/
@@ -56,6 +57,7 @@ COPY app/config.py config.py
 RUN rm authority_linking/tasks.py
 RUN rm catalog_records/tasks.py
 RUN rm comparison/tasks.py
+RUN rm maintenance/tasks.py
 RUN rm validation/tasks.py
 
 # Command to run FastAPI app

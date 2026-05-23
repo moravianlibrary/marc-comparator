@@ -34,7 +34,6 @@ def _process_records_settings_data():
     return {
         "target_bases": ["MZK01"],
         "authority_linkers": ["knihovny-cz"],
-        "comparator": "intiim",
         "validators": ["kramerius-links"],
     }
 

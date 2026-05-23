@@ -4,7 +4,6 @@ from entities.settings import SettingsScope
 from entities.task import Task, TaskSchema, TaskType
 from settings.service import get_settings_part
 
-from . import UsedComparator
 from .models import ComparisonTaskData
 
 
@@ -13,9 +12,9 @@ async def compare(
     created_by: str,
     db_session: DatabaseSession,
 ) -> TaskSchema:
-    # Ensure settings exist
+    # Ensure comparison settings exist
     get_settings_part(
-        SettingsScope.Comparison, UsedComparator.value, db_session
+        SettingsScope.Comparison, "comparator", db_session
     )
 
     return await enqueue_task(

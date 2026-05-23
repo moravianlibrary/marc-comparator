@@ -5,17 +5,20 @@
             {
                 "base": "MZK01",
                 "id_template": "mzk.MZK01-{system_number}",
-                "pattern": "^mzk\\.MZK01-(\\d{9})$"
+                "pattern": "^mzk\\.MZK01-(\\d{9})$",
+                "is_target": false
             },
             {
                 "base": "MZK03",
                 "id_template": "mzk.MZK03-{system_number}",
-                "pattern": "^mzk\\.MZK03-(\\d{9})$"
+                "pattern": "^mzk\\.MZK03-(\\d{9})$",
+                "is_target": false
             },
             {
                 "base": "SKC",
                 "id_template": "caslin.SKC01-{system_number}",
-                "pattern": "^caslin\\.SKC01-(\\d{9})$"
+                "pattern": "^caslin\\.SKC01-(\\d{9})$",
+                "is_target": false
             }
         ]
     }

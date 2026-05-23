@@ -82,7 +82,6 @@ class TestSystemInfoEndpoint:
         body = response.json()
         assert body["available_bases"] == []
         assert body["enabled_authority_linkers"] == []
-        assert body["enabled_comparators"] == []
         assert body["enabled_validators"] == []
         assert "system_version" in body
         assert "system_commit" in body
@@ -121,30 +120,6 @@ class TestSystemInfoEndpoint:
         assert response.status_code == 200
         body = response.json()
         assert body["available_bases"] == ["MZK01"]
-
-    @pytest.mark.asyncio
-    async def test_get_system_info_with_comparison_settings(
-        self,
-        db_session: DatabaseSession,
-        user,
-        client: AsyncClient,
-    ):
-        """System info should list enabled comparators from comparison settings."""
-        from comparison.models import ComparisonSettings
-
-        test_settings = load_test_json("comparison_settings.json")
-        Settings.save(
-            db_session,
-            SettingsScope.Comparison,
-            ComparisonSettings.model_validate(test_settings),
-            ComparisonSettings,
-        )
-
-        response = await client.get("/system/info")
-        assert response.status_code == 200
-        body = response.json()
-        # The comparison settings JSON has "rule-based" key
-        assert "intiim" in body["enabled_comparators"]
 
     @pytest.mark.asyncio
     async def test_get_system_info_with_validation_settings(
@@ -188,12 +163,6 @@ class TestSystemServiceUnit:
         from system.service import get_available_bases
 
         result = get_available_bases(db_session)
-        assert result == []
-
-    def test_get_enabled_comparators_no_settings(self, db_session, user):
-        from system.service import get_enabled_comparators
-
-        result = get_enabled_comparators(db_session)
         assert result == []
 
     def test_get_enabled_validators_no_settings(self, db_session, user):
@@ -243,23 +212,6 @@ class TestSystemServiceUnit:
             assert len(result) == 1
             assert result[0].name == "knihovny-cz"
             assert result[0].target_bases == ["MZK01", "MZK03"]
-
-    def test_get_enabled_comparators_with_settings(
-        self, db_session: DatabaseSession, user
-    ):
-        from comparison.models import ComparisonSettings
-        from system.service import get_enabled_comparators
-
-        test_settings = load_test_json("comparison_settings.json")
-        Settings.save(
-            db_session,
-            SettingsScope.Comparison,
-            ComparisonSettings.model_validate(test_settings),
-            ComparisonSettings,
-        )
-
-        result = get_enabled_comparators(db_session)
-        assert "intiim" in result
 
     def test_get_enabled_validators_with_settings(
         self, db_session: DatabaseSession, user

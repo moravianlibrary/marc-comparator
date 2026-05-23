@@ -34,6 +34,7 @@ COPY app/catalog_records/ catalog_records/
 COPY app/common/ common/
 COPY app/comparison/ comparison/
 COPY app/entities/ entities/
+COPY app/maintenance/ maintenance/
 COPY app/settings/ settings/
 COPY app/system/ system/
 COPY app/tasks/ tasks/

@@ -74,7 +74,6 @@ def task(db_session: DatabaseSession, user: TokenData) -> Task:
         type=TaskType.CompareRecords,
         created_by=user.user_id,
         data=ComparisonTaskData(
-            comparator="intiim",
             target_base="SKC",
         ).model_dump(mode="json"),
     ).save(db_session)
@@ -83,22 +82,25 @@ def task(db_session: DatabaseSession, user: TokenData) -> Task:
 @pytest.fixture(scope="function")
 def mock_comparator_result(mocker: MockerFixture) -> MockerFixture:
     class MockComparator(BaseComparator):
+        def __init__(self, config=None):
+            pass
+
         async def run(self, record_a, record_b) -> RecordComparisonResult:
             return RecordComparisonResult(
                 overall_score=0.9, summary="Mock comparison result"
             )
 
     return mocker.patch(
-        "comparison.tasks.COMPARATOR_DISPATCHER",
-        {"intiim": MockComparator},
+        "comparison.tasks.UsedComparatorClass",
+        MockComparator,
     )
 
 
 @pytest.fixture(scope="function")
 def mock_no_comparator(mocker: MockerFixture) -> MockerFixture:
     return mocker.patch(
-        "comparison.tasks.COMPARATOR_DISPATCHER",
-        {},
+        "comparison.tasks.init_comparator",
+        side_effect=ValueError("No comparator found"),
     )
 
 
@@ -124,7 +126,7 @@ def comparison(
 ) -> Comparison:
     return Comparison(
         main_record_id=main_catalog_record.id,
-        comparator="intiim",
+        comparator="default",
         base="SKC",
         other_record_id=authority_catalog_record.id,
         result={"overall_score": 0.9, "summary": "Mock comparison result"},
@@ -148,7 +150,6 @@ class TestComparisonEndpoints:
             await client.post(
                 "/comparison/task",
                 json={
-                    "comparator": "intiim",
                     "target_base": "SKC",
                 },
             ),
@@ -157,8 +158,7 @@ class TestComparisonEndpoints:
                 "task_id": "IGNORE",
                 "name": (
                     "Comparing records "
-                    "against authority records from 'SKC' base "
-                    "using intiim comparator"
+                    "against authority records from 'SKC' base"
                 ),
                 "type": "CompareRecords",
                 "status": "Pending",
