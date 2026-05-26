@@ -28,7 +28,9 @@ export function AppLayout() {
   }
 
   if (isHealthError) {
-    window.location.href = "/service-unavailable";
+    const redirect = window.location.pathname + window.location.search;
+    window.location.href =
+      "/service-unavailable?redirect=" + encodeURIComponent(redirect);
     return null;
   }
 

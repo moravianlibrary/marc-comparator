@@ -3,7 +3,8 @@
     "title": "Služba je dočasně nedostupná",
     "message": "Aplikační server je momentálně nedostupný. Zkuste to prosím později.",
     "contact-prefix": "Pokud problém přetrvává, kontaktujte:",
-    "try-again": "Zkusit znovu"
+    "try-again": "Zkusit znovu",
+    "still-down": "Server je stále nedostupný. Zkuste to prosím později."
   },
   "api-error": {
     "title": "Požadavek selhal",

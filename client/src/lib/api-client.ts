@@ -98,7 +98,9 @@ apiClient.interceptors.response.use(
       if (!url.endsWith("/system/health")) {
         const healthy = await isBackendHealthy();
         if (!healthy) {
-          window.location.href = "/service-unavailable";
+          const redirect = window.location.pathname + window.location.search;
+          window.location.href =
+            "/service-unavailable?redirect=" + encodeURIComponent(redirect);
           return Promise.reject(error);
         }
       }

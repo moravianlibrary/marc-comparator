@@ -5,9 +5,16 @@ class WSClient {
   private handlers = new Map<string, Set<EventHandler>>();
   private reconnectTimer: ReturnType<typeof setTimeout> | null = null;
   private reconnectDelay = 1000;
+  private closing = false;
 
   connect() {
-    if (this.ws?.readyState === WebSocket.OPEN) return;
+    if (
+      this.ws?.readyState === WebSocket.OPEN ||
+      this.ws?.readyState === WebSocket.CONNECTING
+    )
+      return;
+
+    this.closing = false;
 
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
     const wsUrl = `${protocol}//${window.location.host}/api/ws`;
@@ -15,6 +22,7 @@ class WSClient {
     this.ws = new WebSocket(wsUrl);
 
     this.ws.onopen = () => {
+      console.debug("[ws] connected to", wsUrl);
       this.reconnectDelay = 1000;
     };
 
@@ -22,16 +30,19 @@ class WSClient {
       try {
         const message = JSON.parse(event.data);
         const { type, ...data } = message;
+        console.debug("[ws] received", type, data);
         const typeHandlers = this.handlers.get(type);
         if (typeHandlers) {
           typeHandlers.forEach((handler) => handler(data));
         }
-      } catch {
-        // Ignore malformed messages
+      } catch (err) {
+        console.warn("[ws] failed to handle message", err);
       }
     };
 
     this.ws.onclose = (event) => {
+      console.debug("[ws] closed", event.code, event.reason);
+      if (this.closing) return;
       // Don't reconnect on auth failures (server returns 4001)
       if (event.code === 4001) return;
       this.scheduleReconnect();
@@ -43,6 +54,7 @@ class WSClient {
   }
 
   disconnect() {
+    this.closing = true;
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;

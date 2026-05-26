@@ -13,5 +13,5 @@ pyyaml
 redis
 requests
 sqlalchemy
-uvicorn
+uvicorn[standard]
 zstandard

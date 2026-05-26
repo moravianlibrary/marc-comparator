@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useSyncExternalStore } from "react";
 import { Bell } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
@@ -21,43 +21,44 @@ export interface NotificationEntry {
   read: boolean;
 }
 
-let notificationListeners: Array<(n: NotificationEntry) => void> = [];
+let notifications: NotificationEntry[] = [];
+let storeListeners = new Set<() => void>();
+
+function emitChange() {
+  storeListeners.forEach((fn) => fn());
+}
+
+function subscribe(listener: () => void) {
+  storeListeners.add(listener);
+  return () => storeListeners.delete(listener);
+}
+
+function getSnapshot() {
+  return notifications;
+}
 
 export function addNotification(entry: Omit<NotificationEntry, "id" | "read">) {
-  const notification: NotificationEntry = {
-    ...entry,
-    id: crypto.randomUUID(),
-    read: false,
-  };
-  notificationListeners.forEach((fn) => fn(notification));
+  notifications = [
+    { ...entry, id: crypto.randomUUID(), read: false },
+    ...notifications,
+  ].slice(0, 100);
+  emitChange();
+}
+
+function markAllRead() {
+  notifications = notifications.map((n) => ({ ...n, read: true }));
+  emitChange();
+}
+
+function clearNotifications() {
+  notifications = [];
+  emitChange();
 }
 
 export function useNotificationStore() {
-  const [notifications, setNotifications] = useState<NotificationEntry[]>([]);
-
-  useState(() => {
-    const listener = (n: NotificationEntry) => {
-      setNotifications((prev) => [n, ...prev].slice(0, 100));
-    };
-    notificationListeners.push(listener);
-    return () => {
-      notificationListeners = notificationListeners.filter(
-        (fn) => fn !== listener
-      );
-    };
-  });
-
-  const markAllRead = () => {
-    setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-  };
-
-  const clear = () => {
-    setNotifications([]);
-  };
-
-  const unreadCount = notifications.filter((n) => !n.read).length;
-
-  return { notifications, unreadCount, markAllRead, clear };
+  const items = useSyncExternalStore(subscribe, getSnapshot);
+  const unreadCount = items.filter((n) => !n.read).length;
+  return { notifications: items, unreadCount, markAllRead, clear: clearNotifications };
 }
 
 export function ToastHistory() {
