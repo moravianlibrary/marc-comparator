@@ -148,13 +148,31 @@ function RecordDetail({
     enabled: !!authorityBase && !!authoritySystemNumber,
   });
 
-  // When switching records, keep selection if available, otherwise fall back to "marc"
+  // When switching records, keep selection if available, otherwise try to find
+  // a matching view by base/comparator before falling back to "marc"
   const prevRecordId = useRef(record.id);
   useEffect(() => {
     if (record.id === prevRecordId.current) return;
     if (comparisonsFetching || validationsFetching) return;
     prevRecordId.current = record.id;
     if (selectedView !== "marc" && !isViewAvailable(selectedView, record, comparisons, validations)) {
+      const opt = parseViewKey(selectedView);
+      // Authority view: find a link to the same base on the new record
+      if (opt.kind === "authority") {
+        const match = record.authority_links.find((al) => al.base === opt.base);
+        if (match) {
+          setSelectedView(buildAuthorityKey(match.base, match.authority_record_id));
+          return;
+        }
+      }
+      // Comparison view: find a comparison with the same comparator on the new record
+      if (opt.kind === "comparison" && comparisons) {
+        const match = comparisons.find((c) => c.comparator === opt.comparator);
+        if (match) {
+          setSelectedView(`comp:${match.comparator}:${match.other_record_id}`);
+          return;
+        }
+      }
       setSelectedView("marc");
       setTargetFieldsOnly(false);
     }
@@ -167,7 +185,7 @@ function RecordDetail({
 
   const comparisonOptions = (comparisons ?? []).map((c) => ({
     key: `comp:${c.comparator}:${c.other_record_id}`,
-    label: `${c.comparator} → ${c.base}`,
+    label: c.base,
   }));
 
   const validatorNames = [...new Set((validations ?? []).map((v) => v.validator))];
@@ -427,7 +445,6 @@ export function CarouselView() {
   return (
     <div className="mx-12 relative">
       <RecordDetail
-        key={currentRecord?.id}
         record={currentRecord!}
         selectedView={selectedView}
         setSelectedView={setSelectedView}
