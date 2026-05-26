@@ -58,10 +58,12 @@ export function RadialValidation({
     const bucket = data.find((b) => b.key === status);
     const previewCount = previewData?.find((p) => p.key === status)?.count ?? 0;
     // Scale preview relative to previewTotal so shadow tracks fill proportionally
-    const scaledPreview =
+    const minArc = total * 0.03;
+    const rawPreview =
       isShowingPreview && previewTotal > 0
         ? Math.min((previewCount / previewTotal) * total, total * 0.999)
         : previewCount;
+    const scaledPreview = rawPreview > 0 ? Math.max(rawPreview, minArc) : 0;
     return {
       name: t(`validity-status.${status}`),
       key: status,
@@ -89,6 +91,19 @@ export function RadialValidation({
               cursor={false}
               content={<ChartTooltipContent nameKey="name" />}
             />
+            <RadialBar
+              dataKey="count"
+              cornerRadius={4}
+              cursor="pointer"
+              background={isShowingPreview ? undefined : { fill: "var(--muted)" }}
+              onClick={(entry) => {
+                if (entry.count === 0) return;
+                if (isShowingPreview && entry.rawPreview === 0) return;
+                onToggle(entry.key);
+              }}
+              onMouseEnter={(_, index) => onHover(chartData[index].key)}
+              onMouseLeave={onLeave}
+            />
             {isShowingPreview && (
               <RadialBar
                 dataKey="preview"
@@ -103,19 +118,6 @@ export function RadialValidation({
                 ))}
               </RadialBar>
             )}
-            <RadialBar
-              dataKey="count"
-              cornerRadius={4}
-              cursor="pointer"
-              background={isShowingPreview ? undefined : { fill: "var(--muted)" }}
-              onClick={(entry) => {
-                if (entry.count === 0) return;
-                if (isShowingPreview && entry.rawPreview === 0) return;
-                onToggle(entry.key);
-              }}
-              onMouseEnter={(_, index) => onHover(chartData[index].key)}
-              onMouseLeave={onLeave}
-            />
           </RadialBarChart>
         </ChartContainer>
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">

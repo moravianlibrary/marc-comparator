@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { cn } from "@/lib/utils";
-import { RadialBarChart, RadialBar, PolarAngleAxis, Cell } from "recharts";
+import { PieChart, Pie, Cell } from "recharts";
 import {
   ChartContainer,
   ChartTooltip,
@@ -51,70 +51,82 @@ export function RadialQuality({
     ? previewData.reduce((sum, b) => sum + b.count, 0)
     : 0;
 
-  // Build one data entry per quality level for stacked display
-  const chartData = QUALITY_ORDER.map((quality) => {
+  const mainSegments = QUALITY_ORDER.map((quality) => {
     const bucket = data.find((b) => b.key === quality);
-    const previewCount = previewData?.find((p) => p.key === quality)?.count ?? 0;
-    // Scale preview relative to previewTotal so shadow tracks fill proportionally
-    const scaledPreview =
-      isShowingPreview && previewTotal > 0
-        ? Math.min((previewCount / previewTotal) * total, total * 0.999)
-        : previewCount;
     return {
       name: t(`match-quality.${quality}`),
       key: quality,
-      count: bucket?.count ?? 0,
-      preview: scaledPreview,
-      rawPreview: previewCount,
-      fill: `var(--color-${quality})`,
+      value: bucket?.count ?? 0,
     };
   });
 
+  const previewSegments = QUALITY_ORDER.map((quality) => {
+    const count = previewData?.find((p) => p.key === quality)?.count ?? 0;
+    return {
+      name: t(`match-quality.${quality}`),
+      key: quality,
+      value: count,
+    };
+  });
 
   return (
     <div className="flex flex-col items-center">
       <div className="relative w-full overflow-hidden" style={{ height: 160 }}>
         <ChartContainer config={chartConfig} className="w-full" style={{ height: 320 }}>
-          <RadialBarChart
-            data={chartData}
-            startAngle={180}
-            endAngle={0}
-            innerRadius="40%"
-            outerRadius="100%"
-            barSize={16}
-          >
-            <PolarAngleAxis type="number" domain={[0, total || 1]} tick={false} />
+          <PieChart>
             <ChartTooltip
               cursor={false}
               content={<ChartTooltipContent nameKey="name" />}
             />
             {isShowingPreview && (
-              <RadialBar
-                dataKey="preview"
+              <Pie
+                data={previewSegments}
+                dataKey="value"
+                nameKey="name"
+                startAngle={180}
+                endAngle={0}
+                innerRadius="55%"
+                outerRadius="68%"
+                paddingAngle={1}
                 cornerRadius={4}
                 isAnimationActive={false}
               >
-                {chartData.map((entry) => (
+                {previewSegments.map((entry) => (
                   <Cell
                     key={entry.key}
                     fill={`color-mix(in oklch, ${QUALITY_COLORS[entry.key]} 25%, transparent)`}
                   />
                 ))}
-              </RadialBar>
+              </Pie>
             )}
-            <RadialBar
-              dataKey="count"
+            <Pie
+              data={mainSegments}
+              dataKey="value"
+              nameKey="name"
+              startAngle={180}
+              endAngle={0}
+              innerRadius={isShowingPreview ? "74%" : "70%"}
+              outerRadius={isShowingPreview ? "88%" : "84%"}
+              paddingAngle={1}
               cornerRadius={4}
               cursor="pointer"
-              onClick={(entry) => {
-                if (entry.count === 0) return;
-                if (isShowingPreview && entry.rawPreview === 0) return;
+              onClick={(_, index) => {
+                const entry = mainSegments[index];
+                if (entry.value === 0) return;
+                if (isShowingPreview && previewSegments[index].value === 0) return;
                 onToggle(entry.key);
               }}
-              onMouseEnter={(_, index) => onHover(chartData[index].key)}
+              onMouseEnter={(_, index) => onHover(mainSegments[index].key)}
               onMouseLeave={onLeave}
-            />
-          </RadialBarChart>
+            >
+              {mainSegments.map((entry) => (
+                <Cell
+                  key={entry.key}
+                  fill={QUALITY_COLORS[entry.key]}
+                />
+              ))}
+            </Pie>
+          </PieChart>
         </ChartContainer>
         <div className="absolute bottom-0 left-0 right-0 flex flex-col items-center pointer-events-none">
           <p className="text-2xl font-bold tabular-nums">
