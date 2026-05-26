@@ -4,9 +4,9 @@ import { RadialBarChart, RadialBar, PolarAngleAxis, Cell } from "recharts";
 import {
   ChartContainer,
   ChartTooltip,
-  ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
+import { FacetTooltip } from "./facet-tooltip";
 import { useTranslation } from "react-i18next";
 import type { FacetBucket } from "../types";
 
@@ -89,7 +89,7 @@ export function RadialValidation({
             <PolarAngleAxis type="number" domain={[0, total || 1]} tick={false} />
             <ChartTooltip
               cursor={false}
-              content={<ChartTooltipContent nameKey="name" />}
+              content={<FacetTooltip previewKey="rawPreview" />}
             />
             <RadialBar
               dataKey="count"

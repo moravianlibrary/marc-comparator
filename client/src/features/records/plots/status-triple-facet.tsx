@@ -1,5 +1,70 @@
+import { useState, useRef, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import type { FacetBucket } from "../types";
+
+interface HoveredSegment {
+  facetField: string;
+  key: string;
+  name: string;
+  count: number;
+  preview?: number;
+  color: string;
+  rect: DOMRect;
+}
+
+function SegmentTooltip({ segment }: { segment: HoveredSegment }) {
+  const { t } = useTranslation();
+  const left = segment.rect.left + segment.rect.width / 2;
+  const top = segment.rect.top;
+
+  return createPortal(
+    <div
+      className="pointer-events-none fixed z-50 -translate-x-1/2 -translate-y-full"
+      style={{ left, top: top - 8 }}
+    >
+      <div className="grid min-w-[8rem] items-start gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl">
+        <div className="font-medium">{segment.name}</div>
+        <div className="grid gap-1.5">
+          <div className="flex w-full items-stretch gap-2">
+            <div
+              className="shrink-0 rounded-[2px] w-1"
+              style={{ backgroundColor: segment.color }}
+            />
+            <div className="flex flex-1 justify-between items-center leading-none">
+              <span className="text-muted-foreground">
+                {t("common:chart.count")}
+              </span>
+              <span className="font-mono font-medium text-foreground tabular-nums">
+                {segment.count.toLocaleString()}
+              </span>
+            </div>
+          </div>
+          {segment.preview != null && segment.preview > 0 && (
+            <div className="flex w-full items-stretch gap-2">
+              <div
+                className="shrink-0 rounded-[2px] w-1"
+                style={{
+                  backgroundColor:
+                    "color-mix(in oklch, var(--muted-foreground) 15%, transparent)",
+                }}
+              />
+              <div className="flex flex-1 justify-between items-center leading-none">
+                <span className="text-muted-foreground">
+                  {t("common:chart.preview")}
+                </span>
+                <span className="font-mono font-medium text-foreground tabular-nums">
+                  {segment.preview.toLocaleString()}
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
 
 interface StatusSegment {
   key: string;
@@ -30,6 +95,32 @@ export function StatusTripleFacet({
   onLeave,
 }: StatusTripleFacetProps) {
   const { t } = useTranslation("records");
+  const [hovered, setHovered] = useState<HoveredSegment | null>(null);
+  const buttonRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+
+  const handleMouseEnter = useCallback(
+    (facetField: string, seg: StatusSegment, count: number, previewCount: number | undefined) => {
+      onHover(facetField, seg.key);
+      const el = buttonRefs.current.get(`${facetField}-${seg.key}`);
+      if (el) {
+        setHovered({
+          facetField,
+          key: seg.key,
+          name: t(`state.${seg.key}`),
+          count,
+          preview: previewCount,
+          color: seg.color,
+          rect: el.getBoundingClientRect(),
+        });
+      }
+    },
+    [onHover, t],
+  );
+
+  const handleMouseLeave = useCallback(() => {
+    onLeave();
+    setHovered(null);
+  }, [onLeave]);
 
   return (
     <div className="space-y-4">
@@ -58,23 +149,45 @@ export function StatusTripleFacet({
                 return (
                   <button
                     key={seg.key}
+                    ref={(el) => {
+                      if (el) buttonRefs.current.set(`${row.facetField}-${seg.key}`, el);
+                    }}
                     className="relative flex items-center justify-center px-2 overflow-hidden"
                     style={{ width: `${percent}%`, color: "black" }}
                     onClick={() => {
                       if (isShowingPreview && previewCount === 0) return;
                       onToggle(row.facetField, seg.key);
                     }}
-                    onMouseEnter={() => onHover(row.facetField, seg.key)}
-                    onMouseLeave={onLeave}
+                    onMouseEnter={() =>
+                      handleMouseEnter(
+                        row.facetField,
+                        seg,
+                        count,
+                        isShowingPreview ? previewCount : undefined,
+                      )
+                    }
+                    onMouseLeave={handleMouseLeave}
                   >
                     <div
                       className="absolute inset-0"
                       style={{
                         backgroundColor: seg.color,
-                        opacity:
-                          active.length === 0 || active.includes(seg.key)
-                            ? (isShowingPreview ? 0.3 : 1)
-                            : 0.3,
+                        opacity: (() => {
+                          const isSiblingHovered =
+                            hovered != null &&
+                            hovered.facetField === row.facetField &&
+                            hovered.key !== seg.key;
+                          if (isShowingPreview) {
+                            return isSiblingHovered ? 0.15 : 0.3;
+                          }
+                          if (isSiblingHovered) {
+                            return 0.3;
+                          }
+                          if (active.length > 0 && !active.includes(seg.key)) {
+                            return 0.3;
+                          }
+                          return 1;
+                        })(),
                       }}
                     />
                     {isShowingPreview && previewPercent > 0 && (
@@ -98,6 +211,7 @@ export function StatusTripleFacet({
           </div>
         );
       })}
+      {hovered && <SegmentTooltip segment={hovered} />}
     </div>
   );
 }

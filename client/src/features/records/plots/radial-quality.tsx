@@ -4,9 +4,9 @@ import { PieChart, Pie, Cell } from "recharts";
 import {
   ChartContainer,
   ChartTooltip,
-  ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
+import { FacetTooltip } from "./facet-tooltip";
 import { useTranslation } from "react-i18next";
 import type { FacetBucket } from "../types";
 
@@ -53,10 +53,13 @@ export function RadialQuality({
 
   const mainSegments = QUALITY_ORDER.map((quality) => {
     const bucket = data.find((b) => b.key === quality);
+    const previewCount = previewData?.find((p) => p.key === quality)?.count ?? 0;
     return {
       name: t(`match-quality.${quality}`),
       key: quality,
-      value: bucket?.count ?? 0,
+      count: bucket?.count ?? 0,
+      preview: previewCount,
+      fill: QUALITY_COLORS[quality],
     };
   });
 
@@ -65,7 +68,7 @@ export function RadialQuality({
     return {
       name: t(`match-quality.${quality}`),
       key: quality,
-      value: count,
+      count,
     };
   });
 
@@ -76,12 +79,12 @@ export function RadialQuality({
           <PieChart>
             <ChartTooltip
               cursor={false}
-              content={<ChartTooltipContent nameKey="name" />}
+              content={<FacetTooltip />}
             />
             {isShowingPreview && (
               <Pie
                 data={previewSegments}
-                dataKey="value"
+                dataKey="count"
                 nameKey="name"
                 startAngle={180}
                 endAngle={0}
@@ -101,7 +104,7 @@ export function RadialQuality({
             )}
             <Pie
               data={mainSegments}
-              dataKey="value"
+              dataKey="count"
               nameKey="name"
               startAngle={180}
               endAngle={0}
@@ -112,8 +115,8 @@ export function RadialQuality({
               cursor="pointer"
               onClick={(_, index) => {
                 const entry = mainSegments[index];
-                if (entry.value === 0) return;
-                if (isShowingPreview && previewSegments[index].value === 0) return;
+                if (entry.count === 0) return;
+                if (isShowingPreview && entry.preview === 0) return;
                 onToggle(entry.key);
               }}
               onMouseEnter={(_, index) => onHover(mainSegments[index].key)}
@@ -122,7 +125,7 @@ export function RadialQuality({
               {mainSegments.map((entry) => (
                 <Cell
                   key={entry.key}
-                  fill={QUALITY_COLORS[entry.key]}
+                  fill={entry.fill}
                 />
               ))}
             </Pie>
@@ -141,15 +144,13 @@ export function RadialQuality({
       </div>
       <div className="flex gap-4 mt-2 text-xs">
         {QUALITY_ORDER.toReversed().map((quality) => {
-          const bucket = data.find((b) => b.key === quality);
-          const count = bucket?.count ?? 0;
-          const pct = total > 0 ? Math.round((count / total) * 100) : 0;
-          const previewCount = previewData?.find((p) => p.key === quality)?.count ?? 0;
+          const segment = mainSegments.find((s) => s.key === quality)!;
+          const pct = total > 0 ? Math.round((segment.count / total) * 100) : 0;
           const previewPct = isShowingPreview && previewTotal > 0
-            ? Math.round((previewCount / previewTotal) * 100)
+            ? Math.round((segment.preview / previewTotal) * 100)
             : 0;
           const isActive = activeValues.includes(quality);
-          const isDisabled = !isActive && (count === 0 || (isShowingPreview && previewCount === 0));
+          const isDisabled = !isActive && (segment.count === 0 || (isShowingPreview && segment.preview === 0));
           return (
             <button
               key={quality}

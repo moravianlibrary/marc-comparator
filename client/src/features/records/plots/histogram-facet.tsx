@@ -2,9 +2,9 @@ import { BarChart, Bar, XAxis, YAxis, Rectangle } from "recharts";
 import {
   ChartContainer,
   ChartTooltip,
-  ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
+import { FacetTooltip } from "./facet-tooltip";
 import type { HistogramBucket } from "../types";
 
 interface HistogramFacetProps {
@@ -60,14 +60,17 @@ export function HistogramFacet({ data, previewData }: HistogramFacetProps) {
     } else {
       range = `${(bucket.min * 100).toFixed(0)}–${(bucket.max * 100).toFixed(0)}%`;
     }
-    const previewCount = normalizedPreview?.[index]?.count ?? 0;
+    const pCount = normalizedPreview?.[index]?.count ?? 0;
     return {
       range,
+      name: range,
       min: bucket.min,
       max: bucket.max,
       count: bucket.count,
-      preview: isShowingPreview ? previewCount : bucket.count,
-      remainder: isShowingPreview ? bucket.count - previewCount : 0,
+      fill: getScoreColor(bucket.min),
+      preview: isShowingPreview ? pCount : bucket.count,
+      previewCount: isShowingPreview ? pCount : undefined,
+      remainder: isShowingPreview ? bucket.count - pCount : 0,
     };
   });
 
@@ -78,7 +81,7 @@ export function HistogramFacet({ data, previewData }: HistogramFacetProps) {
         <YAxis hide />
         <ChartTooltip
           cursor={false}
-          content={<ChartTooltipContent />}
+          content={<FacetTooltip nameKey="range" countKey="count" previewKey="previewCount" />}
         />
         <Bar
           dataKey="preview"
