@@ -38,8 +38,8 @@ export function RecordHeader({ record, onSelectView }: RecordHeaderProps) {
           >
             <Link2 className="h-4 w-4" />
           </Button>
-          <RecordTaskActions filters={filters} />
-          <AdvancedTaskActions filters={filters} />
+          <RecordTaskActions filters={filters} totalCount={1} />
+          <AdvancedTaskActions filters={filters} totalCount={1} />
         </div>
       </div>
 

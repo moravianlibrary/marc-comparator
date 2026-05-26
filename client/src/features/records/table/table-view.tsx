@@ -4,6 +4,7 @@ import {
   getCoreRowModel,
   flexRender,
   type SortingState,
+  type VisibilityState,
 } from "@tanstack/react-table";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -85,6 +86,21 @@ export function TableView() {
     [filters.sortBy, filters.sortOrder],
   );
 
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(
+    () => {
+      try {
+        const stored = localStorage.getItem("table:columnVisibility");
+        return stored ? JSON.parse(stored) : {};
+      } catch {
+        return {};
+      }
+    },
+  );
+
+  useEffect(() => {
+    localStorage.setItem("table:columnVisibility", JSON.stringify(columnVisibility));
+  }, [columnVisibility]);
+
   const columns = useMemo(() => createColumns(t, onNavigate), [t, onNavigate]);
 
   const totalPages = data ? Math.ceil(data.total / filters.pageSize) : 0;
@@ -103,7 +119,9 @@ export function TableView() {
         pageSize: filters.pageSize,
       },
       sorting,
+      columnVisibility,
     },
+    onColumnVisibilityChange: setColumnVisibility,
     onSortingChange: (updater) => {
       const next = typeof updater === "function" ? updater(sorting) : updater;
       if (next.length > 0) {
@@ -167,8 +185,8 @@ export function TableView() {
         {(canProcess || canRunPartial) && (
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground whitespace-nowrap">{t("records:table.bulk-actions")}</span>
-            {canProcess && <RecordTaskActions filters={buildRecordFilter()} />}
-            {canRunPartial && <AdvancedTaskActions filters={buildRecordFilter()} />}
+            {canProcess && <RecordTaskActions filters={buildRecordFilter()} totalCount={data?.total} />}
+            {canRunPartial && <AdvancedTaskActions filters={buildRecordFilter()} totalCount={data?.total} />}
           </div>
         )}
 

@@ -191,7 +191,7 @@ function RecordDetail({
   const validatorNames = [...new Set((validations ?? []).map((v) => v.validator))];
   const validationOptions = validatorNames.map((name) => ({
     key: `val:${name}`,
-    label: name,
+    label: t(`validator-name.${name}`, { defaultValue: name }),
   }));
 
   let annotationType: AnnotationType | undefined;
@@ -339,8 +339,10 @@ function RecordDetail({
 export function CarouselView() {
   const { t } = useTranslation("records");
   const { filters, setFilters, buildSearchPayload } = useRecordFilters();
-  const [selectedView, setSelectedView] = useState<string>(
-    filters.carouselView || "marc",
+  const selectedView = filters.carouselView || "marc";
+  const setSelectedView = useCallback(
+    (v: string) => setFilters({ carouselView: v === "marc" ? "" : v }),
+    [setFilters],
   );
   const [targetFieldsOnly, _setTargetFieldsOnly] = useState(
     () => localStorage.getItem("carousel:targetFieldsOnly") === "true",
@@ -349,14 +351,6 @@ export function CarouselView() {
     _setTargetFieldsOnly(v);
     localStorage.setItem("carousel:targetFieldsOnly", String(v));
   }, []);
-
-  // Consume carouselView from URL params
-  useEffect(() => {
-    if (filters.carouselView) {
-      setSelectedView(filters.carouselView);
-      setFilters({ carouselView: "" });
-    }
-  }, [filters.carouselView, setFilters]);
   const [api, setApi] = useState<CarouselApi>();
   const prevRef = useRef<HTMLButtonElement>(null);
   const nextRef = useRef<HTMLButtonElement>(null);

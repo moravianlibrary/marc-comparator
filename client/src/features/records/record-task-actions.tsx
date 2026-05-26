@@ -46,9 +46,10 @@ type DialogAction = "link-authorities" | "validate";
 
 interface RecordTaskActionsProps {
   filters: RecordFilter;
+  totalCount?: number;
 }
 
-export function RecordTaskActions({ filters }: RecordTaskActionsProps) {
+export function RecordTaskActions({ filters, totalCount }: RecordTaskActionsProps) {
   const { t } = useTranslation("records");
   const queryClient = useQueryClient();
   const [pendingAction, setPendingAction] = useState<SimpleAction | null>(null);
@@ -77,10 +78,7 @@ export function RecordTaskActions({ filters }: RecordTaskActionsProps) {
     setPendingAction(null);
   }
 
-  const actionLabel: Record<SimpleAction, string> = {
-    process: t("table.actions.process"),
-    compare: t("table.actions.compare"),
-  };
+  const isSingle = totalCount === 1;
 
   return (
     <>
@@ -101,10 +99,14 @@ export function RecordTaskActions({ filters }: RecordTaskActionsProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>{t("common:confirm")}</AlertDialogTitle>
             <AlertDialogDescription>
-              {pendingAction &&
-                t("table.actions.confirm-task", {
-                  action: actionLabel[pendingAction],
-                })}
+              {pendingAction && (isSingle
+                ? t("table.actions.confirm-task-single", {
+                    action: t(`table.actions.${pendingAction}`),
+                  })
+                : t("table.actions.confirm-task-bulk", {
+                    action: t(`table.actions.${pendingAction}`),
+                    count: totalCount ?? "?",
+                  }))}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -121,9 +123,10 @@ export function RecordTaskActions({ filters }: RecordTaskActionsProps) {
 
 interface AdvancedTaskActionsProps {
   filters: RecordFilter;
+  totalCount?: number;
 }
 
-export function AdvancedTaskActions({ filters }: AdvancedTaskActionsProps) {
+export function AdvancedTaskActions({ filters, totalCount }: AdvancedTaskActionsProps) {
   const { t } = useTranslation("records");
   const queryClient = useQueryClient();
   const [pendingSimple, setPendingSimple] = useState<SimpleAction | null>(null);
@@ -243,6 +246,7 @@ export function AdvancedTaskActions({ filters }: AdvancedTaskActionsProps) {
     disabled: !linker.target_bases.includes(selectedBase || ""),
   }));
 
+  const isSingle = totalCount === 1;
   const isBusy =
     linkAuthoritiesMutation.isPending ||
     compareMutation.isPending ||
@@ -283,10 +287,14 @@ export function AdvancedTaskActions({ filters }: AdvancedTaskActionsProps) {
           <AlertDialogHeader>
             <AlertDialogTitle>{t("common:confirm")}</AlertDialogTitle>
             <AlertDialogDescription>
-              {pendingSimple &&
-                t("table.actions.confirm-task", {
-                  action: t(`table.actions.${pendingSimple}`),
-                })}
+              {pendingSimple && (isSingle
+                ? t("table.actions.confirm-task-single", {
+                    action: t(`table.actions.${pendingSimple}`),
+                  })
+                : t("table.actions.confirm-task-bulk", {
+                    action: t(`table.actions.${pendingSimple}`),
+                    count: totalCount ?? "?",
+                  }))}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -309,7 +317,9 @@ export function AdvancedTaskActions({ filters }: AdvancedTaskActionsProps) {
               {t("table.actions.authority-linking-title")}
             </DialogTitle>
             <DialogDescription>
-              {t("table.actions.authority-linking-description")}
+              {isSingle
+                ? t("table.actions.authority-linking-description-single")
+                : t("table.actions.authority-linking-description-bulk", { count: totalCount ?? "?" })}
             </DialogDescription>
           </DialogHeader>
 
@@ -408,7 +418,9 @@ export function AdvancedTaskActions({ filters }: AdvancedTaskActionsProps) {
           <DialogHeader>
             <DialogTitle>{t("table.actions.validate-title")}</DialogTitle>
             <DialogDescription>
-              {t("table.actions.validate-description")}
+              {isSingle
+                ? t("table.actions.validate-description-single")
+                : t("table.actions.validate-description-bulk", { count: totalCount ?? "?" })}
             </DialogDescription>
           </DialogHeader>
 
@@ -434,7 +446,7 @@ export function AdvancedTaskActions({ filters }: AdvancedTaskActionsProps) {
                         });
                       }}
                     />
-                    <Label htmlFor={`validator-${v}`}>{v}</Label>
+                    <Label htmlFor={`validator-${v}`}>{t(`validator-name.${v}`, { defaultValue: v })}</Label>
                   </div>
                 ))}
               </div>

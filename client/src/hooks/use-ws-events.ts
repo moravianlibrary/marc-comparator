@@ -15,27 +15,28 @@ export function useWsEvents() {
     const unsubStatus = wsClient.on("task_status", (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
 
+      const taskName = data.task_type ? t(`type.${data.task_type}`, { defaultValue: data.name }) : data.name;
       if (data.status === "Started") {
-        toast.info(t("toast.started", { name: data.name }));
+        toast.info(t("toast.started", { name: taskName }));
         addNotification({
-          title: data.name,
-          description: t("toast.started", { name: data.name }),
+          title: taskName,
+          description: t("toast.started", { name: taskName }),
           variant: "default",
           timestamp: new Date().toISOString(),
         });
       } else if (data.status === "Success") {
-        toast.success(t("toast.completed", { name: data.name }));
+        toast.success(t("toast.completed", { name: taskName }));
         addNotification({
-          title: data.name,
-          description: t("toast.completed", { name: data.name }),
+          title: taskName,
+          description: t("toast.completed", { name: taskName }),
           variant: "success",
           timestamp: new Date().toISOString(),
         });
       } else if (data.status === "Failure") {
-        toast.error(t("toast.failed", { name: data.name }));
+        toast.error(t("toast.failed", { name: taskName }));
         addNotification({
-          title: data.name,
-          description: t("toast.failed", { name: data.name }),
+          title: taskName,
+          description: t("toast.failed", { name: taskName }),
           variant: "error",
           timestamp: new Date().toISOString(),
         });

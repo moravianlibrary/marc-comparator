@@ -196,6 +196,7 @@ class ManagedTask:
             self.save_task()
             publish_event(TaskStatusEvent(
                 task_id=str(self.task.task_id),
+                task_type=self.task.type.value,
                 name=self.task.name,
                 status=self.task.status.value,
                 severity=self.task.severity.value,
@@ -234,6 +235,7 @@ class ManagedTask:
             self.save_task()
             publish_event(TaskStatusEvent(
                 task_id=str(self.task.task_id),
+                task_type=self.task.type.value,
                 name=self.task.name,
                 status=self.task.status.value,
                 severity=self.task.severity.value,
@@ -525,6 +527,7 @@ async def revoke_task(task: Task, db_session: DatabaseSession) -> TaskSchema:
 
     publish_event(TaskStatusEvent(
         task_id=str(task.task_id),
+        task_type=task.type.value,
         name=task.name,
         status=task.status.value,
         severity=task.severity.value,

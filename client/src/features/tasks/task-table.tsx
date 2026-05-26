@@ -34,7 +34,6 @@ export function TaskTable({ tasks, selectedTaskId, onSelectTask, onRevoke }: Tas
       <TableHeader>
         <TableRow>
           <TableHead>{t("fields.name")}</TableHead>
-          <TableHead>{t("fields.type")}</TableHead>
           <TableHead>{t("fields.status")}</TableHead>
           <TableHead>{t("fields.severity")}</TableHead>
           <TableHead>{t("fields.run-time")}</TableHead>
@@ -48,8 +47,7 @@ export function TaskTable({ tasks, selectedTaskId, onSelectTask, onRevoke }: Tas
             className={`cursor-pointer ${selectedTaskId === task.task_id ? "bg-muted" : ""}`}
             onClick={() => onSelectTask(task.task_id)}
           >
-            <TableCell className="font-medium">{task.name}</TableCell>
-            <TableCell>{t(`type.${task.type}`)}</TableCell>
+            <TableCell className="font-medium">{t(`type.${task.type}`)}</TableCell>
             <TableCell>
               <Badge variant={statusVariantMap[task.status] ?? "outline"}>
                 {t(`status.${task.status}`)}

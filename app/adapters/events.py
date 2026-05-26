@@ -14,6 +14,7 @@ CHANNEL = "ws:events"
 class TaskStatusEvent(BaseModel):
     type: Literal["task_status"] = "task_status"
     task_id: str
+    task_type: str
     name: str
     status: str
     severity: str
