@@ -143,6 +143,8 @@ class DefaultComparator(BaseComparator):
                         tag=group["tag"],
                         idxA=0 if group.get("value_main", "") != "" else None,
                         idxB=0 if group.get("value_test", "") != "" else None,
+                        value_a=group.get("value_main") or None,
+                        value_b=group.get("value_test") or None,
                         score=field_scoring.get(tag, 1.0),
                         explanation=_LABEL_TO_EXPLANATION.get(group.get("label")),
                         details=group.get("details", {}).get("reason"),

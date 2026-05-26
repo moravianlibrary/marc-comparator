@@ -97,6 +97,8 @@ class FieldComparisonResult(BaseModel):
     tagB: str | None = None
     idxA: int | None = None
     idxB: int | None = None
+    value_a: str | None = None
+    value_b: str | None = None
     score: float
     explanation: Explanation | None = None
     details: str | None = None

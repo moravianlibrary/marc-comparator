@@ -127,6 +127,7 @@
     "reason": "Důvod",
     "hint": "Nápověda",
     "authority-linked": "Propojeno s autoritou {{base}}",
+    "field-score": "Skóre pole",
     "permalink": "Trvalý odkaz na záznam",
     "link-copied": "Odkaz zkopírován do schránky",
     "review": {

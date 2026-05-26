@@ -163,6 +163,77 @@ function MarcRow({
 
   const hasSubfieldAnnotations = subfieldAnnotationMap.size > 0;
 
+  // Comparison with subfield annotations: render each subfield as a full-width row
+  // so that source value, authority value, and score stay aligned per row
+  if (showAnnotationColumn && comparisonAnnotation && hasSubfieldAnnotations) {
+    return (
+      <div className={cn("border-b last:border-b-0", striped && "bg-muted/50")}>
+        {subfieldRows.map((sf, i) => {
+          const srAnnotation = subfieldAnnotationMap.get(sf.code);
+          return (
+            <div key={i} className="flex">
+              {/* Tag + indicators (first row only) */}
+              <div className="flex w-[120px] flex-none items-start gap-4 px-3 py-0.5">
+                {i === 0 && (
+                  <>
+                    <span className="font-mono text-sm font-medium">{tag}</span>
+                    <span className="font-mono text-sm text-muted-foreground">
+                      {i1}{i2}
+                    </span>
+                  </>
+                )}
+              </div>
+              {/* Source subfield */}
+              <div className="w-[35%] flex-none px-3 py-0.5">
+                <div className="flex gap-3">
+                  <span className="w-[20px] flex-none font-mono text-sm text-muted-foreground">
+                    {sf.code === "_" ? "" : sf.code}
+                  </span>
+                  <span className="text-sm">{sf.value}</span>
+                </div>
+              </div>
+              {/* Authority subfield */}
+              <div className="w-[35%] flex-none border-l px-3 py-0.5">
+                {srAnnotation ? (
+                  <div className="flex gap-3 text-sm">
+                    <span className="w-[20px] flex-none font-mono text-muted-foreground">
+                      {srAnnotation.code}
+                    </span>
+                    <span>{srAnnotation.value_b ?? ""}</span>
+                  </div>
+                ) : (
+                  <div className="text-sm">&nbsp;</div>
+                )}
+              </div>
+              {/* Score + explanation */}
+              <div className="flex-1 px-3 py-0.5">
+                {srAnnotation ? (
+                  <div className="flex items-center gap-2 text-sm">
+                    <ScoreBadge score={srAnnotation.score} />
+                    {srAnnotation.explanation && (
+                      <ExplanationLabel explanation={srAnnotation.explanation} />
+                    )}
+                  </div>
+                ) : (
+                  <div className="text-sm">&nbsp;</div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+        {/* Field-level annotation */}
+        <div className="flex">
+          <div className="w-[120px] flex-none" />
+          <div className="w-[35%] flex-none" />
+          <div className="w-[35%] flex-none" />
+          <div className="flex-1 px-3 py-0.5">
+            <ComparisonFieldAnnotation annotation={comparisonAnnotation} />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className={cn("border-b last:border-b-0", striped && "bg-muted/50")}>
       <div className="flex">
@@ -176,7 +247,7 @@ function MarcRow({
         </div>
 
         {/* Subfields */}
-        <div className={cn("px-3 py-1.5", showAnnotationColumn ? "w-[50%] flex-none" : "flex-1")}>
+        <div className={cn("px-3 py-1.5", showAnnotationColumn ? "w-[35%] flex-none" : "flex-1")}>
           {subfieldRows.map((sf, i) => (
             <div key={i} className="flex gap-3">
               <span className="w-[20px] flex-none font-mono text-sm text-muted-foreground">
@@ -187,37 +258,38 @@ function MarcRow({
           ))}
         </div>
 
-        {/* Annotation column */}
-        {showAnnotationColumn && (
-          <div className="flex-1 border-l px-3 py-1.5">
-            {comparisonAnnotation && !hasSubfieldAnnotations && (
+        {/* Annotation columns */}
+        {showAnnotationColumn && comparisonAnnotation && !hasSubfieldAnnotations && (
+          <>
+            <div className="w-[35%] flex-none border-l px-3 py-1.5">
+              {comparisonAnnotation.value_b != null && (
+                <div className="text-sm">{comparisonAnnotation.value_b}</div>
+              )}
+            </div>
+            <div className="flex-1 px-3 py-1.5">
               <ComparisonFieldAnnotation annotation={comparisonAnnotation} />
-            )}
-            {comparisonAnnotation && hasSubfieldAnnotations && (
-              <div>
-                {subfieldRows.map((sf, i) => {
-                  const srAnnotation = subfieldAnnotationMap.get(sf.code);
-                  if (!srAnnotation) return <div key={i} className="text-xs">&nbsp;</div>;
-                  return (
-                    <div key={i} className="flex items-center gap-2 text-xs text-muted-foreground">
-                      <span className="font-mono w-[16px] flex-none">{srAnnotation.code}</span>
-                      <ScoreBadge score={srAnnotation.score} />
-                      {srAnnotation.value_b != null && (
-                        <span className="truncate text-foreground">{srAnnotation.value_b}</span>
-                      )}
-                    </div>
-                  );
-                })}
-                <ComparisonFieldAnnotation annotation={comparisonAnnotation} />
-              </div>
-            )}
-            {validationAnnotation && (
-              <ValidationFieldAnnotation annotation={validationAnnotation} />
-            )}
+            </div>
+          </>
+        )}
+        {showAnnotationColumn && !comparisonAnnotation && validationAnnotation && (
+          <div className="flex-1 border-l px-3 py-1.5">
+            <ValidationFieldAnnotation annotation={validationAnnotation} />
           </div>
+        )}
+        {showAnnotationColumn && !comparisonAnnotation && !validationAnnotation && (
+          <div className="flex-1 border-l px-3 py-1.5" />
         )}
       </div>
     </div>
+  );
+}
+
+function ExplanationLabel({ explanation }: { explanation: string }) {
+  const { t } = useTranslation("records");
+  return (
+    <span className="text-xs text-muted-foreground truncate">
+      {t(`field-explanation.${explanation}`, { defaultValue: explanation })}
+    </span>
   );
 }
 
@@ -225,11 +297,10 @@ function ComparisonFieldAnnotation({ annotation }: { annotation: FieldComparison
   const { t } = useTranslation("records");
   return (
     <div className="flex items-center gap-2 text-xs text-muted-foreground">
+      <span>{t("carousel.field-score")}:</span>
       <ScoreBadge score={annotation.score} />
       {annotation.explanation && (
-        <span className="truncate">
-          {t(`field-explanation.${annotation.explanation}`, { defaultValue: annotation.explanation })}
-        </span>
+        <ExplanationLabel explanation={annotation.explanation} />
       )}
     </div>
   );

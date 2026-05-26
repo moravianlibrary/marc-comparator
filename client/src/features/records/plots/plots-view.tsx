@@ -184,6 +184,7 @@ export function PlotsView() {
   }
 
   function getPreviewBuckets(facetField: string): FacetBucket[] | undefined {
+    if (hasRecordIdFilter) return undefined;
     if (!previewFacets || facetField === hoveredField) return undefined;
     const result = previewFacets.facets.find(
       (f: FacetResult) => f.field === facetField,
@@ -192,6 +193,7 @@ export function PlotsView() {
   }
 
   function getPreviewHistogramBuckets(field: string): HistogramBucket[] | undefined {
+    if (hasRecordIdFilter) return undefined;
     if (!previewFacets || field === hoveredField) return undefined;
     const result = previewFacets.histograms.find((h) => h.field === field);
     return result?.buckets ?? [];
@@ -201,6 +203,7 @@ export function PlotsView() {
     return {
       onToggle: (value: string) => handleToggle(field, value),
       onHover: (value: string) => {
+        if (hasRecordIdFilter) return;
         if (getActiveValues(field).includes(value)) return;
         setHoveredField(field);
         setHoveredValue(value);
@@ -261,20 +264,25 @@ export function PlotsView() {
     }
   }
   const hasScoreFilter = filters.scoreMin > 0 || filters.scoreMax < 1;
-  const hasAnyFilter = activeFilters.length > 0 || hasScoreFilter;
+  const hasRecordIdFilter = !!filters.recordId;
+  const hasAnyFilter = activeFilters.length > 0 || hasScoreFilter || hasRecordIdFilter;
 
   // Context pill groups
   const contextFields: { field: string; label: string; formatLabel?: (k: string) => string }[] = [
     { field: "base", label: t("facet-fields.base") },
-    { field: "validators", label: t("facet-fields.validators"), formatLabel: (k) => t(`validator-name.${k}`, { defaultValue: k }) },
+    {
+      field: "authority_link_bases",
+      label: t("facet-fields.authority_link_bases"),
+    },
     {
       field: "authority_link_linkers",
       label: t("facet-fields.authority_link_linkers"),
     },
     {
-      field: "authority_link_bases",
-      label: t("facet-fields.authority_link_bases"),
+      field: "comparison_bases",
+      label: t("facet-fields.comparison_bases"),
     },
+    { field: "validators", label: t("facet-fields.validators"), formatLabel: (k) => t(`validator-name.${k}`, { defaultValue: k }) },
   ];
 
   const pillGroups = contextFields
@@ -290,7 +298,7 @@ export function PlotsView() {
         formatLabel,
         ...handlers,
         onHover: (value: string) => {
-          prefetch(field);
+          if (!hasRecordIdFilter) prefetch(field);
           handlers.onHover(value);
         },
       };
@@ -336,6 +344,19 @@ export function PlotsView() {
               <X className="h-3 w-3" />
             </Badge>
           ))}
+          {hasRecordIdFilter && (
+            <Badge
+              variant="secondary"
+              className="gap-1 cursor-pointer"
+              onClick={() => setFilters({ recordId: "", recordIndex: 0 })}
+            >
+              <span className="text-muted-foreground">
+                {t("plots.record-id")}:
+              </span>{" "}
+              {filters.recordId}
+              <X className="h-3 w-3" />
+            </Badge>
+          )}
           {hasScoreFilter && (
             <Badge
               variant="secondary"
@@ -362,13 +383,25 @@ export function PlotsView() {
       )}
 
       {/* Section 1: Context (full-width pills card) */}
-      {isSectionVisible("context") && pillGroups.length > 0 && (
+      {isSectionVisible("context") && (pillGroups.length > 0 || hasRecordIdFilter) && (
         <section className="space-y-2">
           <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
             {t("plots.sections.context")}
           </h3>
           <Card>
             <CardContent className="flex flex-wrap gap-x-6 gap-y-3 pt-4">
+              {hasRecordIdFilter && (
+                <div>
+                  <p className="text-sm font-medium mb-1">{t("plots.record-id")}</p>
+                  <button
+                    className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-sm font-medium bg-primary text-primary-foreground"
+                    onClick={() => setFilters({ recordId: "", recordIndex: 0 })}
+                  >
+                    <span>{filters.recordId}</span>
+                    <X className="h-3 w-3" />
+                  </button>
+                </div>
+              )}
               {pillGroups.map((group) => (
                 <div key={group.facetField}>
                   <p className="text-sm font-medium mb-1">{group.label}</p>
@@ -480,7 +513,7 @@ export function PlotsView() {
                   formatLabel={(k) => t(`type-of-record.${k}`, { defaultValue: k })}
                   {...makeChartHandlers("type_of_record")}
                 >
-                  {(chartProps) => <BarFacet {...chartProps} />}
+                  {(chartProps) => <BarFacet {...chartProps} labelWidth={160} />}
                 </FacetChart>
               )}
 

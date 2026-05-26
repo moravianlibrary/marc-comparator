@@ -187,6 +187,9 @@ def _build_where(filters: RecordFilter) -> tuple[str, dict]:
     conditions = ["TRUE"]
     params = {}
 
+    if filters.record_ids:
+        conditions.append("id = ANY(:record_ids)")
+        params["record_ids"] = filters.record_ids
     if filters.bases:
         conditions.append("base = ANY(:bases)")
         params["bases"] = filters.bases

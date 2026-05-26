@@ -142,6 +142,8 @@ export interface SubfieldComparisonResult {
 
 export interface FieldComparisonResult {
   tag: string;
+  value_a: string | null;
+  value_b: string | null;
   score: number;
   explanation: string | null;
   details: string | null;
