@@ -7,11 +7,12 @@ import {
 } from "@tanstack/react-table";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import { Info } from "lucide-react";
+import { Info, X } from "lucide-react";
 import apiClient from "@/lib/api-client";
 import { useHasPermission } from "@/hooks/use-permissions";
 import { Permission } from "@/types/permission";
 
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import {
@@ -118,6 +119,19 @@ export function TableView() {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-4">
+        {filters.recordId && (
+          <Badge
+            variant="secondary"
+            className="gap-1 cursor-pointer shrink-0"
+            onClick={() => setFilters({ recordId: "", recordIndex: 0 })}
+          >
+            <span className="text-muted-foreground">
+              {t("records:plots.record-id")}:
+            </span>{" "}
+            {filters.recordId}
+            <X className="h-3 w-3" />
+          </Badge>
+        )}
         <div className="flex items-center gap-1.5 max-w-sm flex-1">
           <Input
             placeholder={t("records:table.search-placeholder")}

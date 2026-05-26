@@ -16,19 +16,33 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Label } from "@/components/ui/label";
 import type { RecordFilter } from "./types";
-import type { ProcessRecordsSettings } from "@/types/settings";
+import type { ProcessRecordsSettings, SystemInfo } from "@/types/settings";
 
-type TaskAction =
-  | "process"
-  | "link-authorities"
-  | "compare"
-  | "validate";
+type SimpleAction = "process" | "compare";
+type DialogAction = "link-authorities" | "validate";
 
 interface RecordTaskActionsProps {
   filters: RecordFilter;
@@ -37,7 +51,7 @@ interface RecordTaskActionsProps {
 export function RecordTaskActions({ filters }: RecordTaskActionsProps) {
   const { t } = useTranslation("records");
   const queryClient = useQueryClient();
-  const [pendingAction, setPendingAction] = useState<TaskAction | null>(null);
+  const [pendingAction, setPendingAction] = useState<SimpleAction | null>(null);
 
   const { data: processSettings } = useQuery<ProcessRecordsSettings>({
     queryKey: ["settings", "process-records"],
@@ -57,78 +71,16 @@ export function RecordTaskActions({ filters }: RecordTaskActionsProps) {
     onError,
   });
 
-  const linkAuthoritiesMutation = useMutation({
-    mutationFn: async () => {
-      if (!processSettings) return;
-      for (const targetBase of processSettings.target_bases) {
-        await apiClient.post("/authority-linking/task", {
-          linkers: processSettings.authority_linkers,
-          target_base: targetBase,
-          filters,
-        });
-      }
-    },
-    onSuccess: onTaskCreated,
-    onError,
-  });
-
-  const compareMutation = useMutation({
-    mutationFn: async () => {
-      if (!processSettings) return;
-      for (const targetBase of processSettings.target_bases) {
-        await apiClient.post("/comparison/task", {
-          target_base: targetBase,
-          filters,
-        });
-      }
-    },
-    onSuccess: onTaskCreated,
-    onError,
-  });
-
-  const validateMutation = useMutation({
-    mutationFn: () => {
-      if (!processSettings) return Promise.resolve();
-      return apiClient.post("/validation/task", {
-        validators: processSettings.validators,
-        filters,
-      });
-    },
-    onSuccess: onTaskCreated,
-    onError,
-  });
-
   function confirmAction() {
     if (!pendingAction) return;
-    switch (pendingAction) {
-      case "process":
-        processMutation.mutate();
-        break;
-      case "link-authorities":
-        linkAuthoritiesMutation.mutate();
-        break;
-      case "compare":
-        compareMutation.mutate();
-        break;
-      case "validate":
-        validateMutation.mutate();
-        break;
-    }
+    if (pendingAction === "process") processMutation.mutate();
     setPendingAction(null);
   }
 
-  const actionLabel: Record<TaskAction, string> = {
+  const actionLabel: Record<SimpleAction, string> = {
     process: t("table.actions.process"),
-    "link-authorities": t("table.actions.link-authorities"),
     compare: t("table.actions.compare"),
-    validate: t("table.actions.validate"),
   };
-
-  const isBusy =
-    processMutation.isPending ||
-    linkAuthoritiesMutation.isPending ||
-    compareMutation.isPending ||
-    validateMutation.isPending;
 
   return (
     <>
@@ -136,7 +88,7 @@ export function RecordTaskActions({ filters }: RecordTaskActionsProps) {
         variant="outline"
         size="sm"
         onClick={() => setPendingAction("process")}
-        disabled={isBusy}
+        disabled={processMutation.isPending}
       >
         {t("table.actions.process")}
       </Button>
@@ -174,7 +126,20 @@ interface AdvancedTaskActionsProps {
 export function AdvancedTaskActions({ filters }: AdvancedTaskActionsProps) {
   const { t } = useTranslation("records");
   const queryClient = useQueryClient();
-  const [pendingAction, setPendingAction] = useState<TaskAction | null>(null);
+  const [pendingSimple, setPendingSimple] = useState<SimpleAction | null>(null);
+  const [pendingDialog, setPendingDialog] = useState<DialogAction | null>(null);
+
+  // -- Authority linking dialog state --
+  const [selectedBase, setSelectedBase] = useState<string | null>(null);
+  const [selectedLinkers, setSelectedLinkers] = useState<Set<string>>(new Set());
+
+  // -- Validation dialog state --
+  const [selectedValidators, setSelectedValidators] = useState<Set<string>>(new Set());
+
+  const { data: systemInfo } = useQuery<SystemInfo>({
+    queryKey: ["system", "info"],
+    queryFn: () => apiClient.get<SystemInfo>("/system/info").then((r) => r.data),
+  });
 
   const { data: processSettings } = useQuery<ProcessRecordsSettings>({
     queryKey: ["settings", "process-records"],
@@ -184,20 +149,20 @@ export function AdvancedTaskActions({ filters }: AdvancedTaskActionsProps) {
         .then((r) => r.data),
   });
 
+  const authorityLinkers = systemInfo?.enabled_authority_linkers ?? [];
+  const enabledValidators = systemInfo?.enabled_validators ?? [];
+
   const onTaskCreated = () =>
     queryClient.invalidateQueries({ queryKey: ["tasks"] });
   const onError = () => toast.error(t("common:error"));
 
   const linkAuthoritiesMutation = useMutation({
-    mutationFn: async () => {
-      if (!processSettings) return;
-      for (const targetBase of processSettings.target_bases) {
-        await apiClient.post("/authority-linking/task", {
-          linkers: processSettings.authority_linkers,
-          target_base: targetBase,
-          filters,
-        });
-      }
+    mutationFn: async ({ base, linkers }: { base: string; linkers: string[] }) => {
+      await apiClient.post("/authority-linking/task", {
+        linkers,
+        target_base: base,
+        filters,
+      });
     },
     onSuccess: onTaskCreated,
     onError,
@@ -218,38 +183,65 @@ export function AdvancedTaskActions({ filters }: AdvancedTaskActionsProps) {
   });
 
   const validateMutation = useMutation({
-    mutationFn: () => {
-      if (!processSettings) return Promise.resolve();
-      return apiClient.post("/validation/task", {
-        validators: processSettings.validators,
-        filters,
-      });
+    mutationFn: async (validators: string[]) => {
+      await apiClient.post("/validation/task", { validators, filters });
     },
     onSuccess: onTaskCreated,
     onError,
   });
 
-  function confirmAction() {
-    if (!pendingAction) return;
-    switch (pendingAction) {
-      case "link-authorities":
-        linkAuthoritiesMutation.mutate();
-        break;
-      case "compare":
-        compareMutation.mutate();
-        break;
-      case "validate":
-        validateMutation.mutate();
-        break;
-    }
-    setPendingAction(null);
+  function confirmSimple() {
+    if (pendingSimple === "compare") compareMutation.mutate();
+    setPendingSimple(null);
   }
 
-  const actionLabel: Record<string, string> = {
-    "link-authorities": t("table.actions.link-authorities"),
-    compare: t("table.actions.compare"),
-    validate: t("table.actions.validate"),
-  };
+  function openLinkAuthorities() {
+    const bases = [...new Set(authorityLinkers.flatMap((l) => l.target_bases))];
+    const defaultBase = bases.length === 1 ? bases[0] : null;
+    setSelectedBase(defaultBase);
+    // If only one base, pre-select all compatible linkers if there's exactly one
+    const compatible = defaultBase
+      ? authorityLinkers.filter((l) => l.target_bases.includes(defaultBase))
+      : [];
+    setSelectedLinkers(
+      compatible.length === 1 ? new Set([compatible[0].name]) : new Set(),
+    );
+    setPendingDialog("link-authorities");
+  }
+
+  function openValidate() {
+    setSelectedValidators(
+      enabledValidators.length === 1
+        ? new Set([enabledValidators[0]])
+        : new Set(),
+    );
+    setPendingDialog("validate");
+  }
+
+  function confirmLinkAuthorities() {
+    if (!selectedBase || selectedLinkers.size === 0) return;
+    linkAuthoritiesMutation.mutate({
+      base: selectedBase,
+      linkers: Array.from(selectedLinkers),
+    });
+    setPendingDialog(null);
+  }
+
+  function confirmValidate() {
+    if (selectedValidators.size === 0) return;
+    validateMutation.mutate(Array.from(selectedValidators));
+    setPendingDialog(null);
+  }
+
+  const availableBases = [
+    ...new Set(authorityLinkers.flatMap((l) => l.target_bases)),
+  ];
+
+  const linkerOptions = authorityLinkers.map((linker) => ({
+    id: linker.name,
+    label: linker.name,
+    disabled: !linker.target_bases.includes(selectedBase || ""),
+  }));
 
   const isBusy =
     linkAuthoritiesMutation.isPending ||
@@ -270,42 +262,201 @@ export function AdvancedTaskActions({ filters }: AdvancedTaskActionsProps) {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
-          <DropdownMenuItem
-            onSelect={() => setPendingAction("link-authorities")}
-          >
+          <DropdownMenuItem onSelect={openLinkAuthorities}>
             {t("table.actions.link-authorities")}
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => setPendingAction("compare")}>
+          <DropdownMenuItem onSelect={() => setPendingSimple("compare")}>
             {t("table.actions.compare")}
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => setPendingAction("validate")}>
+          <DropdownMenuItem onSelect={openValidate}>
             {t("table.actions.validate")}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 
+      {/* Simple confirm for compare */}
       <AlertDialog
-        open={pendingAction !== null}
-        onOpenChange={(open) => !open && setPendingAction(null)}
+        open={pendingSimple !== null}
+        onOpenChange={(open) => !open && setPendingSimple(null)}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{t("common:confirm")}</AlertDialogTitle>
             <AlertDialogDescription>
-              {pendingAction &&
+              {pendingSimple &&
                 t("table.actions.confirm-task", {
-                  action: actionLabel[pendingAction],
+                  action: t(`table.actions.${pendingSimple}`),
                 })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t("common:cancel")}</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmAction}>
+            <AlertDialogAction onClick={confirmSimple}>
               {t("common:confirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Authority Linking dialog */}
+      <Dialog
+        open={pendingDialog === "link-authorities"}
+        onOpenChange={(open) => !open && setPendingDialog(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {t("table.actions.authority-linking-title")}
+            </DialogTitle>
+            <DialogDescription>
+              {t("table.actions.authority-linking-description")}
+            </DialogDescription>
+          </DialogHeader>
+
+          {authorityLinkers.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              {t("table.actions.no-linkers")}
+            </p>
+          ) : (
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label>{t("table.actions.select-base")}</Label>
+                <Select
+                  value={selectedBase ?? ""}
+                  onValueChange={(v) => {
+                    setSelectedBase(v);
+                    const compatible = authorityLinkers.filter((l) =>
+                      l.target_bases.includes(v),
+                    );
+                    setSelectedLinkers(
+                      compatible.length === 1
+                        ? new Set([compatible[0].name])
+                        : new Set(),
+                    );
+                  }}
+                >
+                  <SelectTrigger>
+                    <SelectValue
+                      placeholder={t("table.actions.select-base-placeholder")}
+                    />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {availableBases.map((base) => (
+                      <SelectItem key={base} value={base}>
+                        {base}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label>{t("table.actions.select-linkers")}</Label>
+                <div className="space-y-2">
+                  {linkerOptions.map((opt) => (
+                    <div key={opt.id} className="flex items-center gap-2">
+                      <Checkbox
+                        id={`linker-${opt.id}`}
+                        disabled={opt.disabled}
+                        checked={selectedLinkers.has(opt.id)}
+                        onCheckedChange={(checked) => {
+                          setSelectedLinkers((prev) => {
+                            const next = new Set(prev);
+                            if (checked) next.add(opt.id);
+                            else next.delete(opt.id);
+                            return next;
+                          });
+                        }}
+                      />
+                      <Label
+                        htmlFor={`linker-${opt.id}`}
+                        className={opt.disabled ? "text-muted-foreground" : ""}
+                      >
+                        {opt.label}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPendingDialog(null)}>
+              {t("common:cancel")}
+            </Button>
+            <Button
+              onClick={confirmLinkAuthorities}
+              disabled={
+                !selectedBase ||
+                selectedLinkers.size === 0 ||
+                authorityLinkers.length === 0
+              }
+            >
+              {t("common:confirm")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Validation dialog */}
+      <Dialog
+        open={pendingDialog === "validate"}
+        onOpenChange={(open) => !open && setPendingDialog(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("table.actions.validate-title")}</DialogTitle>
+            <DialogDescription>
+              {t("table.actions.validate-description")}
+            </DialogDescription>
+          </DialogHeader>
+
+          {enabledValidators.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              {t("table.actions.no-validators")}
+            </p>
+          ) : (
+            <div className="space-y-2">
+              <Label>{t("table.actions.select-validators")}</Label>
+              <div className="space-y-2">
+                {enabledValidators.map((v) => (
+                  <div key={v} className="flex items-center gap-2">
+                    <Checkbox
+                      id={`validator-${v}`}
+                      checked={selectedValidators.has(v)}
+                      onCheckedChange={(checked) => {
+                        setSelectedValidators((prev) => {
+                          const next = new Set(prev);
+                          if (checked) next.add(v);
+                          else next.delete(v);
+                          return next;
+                        });
+                      }}
+                    />
+                    <Label htmlFor={`validator-${v}`}>{v}</Label>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPendingDialog(null)}>
+              {t("common:cancel")}
+            </Button>
+            <Button
+              onClick={confirmValidate}
+              disabled={
+                selectedValidators.size === 0 ||
+                enabledValidators.length === 0
+              }
+            >
+              {t("common:confirm")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
