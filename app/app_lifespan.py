@@ -58,6 +58,7 @@ async def lifespan(app):
             "ALTER TABLE IF EXISTS marc_sectors "
             "ALTER COLUMN data SET STORAGE EXTERNAL"
         ))
+        db.commit()
 
         # Create analytics denormalized table
         from catalog_records.analytics import init_analytics_table

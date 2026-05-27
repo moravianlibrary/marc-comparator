@@ -41,8 +41,8 @@ CREATE TABLE IF NOT EXISTS catalog_records_analytics (
 """
 
 CREATE_INDEXES_SQL = [
-    "CREATE INDEX IF NOT EXISTS idx_analytics_base ON catalog_records_analytics USING brin (base)",
-    "CREATE INDEX IF NOT EXISTS idx_analytics_processed ON catalog_records_analytics USING brin (is_processed)",
+    "CREATE INDEX IF NOT EXISTS idx_analytics_base ON catalog_records_analytics (base)",
+    "CREATE INDEX IF NOT EXISTS idx_analytics_processed ON catalog_records_analytics (is_processed)",
     "CREATE INDEX IF NOT EXISTS idx_analytics_review_status ON catalog_records_analytics (review_status) WHERE review_status != 'ReviewNotNeeded'",
     "CREATE INDEX IF NOT EXISTS idx_analytics_auth_linkers ON catalog_records_analytics USING gin (authority_link_linkers)",
     "CREATE INDEX IF NOT EXISTS idx_analytics_auth_bases ON catalog_records_analytics USING gin (authority_link_bases)",
@@ -160,6 +160,8 @@ _ANALYTICS_SELECT = """
     WHERE cr.source_type = 'Main'
 """
 
+_ANALYTICS_GROUP_BY = "GROUP BY cr.id"
+
 
 def init_analytics_table(db: Session) -> None:
     """Create the analytics table and indexes if they don't exist."""
@@ -177,7 +179,7 @@ def upsert_records(db: Session, record_ids: list[str]) -> None:
     db.execute(text(f"""
         INSERT INTO {TABLE} {_ANALYTICS_SELECT}
             AND cr.id = ANY(:ids)
-            GROUP BY cr.id
+            {_ANALYTICS_GROUP_BY}
         ON CONFLICT (id) DO UPDATE SET
             base = EXCLUDED.base,
             system_number = EXCLUDED.system_number,
@@ -210,6 +212,6 @@ def rebuild_all(db: Session) -> None:
     db.execute(text(f"TRUNCATE {TABLE}"))
     db.execute(text(f"""
         INSERT INTO {TABLE} {_ANALYTICS_SELECT}
-            GROUP BY cr.id
+            {_ANALYTICS_GROUP_BY}
     """))
     db.commit()
