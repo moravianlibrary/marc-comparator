@@ -290,7 +290,7 @@ def _parse_preview_grouping_rows(
 
     result = []
     for field in SCALAR_FACETS:
-        if field in [c for c in gs_columns]:
+        if field in gs_columns:
             result.append(FacetResult(
                 field=field,
                 buckets=sorted(buckets_by_field.get(field, []), key=lambda b: -b.count),
