@@ -1,6 +1,6 @@
 services:
   postgres:
-    image: pgduckdb/pgduckdb:17-main
+    image: postgres:17
     container_name: marc-comparator-postgres
     environment:
       - POSTGRES_DB=marc
@@ -8,9 +8,6 @@ services:
       - POSTGRES_PASSWORD=marcAdmin
     volumes:
       - ./pg_data:/var/lib/postgresql/data
-    command: >
-      postgres
-        -c shared_preload_libraries=pg_duckdb
     networks:
       - marc-comparator
     ports:
