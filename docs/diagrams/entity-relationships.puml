@@ -1,0 +1,138 @@
+@startuml Entity Relationships
+skinparam linetype ortho
+
+entity "users" as users {
+    * id : UUID <<PK>>
+    --
+    * email : String <<unique>>
+    * first_name : String
+    * last_name : String
+    * password_hash : String
+}
+
+entity "roles" as roles {
+    * id : Integer <<PK>>
+    --
+    * name : String <<unique>>
+    * permissions : JSONB
+    immutable : Boolean
+    protected : Boolean
+}
+
+entity "user_roles" as user_roles {
+    * user_id : UUID <<FK>>
+    * role_id : Integer <<FK>>
+}
+
+entity "tasks" as tasks {
+    * task_id : UUID <<PK>>
+    --
+    * name : String
+    * type : TaskType
+    * status : TaskStatus
+    * severity : TaskSeverity
+    * created_by : UUID <<FK>>
+    created_at : Timestamp
+    started_at : Timestamp
+    finished_at : Timestamp
+    data : JSON
+    progress : Float
+    traceback : Text
+}
+
+entity "catalog_records" as cr {
+    * id : String <<PK>>
+    --
+    * base : String
+    * system_number : String
+    title : String
+    authors : String[]
+    deleted : Boolean
+    processed_at : Timestamp
+    source_type : String
+    type_of_record : String
+    bibliographic_level : String
+    search_text : String
+    search_vector : TSVECTOR
+    latest_sync : Timestamp
+    updated_at : Timestamp
+}
+
+entity "comparisons" as comp {
+    * main_record_id : String <<FK,PK>>
+    * comparator : String <<PK>>
+    * base : String <<PK>>
+    --
+    * other_record_id : String <<FK>>
+    * result : JSONB
+    updated_at : Timestamp
+}
+
+entity "validations" as val {
+    * id : Integer <<PK>>
+    --
+    * catalog_record_id : String <<FK>>
+    * validator : String
+    * result : JSONB
+    updated_at : Timestamp
+}
+
+entity "authority_links" as al {
+    * main_record_id : String <<FK,PK>>
+    * linker : String <<PK>>
+    * base : String <<PK>>
+    --
+    * authority_record_id : String <<FK>>
+    confidence : Float
+    updated_at : Timestamp
+}
+
+entity "record_reviews" as rr {
+    * id : UUID <<PK>>
+    --
+    * record_id : String <<FK>>
+    * aspect_name : String
+    note : Text
+    * reviewed_by : UUID <<FK>>
+    reviewed_at : Timestamp
+    * status : String
+}
+
+entity "marc_sectors" as ms {
+    * base : String <<PK>>
+    * sector_id : Integer <<PK>>
+    --
+    * data : bytea
+    record_count : SmallInt
+}
+
+entity "marc_record_index" as mri {
+    * base : String <<PK>>
+    * system_number : String <<PK>>
+    --
+    * sector_id : Integer
+    * offset_in_sector : Integer
+    * record_length : Integer
+}
+
+entity "settings" as settings {
+    * scope : SettingsScope <<PK>>
+    --
+    * data : JSONB
+    updated_at : Timestamp
+}
+
+users ||--o{ user_roles
+roles ||--o{ user_roles
+users ||--o{ tasks : created_by
+users ||--o{ rr : reviewed_by
+
+cr ||--o{ comp : main_record_id
+cr ||--o{ val : catalog_record_id
+cr ||--o{ al : main_record_id
+cr ||--o{ rr : record_id
+cr }o--|| comp : other_record_id
+cr }o--|| al : authority_record_id
+
+ms ||--o{ mri : (base, sector_id)
+@enduml

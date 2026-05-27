@@ -1,0 +1,27 @@
+@startuml Notification Flow
+skinparam sequenceMessageAlign center
+
+participant "Celery Worker" as Worker
+queue "Redis Pub/Sub" as Redis
+participant "WS Subscriber\n(asyncio)" as Sub
+participant "WS Manager" as Manager
+participant "Client WSClient" as WS
+participant "React Hook\n(use-ws-events)" as Hook
+participant "UI" as UI
+
+Worker -> Redis: publish_event(TaskStatusEvent)
+Redis -> Sub: message on "ws:events"
+Sub -> Manager: on_event(event)
+
+Manager -> Manager: filter connections by:\n- task creator\n- ManageAllTasks permission
+
+loop each matching connection
+    Manager -> WS: send JSON event
+end
+
+WS -> Hook: on("task_status", handler)
+
+Hook -> Hook: invalidate queries\n(["tasks"], ["tasks","running"])
+Hook -> UI: toast.success(taskName)
+Hook -> UI: addNotification(entry)
+@enduml

@@ -1,0 +1,29 @@
+@startuml Review Lifecycle
+skinparam stateFontSize 14
+
+[*] --> current : user creates review\nfor aspect (comparator/validator)
+
+current --> superseded : new review created\nfor same record + aspect
+current --> outdated : underlying data changes\n(reprocess, sync, new\ncomparison/validation results)
+
+superseded --> [*]
+outdated --> [*]
+
+note right of current
+  Active review visible
+  in carousel view
+end note
+
+note right of outdated
+  Shown with warning indicator.
+  Triggered by:
+  - outdate_current(record_id, aspect_name)
+  - Called when task changes
+    comparison/validation results
+end note
+
+note right of superseded
+  Historical record.
+  Replaced by newer review.
+end note
+@enduml

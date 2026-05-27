@@ -1,0 +1,20 @@
+@startuml MARC Sector Storage - Write
+skinparam activityFontSize 13
+
+start
+:Incoming MARC bytes\n(from sync/fetch);
+
+:Find or create sector\nfor (base, next_sector_id);
+
+:Decompress existing\nsector data (zstd);
+
+:Append MARC record bytes;
+
+:Update **marc_record_index**:\n(base, system_number) →\n(sector_id, offset, length);
+
+:Recompress sector data (zstd);
+
+:Store in **marc_sectors.data**\nIncrement record_count;
+
+stop
+@enduml

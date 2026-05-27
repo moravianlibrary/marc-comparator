@@ -1,0 +1,40 @@
+@startuml Authentication Flow
+skinparam sequenceMessageAlign center
+
+actor User
+participant Client
+participant "API Server" as API
+database PostgreSQL as PG
+
+== Login ==
+
+User -> Client: login(email, password)
+Client -> API: POST /auth/login
+API -> PG: find user by email
+PG --> API: user + password_hash
+API -> API: bcrypt verify
+API -> API: generate JWT tokens
+API --> Client: Set-Cookie: access_token (15m)\nSet-Cookie: refresh_token (7d)
+Client -> API: GET /auth/me\nCookie: access_token
+API -> API: verify JWT
+API -> PG: load user + roles + permissions
+API --> Client: MeResponse
+
+== Token Refresh (after 15 min) ==
+
+Client -> API: API request\nCookie: access_token (expired)
+API --> Client: 401 Unauthorized
+
+Client -> Client: queue failed request
+Client -> API: POST /auth/refresh\nCookie: refresh_token
+API -> API: verify refresh token
+API --> Client: Set-Cookie: new access_token
+
+Client -> API: retry queued request\nCookie: new access_token
+API --> Client: 200 OK
+
+note right of Client
+  On refresh failure:
+  redirect to /logout
+end note
+@enduml

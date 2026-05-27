@@ -1,0 +1,49 @@
+@startuml Process Records Pipeline
+skinparam sequenceMessageAlign center
+
+actor User
+participant Client
+participant "API Server" as API
+participant "Celery Worker" as Worker
+database PostgreSQL as PG
+participant "Aleph OAI" as OAI
+
+User -> Client: process(filters)
+Client -> API: POST /catalog-records/process
+API -> PG: INSERT task (Pending)
+API -> Worker: dispatch_task()
+Client <-- API: TaskSchema
+
+Worker -> PG: query filtered record IDs
+PG --> Worker: record IDs
+
+loop per record
+    group Authority Linking
+        Worker -> Worker: init linkers from settings
+        Worker -> PG: query authority records
+        Worker -> OAI: fetch authority record\n(if not cached)
+        Worker -> PG: upsert AuthorityLink
+    end
+
+    group Comparison
+        Worker -> Worker: init comparator from settings
+        Worker -> PG: load target record from sector
+        Worker -> Worker: compare MARC fields
+        Worker -> PG: upsert Comparison
+    end
+
+    group Validation
+        Worker -> Worker: init validators from settings
+        Worker -> Worker: run validators on MARC
+        Worker -> PG: delete old + save new Validations
+    end
+
+    Worker -> PG: set processed_at = now()
+    Worker -> PG: outdate affected reviews
+    Worker -> Redis: publish TaskProgressEvent
+end
+
+Worker -> PG: REFRESH MATERIALIZED VIEW\nCONCURRENTLY catalog_records_analytics
+Worker -> PG: update task status = Success
+Worker -> Redis: publish TaskStatusEvent(Success)
+@enduml

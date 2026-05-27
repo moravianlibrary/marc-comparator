@@ -1,0 +1,46 @@
+@startuml Record Sync Flow
+skinparam sequenceMessageAlign center
+
+actor User
+participant Client
+participant "API Server" as API
+participant "Celery Worker" as Worker
+participant "Aleph OAI" as OAI
+database Redis
+database PostgreSQL as PG
+
+User -> Client: sync(base)
+Client -> API: POST /catalog-records/sync
+API -> API: check permission
+API -> PG: INSERT task (Pending)
+API -> Worker: dispatch_task()
+Client <-- API: TaskSchema
+
+Worker -> Redis: SETNX catalog_sync_{base}
+Redis --> Worker: ok
+Worker -> Redis: publish LockAcquiredEvent
+
+Worker -> OAI: OAI ListRecords(base)
+OAI --> Worker: MARC records
+
+loop per record
+    Worker -> PG: store MARC in sector
+    Worker -> PG: upsert CatalogRecord
+    Worker -> PG: snapshot old results
+    Worker -> PG: outdate reviews if changed
+    Worker -> PG: update search_text
+end
+
+Worker -> Redis: publish TaskProgressEvent
+
+loop resumption token
+    Worker -> OAI: OAI ListRecords(resumptionToken)
+    OAI --> Worker: next batch
+end
+
+Worker -> PG: REFRESH MATERIALIZED VIEW\nCONCURRENTLY catalog_records_analytics
+Worker -> Redis: DEL catalog_sync_{base}
+Worker -> Redis: publish LockReleasedEvent
+Worker -> PG: update task status = Success
+Worker -> Redis: publish TaskStatusEvent(Success)
+@enduml

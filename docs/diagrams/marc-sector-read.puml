@@ -1,0 +1,18 @@
+@startuml MARC Sector Storage - Read
+skinparam activityFontSize 13
+
+start
+:CatalogRecord.get_marc(db_session);
+
+:Lookup **marc_record_index**:\n(base, system_number) →\n(sector_id, offset, length);
+
+:Read **marc_sectors.data**\nfor (base, sector_id);
+
+:Decompress (zstd);
+
+:Slice: data[offset : offset + length];
+
+:Return raw MARC bytes;
+
+stop
+@enduml

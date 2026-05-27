@@ -1,0 +1,30 @@
+@startuml Facet Hover Preview
+skinparam sequenceMessageAlign center
+
+actor User
+participant "PlotsView" as Plots
+participant "useFacets\nhooks" as Hooks
+participant "API Server" as API
+database "DuckDB\nMatview" as DB
+
+User -> Plots: mouse near chart
+Plots -> Hooks: prefetch(targetField)
+Hooks -> API: POST /catalog-records/facets-preview\n{filters, target_field}
+
+loop for each distinct value of target_field
+    API -> DB: compute full facets\nwith value as additional filter
+    DB --> API: facet counts
+end
+
+API --> Hooks: FacetsPreviewResponse\n(all value→facets mappings)
+note right: cached 30s client-side
+
+...
+
+User -> Plots: hover specific value
+Plots -> Hooks: usePreviewForValue(field, value)
+Hooks -> Hooks: find cached preview entry\nfor hovered value
+Hooks --> Plots: preview facets
+
+Plots -> Plots: render semi-transparent\nshadow bars/segments\non all OTHER charts
+@enduml
