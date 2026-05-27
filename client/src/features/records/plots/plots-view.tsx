@@ -250,6 +250,7 @@ export function PlotsView() {
     validation_statuses: (v) => t(`validity-status.${v}`, { defaultValue: v }),
     field_explanations: (v) => t(`field-explanation.${v}`, { defaultValue: v }),
     authority_link_linkers: (v) => t(`linker-name.${v}`, { defaultValue: v }),
+    validation_reasons: (v) => t(`validation-reason.${v}`, { defaultValue: v }),
   };
   for (const field of allFacetFields) {
     const values = getActiveValues(field);

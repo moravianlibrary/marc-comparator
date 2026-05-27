@@ -312,6 +312,9 @@ function RecordDetail({
             currentReview={reviews?.current.find(
               (r) => r.aspect_name === viewOpt.comparator,
             )}
+            history={reviews?.history.filter(
+              (r) => r.aspect_name === viewOpt.comparator,
+            ) ?? []}
             reviewNotNeeded={
               comparisons?.find(
                 (c) => c.comparator === viewOpt.comparator && c.other_record_id === viewOpt.otherRecordId,
@@ -327,6 +330,9 @@ function RecordDetail({
             currentReview={reviews?.current.find(
               (r) => r.aspect_name === viewOpt.validatorName,
             )}
+            history={reviews?.history.filter(
+              (r) => r.aspect_name === viewOpt.validatorName,
+            ) ?? []}
             reviewNotNeeded={
               validations
                 ?.filter((v) => v.validator === viewOpt.validatorName)
