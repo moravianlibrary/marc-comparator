@@ -74,8 +74,8 @@ export function RadialQuality({
 
   return (
     <div className="flex flex-col items-center">
-      <div className="relative w-full overflow-hidden" style={{ height: 160 }}>
-        <ChartContainer config={chartConfig} className="w-full" style={{ height: 320 }}>
+      <div className="relative w-full" style={{ height: 160 }}>
+        <ChartContainer config={chartConfig} className="w-full [&_.recharts-wrapper]:z-10" style={{ height: 320 }}>
           <PieChart>
             <ChartTooltip
               cursor={false}

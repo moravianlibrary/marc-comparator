@@ -77,7 +77,7 @@ export function RadialValidation({
   return (
     <div className="flex items-center gap-4">
       <div className="relative flex-shrink-0" style={{ width: 220, height: 220 }}>
-        <ChartContainer config={chartConfig} className="aspect-square" style={{ width: 220, height: 220 }}>
+        <ChartContainer config={chartConfig} className="aspect-square [&_.recharts-wrapper]:z-10" style={{ width: 220, height: 220 }}>
           <RadialBarChart
             data={chartData}
             startAngle={-90}
