@@ -50,14 +50,14 @@ export function MainBanner() {
         onClick={() => navigate("/")}
       >
         <img
-          src="/marcomparator-logo-transparent.png"
+          src="/marcomparator-only-logo-transparent.png"
           alt=""
-          className="h-7 w-7 dark:hidden"
+          className="h-8 dark:hidden"
         />
         <img
-          src="/marcomparator-logo-dark-transparent.png"
+          src="/marcomparator-only-logo-dark-transparent.png"
           alt=""
-          className="h-7 w-7 hidden dark:block"
+          className="h-8 hidden dark:block"
         />
         {t("common:app-name")}
       </Button>

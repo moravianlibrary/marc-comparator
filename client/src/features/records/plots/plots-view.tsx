@@ -517,7 +517,7 @@ export function PlotsView() {
                   formatLabel={(k) => t(`type-of-record.${k}`, { defaultValue: k })}
                   {...makeChartHandlers("type_of_record")}
                 >
-                  {(chartProps) => <BarFacet {...chartProps} labelWidth={160} />}
+                  {(chartProps) => <BarFacet {...chartProps} labelWidth={240} />}
                 </FacetChart>
               )}
 

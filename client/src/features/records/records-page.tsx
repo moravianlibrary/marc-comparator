@@ -93,7 +93,7 @@ export function RecordsPage() {
             {t("tabs.carousel")}
             {resolvedIndex != null && totalResults != null && totalResults > 0 && (
               <span className="ml-1.5 inline-flex h-5 items-center justify-center rounded-full bg-accent-foreground px-1.5 text-[11px] font-medium text-accent">
-                {resolvedIndex + 1}/{totalResults}
+                {resolvedIndex + 1} / {totalResults}
               </span>
             )}
           </TabsTrigger>

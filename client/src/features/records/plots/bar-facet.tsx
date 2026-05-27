@@ -85,6 +85,25 @@ export function BarFacet({
           tickMargin={8}
           axisLine={false}
           width={resolvedLabelWidth}
+          tick={({ x, y, payload, width: tickWidth }: any) => {
+            const entry = chartData.find((d) => d.name === payload.value);
+            const key = entry?.key ?? payload.value;
+            const disabled = isShowingPreview && entry?.preview === 0;
+            const w = tickWidth ?? resolvedLabelWidth;
+            return (
+              <foreignObject x={x - w} y={y - 18} width={w} height={36}>
+                <div
+                  style={{ cursor: disabled ? "default" : "pointer" }}
+                  className="flex items-center justify-end h-full text-xs text-foreground leading-tight pr-2"
+                  onClick={(e) => { e.stopPropagation(); if (!disabled) onToggle(key); }}
+                  onMouseEnter={() => { if (!disabled) onHover(key); }}
+                  onMouseLeave={onLeave}
+                >
+                  <span className="text-right line-clamp-2">{payload.value}</span>
+                </div>
+              </foreignObject>
+            );
+          }}
         />
         <XAxis dataKey="count" type="number" hide />
         <ChartTooltip
