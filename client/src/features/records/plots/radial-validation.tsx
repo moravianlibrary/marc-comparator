@@ -76,8 +76,8 @@ export function RadialValidation({
 
   return (
     <div className="flex items-center gap-4">
-      <div className="relative flex-shrink-0" style={{ width: 220, height: 220 }}>
-        <ChartContainer config={chartConfig} className="aspect-square [&_.recharts-wrapper]:z-10" style={{ width: 220, height: 220 }}>
+      <div className="relative flex-shrink-0" style={{ width: 300, height: 300 }}>
+        <ChartContainer config={chartConfig} className="aspect-square [&_.recharts-wrapper]:z-10" style={{ width: 300, height: 300 }}>
           <RadialBarChart
             data={chartData}
             startAngle={-90}
@@ -122,7 +122,7 @@ export function RadialValidation({
         </ChartContainer>
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="flex flex-col items-center">
-            <p className="text-2xl font-bold tabular-nums">
+            <p className={cn("font-bold tabular-nums", total > 999999 ? "text-xs" : total > 99999 ? "text-sm" : total > 9999 ? "text-lg" : "text-2xl")}>
               {total.toLocaleString("cs-CZ")}
             </p>
             {isShowingPreview && (

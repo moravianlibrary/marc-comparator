@@ -132,7 +132,7 @@ export function RadialQuality({
           </PieChart>
         </ChartContainer>
         <div className="absolute bottom-0 left-0 right-0 flex flex-col items-center pointer-events-none">
-          <p className="text-2xl font-bold tabular-nums">
+          <p className={cn("font-bold tabular-nums", total > 999999 ? "text-xs" : total > 99999 ? "text-sm" : total > 9999 ? "text-lg" : "text-2xl")}>
             {total.toLocaleString("cs-CZ")}
           </p>
           {isShowingPreview && (
