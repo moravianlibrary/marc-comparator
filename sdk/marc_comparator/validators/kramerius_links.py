@@ -22,6 +22,7 @@ class KrameriusLinksValidatorConfig(BaseModel):
     link_text_pattern: str = r"Digitalizovaný dokument"
 
     kramerius_host: str = "https://api.kramerius.mzk.cz/search"
+    kramerius_client_url: str = "https://www.digitalniknihovna.cz/mzk/{pid}"
     solr_cloud: bool = False
 
 
@@ -172,6 +173,7 @@ class KrameriusLinksValidator(BaseValidator):
             status: ValidityStatus = ValidityStatus.Invalid,
             reason: str | None = None,
             details: str | None = None,
+            details_params: dict | None = None,
             hint: str | None = None,
         ):
             results.append(
@@ -180,6 +182,7 @@ class KrameriusLinksValidator(BaseValidator):
                     target=VALIDATION_FIELD,
                     reason=reason,
                     details=details,
+                    details_params=details_params,
                     hint=hint,
                 )
             )
@@ -202,6 +205,9 @@ class KrameriusLinksValidator(BaseValidator):
                         "Field 856 is missing expected link text "
                         f"matching pattern: {self.config.link_text_pattern}"
                     ),
+                    details_params={
+                        "pattern": self.config.link_text_pattern,
+                    },
                     hint="Add appropriate link text to subfield $y.",
                 )
 
@@ -217,6 +223,10 @@ class KrameriusLinksValidator(BaseValidator):
                     details=(
                         f"Value '{v}' does not match expected URL pattern."
                     ),
+                    details_params={
+                        "value": v,
+                        "pattern": self.config.url_to_pid_pattern,
+                    },
                     hint=(
                         "Ensure the link follows the pattern: "
                         f"{self.config.url_to_pid_pattern}"
@@ -252,6 +262,11 @@ class KrameriusLinksValidator(BaseValidator):
                         f"is at level {link.level} "
                         "and not a top-level document."
                     ),
+                    details_params={
+                        "pid": link.pid,
+                        "model": link.model.value,
+                        "level": str(link.level),
+                    },
                     hint="Link should point to a top-level document.",
                 )
 
@@ -264,7 +279,11 @@ class KrameriusLinksValidator(BaseValidator):
                         f"that has model '{link.model.value}' "
                         "which is not a valid top-level model."
                     ),
-                    hint=("Check integrity of the data in Kramerius."),
+                    details_params={
+                        "pid": link.pid,
+                        "model": link.model.value,
+                    },
+                    hint="Check integrity of the data in Kramerius.",
                 )
 
             else:
@@ -278,6 +297,7 @@ class KrameriusLinksValidator(BaseValidator):
                     f"PID '{pid}' is present in MARC "
                     "but not found in Kramerius."
                 ),
+                details_params={"pid": pid},
                 hint="Remove or correct the invalid Kramerius link.",
             )
 
@@ -288,6 +308,7 @@ class KrameriusLinksValidator(BaseValidator):
                 details=(
                     f"PID '{pid}' exists in Kramerius but not in MARC record."
                 ),
+                details_params={"pid": pid},
                 hint="Add a corresponding 856$u for this PID.",
             )
 

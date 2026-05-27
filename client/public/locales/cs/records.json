@@ -9,44 +9,47 @@
     "plots": {
       "button": "Nápověda k filtrování",
       "title": "Filtrování záznamů",
-      "description": "Tato záložka zobrazuje souhrnné statistiky a vizualizace všech záznamů v systému. Grafy jsou rozděleny do sekcí podle kontextu, stavu záznamů, analýzy porovnání a validací.",
+      "description": "Záložka zobrazuje interaktivní grafy pro analýzu a filtrování záznamů. Grafy jsou rozděleny do sekcí: kontext (báze, propojení autorit), stav záznamů (zpracování, revize), analýza porovnání (skóre, kvalita shody, vysvětlení) a validace (stav, důvody).",
       "actions": [
-        "Kliknutím na hodnotu v grafu ji přidáte jako filtr",
-        "Najetím myší na hodnotu zobrazíte náhled filtrace v ostatních grafech",
-        "Aktivní filtry se zobrazují v horní liště a lze je odebrat kliknutím",
-        "Pomocí ozubeného kola můžete skrýt nebo zobrazit jednotlivé grafy a sekce"
+        "Kliknutím na hodnotu v grafu ji přidáte jako filtr — filtry se kombinují (logické AND)",
+        "Najetím myší na hodnotu zobrazíte náhled, jak se změní ostatní grafy po aplikaci tohoto filtru",
+        "Aktivní filtry se zobrazují v horní liště — kliknutím na křížek je odeberete, tlačítkem \"Zrušit vše\" zrušíte všechny",
+        "Pomocí ozubeného kola můžete skrýt nebo zobrazit jednotlivé grafy a sekce pro přehlednější zobrazení"
       ]
     },
     "table": {
       "button": "Nápověda k výsledkům",
       "title": "Tabulka výsledků",
-      "description": "Tabulka zobrazuje záznamy odpovídající aktuálním filtrům. Můžete procházet výsledky, řadit podle sloupců a provádět akce nad záznamy.",
+      "description": "Tabulka zobrazuje záznamy odpovídající aktuálním filtrům. U každého záznamu vidíte stav, propojení s autoritami, výsledky porovnání (s barevným skóre) a validace.",
       "actions": [
-        "Kliknutím na řádek otevřete detail záznamu v záložce Carousel",
-        "Pomocí vyhledávacího pole můžete hledat podle systémového čísla nebo fulltextem v názvech a autorech",
-        "Hromadné akce (zpracování, skrytí, zobrazení) lze provést nad všemi vyfiltrovanými výsledky",
-        "Nastavení sloupců umožňuje zobrazit nebo skrýt jednotlivé sloupce"
+        "Kliknutím na řádek přejdete na detail záznamu — kliknutím na štítek autority, porovnání nebo validace přejdete rovnou na příslušný pohled",
+        "Vyhledávací pole hledá přesně podle systémového čísla nebo fulltextem v názvech a autorech",
+        "Řadit lze podle báze, systémového čísla, data synchronizace a průměrného skóre porovnání",
+        "Hromadné akce (zpracování, propojení autorit, porovnání, validace) se spouštějí nad všemi vyfiltrovanými záznamy",
+        "Nastavení sloupců (ikona vpravo) umožňuje zobrazit nebo skrýt jednotlivé sloupce — volba se ukládá"
       ]
     },
     "carousel": {
       "button": "Nápověda k detailu",
       "title": "Detail záznamu",
-      "description": "Záložka zobrazuje detailní pohled na jednotlivý MARC záznam včetně jeho porovnání a validací. Můžete procházet záznamy pomocí šipek.",
+      "description": "Záložka zobrazuje MARC záznam s možností přepínat mezi originálním záznamem, autoritními záznamy, výsledky porovnání a validací. Při porovnání se zobrazují pole zdrojového záznamu vedle hodnot z autority se skóre a vysvětlením odchylky.",
       "actions": [
-        "Šipkami vlevo a vpravo přecházíte mezi záznamy ve výsledcích",
-        "MARC záznam zobrazuje všechna pole s případnými anotacemi z porovnání",
-        "Sekce porovnání a validací zobrazují výsledky jednotlivých porovnávačů a validátorů",
-        "Trvalý odkaz na záznam lze zkopírovat pomocí ikony odkazu"
+        "Šipkami vlevo/vpravo (nebo klávesami) přecházíte mezi záznamy — při přechodu se automaticky zachová vybraný pohled",
+        "V rozbalovacím menu přepínáte mezi MARC záznamem, autoritními záznamy, porovnáními a validacemi",
+        "U porovnání: každé pole zobrazuje zdrojovou hodnotu, hodnotu z autority, procentuální skóre a klasifikaci odchylky",
+        "U validací: zobrazuje se stav (validní/nevalidní), důvod, detaily s prokliky na Kramerius a nápověda",
+        "Zaškrtnutím \"Pouze cílová pole\" zobrazíte jen pole s anotacemi",
+        "Trvalý odkaz na záznam zkopírujete ikonou odkazu — záznam lze také přímo zpracovat, propojit s autoritami nebo validovat"
       ]
     },
     "addition": {
       "button": "Nápověda k přidání",
       "title": "Přidání záznamů",
-      "description": "Záložka umožňuje přidávat nové záznamy do systému jednotlivě, hromadně nebo synchronizací z katalogu.",
+      "description": "Záložka umožňuje přidávat nové záznamy do systému. Záznamy se po přidání zobrazí v tabulce výsledků a mohou být zpracovány (propojení, porovnání, validace).",
       "actions": [
         "Jednotlivý záznam přidáte zadáním báze a systémového čísla",
         "Hromadné přidání umožňuje zadat více systémových čísel najednou (jedno na řádek)",
-        "Synchronizace z katalogu stáhne všechny záznamy z vybrané báze, volitelně od zadaného data"
+        "Synchronizace z katalogu stáhne všechny záznamy z vybrané báze, volitelně od zadaného data — vhodné pro iniciální naplnění nebo aktualizaci"
       ]
     }
   },
@@ -141,7 +144,8 @@
       "reviewed-by": "Revidoval/a {{name}}",
       "outdated": "Zastaralé – nutná nová revize",
       "remove": "Zrušit revizi",
-      "re-review": "Znovu revidovat"
+      "re-review": "Znovu revidovat",
+      "not-needed": "Revize není potřeba"
     }
   },
   "addition": {
@@ -191,7 +195,8 @@
     "Processed": "Zpracovaný",
     "Reviewed": "Revidováno",
     "PartiallyReviewed": "Částečně revidováno",
-    "Unreviewed": "Nerevidováno"
+    "Unreviewed": "Nerevidováno",
+    "ReviewNotNeeded": "Revize není potřeba"
   },
   "match-quality": {
     "Excellent": "Výborná",
@@ -229,6 +234,9 @@
     "m": "Monografie",
     "s": "Seriál"
   },
+  "linker-name": {
+    "knihovny-cz": "Knihovny.cz"
+  },
   "validator-name": {
     "kramerius-links": "Kramerius odkazy"
   },
@@ -239,6 +247,23 @@
     "Incomplete": "Neúplný",
     "Incorrect": "Nesprávný",
     "Missing": "Chybějící"
+  },
+  "validation-detail": {
+    "Missing link text in $y": "Pole 856 neobsahuje očekávaný text odkazu odpovídající vzoru: {{pattern}}",
+    "Invalid Kramerius link format": "Hodnota '{{value}}' neodpovídá očekávanému formátu URL.",
+    "No Kramerius links found or expected": "Záznam neobsahuje žádné odkazy na Kramerius a žádné odpovídající dokumenty neexistují.",
+    "Kramerius link points to non-top-level document": "Dokument s PID '{{pid}}' a modelem '{{model}}' je na úrovni {{level}} a není dokumentem nejvyšší úrovně.",
+    "Kramerius link points to invalid model": "Nalezen dokument nejvyšší úrovně s PID '{{pid}}', který má model '{{model}}' — nejedná se o platný model nejvyšší úrovně.",
+    "Link not found in Kramerius": "PID '{{pid}}' je uveden v MARC, ale nebyl nalezen v Kramerius.",
+    "Missing Kramerius link in MARC": "PID '{{pid}}' existuje v Kramerius, ale není v MARC záznamu.",
+    "All Kramerius links valid": "Všechny odkazy jsou správně formátované a odpovídají existujícím dokumentům v Kramerius."
+  },
+  "validation-hint": {
+    "Add appropriate link text to subfield $y.": "Přidejte odpovídající text odkazu do podpole $y.",
+    "Remove or correct the invalid Kramerius link.": "Odeberte nebo opravte neplatný odkaz na Kramerius.",
+    "Add a corresponding 856$u for this PID.": "Přidejte odpovídající 856$u pro tento PID.",
+    "Link should point to a top-level document.": "Odkaz by měl vést na dokument nejvyšší úrovně.",
+    "Check integrity of the data in Kramerius.": "Zkontrolujte integritu dat v Kramerius."
   },
   "validation-reason": {
     "Missing link text in $y": "Chybějící text odkazu v $y",

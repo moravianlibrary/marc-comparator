@@ -249,6 +249,7 @@ export function PlotsView() {
     match_qualities: (v) => t(`match-quality.${v}`, { defaultValue: v }),
     validation_statuses: (v) => t(`validity-status.${v}`, { defaultValue: v }),
     field_explanations: (v) => t(`field-explanation.${v}`, { defaultValue: v }),
+    authority_link_linkers: (v) => t(`linker-name.${v}`, { defaultValue: v }),
   };
   for (const field of allFacetFields) {
     const values = getActiveValues(field);
@@ -277,6 +278,7 @@ export function PlotsView() {
     {
       field: "authority_link_linkers",
       label: t("facet-fields.authority_link_linkers"),
+      formatLabel: (k) => t(`linker-name.${k}`, { defaultValue: k }),
     },
     {
       field: "comparison_bases",
@@ -479,6 +481,7 @@ export function PlotsView() {
                           { key: "Reviewed", color: "var(--chart-1)" },
                           { key: "PartiallyReviewed", color: "var(--chart-3)" },
                           { key: "Unreviewed", color: "var(--chart-4)" },
+                          { key: "ReviewNotNeeded", color: "var(--chart-5)" },
                         ],
                       },
                     ]}

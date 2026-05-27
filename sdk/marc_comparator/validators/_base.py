@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from enum import StrEnum
-from typing import List
+from typing import Dict, List
 
 from marcdantic import MarcRecord
 from pydantic import BaseModel
@@ -35,6 +35,7 @@ class ValidationResult(BaseModel):
 
     reason: str | None = None
     details: str | None = None
+    details_params: Dict[str, str] | None = None
     hint: str | None = None
 
 

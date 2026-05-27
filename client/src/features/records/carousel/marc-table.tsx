@@ -15,6 +15,7 @@ interface MarcTableProps {
   comparisonAnnotations?: FieldComparisonResult[];
   validationAnnotations?: ValidationResult[];
   targetTags?: Set<string>;
+  krameriusClientUrl?: string;
 }
 
 export function MarcTable({
@@ -23,6 +24,7 @@ export function MarcTable({
   comparisonAnnotations,
   validationAnnotations,
   targetTags,
+  krameriusClientUrl,
 }: MarcTableProps) {
   const fixedEntries = Object.entries(marc.fixed_fields)
     .sort(([a], [b]) => parseInt(a) - parseInt(b))
@@ -88,6 +90,7 @@ export function MarcTable({
             showAnnotationColumn={showAnnotations}
             comparisonAnnotation={compAnnotation}
             validationAnnotation={valAnnotation}
+            krameriusClientUrl={krameriusClientUrl}
           />
         );
       })}
@@ -113,6 +116,7 @@ export function MarcTable({
               showAnnotationColumn={showAnnotations}
               comparisonAnnotation={compAnnotation}
               validationAnnotation={valAnnotation}
+              krameriusClientUrl={krameriusClientUrl}
             />
           );
         }),
@@ -130,6 +134,7 @@ interface MarcRowProps {
   showAnnotationColumn: boolean;
   comparisonAnnotation?: FieldComparisonResult;
   validationAnnotation?: ValidationResult;
+  krameriusClientUrl?: string;
 }
 
 function MarcRow({
@@ -141,6 +146,7 @@ function MarcRow({
   showAnnotationColumn,
   comparisonAnnotation,
   validationAnnotation,
+  krameriusClientUrl,
 }: MarcRowProps) {
   const i1 = ind1 ?? "-";
   const i2 = ind2 ?? "-";
@@ -273,7 +279,7 @@ function MarcRow({
         )}
         {showAnnotationColumn && !comparisonAnnotation && validationAnnotation && (
           <div className="flex-1 border-l px-3 py-1.5">
-            <ValidationFieldAnnotation annotation={validationAnnotation} />
+            <ValidationFieldAnnotation annotation={validationAnnotation} krameriusClientUrl={krameriusClientUrl} />
           </div>
         )}
         {showAnnotationColumn && !comparisonAnnotation && !validationAnnotation && (
@@ -306,7 +312,45 @@ function ComparisonFieldAnnotation({ annotation }: { annotation: FieldComparison
   );
 }
 
-function ValidationFieldAnnotation({ annotation }: { annotation: ValidationResult }) {
+const PID_REGEX = /uuid:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/g;
+
+function extractDetailsParams(text: string): Record<string, string> {
+  const params: Record<string, string> = {};
+  const pidMatch = text.match(PID_REGEX);
+  if (pidMatch) params.pid = pidMatch[0];
+  const modelMatch = text.match(/model '([^']+)'/);
+  if (modelMatch) params.model = modelMatch[1];
+  const levelMatch = text.match(/level (\d+)/);
+  if (levelMatch) params.level = levelMatch[1];
+  const valueMatch = text.match(/Value '([^']+)'/);
+  if (valueMatch) params.value = valueMatch[1];
+  const patternMatch = text.match(/pattern: (.+)$/);
+  if (patternMatch) params.pattern = patternMatch[1];
+  return params;
+}
+
+function renderDetailsWithPidLinks(text: string, krameriusClientUrl?: string) {
+  if (!krameriusClientUrl) return text;
+  const parts: (string | JSX.Element)[] = [];
+  let lastIndex = 0;
+  for (const match of text.matchAll(PID_REGEX)) {
+    const pid = match[0];
+    const idx = match.index!;
+    if (idx > lastIndex) parts.push(text.slice(lastIndex, idx));
+    const url = krameriusClientUrl.replace("{pid}", pid);
+    parts.push(
+      <a key={idx} href={url} target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">
+        {pid}
+      </a>,
+    );
+    lastIndex = idx + pid.length;
+  }
+  if (lastIndex < text.length) parts.push(text.slice(lastIndex));
+  return parts;
+}
+
+function ValidationFieldAnnotation({ annotation, krameriusClientUrl }: { annotation: ValidationResult; krameriusClientUrl?: string }) {
+  const { t } = useTranslation("records");
   return (
     <div className="space-y-0.5">
       <span
@@ -315,15 +359,31 @@ function ValidationFieldAnnotation({ annotation }: { annotation: ValidationResul
           annotation.status === "Valid" && "text-green-600 dark:text-green-400",
           annotation.status === "Invalid" && "text-red-600 dark:text-red-400",
           annotation.status === "ForReview" && "text-yellow-600 dark:text-yellow-400",
+          annotation.status === "AdditionalInfo" && "text-blue-600 dark:text-blue-400",
         )}
       >
-        {annotation.status}
+        {t(`validity-status.${annotation.status}`, { defaultValue: annotation.status })}
       </span>
       {annotation.reason && (
-        <p className="text-xs text-muted-foreground truncate">{annotation.reason}</p>
+        <p className="text-xs text-muted-foreground">
+          {t(`validation-reason.${annotation.reason}`, { defaultValue: annotation.reason })}
+        </p>
+      )}
+      {annotation.details && annotation.reason && (
+        <p className="text-xs text-muted-foreground/70">
+          {renderDetailsWithPidLinks(
+            t(`validation-detail.${annotation.reason}`, {
+              ...(annotation.details_params ?? extractDetailsParams(annotation.details)),
+              defaultValue: annotation.details,
+            }),
+            krameriusClientUrl,
+          )}
+        </p>
       )}
       {annotation.hint && (
-        <p className="text-xs text-muted-foreground/70 truncate">{annotation.hint}</p>
+        <p className="text-xs text-muted-foreground/70 italic">
+          {t(`validation-hint.${annotation.hint}`, { defaultValue: annotation.hint })}
+        </p>
       )}
     </div>
   );

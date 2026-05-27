@@ -109,18 +109,45 @@ async def lifespan(app):
                 array_agg(DISTINCT rr.aspect_name)
                     FILTER (WHERE rr.id IS NOT NULL)                       AS reviewed_aspects,
                 CASE
-                    WHEN COALESCE(array_length(array_agg(DISTINCT rr.aspect_name)
-                        FILTER (WHERE rr.id IS NOT NULL), 1), 0) > 0
-                        AND COALESCE(array_length(array_agg(DISTINCT rr.aspect_name)
-                            FILTER (WHERE rr.id IS NOT NULL), 1), 0)
-                        >= (
-                            CASE WHEN bool_or(cmp.comparator IS NOT NULL) THEN 1 ELSE 0 END
-                            + COALESCE(array_length(array_agg(DISTINCT v.validator)
-                                FILTER (WHERE v.validator IS NOT NULL), 1), 0)
+                    WHEN NOT EXISTS (
+                        SELECT 1 FROM comparisons cmp2
+                        WHERE cmp2.main_record_id = cr.id
+                          AND (cmp2.result->>'overall_score')::float < 0.9
+                    ) AND NOT EXISTS (
+                        SELECT 1 FROM validations v2
+                        WHERE v2.catalog_record_id = cr.id
+                          AND v2.result->>'status' NOT IN ('Valid', 'AdditionalInfo')
+                    )
+                    THEN 'ReviewNotNeeded'
+                    WHEN NOT EXISTS (
+                        SELECT 1 FROM (
+                            SELECT cmp2.comparator AS aspect FROM comparisons cmp2
+                            WHERE cmp2.main_record_id = cr.id
+                              AND (cmp2.result->>'overall_score')::float < 0.9
+                            UNION
+                            SELECT v2.validator FROM validations v2
+                            WHERE v2.catalog_record_id = cr.id
+                              AND v2.result->>'status' NOT IN ('Valid', 'AdditionalInfo')
+                        ) nr
+                        WHERE nr.aspect NOT IN (
+                            SELECT rr2.aspect_name FROM record_reviews rr2
+                            WHERE rr2.record_id = cr.id AND rr2.status = 'current'
                         )
+                    )
                     THEN 'Reviewed'
-                    WHEN COALESCE(array_length(array_agg(DISTINCT rr.aspect_name)
-                        FILTER (WHERE rr.id IS NOT NULL), 1), 0) > 0
+                    WHEN EXISTS (
+                        SELECT 1 FROM record_reviews rr2
+                        WHERE rr2.record_id = cr.id AND rr2.status = 'current'
+                        AND rr2.aspect_name IN (
+                            SELECT cmp2.comparator FROM comparisons cmp2
+                            WHERE cmp2.main_record_id = cr.id
+                              AND (cmp2.result->>'overall_score')::float < 0.9
+                            UNION
+                            SELECT v2.validator FROM validations v2
+                            WHERE v2.catalog_record_id = cr.id
+                              AND v2.result->>'status' NOT IN ('Valid', 'AdditionalInfo')
+                        )
+                    )
                     THEN 'PartiallyReviewed'
                     ELSE 'Unreviewed'
                 END AS review_status,

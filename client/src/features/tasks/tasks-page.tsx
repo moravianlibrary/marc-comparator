@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import apiClient from "@/lib/api-client";
 import { useHasPermission } from "@/hooks/use-permissions";
@@ -12,7 +13,17 @@ export function TasksPage() {
   const { t } = useTranslation("tasks");
   const queryClient = useQueryClient();
   const { hasPermission } = useHasPermission();
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(
+    searchParams.get("taskId"),
+  );
+
+  useEffect(() => {
+    const urlTaskId = searchParams.get("taskId");
+    if (urlTaskId && urlTaskId !== selectedTaskId) {
+      setSelectedTaskId(urlTaskId);
+    }
+  }, [searchParams]);
 
   const canSeeAll = hasPermission(Permission.ManageAllTasks);
   const searchEndpoint = canSeeAll ? "/tasks/search-all" : "/tasks/search-own";

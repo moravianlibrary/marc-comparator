@@ -19,6 +19,7 @@ interface ReviewButtonProps {
   systemNumber: string;
   aspectName: string;
   currentReview: ReviewDetail | undefined;
+  reviewNotNeeded?: boolean;
 }
 
 export function ReviewButton({
@@ -26,6 +27,7 @@ export function ReviewButton({
   systemNumber,
   aspectName,
   currentReview,
+  reviewNotNeeded,
 }: ReviewButtonProps) {
   const { t } = useTranslation("records");
   const { hasPermission } = useHasPermission();
@@ -38,6 +40,15 @@ export function ReviewButton({
   const [note, setNote] = useState("");
 
   if (!canReview) return null;
+
+  if (reviewNotNeeded && !currentReview) {
+    return (
+      <Button variant="outline" size="sm" className="h-7 gap-1.5 text-xs" disabled>
+        <Check className="h-3.5 w-3.5" />
+        {t("carousel.review.not-needed")}
+      </Button>
+    );
+  }
 
   function handleSubmit() {
     createReview.mutate(

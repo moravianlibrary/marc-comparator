@@ -23,7 +23,7 @@ export function TaskDetail({ taskId }: TaskDetailProps) {
     <Card className="h-full">
       <CardHeader className="pb-2">
         <CardTitle className="text-base">
-          {t("detail.title")} — {taskId.slice(0, 8)}
+          {t("detail.title")} — {taskId}
         </CardTitle>
       </CardHeader>
       <CardContent>

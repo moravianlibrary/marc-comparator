@@ -23,6 +23,7 @@ export function useWsEvents() {
           description: t("toast.started", { name: taskName }),
           variant: "default",
           timestamp: new Date().toISOString(),
+          taskId: data.task_id,
         });
       } else if (data.status === "Success") {
         toast.success(t("toast.completed", { name: taskName }));
@@ -31,6 +32,7 @@ export function useWsEvents() {
           description: t("toast.completed", { name: taskName }),
           variant: "success",
           timestamp: new Date().toISOString(),
+          taskId: data.task_id,
         });
       } else if (data.status === "Failure") {
         toast.error(t("toast.failed", { name: taskName }));
@@ -39,6 +41,7 @@ export function useWsEvents() {
           description: t("toast.failed", { name: taskName }),
           variant: "error",
           timestamp: new Date().toISOString(),
+          taskId: data.task_id,
         });
       }
     });

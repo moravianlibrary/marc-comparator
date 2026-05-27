@@ -15,6 +15,7 @@ const sortByValues = [
   "system_number",
   "latest_sync",
   "updated_at",
+  "comparison_score",
 ] as const;
 const sortOrderValues = ["asc", "desc"] as const;
 

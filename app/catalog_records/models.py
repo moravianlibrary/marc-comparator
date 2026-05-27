@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import List, Literal
+from typing import Dict, List, Literal
 
 from aleph_nought import AlephOAIConfig
 from marc_comparator.authority_linkers import AuthorityLinker
@@ -21,6 +21,7 @@ class CatalogSettings(SettingsSchema):
             oai_identifier_template="oai:aleph.mzk.cz:{base}-{doc_number}",
         )
     ]
+    kramerius_client_urls: Dict[str, str] = {}
 
 
 class FetchRecordData(BaseModel):
@@ -111,7 +112,7 @@ class SearchRecordsRequest(BaseModel):
     filters: RecordFilter = RecordFilter()
     page: int = Field(default=1, ge=1)
     page_size: int = Field(default=25, ge=1, le=100)
-    sort_by: Literal["id", "base", "system_number", "latest_sync", "updated_at"] = "id"
+    sort_by: Literal["id", "base", "system_number", "latest_sync", "updated_at", "comparison_score"] = "id"
     sort_order: Literal["asc", "desc"] = "asc"
 
 

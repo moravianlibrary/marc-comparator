@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from "react";
+import { useNavigate } from "react-router-dom";
 import { Bell } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,7 @@ export interface NotificationEntry {
   variant: "default" | "success" | "error";
   timestamp: string;
   read: boolean;
+  taskId?: string;
 }
 
 let notifications: NotificationEntry[] = [];
@@ -63,6 +65,7 @@ export function useNotificationStore() {
 
 export function ToastHistory() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const { notifications, unreadCount, markAllRead, clear } =
     useNotificationStore();
 
@@ -102,7 +105,8 @@ export function ToastHistory() {
               {notifications.map((n) => (
                 <div
                   key={n.id}
-                  className="rounded-md border p-3 text-sm space-y-1"
+                  className={`rounded-md border p-3 text-sm space-y-1 ${n.taskId ? "cursor-pointer hover:bg-accent" : ""}`}
+                  onClick={n.taskId ? () => navigate(`/tasks?taskId=${n.taskId}`) : undefined}
                 >
                   <div className="flex items-center justify-between">
                     <span className="font-medium">{n.title}</span>

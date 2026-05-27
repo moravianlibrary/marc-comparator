@@ -2,6 +2,8 @@ from datetime import datetime
 from enum import StrEnum
 from typing import TYPE_CHECKING, List, Optional
 
+from marc_comparator.comparators import MatchQuality
+from marc_comparator.validators import ValidityStatus
 from marcdantic import MarcRecord
 from marcdantic.selectors import SubtitleJq, TitleJq
 from sqlalchemy import (
@@ -41,6 +43,7 @@ class CatalogRecordState(StrEnum):
     Reviewed = "Reviewed"
     PartiallyReviewed = "PartiallyReviewed"
     Unreviewed = "Unreviewed"
+    ReviewNotNeeded = "ReviewNotNeeded"
 
 
 class CatalogRecord(
@@ -160,13 +163,18 @@ class CatalogRecord(
             states.append(CatalogRecordState.Unprocessed)
 
         current_reviews = {r.aspect_name for r in self.reviews if r.status == "current"}
-        total_aspects = (
-            {c.comparator for c in self.comparisons}
-            | {v.validator for v in self.validations}
+        # Aspects that need review: non-excellent comparators + validators with issues
+        aspects_needing_review = (
+            {c.comparator for c in self.comparisons
+             if c.match_quality != MatchQuality.Excellent}
+            | {v.validator for v in self.validations
+               if v.status not in (ValidityStatus.Valid, ValidityStatus.AdditionalInfo)}
         )
-        if current_reviews and current_reviews >= total_aspects:
+        if not aspects_needing_review:
+            states.append(CatalogRecordState.ReviewNotNeeded)
+        elif current_reviews >= aspects_needing_review:
             states.append(CatalogRecordState.Reviewed)
-        elif current_reviews:
+        elif current_reviews & aspects_needing_review:
             states.append(CatalogRecordState.PartiallyReviewed)
         else:
             states.append(CatalogRecordState.Unreviewed)

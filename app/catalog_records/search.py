@@ -1,4 +1,5 @@
-from sqlalchemy import func, or_
+from sqlalchemy import and_, bindparam, func, or_, String, text
+from sqlalchemy.dialects.postgresql import ARRAY
 from sqlalchemy.orm import Session
 
 from entities.authority_link import AuthorityLink
@@ -58,10 +59,25 @@ def search_records(request: SearchRecordsRequest, db: Session) -> SearchRecordsR
 
     total = query.count()
 
-    sort_col = SORT_COLUMNS.get(request.sort_by, CatalogRecord.id)
-    if request.sort_order == "desc":
-        sort_col = sort_col.desc()
-    query = query.order_by(sort_col)
+    if request.sort_by == "comparison_score":
+        avg_score = (
+            func.coalesce(
+                func.avg(Comparison._result["overall_score"].as_float()), 0
+            )
+        ).label("avg_score")
+        query = (
+            query
+            .outerjoin(Comparison, Comparison.main_record_id == CatalogRecord.id)
+            .group_by(CatalogRecord.id)
+            .order_by(
+                avg_score.desc() if request.sort_order == "desc" else avg_score.asc()
+            )
+        )
+    else:
+        sort_col = SORT_COLUMNS.get(request.sort_by, CatalogRecord.id)
+        if request.sort_order == "desc":
+            sort_col = sort_col.desc()
+        query = query.order_by(sort_col)
 
     offset = (request.page - 1) * request.page_size
     records = query.offset(offset).limit(request.page_size).all()
@@ -107,13 +123,22 @@ def _apply_filters(query, filters: RecordFilter):
 
     if filters.review_statuses:
         has_current = CatalogRecord.reviews.any(RecordReview.status == "current")
+        has_bad_comparisons = CatalogRecord.comparisons.any(
+            Comparison._result["overall_score"].as_float() < 0.9
+        )
+        has_bad_validations = CatalogRecord.validations.any(
+            Validation._result["status"].as_string().notin_(["Valid", "AdditionalInfo"])
+        )
+        review_not_needed = and_(~has_bad_comparisons, ~has_bad_validations)
         clauses = []
         for rs in filters.review_statuses:
-            if rs == "Unreviewed":
-                clauses.append(~has_current)
+            if rs == "ReviewNotNeeded":
+                clauses.append(review_not_needed)
+            elif rs == "Unreviewed":
+                clauses.append(and_(~review_not_needed, ~has_current))
             else:
                 # Both Reviewed and PartiallyReviewed require at least one current review
-                clauses.append(has_current)
+                clauses.append(and_(~review_not_needed, has_current))
         query = query.filter(or_(*clauses))
 
     for attr, (relationship, column) in RELATIONSHIP_FILTERS.items():
@@ -168,9 +193,29 @@ def _apply_filters(query, filters: RecordFilter):
             CatalogRecord.comparisons.any(score_col <= filters.score_max)
         )
 
-    # NOTE: field_explanations filter is not implemented here because it would
-    # require iterating over a JSONB array (field_results[*].explanation), which
-    # cannot be expressed as a simple JSONB path query in SQLAlchemy/PostgreSQL.
+    # validation_reasons: JSONB filter
+    if filters.validation_reasons:
+        reason_col = Validation._result["reason"].as_string()
+        query = query.filter(
+            CatalogRecord.validations.any(
+                reason_col.in_(filters.validation_reasons)
+            )
+        )
+
+    # field_explanations: requires iterating JSONB array field_results[*].explanation
+    if filters.field_explanations:
+        query = query.filter(
+            text(
+                "EXISTS ("
+                "  SELECT 1 FROM comparisons c_fe,"
+                "  LATERAL jsonb_array_elements(c_fe._result->'field_results') AS elem(val)"
+                "  WHERE c_fe.main_record_id = catalog_records.id"
+                "  AND elem.val->>'explanation' = ANY(:fe_arr)"
+                ")"
+            ).bindparams(
+                bindparam("fe_arr", value=filters.field_explanations, type_=ARRAY(String))
+            )
+        )
 
     return query
 

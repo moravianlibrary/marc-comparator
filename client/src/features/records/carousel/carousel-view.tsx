@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import apiClient from "@/lib/api-client";
+import type { SystemInfo } from "@/types/settings";
 import {
   Carousel,
   CarouselContent,
@@ -134,6 +135,12 @@ function RecordDetail({
   });
 
   const { data: reviews } = useRecordReviews(base, systemNumber);
+
+  const { data: systemInfo } = useQuery<SystemInfo>({
+    queryKey: ["system", "info"],
+    queryFn: () => apiClient.get<SystemInfo>("/system/info").then((r) => r.data),
+  });
+  const krameriusClientUrl = systemInfo?.kramerius_client_urls?.[record.base] ?? undefined;
 
   const viewOpt = parseViewKey(selectedView);
 
@@ -305,6 +312,11 @@ function RecordDetail({
             currentReview={reviews?.current.find(
               (r) => r.aspect_name === viewOpt.comparator,
             )}
+            reviewNotNeeded={
+              comparisons?.find(
+                (c) => c.comparator === viewOpt.comparator && c.other_record_id === viewOpt.otherRecordId,
+              )?.result.match_quality === "Excellent"
+            }
           />
         )}
         {viewOpt.kind === "validation" && (
@@ -315,6 +327,11 @@ function RecordDetail({
             currentReview={reviews?.current.find(
               (r) => r.aspect_name === viewOpt.validatorName,
             )}
+            reviewNotNeeded={
+              validations
+                ?.filter((v) => v.validator === viewOpt.validatorName)
+                .every((v) => v.result.status === "Valid" || v.result.status === "AdditionalInfo")
+            }
           />
         )}
       </div>
@@ -328,6 +345,7 @@ function RecordDetail({
           comparisonAnnotations={comparisonAnnotations}
           validationAnnotations={validationAnnotations}
           targetTags={targetFieldsOnly && targetTags.size > 0 ? targetTags : undefined}
+          krameriusClientUrl={krameriusClientUrl}
         />
       ) : (
         <p className="text-muted-foreground">-</p>

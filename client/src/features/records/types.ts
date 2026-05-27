@@ -63,7 +63,7 @@ export interface SearchRecordsRequest {
   filters?: RecordFilter;
   page?: number;
   page_size?: number;
-  sort_by?: "id" | "base" | "system_number" | "latest_sync" | "updated_at";
+  sort_by?: "id" | "base" | "system_number" | "latest_sync" | "updated_at" | "comparison_score";
   sort_order?: "asc" | "desc";
 }
 
@@ -162,6 +162,7 @@ export interface ValidationResult {
   status: string;
   reason: string | null;
   details: string | null;
+  details_params: Record<string, string> | null;
   hint: string | null;
 }
 
@@ -212,4 +213,5 @@ export const STATE_COLORS: Record<string, string> = {
   Reviewed: "border-sky-500 bg-sky-50 text-sky-700 dark:bg-sky-950 dark:text-sky-400",
   PartiallyReviewed: "border-cyan-500 bg-cyan-50 text-cyan-700 dark:bg-cyan-950 dark:text-cyan-400",
   Unreviewed: "border-slate-400 bg-slate-50 text-slate-600 dark:bg-slate-900 dark:text-slate-400",
+  ReviewNotNeeded: "border-gray-300 bg-gray-50 text-gray-500 dark:bg-gray-900 dark:text-gray-500",
 };

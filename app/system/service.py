@@ -82,6 +82,34 @@ def get_enabled_validators(db_session: DatabaseSession) -> List[str]:
 
 
 async def get_system_info(db_session: DatabaseSession) -> SystemInfo:
+    from marc_comparator.validators.kramerius_links import (
+        KrameriusLinksValidatorConfig,
+    )
+
+    # Build per-base kramerius_client_urls mapping
+    kramerius_client_urls = {}
+
+    # Get default URL from validator config
+    default_url = None
+    validation_settings = get_settings(SettingsScope.Validation, db_session)
+    if validation_settings:
+        data = validation_settings.model_dump(by_alias=True)
+        kl_config = data.get("kramerius-links")
+        if kl_config:
+            cfg = KrameriusLinksValidatorConfig.model_validate(kl_config)
+            default_url = cfg.kramerius_client_url
+
+    # Get per-base overrides from catalog settings
+    catalog_settings: CatalogSettings = get_settings(
+        SettingsScope.Catalog, db_session
+    )
+    if catalog_settings:
+        per_base = catalog_settings.kramerius_client_urls
+        for client in catalog_settings.clients:
+            url = per_base.get(client.base, default_url)
+            if url:
+                kramerius_client_urls[client.base] = url
+
     return SystemInfo(
         system_version=os.getenv("SYSTEM_VERSION", "dev"),
         system_commit=os.getenv("SYSTEM_COMMIT", "dev"),
@@ -91,6 +119,7 @@ async def get_system_info(db_session: DatabaseSession) -> SystemInfo:
             db_session
         ),
         enabled_validators=get_enabled_validators(db_session),
+        kramerius_client_urls=kramerius_client_urls,
     )
 
 

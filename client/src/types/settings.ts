@@ -12,6 +12,7 @@ export interface AlephOAIConfig {
 
 export interface CatalogSettings {
   clients: AlephOAIConfig[];
+  kramerius_client_urls: Record<string, string>;
 }
 
 export interface TaskSettings {
@@ -50,6 +51,7 @@ export interface KrameriusLinksValidatorConfig {
   url_to_pid_pattern: string;
   link_text_pattern: string;
   kramerius_host: string;
+  kramerius_client_url: string;
   solr_cloud: boolean;
 }
 
@@ -103,4 +105,5 @@ export interface SystemInfo {
   available_bases: string[];
   enabled_authority_linkers: Array<{ name: string; target_bases: string[] }>;
   enabled_validators: string[];
+  kramerius_client_urls: Record<string, string>;
 }

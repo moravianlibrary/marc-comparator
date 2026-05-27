@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { STATE_COLORS, type RecordSummary } from "../types";
 
 /** Column IDs that the backend can sort by. */
-const SORTABLE_COLUMNS = new Set(["base", "system_number", "latest_sync"]);
+const SORTABLE_COLUMNS = new Set(["base", "system_number", "latest_sync", "comparison_score"]);
 
 export function createColumns(
   t: (key: string) => string,
@@ -99,10 +99,10 @@ export function createColumns(
       },
     },
     {
-      id: "comparisons",
+      id: "comparison_score",
       header: t("records:table.columns.comparisons"),
       size: 140,
-      enableSorting: false,
+      enableSorting: SORTABLE_COLUMNS.has("comparison_score"),
       cell: ({ row }) => {
         const comps = row.original.comparisons;
         if (comps.length === 0) return "-";
@@ -123,7 +123,7 @@ export function createColumns(
                   )}
                   onClick={onNavigate ? (e) => { e.stopPropagation(); onNavigate(row.index, viewKey); } : undefined}
                 >
-                  {(c.overall_score * 100).toFixed(0)}%
+                  {c.base}: {(c.overall_score * 100).toFixed(0)}%
                 </Badge>
               );
             })}

@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -14,6 +15,7 @@ interface TaskProgressProps {
 
 export function TaskProgress({ runningTasks }: TaskProgressProps) {
   const { t } = useTranslation();
+  const navigate = useNavigate();
 
   const task = runningTasks[0];
   if (!task) return null;
@@ -25,7 +27,10 @@ export function TaskProgress({ runningTasks }: TaskProgressProps) {
         : 0;
 
     return (
-      <div className="flex items-center gap-2">
+      <div
+        className="flex items-center gap-2 cursor-pointer hover:opacity-80"
+        onClick={() => navigate(`/tasks?taskId=${task.task_id}`)}
+      >
         <span className="text-sm text-muted-foreground truncate max-w-[200px]">
           {task.name}
         </span>
@@ -51,7 +56,11 @@ export function TaskProgress({ runningTasks }: TaskProgressProps) {
                 : 0;
 
             return (
-              <div key={task.task_id} className="space-y-1">
+              <div
+                key={task.task_id}
+                className="space-y-1 cursor-pointer hover:bg-accent rounded-md p-1 -m-1"
+                onClick={() => navigate(`/tasks?taskId=${task.task_id}`)}
+              >
                 <div className="flex items-center justify-between text-sm">
                   <span className="truncate">{task.name}</span>
                   <span className="text-muted-foreground">{percent}%</span>

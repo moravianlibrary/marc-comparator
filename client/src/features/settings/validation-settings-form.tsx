@@ -38,6 +38,7 @@ export function ValidationSettingsForm({
       url_to_pid_pattern: "",
       link_text_pattern: "",
       kramerius_host: "",
+      kramerius_client_url: "",
       solr_cloud: false,
     },
   };
@@ -96,6 +97,17 @@ export function ValidationSettingsForm({
                 <FormItem>
                   <FormLabel>{t("validators.kramerius-links.kramerius-host")}</FormLabel>
                   <FormControl><Input {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="kramerius-links.kramerius_client_url"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t("validators.kramerius-links.kramerius-client-url")}</FormLabel>
+                  <FormControl><Input {...field} placeholder="https://www.digitalniknihovna.cz/mzk/{pid}" /></FormControl>
                   <FormMessage />
                 </FormItem>
               )}

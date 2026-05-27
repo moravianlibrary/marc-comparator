@@ -99,7 +99,7 @@ export function RecordHeader({ record, onSelectView }: RecordHeaderProps) {
               )}
               onClick={onSelectView ? () => onSelectView(viewKey) : undefined}
             >
-              {(c.overall_score * 100).toFixed(0)}%
+              {c.base}: {(c.overall_score * 100).toFixed(0)}%
             </Badge>
           );
         })}

@@ -56,6 +56,7 @@
       "url-to-pid-pattern": "Vzor URL na PID",
       "link-text-pattern": "Vzor textu odkazu",
       "kramerius-host": "Adresa serveru Kramerius",
+      "kramerius-client-url": "URL klienta Kramerius (výchozí)",
       "solr-cloud": "SolrCloud"
     }
   },

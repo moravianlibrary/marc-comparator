@@ -15,6 +15,7 @@ class SystemInfo(BaseModel):
     available_bases: List[str]
     enabled_authority_linkers: List[AuthorityLinkerInfo]
     enabled_validators: List[str]
+    kramerius_client_urls: Dict[str, str] = {}
 
 
 class HealthStatus(BaseModel):

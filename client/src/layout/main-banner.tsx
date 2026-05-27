@@ -47,9 +47,19 @@ export function MainBanner() {
     <header className="sticky top-0 z-50 border-b bg-background px-6 py-2 flex items-center gap-4">
       <Button
         variant="ghost"
-        className="font-semibold text-lg p-0 h-auto hover:bg-transparent"
+        className="font-semibold text-lg p-0 h-auto hover:bg-transparent gap-2"
         onClick={() => navigate("/")}
       >
+        <img
+          src="/marcomparator-logo-transparent.png"
+          alt=""
+          className="h-7 w-7 dark:hidden"
+        />
+        <img
+          src="/marcomparator-logo-dark-transparent.png"
+          alt=""
+          className="h-7 w-7 hidden dark:block"
+        />
         {t("common:app-name")}
       </Button>
 

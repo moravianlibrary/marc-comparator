@@ -14,6 +14,7 @@ export const catalogClientSchema = z.object({
 
 export const catalogSettingsSchema = z.object({
   clients: z.array(catalogClientSchema).min(1),
+  kramerius_client_urls: z.record(z.string(), z.string()).default({}),
 });
 
 export type CatalogSettingsFormValues = z.infer<typeof catalogSettingsSchema>;
@@ -64,6 +65,7 @@ export const krameriusLinksConfigSchema = z.object({
   url_to_pid_pattern: z.string().min(1),
   link_text_pattern: z.string().min(1),
   kramerius_host: z.url(),
+  kramerius_client_url: z.string().min(1),
   solr_cloud: z.boolean(),
 });
 
