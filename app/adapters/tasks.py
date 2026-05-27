@@ -4,7 +4,6 @@ from typing import ContextManager, List, Optional
 from celery import Celery
 from celery import Task as CeleryTask
 from celery import shared_task
-from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from adapters.database import Base, DatabaseSession, get_db_session
@@ -22,10 +21,13 @@ from entities.user import User  # noqa: F401
 from settings.models import CatalogSettings
 from tasks.models import TaskSettings  # noqa: F401
 
-MATVIEW_REFRESH_TASK_TYPES = {
+ANALYTICS_REBUILD_TASK_TYPES = {
     TaskType.SyncRecords,
     TaskType.FetchBatchOfRecords,
     TaskType.ProcessRecords,
+    TaskType.ValidateRecords,
+    TaskType.LinkRecordsToAuthorities,
+    TaskType.CompareRecords,
 }
 
 tasks_client = Celery(
@@ -242,15 +244,13 @@ class ManagedTask:
                 created_by=str(self.task.created_by),
             ))
 
-            # Refresh analytics matview after successful data-changing tasks
-            if exc_type is None and self.task.type in MATVIEW_REFRESH_TASK_TYPES:
+            # Rebuild analytics after successful data-changing tasks
+            if exc_type is None and self.task.type in ANALYTICS_REBUILD_TASK_TYPES:
                 try:
-                    self.db_session.execute(text(
-                        "REFRESH MATERIALIZED VIEW CONCURRENTLY catalog_records_analytics"
-                    ))
-                    self.db_session.commit()
+                    from catalog_records.analytics import rebuild_all
+                    rebuild_all(self.db_session)
                 except Exception as e:
-                    logging.warning(f"Matview refresh failed: {e}")
+                    logging.warning(f"Analytics rebuild failed: {e}")
         finally:
             # --- Release resources ---
             if self.lock:

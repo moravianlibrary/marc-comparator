@@ -1,6 +1,5 @@
 from fastapi import HTTPException
 from marcdantic import MarcRecord
-from sqlalchemy import text
 
 from adapters.database import DatabaseSession
 from adapters.lock_server import one_at_a_time_lock
@@ -191,11 +190,9 @@ def create_review(
     )
     review.save(db_session)
 
-    # Refresh materialized view
-    db_session.execute(
-        text("REFRESH MATERIALIZED VIEW CONCURRENTLY catalog_records_analytics")
-    )
-    db_session.commit()
+    # Update analytics for this record
+    from catalog_records.analytics import upsert_records
+    upsert_records(db_session, [record_id])
 
     return _review_to_response(review)
 
@@ -219,11 +216,9 @@ def delete_review(
     current.status = "superseded"
     db_session.commit()
 
-    # Refresh materialized view
-    db_session.execute(
-        text("REFRESH MATERIALIZED VIEW CONCURRENTLY catalog_records_analytics")
-    )
-    db_session.commit()
+    # Update analytics for this record
+    from catalog_records.analytics import upsert_records
+    upsert_records(db_session, [record_id])
 
     return {"ok": True}
 

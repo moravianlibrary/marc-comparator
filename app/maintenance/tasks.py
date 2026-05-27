@@ -1,4 +1,4 @@
-from sqlalchemy import func, text
+from sqlalchemy import func
 
 from adapters.lock_server import get_active_locks
 from adapters.marc_sectors import _decompressor, write_records_to_sector
@@ -8,14 +8,12 @@ from entities.marc_sector import MarcRecordIndex, MarcSector
 
 
 async def refresh_analytics(task_id: str) -> None:
-    """Refresh the catalog_records_analytics materialized view."""
+    """Rebuild the catalog_records_analytics table from source tables."""
     async with ManagedTask(task_id=task_id) as ctx:
-        ctx.logger.info("Refreshing analytics materialized view...")
-        ctx.db_session.execute(
-            text("REFRESH MATERIALIZED VIEW CONCURRENTLY catalog_records_analytics")
-        )
-        ctx.db_session.commit()
-        ctx.logger.info("Analytics view refreshed successfully.")
+        ctx.logger.info("Rebuilding analytics table...")
+        from catalog_records.analytics import rebuild_all
+        rebuild_all(ctx.db_session)
+        ctx.logger.info("Analytics table rebuilt successfully.")
 
 
 async def cleanup_stale_locks(task_id: str) -> None:
