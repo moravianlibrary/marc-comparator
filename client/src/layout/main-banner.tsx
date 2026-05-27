@@ -37,6 +37,7 @@ export function MainBanner() {
         })
         .then((r) => r.data),
     enabled: canManageTasks === true,
+    refetchInterval: (query) => query.state.data?.items?.some((t) => t.status === "Started") ? 5000 : false,
   });
 
   const runningTasks = tasksData?.items ?? [];
