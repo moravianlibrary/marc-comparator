@@ -40,6 +40,13 @@ function getSnapshot() {
 }
 
 export function addNotification(entry: Omit<NotificationEntry, "id" | "read">) {
+  // Deduplicate by taskId + variant (e.g. same task success arriving via WS and mutation)
+  if (entry.taskId) {
+    const duplicate = notifications.find(
+      (n) => n.taskId === entry.taskId && n.variant === entry.variant,
+    );
+    if (duplicate) return;
+  }
   notifications = [
     { ...entry, id: crypto.randomUUID(), read: false },
     ...notifications,
@@ -89,7 +96,7 @@ export function ToastHistory() {
               {t("common:toast-history.empty")}
             </p>
           ) : (
-            <div className="space-y-3">
+            <div className="space-y-3 px-4">
               {notifications.map((n) => (
                 <div
                   key={n.id}

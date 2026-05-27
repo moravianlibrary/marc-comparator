@@ -168,7 +168,8 @@
       "title": "Synchronizace z katalogu",
       "base": "Báze",
       "from-date": "Od data (volitelné)",
-      "submit": "Synchronizovat"
+      "submit": "Synchronizovat",
+      "locked": "Synchronizace již běží"
     }
   },
   "facet-fields": {

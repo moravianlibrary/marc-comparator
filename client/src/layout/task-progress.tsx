@@ -13,6 +13,10 @@ interface TaskProgressProps {
   runningTasks: Task[];
 }
 
+function taskLabel(task: Task, t: (key: string, opts?: Record<string, string>) => string): string {
+  return t(`tasks:type.${task.type}`, { defaultValue: task.type });
+}
+
 export function TaskProgress({ runningTasks }: TaskProgressProps) {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -32,7 +36,7 @@ export function TaskProgress({ runningTasks }: TaskProgressProps) {
         onClick={() => navigate(`/tasks?taskId=${task.task_id}`)}
       >
         <span className="text-sm text-muted-foreground truncate max-w-[200px]">
-          {task.name}
+          {taskLabel(task, t)}
         </span>
         <Progress value={percent} className="w-24 h-2" />
         <span className="text-xs text-muted-foreground">{percent}%</span>
@@ -62,7 +66,7 @@ export function TaskProgress({ runningTasks }: TaskProgressProps) {
                 onClick={() => navigate(`/tasks?taskId=${task.task_id}`)}
               >
                 <div className="flex items-center justify-between text-sm">
-                  <span className="truncate">{task.name}</span>
+                  <span className="truncate">{taskLabel(task, t)}</span>
                   <span className="text-muted-foreground">{percent}%</span>
                 </div>
                 <Progress value={percent} className="h-2" />

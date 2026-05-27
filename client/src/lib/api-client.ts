@@ -106,11 +106,14 @@ apiClient.interceptors.response.use(
       }
 
       // Backend is healthy but this request failed — show error toast
-      const message =
-        error.response?.data?.detail ||
-        error.response?.statusText ||
-        "Unknown error";
-      dispatchApiError(status, url, message);
+      // Skip 409 Conflict — these are business logic errors handled by the caller
+      if (status !== 409) {
+        const message =
+          error.response?.data?.detail ||
+          error.response?.statusText ||
+          "Unknown error";
+        dispatchApiError(status, url, message);
+      }
     }
 
     return Promise.reject(error);

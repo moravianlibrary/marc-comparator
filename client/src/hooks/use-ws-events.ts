@@ -15,7 +15,7 @@ export function useWsEvents() {
     const unsubStatus = wsClient.on("task_status", (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
 
-      const taskName = data.task_type ? t(`type.${data.task_type}`, { defaultValue: data.name }) : data.name;
+      const taskName = data.task_type ? t(`type.${data.task_type}`, { defaultValue: data.task_type }) : data.task_type;
       if (data.status === "Started") {
         toast.info(t("toast.started", { name: taskName }));
         addNotification({

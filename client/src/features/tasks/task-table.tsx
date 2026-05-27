@@ -14,6 +14,8 @@ import type { Task } from "@/types/task";
 interface TaskTableProps {
   tasks: Task[];
   selectedTaskId: string | null;
+  showCreatedBy?: boolean;
+  userNames?: Map<string, string>;
   onSelectTask: (taskId: string) => void;
   onRevoke: (taskId: string) => void;
 }
@@ -26,17 +28,18 @@ const statusVariantMap: Record<string, "default" | "secondary" | "destructive" |
   Revoked: "outline",
 };
 
-export function TaskTable({ tasks, selectedTaskId, onSelectTask, onRevoke }: TaskTableProps) {
+export function TaskTable({ tasks, selectedTaskId, showCreatedBy, userNames, onSelectTask, onRevoke }: TaskTableProps) {
   const { t } = useTranslation("tasks");
 
   return (
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>{t("fields.name")}</TableHead>
+          <TableHead>{t("fields.type")}</TableHead>
           <TableHead>{t("fields.status")}</TableHead>
           <TableHead>{t("fields.severity")}</TableHead>
           <TableHead>{t("fields.run-time")}</TableHead>
+          {showCreatedBy && <TableHead>{t("fields.created-by")}</TableHead>}
           <TableHead>{t("common:actions")}</TableHead>
         </TableRow>
       </TableHeader>
@@ -47,7 +50,7 @@ export function TaskTable({ tasks, selectedTaskId, onSelectTask, onRevoke }: Tas
             className={`cursor-pointer ${selectedTaskId === task.task_id ? "bg-muted" : ""}`}
             onClick={() => onSelectTask(task.task_id)}
           >
-            <TableCell className="font-medium">{t(`type.${task.type}`)}</TableCell>
+            <TableCell className="font-medium">{t(`type.${task.type}`, { defaultValue: task.type })}</TableCell>
             <TableCell>
               <Badge variant={statusVariantMap[task.status] ?? "outline"}>
                 {t(`status.${task.status}`)}
@@ -61,6 +64,7 @@ export function TaskTable({ tasks, selectedTaskId, onSelectTask, onRevoke }: Tas
                   ? "..."
                   : "-"}
             </TableCell>
+            {showCreatedBy && <TableCell>{userNames?.get(task.created_by) ?? task.created_by}</TableCell>}
             <TableCell>
               {task.status === "Started" && (
                 <Button

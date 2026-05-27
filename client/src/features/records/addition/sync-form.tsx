@@ -2,9 +2,10 @@ import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
+import { AxiosError } from "axios";
 import apiClient from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,6 +54,16 @@ export function SyncForm() {
     }
   }, [availableBases, form]);
 
+  const { data: locks = [] } = useQuery<string[]>({
+    queryKey: ["system", "locks"],
+    queryFn: () => apiClient.get<string[]>("/system/locks").then((r) => r.data),
+  });
+
+  const selectedBase = form.watch("base");
+  const isBaseLocked = locks.includes(`catalog_sync_${selectedBase}`);
+
+  const queryClient = useQueryClient();
+
   const mutation = useMutation({
     mutationFn: (values: FormValues) =>
       apiClient.post("/catalog-records/sync", {
@@ -60,7 +71,14 @@ export function SyncForm() {
         from_date: values.from_date || null,
       }),
     onSuccess: () => form.reset(),
-    onError: () => toast.error(t("common:error")),
+    onError: (error: AxiosError) => {
+      if (error.response?.status === 409) {
+        queryClient.invalidateQueries({ queryKey: ["system", "locks"] });
+        toast.warning(t("addition.sync.locked"));
+      } else {
+        toast.error(t("common:error"));
+      }
+    },
   });
 
   return (
@@ -111,8 +129,8 @@ export function SyncForm() {
                 </FormItem>
               )}
             />
-            <Button type="submit" disabled={mutation.isPending}>
-              {t("addition.sync.submit")}
+            <Button type="submit" disabled={mutation.isPending || isBaseLocked}>
+              {isBaseLocked ? t("addition.sync.locked") : t("addition.sync.submit")}
             </Button>
           </form>
         </Form>

@@ -34,7 +34,6 @@ export type TaskSeverity = (typeof TaskSeverity)[keyof typeof TaskSeverity];
 
 export interface Task {
   task_id: string;
-  name: string;
   type: TaskType;
   status: TaskStatus;
   severity: TaskSeverity;

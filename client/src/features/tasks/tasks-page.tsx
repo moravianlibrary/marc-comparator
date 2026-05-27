@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -5,6 +6,7 @@ import apiClient from "@/lib/api-client";
 import { useHasPermission } from "@/hooks/use-permissions";
 import { Permission } from "@/types/permission";
 import type { Task } from "@/types/task";
+import type { User } from "@/types/user";
 import { TaskTable } from "./task-table";
 import { TaskDetail } from "./task-detail";
 
@@ -38,6 +40,25 @@ export function TasksPage() {
         .then((r) => r.data),
   });
 
+  const { data: usersData } = useQuery<{ items: User[] }>({
+    queryKey: ["access-control", "users"],
+    queryFn: () =>
+      apiClient
+        .get<{ items: User[] }>("/access-control/users", {
+          params: { page: 1, page_size: 100 },
+        })
+        .then((r) => r.data),
+    enabled: canSeeAll === true,
+  });
+
+  const userNames = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const u of usersData?.items ?? []) {
+      map.set(u.id, `${u.first_name} ${u.last_name}`);
+    }
+    return map;
+  }, [usersData]);
+
   const revokeMutation = useMutation({
     mutationFn: (taskId: string) => apiClient.patch(`/tasks/${taskId}/revoke`),
     onSuccess: () => {
@@ -62,6 +83,8 @@ export function TasksPage() {
             <TaskTable
               tasks={tasks}
               selectedTaskId={selectedTaskId}
+              showCreatedBy={canSeeAll}
+              userNames={userNames}
               onSelectTask={handleSelectTask}
               onRevoke={(id) => revokeMutation.mutate(id)}
             />
