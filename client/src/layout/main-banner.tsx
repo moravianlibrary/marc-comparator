@@ -37,14 +37,13 @@ export function MainBanner() {
         })
         .then((r) => r.data),
     enabled: canManageTasks === true,
-    refetchInterval: 10_000,
   });
 
   const runningTasks = tasksData?.items ?? [];
 
   return (
     <>
-    <header className="sticky top-0 z-50 border-b bg-background px-6 py-2 flex items-center gap-4">
+    <header className="border-b bg-background px-6 py-2 flex items-center gap-4">
       <Button
         variant="ghost"
         className="font-semibold text-lg p-0 h-auto hover:bg-transparent gap-2"

@@ -52,21 +52,16 @@ function markAllRead() {
   emitChange();
 }
 
-function clearNotifications() {
-  notifications = [];
-  emitChange();
-}
-
 export function useNotificationStore() {
   const items = useSyncExternalStore(subscribe, getSnapshot);
   const unreadCount = items.filter((n) => !n.read).length;
-  return { notifications: items, unreadCount, markAllRead, clear: clearNotifications };
+  return { notifications: items, unreadCount, markAllRead };
 }
 
 export function ToastHistory() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { notifications, unreadCount, markAllRead, clear } =
+  const { notifications, unreadCount, markAllRead } =
     useNotificationStore();
 
   return (
@@ -86,14 +81,7 @@ export function ToastHistory() {
       </SheetTrigger>
       <SheetContent>
         <SheetHeader>
-          <div className="flex items-center justify-between">
-            <SheetTitle>{t("common:toast-history.title")}</SheetTitle>
-            {notifications.length > 0 && (
-              <Button variant="ghost" size="sm" onClick={clear}>
-                {t("common:toast-history.clear")}
-              </Button>
-            )}
-          </div>
+          <SheetTitle>{t("common:toast-history.title")}</SheetTitle>
         </SheetHeader>
         <ScrollArea className="h-[calc(100vh-8rem)] mt-4">
           {notifications.length === 0 ? (

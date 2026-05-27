@@ -1,4 +1,3 @@
-import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
@@ -14,16 +13,19 @@ export function TasksPage() {
   const queryClient = useQueryClient();
   const { hasPermission } = useHasPermission();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(
-    searchParams.get("taskId"),
-  );
+  const selectedTaskId = searchParams.get("taskId");
 
-  useEffect(() => {
-    const urlTaskId = searchParams.get("taskId");
-    if (urlTaskId && urlTaskId !== selectedTaskId) {
-      setSelectedTaskId(urlTaskId);
-    }
-  }, [searchParams]);
+  function handleSelectTask(id: string) {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (next.get("taskId") === id) {
+        next.delete("taskId");
+      } else {
+        next.set("taskId", id);
+      }
+      return next;
+    });
+  }
 
   const canSeeAll = hasPermission(Permission.ManageAllTasks);
   const searchEndpoint = canSeeAll ? "/tasks/search-all" : "/tasks/search-own";
@@ -44,6 +46,9 @@ export function TasksPage() {
   });
 
   const tasks = data?.items ?? [];
+  const selectedTask = selectedTaskId
+    ? tasks.find((t) => t.task_id === selectedTaskId)
+    : undefined;
 
   return (
     <div className="space-y-4">
@@ -57,16 +62,14 @@ export function TasksPage() {
             <TaskTable
               tasks={tasks}
               selectedTaskId={selectedTaskId}
-              onSelectTask={(id) =>
-                setSelectedTaskId((prev) => (prev === id ? null : id))
-              }
+              onSelectTask={handleSelectTask}
               onRevoke={(id) => revokeMutation.mutate(id)}
             />
           )}
         </div>
         {selectedTaskId && (
           <div>
-            <TaskDetail taskId={selectedTaskId} />
+            <TaskDetail taskId={selectedTaskId} isRunning={selectedTask?.status === "Started" || selectedTask?.status === "Pending"} />
           </div>
         )}
       </div>

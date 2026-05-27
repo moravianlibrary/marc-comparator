@@ -21,7 +21,7 @@
     "help": "Nápověda"
   },
   "lock-banner": {
-    "prefix": "Systémový zámek:",
+    "catalog-sync": "Probíhá synchronizace katalogu pro bázi {{base}}",
     "dismiss": "Zavřít"
   },
   "task-progress": {
@@ -31,8 +31,7 @@
   },
   "toast-history": {
     "title": "Historie oznámení",
-    "empty": "Žádná oznámení",
-    "clear": "Vymazat historii"
+    "empty": "Žádná oznámení"
   },
   "theme": {
     "light": "Světlý režim",

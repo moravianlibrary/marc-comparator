@@ -34,6 +34,7 @@ export function useWsEvents() {
           timestamp: new Date().toISOString(),
           taskId: data.task_id,
         });
+        queryClient.invalidateQueries({ queryKey: ["catalog-records"] });
       } else if (data.status === "Failure") {
         toast.error(t("toast.failed", { name: taskName }));
         addNotification({
@@ -43,6 +44,7 @@ export function useWsEvents() {
           timestamp: new Date().toISOString(),
           taskId: data.task_id,
         });
+        queryClient.invalidateQueries({ queryKey: ["catalog-records"] });
       }
     });
 

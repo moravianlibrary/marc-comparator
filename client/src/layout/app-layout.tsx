@@ -43,8 +43,10 @@ export function AppLayout() {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <LockBanner />
-      <MainBanner />
+      <div className="sticky top-0 z-50">
+        <LockBanner />
+        <MainBanner />
+      </div>
       <main className="flex-1 p-6">
         <Outlet />
       </main>

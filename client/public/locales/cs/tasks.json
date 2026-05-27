@@ -26,7 +26,10 @@
     "SetRecordVisibility": "Nastavení viditelnosti záznamů",
     "DeleteTasks": "Odstranění úkolů",
     "ProcessRecords": "Zpracování záznamů",
-    "RebuildAnalyticalData": "Obnova analytických dat"
+    "RefreshAnalytics": "Obnovení analytických dat",
+    "CleanupStaleLocks": "Vyčištění neplatných zámků",
+    "CompactSectors": "Kompakce sektorů",
+    "RebuildSearchVectors": "Obnova vyhledávacích vektorů"
   },
   "status": {
     "Pending": "Naplánováno",

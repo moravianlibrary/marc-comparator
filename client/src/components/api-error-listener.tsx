@@ -19,9 +19,11 @@ export function ApiErrorListener() {
 
       toast.error(t("api-error.title"), {
         duration: Infinity,
+        closeButton: true,
+        classNames: { toast: "!w-[420px]" },
         description: (
           <div className="mt-2 space-y-2">
-            <pre className="max-h-40 overflow-auto rounded bg-muted p-2 text-xs">
+            <pre className="max-h-40 overflow-auto rounded bg-muted p-2 text-xs whitespace-pre-wrap break-all">
               {json}
             </pre>
             <button

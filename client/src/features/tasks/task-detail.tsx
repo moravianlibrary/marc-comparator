@@ -6,9 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 interface TaskDetailProps {
   taskId: string;
+  isRunning?: boolean;
 }
 
-export function TaskDetail({ taskId }: TaskDetailProps) {
+export function TaskDetail({ taskId, isRunning }: TaskDetailProps) {
   const { t } = useTranslation("tasks");
 
   const { data: traceback, isLoading } = useQuery<string>({
@@ -17,13 +18,15 @@ export function TaskDetail({ taskId }: TaskDetailProps) {
       apiClient
         .get<string>(`/tasks/${taskId}/traceback`)
         .then((r) => r.data),
+    refetchInterval: isRunning ? 5000 : false,
   });
 
   return (
     <Card className="h-full">
       <CardHeader className="pb-2">
-        <CardTitle className="text-base">
+        <CardTitle className="text-base flex items-center gap-2">
           {t("detail.title")} — {taskId}
+          {isRunning && <span className="inline-block h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />}
         </CardTitle>
       </CardHeader>
       <CardContent>

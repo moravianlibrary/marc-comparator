@@ -181,9 +181,8 @@ function RecordDetail({
         }
       }
       setSelectedView("marc");
-      setTargetFieldsOnly(false);
     }
-  }, [record, comparisons, validations, selectedView, comparisonsFetching, validationsFetching, setSelectedView, setTargetFieldsOnly]);
+  }, [record, comparisons, validations, selectedView, comparisonsFetching, validationsFetching, setSelectedView]);
 
   const authorityOptions = record.authority_links.map((al) => ({
     key: buildAuthorityKey(al.base, al.authority_record_id),
@@ -234,13 +233,7 @@ function RecordDetail({
       <RecordHeader record={record} onSelectView={setSelectedView} />
 
       <div className="flex items-center gap-4">
-        <Select value={selectedView} onValueChange={(v) => {
-          setSelectedView(v);
-          const opt = parseViewKey(v);
-          if (opt.kind !== "comparison" && opt.kind !== "validation") {
-            setTargetFieldsOnly(false);
-          }
-        }}>
+        <Select value={selectedView} onValueChange={setSelectedView}>
           <SelectTrigger className="w-[320px]">
             <SelectValue />
           </SelectTrigger>
