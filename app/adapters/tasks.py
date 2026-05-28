@@ -441,56 +441,33 @@ def periodic_sector_compaction() -> None:
         db.close()
 
 
+TASK_DISPATCH = {
+    TaskType.FetchRecord: fetch_record_task,
+    TaskType.FetchBatchOfRecords: fetch_batch_of_records_task,
+    TaskType.SyncRecords: records_sync_task,
+    TaskType.ValidateRecords: validate_records_task,
+    TaskType.LinkRecordsToAuthorities: link_records_to_authorities,
+    TaskType.CompareRecords: compare_records_task,
+    TaskType.ProcessRecords: process_records_task,
+    TaskType.DeleteTasks: delete_tasks_task,
+    TaskType.RefreshAnalytics: refresh_analytics_task,
+    TaskType.CleanupStaleLocks: cleanup_stale_locks_task,
+    TaskType.CompactSectors: compact_sectors_task,
+    TaskType.RebuildSearchVectors: rebuild_search_vectors_task,
+}
+
+
 def dispatch_task(task: Task) -> None:
-    """
-    Dispatches a task to the Celery based on its type.
-
-    Parameters
-    ----------
-    task : Task
-        The task to be dispatched.
-    """
-    task_id = str(task.task_id)
-
-    if task.type == TaskType.FetchRecord:
-        fetch_record_task.apply_async(task_id=task_id)
-
-    elif task.type == TaskType.FetchBatchOfRecords:
-        fetch_batch_of_records_task.apply_async(task_id=task_id)
-
-    elif task.type == TaskType.SyncRecords:
-        lock_key = f"catalog_sync_{task.data['base']}"
-        records_sync_task.apply_async(args=[lock_key, 1], task_id=task_id)
-
-    elif task.type == TaskType.ValidateRecords:
-        validate_records_task.apply_async(task_id=task_id)
-
-    elif task.type == TaskType.LinkRecordsToAuthorities:
-        link_records_to_authorities.apply_async(task_id=task_id)
-
-    elif task.type == TaskType.CompareRecords:
-        compare_records_task.apply_async(task_id=task_id)
-
-    elif task.type == TaskType.ProcessRecords:
-        process_records_task.apply_async(task_id=task_id)
-
-    elif task.type == TaskType.DeleteTasks:
-        delete_tasks_task.apply_async(task_id=task_id)
-
-    elif task.type == TaskType.RefreshAnalytics:
-        refresh_analytics_task.apply_async(task_id=task_id)
-
-    elif task.type == TaskType.CleanupStaleLocks:
-        cleanup_stale_locks_task.apply_async(task_id=task_id)
-
-    elif task.type == TaskType.CompactSectors:
-        compact_sectors_task.apply_async(task_id=task_id)
-
-    elif task.type == TaskType.RebuildSearchVectors:
-        rebuild_search_vectors_task.apply_async(task_id=task_id)
-
-    else:
+    """Dispatch a task to Celery based on its type."""
+    celery_task = TASK_DISPATCH.get(task.type)
+    if celery_task is None:
         raise ValueError(f"Unknown task type: {task.type}")
+
+    kwargs: dict = {"task_id": str(task.task_id)}
+    if task.type == TaskType.SyncRecords:
+        kwargs["args"] = [f"catalog_sync_{task.data['base']}", 1]
+
+    celery_task.apply_async(**kwargs)
 
 
 async def enqueue_task(task: Task, db_session: DatabaseSession) -> TaskSchema:
