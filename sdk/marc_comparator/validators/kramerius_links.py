@@ -19,6 +19,9 @@ from ._base import (
 
 class KrameriusLinksValidatorConfig(BaseModel):
     url_to_pid_pattern: str = r"https?://[^/]+/mzk/uuid/(uuid:[0-9a-fA-F-]+)"
+    url_to_pid_fallback_pattern: str = (
+        r"https?://[^/]+/mzk/[^/]+/(uuid:[0-9a-fA-F-]+)"
+    )
     link_text_pattern: str = r"Digitalizovaný dokument"
 
     kramerius_host: str = "https://api.kramerius.mzk.cz/search"
@@ -82,6 +85,9 @@ class KrameriusLinksValidator(BaseValidator):
         self.config = config
 
         self.url_to_pid_regex = re.compile(config.url_to_pid_pattern)
+        self.url_to_pid_fallback_regex = re.compile(
+            config.url_to_pid_fallback_pattern
+        )
         self.link_text_regex = re.compile(config.link_text_pattern)
 
         self.client = KrameriusClient(
@@ -166,7 +172,8 @@ class KrameriusLinksValidator(BaseValidator):
         return list(links.values())
 
     async def run(self, record: MarcRecord) -> List[ValidationResult]:
-        current_kramerius_pids = []
+        current_kramerius_pids: List[str] = []
+        pid_field_index: Dict[str, int] = {}
         results: List[ValidationResult] = []
 
         def add_result(
@@ -223,7 +230,28 @@ class KrameriusLinksValidator(BaseValidator):
                 match = self.url_to_pid_regex.search(v)
 
                 if match:
-                    current_kramerius_pids.append(match.group(1))
+                    pid = match.group(1)
+                    current_kramerius_pids.append(pid)
+                    pid_field_index.setdefault(pid, field_idx)
+                    continue
+
+                fallback_match = self.url_to_pid_fallback_regex.search(v)
+
+                if fallback_match:
+                    pid = fallback_match.group(1)
+                    current_kramerius_pids.append(pid)
+                    pid_field_index.setdefault(pid, field_idx)
+                    add_result(
+                        status=ValidityStatus.AdditionalInfo,
+                        reason="Non-standard Kramerius link format",
+                        details=(
+                            f"Value '{v}' contains a valid PID "
+                            "but uses a non-standard URL format."
+                        ),
+                        details_params={"value": v},
+                        hint="Update the link to use the standard format.",
+                        field_index=field_idx,
+                    )
                     continue
 
                 add_result(
@@ -260,8 +288,11 @@ class KrameriusLinksValidator(BaseValidator):
             return results
 
         found_kramerius_pids = []
+        valid_kramerius_pids = []
 
         for link in found_kramerius_links:
+            found_kramerius_pids.append(link.pid)
+
             if link.level > 0:
                 add_result(
                     reason="Kramerius link points to non-top-level document",
@@ -282,11 +313,12 @@ class KrameriusLinksValidator(BaseValidator):
             elif link.has_wrong_model:
                 add_result(
                     status=ValidityStatus.AdditionalInfo,
-                    reason="Kramerius link points to invalid model",
+                    reason="Found Kramerius document with non-linkable model",
                     details=(
-                        f"Found top level document with PID '{link.pid}' "
-                        f"that has model '{link.model.value}' "
-                        "which is not a valid top-level model."
+                        f"Found document with PID '{link.pid}' "
+                        f"and model '{link.model.value}' in Kramerius. "
+                        "This model type is not expected to be linked "
+                        "from a catalog record."
                     ),
                     details_params={
                         "pid": link.pid,
@@ -296,10 +328,25 @@ class KrameriusLinksValidator(BaseValidator):
                 )
 
             else:
-                found_kramerius_pids.append(link.pid)
+                valid_kramerius_pids.append(link.pid)
 
-        extra_pids = set(current_kramerius_pids) - set(found_kramerius_pids)
-        for pid in extra_pids:
+        current_set = set(current_kramerius_pids)
+        found_set = set(found_kramerius_pids)
+        valid_set = set(valid_kramerius_pids)
+
+        for pid in current_set & valid_set:
+            add_result(
+                status=ValidityStatus.Valid,
+                reason="Valid Kramerius link",
+                details=(
+                    f"PID '{pid}' is well-formed "
+                    "and matches an existing Kramerius document."
+                ),
+                details_params={"pid": pid},
+                field_index=pid_field_index.get(pid),
+            )
+
+        for pid in current_set - found_set:
             add_result(
                 reason="Link not found in Kramerius",
                 details=(
@@ -308,10 +355,10 @@ class KrameriusLinksValidator(BaseValidator):
                 ),
                 details_params={"pid": pid},
                 hint="Remove or correct the invalid Kramerius link.",
+                field_index=pid_field_index.get(pid),
             )
 
-        missing_pids = set(found_kramerius_pids) - set(current_kramerius_pids)
-        for pid in missing_pids:
+        for pid in found_set - current_set:
             add_result(
                 reason="Missing Kramerius link in MARC",
                 details=(
@@ -319,16 +366,6 @@ class KrameriusLinksValidator(BaseValidator):
                 ),
                 details_params={"pid": pid},
                 hint="Add a corresponding 856$u for this PID.",
-            )
-
-        if not results:
-            add_result(
-                ValidityStatus.Valid,
-                reason="All Kramerius links valid",
-                details=(
-                    "All links are well-formed "
-                    "and match existing Kramerius documents."
-                ),
             )
 
         return results
