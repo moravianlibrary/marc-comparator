@@ -54,14 +54,6 @@ export function RecordTaskActions({ filters, totalCount }: RecordTaskActionsProp
   const queryClient = useQueryClient();
   const [pendingAction, setPendingAction] = useState<SimpleAction | null>(null);
 
-  const { data: processSettings } = useQuery<ProcessRecordsSettings>({
-    queryKey: ["settings", "process-records"],
-    queryFn: () =>
-      apiClient
-        .get<ProcessRecordsSettings>("/settings/record-tools/process-records")
-        .then((r) => r.data),
-  });
-
   const onTaskCreated = () =>
     queryClient.invalidateQueries({ queryKey: ["tasks"] });
   const onError = () => toast.error(t("common:error"));
@@ -174,12 +166,14 @@ export function AdvancedTaskActions({ filters, totalCount }: AdvancedTaskActions
   const compareMutation = useMutation({
     mutationFn: async () => {
       if (!processSettings) return;
-      for (const targetBase of processSettings.target_bases) {
-        await apiClient.post("/comparison/task", {
-          target_base: targetBase,
-          filters,
-        });
-      }
+      await Promise.all(
+        processSettings.target_bases.map((targetBase) =>
+          apiClient.post("/comparison/task", {
+            target_base: targetBase,
+            filters,
+          }),
+        ),
+      );
     },
     onSuccess: onTaskCreated,
     onError,
