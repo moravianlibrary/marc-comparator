@@ -16,6 +16,7 @@ class ValidityStatus(StrEnum):
 class ValidationTarget(BaseModel):
     tag: str
     codes: List[str] | None = None
+    field_index: int | None = None
 
 
 class ValidationResult(BaseModel):

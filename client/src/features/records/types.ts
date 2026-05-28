@@ -158,7 +158,7 @@ export interface ComparisonResult {
 }
 
 export interface ValidationResult {
-  target: { tag: string; codes: string[] | null };
+  target: { tag: string; codes: string[] | null; field_index: number | null };
   status: string;
   reason: string | null;
   details: string | null;

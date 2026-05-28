@@ -9,6 +9,21 @@ import type {
 
 export type AnnotationType = "comparison" | "validation";
 
+const VALIDATION_STATUS_ORDER: Record<string, number> = {
+  Valid: 0,
+  ForReview: 1,
+  Invalid: 2,
+  AdditionalInfo: 3,
+};
+
+function sortByStatus(results: ValidationResult[]): ValidationResult[] {
+  return [...results].sort(
+    (a, b) =>
+      (VALIDATION_STATUS_ORDER[a.status] ?? 99) -
+      (VALIDATION_STATUS_ORDER[b.status] ?? 99),
+  );
+}
+
 interface MarcTableProps {
   marc: MarcRecordData;
   annotationType?: AnnotationType;
@@ -76,8 +91,10 @@ export function MarcTable({
         const compAnnotation = annotationType === "comparison"
           ? comparisonAnnotations?.find((a) => a.tag === tag)
           : undefined;
-        const valAnnotation = annotationType === "validation"
-          ? validationAnnotations?.find((v) => v.target.tag === tag)
+        const valAnnotationsForField = annotationType === "validation"
+          ? validationAnnotations?.filter((v) =>
+              v.target.tag === tag,
+            )
           : undefined;
         return (
           <MarcRow
@@ -89,21 +106,25 @@ export function MarcTable({
             striped={rowIndex % 2 === 0}
             showAnnotationColumn={showAnnotations}
             comparisonAnnotation={compAnnotation}
-            validationAnnotation={valAnnotation}
+            validationAnnotations={valAnnotationsForField}
             krameriusClientUrl={krameriusClientUrl}
           />
         );
       })}
 
       {/* Variable fields */}
-      {variableEntries.flatMap(([tag, fields]) =>
-        fields.map((field, fieldIdx) => {
+      {variableEntries.flatMap(([tag, fields]) => {
+        const isMissingTag = !existingTags.has(tag);
+        const rows = fields.map((field, fieldIdx) => {
           rowIndex++;
           const compAnnotation = annotationType === "comparison"
             ? comparisonAnnotations?.find((a) => a.tag === tag)
             : undefined;
-          const valAnnotation = annotationType === "validation"
-            ? validationAnnotations?.find((v) => v.target.tag === tag)
+          const valAnnotationsForField = annotationType === "validation"
+            ? validationAnnotations?.filter((v) =>
+                v.target.tag === tag &&
+                (v.target.field_index === fieldIdx || (isMissingTag && v.target.field_index == null)),
+              )
             : undefined;
           return (
             <MarcRow
@@ -115,12 +136,37 @@ export function MarcTable({
               striped={rowIndex % 2 === 0}
               showAnnotationColumn={showAnnotations}
               comparisonAnnotation={compAnnotation}
-              validationAnnotation={valAnnotation}
+              validationAnnotations={valAnnotationsForField}
               krameriusClientUrl={krameriusClientUrl}
             />
           );
-        }),
-      )}
+        });
+
+        // Add a synthetic empty row for non-indexed validation results on existing tags
+        if (annotationType === "validation" && !isMissingTag) {
+          const nonIndexed = validationAnnotations?.filter(
+            (v) => v.target.tag === tag && v.target.field_index == null,
+          );
+          if (nonIndexed && nonIndexed.length > 0) {
+            rowIndex++;
+            rows.push(
+              <MarcRow
+                key={`vf-${tag}-general`}
+                tag={tag}
+                ind1={null}
+                ind2={null}
+                subfields={{}}
+                striped={rowIndex % 2 === 0}
+                showAnnotationColumn={showAnnotations}
+                validationAnnotations={nonIndexed}
+                krameriusClientUrl={krameriusClientUrl}
+              />,
+            );
+          }
+        }
+
+        return rows;
+      })}
     </div>
   );
 }
@@ -133,7 +179,7 @@ interface MarcRowProps {
   striped: boolean;
   showAnnotationColumn: boolean;
   comparisonAnnotation?: FieldComparisonResult;
-  validationAnnotation?: ValidationResult;
+  validationAnnotations?: ValidationResult[];
   krameriusClientUrl?: string;
 }
 
@@ -145,7 +191,7 @@ function MarcRow({
   striped,
   showAnnotationColumn,
   comparisonAnnotation,
-  validationAnnotation,
+  validationAnnotations,
   krameriusClientUrl,
 }: MarcRowProps) {
   const i1 = ind1 ?? "-";
@@ -277,12 +323,14 @@ function MarcRow({
             </div>
           </>
         )}
-        {showAnnotationColumn && !comparisonAnnotation && validationAnnotation && (
-          <div className="flex-1 border-l px-3 py-1.5">
-            <ValidationFieldAnnotation annotation={validationAnnotation} krameriusClientUrl={krameriusClientUrl} />
+        {showAnnotationColumn && !comparisonAnnotation && validationAnnotations && validationAnnotations.length > 0 && (
+          <div className="flex-1 border-l px-3 py-1.5 space-y-2">
+            {sortByStatus(validationAnnotations).map((va, i) => (
+              <ValidationFieldAnnotation key={i} annotation={va} krameriusClientUrl={krameriusClientUrl} />
+            ))}
           </div>
         )}
-        {showAnnotationColumn && !comparisonAnnotation && !validationAnnotation && (
+        {showAnnotationColumn && !comparisonAnnotation && (!validationAnnotations || validationAnnotations.length === 0) && (
           <div className="flex-1 border-l px-3 py-1.5" />
         )}
       </div>

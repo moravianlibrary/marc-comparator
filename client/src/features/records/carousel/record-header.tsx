@@ -103,7 +103,10 @@ export function RecordHeader({ record, onSelectView }: RecordHeaderProps) {
             </Badge>
           );
         })}
-        {record.validations.map((v, i) => {
+        {[...record.validations].sort((a, b) => {
+          const order: Record<string, number> = { Valid: 0, ForReview: 1, Invalid: 2, AdditionalInfo: 3 };
+          return (order[a.status] ?? 99) - (order[b.status] ?? 99);
+        }).map((v, i) => {
           const viewKey = `val:${v.validator}`;
           return (
             <Badge

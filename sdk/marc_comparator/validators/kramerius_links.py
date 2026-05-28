@@ -169,17 +169,22 @@ class KrameriusLinksValidator(BaseValidator):
         current_kramerius_pids = []
         results: List[ValidationResult] = []
 
-        def add_partial_result(
+        def add_result(
             status: ValidityStatus = ValidityStatus.Invalid,
             reason: str | None = None,
             details: str | None = None,
             details_params: dict | None = None,
             hint: str | None = None,
+            field_index: int | None = None,
         ):
             results.append(
                 ValidationResult(
                     status=status,
-                    target=VALIDATION_FIELD,
+                    target=ValidationTarget(
+                        tag=VALIDATION_FIELD.tag,
+                        codes=VALIDATION_FIELD.codes,
+                        field_index=field_index,
+                    ),
                     reason=reason,
                     details=details,
                     details_params=details_params,
@@ -187,7 +192,9 @@ class KrameriusLinksValidator(BaseValidator):
                 )
             )
 
-        for vf in record.variable_fields.query_fields('.["856"][]?'):
+        for field_idx, vf in enumerate(
+            record.variable_fields.query_fields('.["856"][]?')
+        ):
             if not any(
                 self.link_text_regex.match(v)
                 for v in vf.subfields.get("y", [])
@@ -198,7 +205,7 @@ class KrameriusLinksValidator(BaseValidator):
                 ):
                     continue
 
-                add_partial_result(
+                add_result(
                     status=ValidityStatus.ForReview,
                     reason="Missing link text in $y",
                     details=(
@@ -209,6 +216,7 @@ class KrameriusLinksValidator(BaseValidator):
                         "pattern": self.config.link_text_pattern,
                     },
                     hint="Add appropriate link text to subfield $y.",
+                    field_index=field_idx,
                 )
 
             for v in vf.subfields.get("u", []):
@@ -218,7 +226,7 @@ class KrameriusLinksValidator(BaseValidator):
                     current_kramerius_pids.append(match.group(1))
                     continue
 
-                add_partial_result(
+                add_result(
                     reason="Invalid Kramerius link format",
                     details=(
                         f"Value '{v}' does not match expected URL pattern."
@@ -231,6 +239,7 @@ class KrameriusLinksValidator(BaseValidator):
                         "Ensure the link follows the pattern: "
                         f"{self.config.url_to_pid_pattern}"
                     ),
+                    field_index=field_idx,
                 )
 
         found_kramerius_links = await self.find_kramerius_links(
@@ -239,7 +248,7 @@ class KrameriusLinksValidator(BaseValidator):
 
         if not current_kramerius_pids and not found_kramerius_links:
             if not results:
-                add_partial_result(
+                add_result(
                     status=ValidityStatus.Valid,
                     reason="No Kramerius links found or expected",
                     details=(
@@ -254,7 +263,7 @@ class KrameriusLinksValidator(BaseValidator):
 
         for link in found_kramerius_links:
             if link.level > 0:
-                add_partial_result(
+                add_result(
                     reason="Kramerius link points to non-top-level document",
                     details=(
                         f"Document with PID '{link.pid}' "
@@ -271,7 +280,7 @@ class KrameriusLinksValidator(BaseValidator):
                 )
 
             elif link.has_wrong_model:
-                add_partial_result(
+                add_result(
                     status=ValidityStatus.AdditionalInfo,
                     reason="Kramerius link points to invalid model",
                     details=(
@@ -291,7 +300,7 @@ class KrameriusLinksValidator(BaseValidator):
 
         extra_pids = set(current_kramerius_pids) - set(found_kramerius_pids)
         for pid in extra_pids:
-            add_partial_result(
+            add_result(
                 reason="Link not found in Kramerius",
                 details=(
                     f"PID '{pid}' is present in MARC "
@@ -303,7 +312,7 @@ class KrameriusLinksValidator(BaseValidator):
 
         missing_pids = set(found_kramerius_pids) - set(current_kramerius_pids)
         for pid in missing_pids:
-            add_partial_result(
+            add_result(
                 reason="Missing Kramerius link in MARC",
                 details=(
                     f"PID '{pid}' exists in Kramerius but not in MARC record."
@@ -313,7 +322,7 @@ class KrameriusLinksValidator(BaseValidator):
             )
 
         if not results:
-            add_partial_result(
+            add_result(
                 ValidityStatus.Valid,
                 reason="All Kramerius links valid",
                 details=(
