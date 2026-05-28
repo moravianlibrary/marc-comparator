@@ -3,6 +3,7 @@ import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslation } from "react-i18next";
 import { AxiosError } from "axios";
+import { toast } from "sonner";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { AppLogo } from "@/components/app-logo";
 import { useSignUp } from "@/hooks/use-auth";
@@ -42,6 +43,7 @@ export function SignupPage() {
         last_name: values.last_name,
         password: values.password,
       });
+      toast.success(t("signup.success"));
       navigate("/login", { replace: true });
     } catch (error) {
       const detail =
