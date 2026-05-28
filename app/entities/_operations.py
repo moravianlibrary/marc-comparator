@@ -4,10 +4,13 @@ from adapters.database import DatabaseSession
 
 
 class BaseOperationsMixin:
-    def save(self: Self, db_session: DatabaseSession) -> Self:
+    def save(self: Self, db_session: DatabaseSession, *, commit: bool = True) -> Self:
         db_session.add(self)
-        db_session.commit()
-        db_session.refresh(self)
+        if commit:
+            db_session.commit()
+            db_session.refresh(self)
+        else:
+            db_session.flush()
         return self
 
     def delete(self: Self, db_session: DatabaseSession) -> Self:
