@@ -55,6 +55,118 @@
     "next": "Další",
     "page": "Stránka {{page}} z {{total}}"
   },
+  "help": {
+    "about": {
+      "title": "O aplikaci",
+      "description": "MARC Comparator je systém pro správu a kontrolu kvality MARC bibliografických záznamů. Umožňuje sklízení záznamů z knihovních katalogů přes OAI-PMH, jejich automatické propojování s autoritními záznamy, porovnávání mezi katalogy s výpočtem skóre odchylky a validaci odkazů na digitalizované dokumenty. Výsledky zpracování jsou vizualizovány v interaktivních grafech a tabulkách s možností filtrování, revizí a hromadných akcí."
+    },
+    "workflow": {
+      "title": "Pracovní postup",
+      "intro": "Typický pracovní postup v aplikaci zahrnuje několik kroků:",
+      "steps": [
+        "Přidání záznamů — přidejte jednotlivé záznamy, hromadně zadejte systémová čísla, nebo synchronizujte celou bázi z katalogu.",
+        "Zpracování — spusťte zpracování nad záznamy. Zpracování provede propojení s autoritami, porovnání s autoritním záznamem a validaci v jednom kroku. Alternativně můžete jednotlivé kroky spouštět zvlášť pomocí pokročilých akcí.",
+        "Analýza výsledků — pomocí interaktivních grafů na záložce Filtrování analyzujte celkový stav záznamů, kvalitu shody a výsledky validací.",
+        "Revize — u záznamů s nízkou kvalitou shody nebo neplatnými validacemi proveďte ruční kontrolu v detailu záznamu a označte je jako revidované."
+      ]
+    },
+    "records": {
+      "title": "Záznamy",
+      "intro": "Hlavní stránka aplikace se záznamy obsahuje čtyři záložky:",
+      "filtering": {
+        "title": "Filtrování",
+        "description": "Interaktivní grafy pro analýzu a filtrování záznamů. Grafy jsou rozděleny do sekcí — kontext (báze, propojení), stav záznamů, analýza porovnání (skóre, kvalita shody, vysvětlení odchylek) a validace.",
+        "tips": [
+          "Kliknutím na hodnotu v grafu ji přidáte jako filtr — filtry se kombinují logickým AND.",
+          "Najetím myší na hodnotu zobrazíte náhled změn v ostatních grafech.",
+          "Aktivní filtry se zobrazují v horní liště s možností jednotlivého i hromadného odebrání.",
+          "Pomocí ikony ozubeného kola si přizpůsobíte, které sekce a grafy chcete zobrazit."
+        ]
+      },
+      "table": {
+        "title": "Výsledky",
+        "description": "Tabulka zobrazuje záznamy odpovídající aktuálním filtrům. U každého záznamu vidíte stav zpracování, propojení s autoritami, výsledky porovnání s barevným skóre a výsledky validací.",
+        "tips": [
+          "Kliknutím na řádek přejdete na detail záznamu. Kliknutím na štítek porovnání nebo validace přejdete rovnou na příslušný pohled.",
+          "Vyhledávací pole podporuje přesné vyhledání podle systémového čísla i fulltextové hledání v názvech a autorech.",
+          "Hromadné akce (zpracování, propojení autorit, porovnání, validace) se spouštějí nad všemi vyfiltrovanými záznamy.",
+          "Viditelnost sloupců lze upravit a nastavení se ukládá."
+        ]
+      },
+      "detail": {
+        "title": "Detail záznamu",
+        "description": "Zobrazuje MARC záznam s možností přepínat mezi originálním záznamem, autoritními záznamy, výsledky porovnání a validací.",
+        "tips": [
+          "Šipkami vlevo/vpravo nebo klávesami procházejte záznamy — aktuální pohled se zachová.",
+          "U porovnání se vedle každého pole zobrazuje hodnota z autority, procentuální skóre a klasifikace odchylky (identický, překlep, neúplný, nestandardizovaný, nesprávný, chybějící).",
+          "U validací se zobrazuje stav, důvod, detaily s prokliky na Kramerius a nápověda k opravě.",
+          "Zaškrtnutím volby Pouze cílová pole zobrazíte jen pole s anotacemi.",
+          "Trvalý odkaz na aktuální záznam zkopírujete ikonou odkazu v záhlaví."
+        ]
+      },
+      "addition": {
+        "title": "Přidání záznamů",
+        "description": "Záložka umožňuje přidávat nové záznamy do systému třemi způsoby:",
+        "tips": [
+          "Jednotlivě — zadáním báze a systémového čísla.",
+          "Hromadně — vložením seznamu systémových čísel (jedno na řádek).",
+          "Synchronizací z katalogu — stáhne všechny záznamy z vybrané báze, volitelně od zadaného data."
+        ]
+      }
+    },
+    "review": {
+      "title": "Revize",
+      "description": "U výsledků porovnání a validací lze záznamy označit jako revidované. Revize potvrzuje, že operátor zkontroloval výsledek a považuje jej za správný nebo přijatelný.",
+      "tips": [
+        "Záznamy s výbornou kvalitou shody nebo čistě validními výsledky nevyžadují revizi — systém je automaticky označí.",
+        "Pokud se po revizi záznam znovu zpracuje, revize se označí jako zastaralá a vyžaduje novou kontrolu.",
+        "K revizi lze přidat volitelnou poznámku. Historie všech revizí je dostupná přes ikonu hodin."
+      ]
+    },
+    "tasks": {
+      "title": "Úkoly",
+      "description": "Stránka Úkoly zobrazuje přehled všech spuštěných a dokončených úloh. Každý úkol má typ, stav (Čeká, Spuštěn, Úspěch, Selhání, Zrušen), závažnost a dobu běhu.",
+      "tips": [
+        "Kliknutím na úkol zobrazíte podrobný výpis (traceback) jeho průběhu.",
+        "Probíhající úkoly lze zrušit tlačítkem v řádku.",
+        "Průběh běžících úkolů se automaticky aktualizuje."
+      ]
+    },
+    "settings": {
+      "title": "Nastavení",
+      "description": "V nastavení se konfigurují jednotlivé komponenty systému. Každá sekce má vlastní kontextovou nápovědu s popisem všech polí.",
+      "sections": [
+        "Katalog — připojení ke knihovním katalogům přes OAI-PMH (adresa serveru, timeout, vzory identifikátorů).",
+        "Úkoly — obecné parametry chování úkolů (interval aktualizace průběhu).",
+        "Propojení autorit — konfigurace služby Knihovny.cz pro automatické dohledávání autoritních záznamů.",
+        "Porovnávání — nastavení porovnávače MARC záznamů včetně prahů validity a volitelného LLM modelu.",
+        "Validátory — nastavení validátoru odkazů na Kramerius (vzory URL, adresa serveru).",
+        "Zpracování záznamů — výběr cílových bází a nástrojů pro hromadné zpracování.",
+        "Údržba — automatické čištění úkolů a kompaktace sektorů."
+      ]
+    },
+    "access-control": {
+      "title": "Přístupová práva",
+      "description": "Správa rolí a přiřazování oprávnění uživatelům. Role seskupují oprávnění a přiřazují se jednotlivým uživatelům. Oprávnění mají vzájemné závislosti — při výběru se automaticky přidají požadovaná nadřazená oprávnění."
+    },
+    "maintenance": {
+      "title": "Údržba",
+      "description": "Jednorázové údržbové operace pro správu systému:",
+      "actions": [
+        "Vyčistit úkoly — smaže staré záznamy úkolů, volitelně starší než zadaný počet dní.",
+        "Obnovit analytiku — přepočítá analytická data pro grafy a filtry.",
+        "Vyčistit zamčené zámky — odstraní zámky, které zůstaly po neočekávaném ukončení úlohy.",
+        "Kompaktovat sektory — optimalizuje uložení dat na disku.",
+        "Přestavět vyhledávací vektory — přegeneruje fulltextové indexy pro vyhledávání záznamů."
+      ]
+    },
+    "shortcuts": {
+      "title": "Klávesové zkratky",
+      "items": [
+        "← / → — přechod na předchozí/další záznam v detailu záznamu"
+      ]
+    }
+  },
   "validation": {
     "required": "Toto pole je povinné",
     "email": "Zadejte platnou e-mailovou adresu",

@@ -15,6 +15,8 @@ import {
   TypographyP,
   TypographyList,
 } from "@/components/ui/typography";
+import { useHasPermission } from "@/hooks/use-permissions";
+import { Permission } from "@/types/permission";
 import { useRecordFilters } from "./use-record-filters";
 import { PlotsView } from "./plots/plots-view";
 import { TableView } from "./table/table-view";
@@ -47,7 +49,11 @@ function countActiveFilters(filters: ReturnType<typeof useRecordFilters>["filter
 export function RecordsPage() {
   const { t } = useTranslation("records");
   const { filters, setTab, buildSearchPayload } = useRecordFilters();
+  const { hasPermission } = useHasPermission();
   const [showHelp, setShowHelp] = useState(false);
+
+  const canAddRecords =
+    hasPermission({ any: [Permission.AddRecords, Permission.SyncRecordsFromCatalog] }) !== false;
 
   const payload = buildSearchPayload();
   const { data: searchData } = useQuery<SearchRecordsResponse>({
@@ -97,7 +103,9 @@ export function RecordsPage() {
               </span>
             )}
           </TabsTrigger>
-          <TabsTrigger value="addition">{t("tabs.addition")}</TabsTrigger>
+          {canAddRecords && (
+            <TabsTrigger value="addition">{t("tabs.addition")}</TabsTrigger>
+          )}
         </TabsList>
         <Button
           variant="ghost"
@@ -119,9 +127,11 @@ export function RecordsPage() {
       <TabsContent value="carousel">
         <CarouselView />
       </TabsContent>
-      <TabsContent value="addition">
-        <AdditionView />
-      </TabsContent>
+      {canAddRecords && (
+        <TabsContent value="addition">
+          <AdditionView />
+        </TabsContent>
+      )}
 
       <Dialog open={showHelp} onOpenChange={setShowHelp}>
         <DialogContent className="max-w-lg">
