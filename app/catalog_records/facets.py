@@ -41,28 +41,37 @@ _GS_COLUMNS = SCALAR_FACETS + list(BOOL_FACETS.keys())
 def get_facets(request: FacetsRequest, db: Session) -> FacetsResponse:
     where, params = compile_conditions(parse_filters(request.filters))
 
-    # --- 1. Scalar + bool facets via GROUPING SETS (single scan) ---
+    # --- 1. Scalar + bool facets + total via GROUPING SETS (single scan) ---
     gs_sets = ", ".join(f"({col})" for col in _GS_COLUMNS)
     col_list = ", ".join(_GS_COLUMNS)
     rows = db.execute(text(
         f"SELECT {col_list}, count(*) AS cnt "
         f"FROM {TABLE} {where} "
-        f"GROUP BY GROUPING SETS ({gs_sets})"
+        f"GROUP BY GROUPING SETS ({gs_sets}, ())"
     ), params).mappings().all()
 
     facets = _parse_grouping_sets_rows(rows)
 
-    # --- 2. Array facets (one query per array, needs unnest) ---
+    # --- 2. Array facets (single UNION ALL query) ---
+    parts = []
     for field in ARRAY_FACETS:
-        arr_rows = db.execute(text(
-            f"SELECT val, count(*) AS cnt "
+        parts.append(
+            f"SELECT '{field}' AS facet_field, val, count(*) AS cnt "
             f"FROM {TABLE}, unnest({field}) AS t(val) "
-            f"{where} GROUP BY val ORDER BY cnt DESC"
-        ), params).mappings().all()
-        facets.append(FacetResult(
-            field=field,
-            buckets=[FacetBucket(key=r["val"], count=r["cnt"]) for r in arr_rows],
-        ))
+            f"{where} GROUP BY val"
+        )
+    arr_rows = db.execute(
+        text(" UNION ALL ".join(parts)), params
+    ).mappings().all()
+    arr_by_field: dict[str, list[FacetBucket]] = {}
+    for r in arr_rows:
+        arr_by_field.setdefault(r["facet_field"], []).append(
+            FacetBucket(key=r["val"], count=r["cnt"])
+        )
+    for field in ARRAY_FACETS:
+        buckets = arr_by_field.get(field, [])
+        buckets.sort(key=lambda b: -b.count)
+        facets.append(FacetResult(field=field, buckets=buckets))
 
     # --- 3. Score histogram ---
     histograms = []
@@ -82,11 +91,12 @@ def get_facets(request: FacetsRequest, db: Session) -> FacetsResponse:
             ],
         ))
 
-    # --- 4. Total count ---
-    total_row = db.execute(text(
-        f"SELECT count(*) AS cnt FROM {TABLE} {where}"
-    ), params).mappings().first()
-    total = total_row["cnt"] if total_row else 0
+    # --- 4. Total count (from the empty () grouping set in query 1) ---
+    total = 0
+    for row in rows:
+        if all(row[col] is None for col in _GS_COLUMNS):
+            total = row["cnt"]
+            break
 
     return FacetsResponse(facets=facets, histograms=histograms, total=total)
 
@@ -94,15 +104,16 @@ def get_facets(request: FacetsRequest, db: Session) -> FacetsResponse:
 def get_facets_preview(
     request: FacetsPreviewRequest, db: Session
 ) -> FacetsPreviewResponse:
-    """Compute facet distributions for every value of target_field in a single pass.
+    """Compute facet distributions for every value of target_field.
 
-    For scalar/bool targets: one GROUPING SETS query grouped by (target, facet_dims).
-    For array targets: unnest first, then group.
+    Uses 3 queries total:
+      1. GROUPING SETS for scalar/bool facets + totals (includes empty set for counts)
+      2. Single UNION ALL for all array facets
+      3. Histogram
     """
     where, params = compile_conditions(parse_filters(request.filters))
     target = request.target_field
 
-    # --- Build the preview query: all facets grouped by target_value ---
     if target in SCALAR_FACETS or target in BOOL_FACETS:
         target_col = target
     elif target in ARRAY_FACETS:
@@ -110,43 +121,48 @@ def get_facets_preview(
     else:
         return FacetsPreviewResponse(target_field=target, previews=[])
 
-    # Scalar + bool facets grouped by target
-    other_gs_cols = [c for c in _GS_COLUMNS if c != target]
-    gs_sets = ", ".join(f"({col})" for col in other_gs_cols)
-
     if target in ARRAY_FACETS:
         from_clause = f"{TABLE}, unnest({target}) AS t(target_val)"
     else:
         from_clause = TABLE
 
+    # --- Query 1: Scalar/bool facets + totals via GROUPING SETS ---
+    # The empty () set gives us count per target_value (total).
+    other_gs_cols = [c for c in _GS_COLUMNS if c != target]
+    gs_sets = ", ".join(f"({col})" for col in other_gs_cols)
     col_list = ", ".join(other_gs_cols)
     scalar_rows = db.execute(text(
         f"SELECT {target_col} AS target_value, {col_list}, count(*) AS cnt "
         f"FROM {from_clause} {where} "
-        f"GROUP BY {target_col}, GROUPING SETS ({gs_sets})"
+        f"GROUP BY {target_col}, GROUPING SETS ({gs_sets}, ())"
     ), params).mappings().all()
 
-    # Array facets grouped by target (one query per array facet)
-    array_results: dict[str, list] = {}
-    for field in ARRAY_FACETS:
-        if field == target:
-            continue
-        if target in ARRAY_FACETS:
-            arr_from = f"{TABLE}, unnest({target}) AS t(target_val), unnest({field}) AS t2(val)"
-        else:
-            arr_from = f"{TABLE}, unnest({field}) AS t2(val)"
-        arr_rows = db.execute(text(
-            f"SELECT {target_col} AS target_value, t2.val, count(*) AS cnt "
-            f"FROM {arr_from} {where} "
-            f"GROUP BY {target_col}, t2.val ORDER BY cnt DESC"
-        ), params).mappings().all()
+    # --- Query 2: All array facets in a single UNION ALL ---
+    array_fields = [f for f in ARRAY_FACETS if f != target]
+    array_results: dict[str, dict[str, list[FacetBucket]]] = {}
+    if array_fields:
+        parts = []
+        for field in array_fields:
+            if target in ARRAY_FACETS:
+                arr_from = f"{TABLE}, unnest({target}) AS t(target_val), unnest({field}) AS t2(val)"
+            else:
+                arr_from = f"{TABLE}, unnest({field}) AS t2(val)"
+            parts.append(
+                f"SELECT {target_col} AS target_value, "
+                f"'{field}' AS facet_field, t2.val, count(*) AS cnt "
+                f"FROM {arr_from} {where} "
+                f"GROUP BY {target_col}, t2.val"
+            )
+        arr_rows = db.execute(
+            text(" UNION ALL ".join(parts)), params
+        ).mappings().all()
         for r in arr_rows:
             tv = str(r["target_value"])
-            array_results.setdefault(tv, {}).setdefault(field, []).append(
+            array_results.setdefault(tv, {}).setdefault(r["facet_field"], []).append(
                 FacetBucket(key=r["val"], count=r["cnt"])
             )
 
-    # Histogram grouped by target
+    # --- Query 3: Histogram grouped by target ---
     if target in ARRAY_FACETS:
         hist_from = f"{TABLE}, unnest({target}) AS t(target_val), unnest(overall_scores) AS t3(val)"
     else:
@@ -166,47 +182,27 @@ def get_facets_preview(
             HistogramBucket(min=r["bucket_min"], max=r["bucket_max"], count=r["cnt"])
         )
 
-    # Total per target
-    if target in ARRAY_FACETS:
-        total_from = f"{TABLE}, unnest({target}) AS t(target_val)"
-    else:
-        total_from = TABLE
-    total_rows = db.execute(text(
-        f"SELECT {target_col} AS target_value, count(*) AS cnt "
-        f"FROM {total_from} {where} "
-        f"GROUP BY {target_col}"
-    ), params).mappings().all()
-    total_by_target = {str(r["target_value"]): r["cnt"] for r in total_rows}
-
     # --- Assemble previews ---
-    # Collect all target values from scalar_rows
-    target_values = set()
-    for r in scalar_rows:
-        target_values.add(str(r["target_value"]))
-    for tv in total_by_target:
-        target_values.add(tv)
+    total_by_target, target_values = _extract_totals_and_targets(
+        scalar_rows, other_gs_cols
+    )
 
     previews = []
     for tv in sorted(target_values):
-        # Parse scalar/bool facets for this target value
         tv_facets = _parse_preview_grouping_rows(scalar_rows, tv, other_gs_cols)
 
-        # Add array facets
         tv_arrays = array_results.get(tv, {})
-        for field in ARRAY_FACETS:
-            if field == target:
-                continue
+        for field in array_fields:
             buckets = tv_arrays.get(field, [])
+            buckets.sort(key=lambda b: -b.count)
             tv_facets.append(FacetResult(field=field, buckets=buckets))
 
-        # Histogram
         tv_histograms = []
         if tv in hist_by_target:
             tv_histograms.append(HistogramResult(
                 field="overall_score", buckets=hist_by_target[tv]
             ))
 
-        # Label for bool targets
         if target in BOOL_FACETS:
             false_label, true_label = BOOL_FACETS[target]
             label = true_label if tv == "True" else false_label
@@ -226,6 +222,23 @@ def get_facets_preview(
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
+def _extract_totals_and_targets(
+    rows: list, gs_columns: list[str]
+) -> tuple[dict[str, int], set[str]]:
+    """Extract per-target totals (from the empty grouping set) and all target values."""
+    total_by_target: dict[str, int] = {}
+    target_values: set[str] = set()
+
+    for row in rows:
+        tv = str(row["target_value"])
+        target_values.add(tv)
+        # The empty () grouping set produces rows where all facet columns are NULL
+        if all(row[col] is None for col in gs_columns):
+            total_by_target[tv] = row["cnt"]
+
+    return total_by_target, target_values
+
 
 def _parse_grouping_sets_rows(rows: list) -> list[FacetResult]:
     """Parse GROUPING SETS result rows into FacetResult list.
