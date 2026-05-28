@@ -9,6 +9,7 @@ import type { Task } from "@/types/task";
 import type { User } from "@/types/user";
 import { TaskTable } from "./task-table";
 import { TaskDetail } from "./task-detail";
+import { SkeletonTable } from "@/components/skeletons/skeleton-table";
 
 export function TasksPage() {
   const { t } = useTranslation("tasks");
@@ -78,7 +79,7 @@ export function TasksPage() {
       <div className={`grid gap-4 ${selectedTaskId ? "grid-cols-[1fr_1fr]" : "grid-cols-1"}`}>
         <div>
           {isLoading ? (
-            <p className="text-muted-foreground">{t("common:loading")}</p>
+            <SkeletonTable rows={5} columns={5} />
           ) : (
             <TaskTable
               tasks={tasks}
