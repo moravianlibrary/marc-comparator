@@ -4,14 +4,6 @@ import { useTranslation } from "react-i18next";
 import apiClient from "@/lib/api-client";
 import type { SystemInfo } from "@/types/settings";
 import {
-  Carousel,
-  CarouselContent,
-  CarouselItem,
-  CarouselNext,
-  CarouselPrevious,
-  type CarouselApi,
-} from "@/components/ui/carousel";
-import {
   Select,
   SelectContent,
   SelectGroup,
@@ -368,7 +360,6 @@ export function CarouselView() {
     _setTargetFieldsOnly(v);
     localStorage.setItem("carousel:targetFieldsOnly", String(v));
   }, []);
-  const [api, setApi] = useState<CarouselApi>();
   const prevRef = useRef<HTMLButtonElement>(null);
   const nextRef = useRef<HTMLButtonElement>(null);
 
@@ -427,7 +418,7 @@ export function CarouselView() {
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  });
+  }, [canGoPrev, canGoNext, recordIndex, records.length, filters.page, filters.pageSize, total, setFilters]);
 
   if (records.length === 0) {
     return (
