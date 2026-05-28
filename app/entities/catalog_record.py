@@ -26,7 +26,7 @@ from ._operations import (
 )
 from .authority_link import AuthorityLink
 from .comparison import Comparison
-from .record_review import RecordReview
+from .record_review import RecordReview, ReviewStatus
 from .validation import Validation
 
 
@@ -162,7 +162,7 @@ class CatalogRecord(
         else:
             states.append(CatalogRecordState.Unprocessed)
 
-        current_reviews = {r.aspect_name for r in self.reviews if r.status == "current"}
+        current_reviews = {r.aspect_name for r in self.reviews if r.status == ReviewStatus.Current}
         # Aspects that need review: non-excellent comparators + validators with issues
         aspects_needing_review = (
             {c.comparator for c in self.comparisons

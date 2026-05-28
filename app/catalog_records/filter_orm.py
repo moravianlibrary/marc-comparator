@@ -4,7 +4,7 @@ from sqlalchemy.dialects.postgresql import ARRAY
 from entities.authority_link import AuthorityLink
 from entities.catalog_record import CatalogRecord
 from entities.comparison import Comparison
-from entities.record_review import RecordReview
+from entities.record_review import RecordReview, ReviewStatus
 from entities.validation import Validation
 
 from .filter_spec import FilterCondition, FilterField
@@ -61,7 +61,7 @@ def _compile_one(query, c: FilterCondition):
             )
 
         case FilterField.ReviewStatuses:
-            has_current = CatalogRecord.reviews.any(RecordReview.status == "current")
+            has_current = CatalogRecord.reviews.any(RecordReview.status == ReviewStatus.Current)
             has_bad_comparisons = CatalogRecord.comparisons.any(
                 Comparison._result["overall_score"].as_float() < 0.9
             )

@@ -1,3 +1,4 @@
+from enum import StrEnum
 from typing import TYPE_CHECKING
 from uuid import uuid4
 
@@ -8,6 +9,12 @@ from sqlalchemy.orm import Mapped, relationship
 from adapters.database import Base, DatabaseSession
 
 from ._operations import BaseOperationsMixin
+
+
+class ReviewStatus(StrEnum):
+    Current = "current"
+    Superseded = "superseded"
+    Outdated = "outdated"
 
 if TYPE_CHECKING:
     from .catalog_record import CatalogRecord
@@ -27,7 +34,7 @@ class RecordReview(Base, BaseOperationsMixin):
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
     )
     reviewed_at = Column(TIMESTAMP, nullable=False, default=func.now())
-    status = Column(String, nullable=False, default="current")
+    status = Column(String, nullable=False, default=ReviewStatus.Current)
 
     __table_args__ = (
         Index(
@@ -61,7 +68,7 @@ class RecordReview(Base, BaseOperationsMixin):
             .filter_by(
                 record_id=record_id,
                 aspect_name=aspect_name,
-                status="current",
+                status=ReviewStatus.Current,
             )
             .one_or_none()
         )
@@ -74,7 +81,7 @@ class RecordReview(Base, BaseOperationsMixin):
     ) -> list["RecordReview"]:
         return (
             db_session.query(cls)
-            .filter_by(record_id=record_id, status="current")
+            .filter_by(record_id=record_id, status=ReviewStatus.Current)
             .all()
         )
 
@@ -91,9 +98,9 @@ class RecordReview(Base, BaseOperationsMixin):
             .filter_by(
                 record_id=record_id,
                 aspect_name=aspect_name,
-                status="current",
+                status=ReviewStatus.Current,
             )
-            .update({"status": "superseded"})
+            .update({"status": ReviewStatus.Superseded})
         )
 
     @classmethod
@@ -105,8 +112,8 @@ class RecordReview(Base, BaseOperationsMixin):
     ) -> None:
         """Mark current review(s) as 'outdated'. If aspect_name is None, outdate all."""
         query = db_session.query(cls).filter_by(
-            record_id=record_id, status="current"
+            record_id=record_id, status=ReviewStatus.Current
         )
         if aspect_name is not None:
             query = query.filter_by(aspect_name=aspect_name)
-        query.update({"status": "outdated"})
+        query.update({"status": ReviewStatus.Outdated})

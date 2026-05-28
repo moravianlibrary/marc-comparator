@@ -6,7 +6,7 @@ from adapters.lock_server import one_at_a_time_lock
 from adapters.tasks import enqueue_task
 from entities.catalog_record import CatalogRecord
 from entities.comparison import Comparison
-from entities.record_review import RecordReview
+from entities.record_review import RecordReview, ReviewStatus
 from entities.task import Task, TaskSchema, TaskType
 from entities.validation import Validation
 
@@ -161,8 +161,8 @@ def get_reviews(
         .order_by(RecordReview.reviewed_at.desc())
         .all()
     )
-    current = [_review_to_response(r) for r in reviews if r.status == "current"]
-    history = [_review_to_response(r) for r in reviews if r.status != "current"]
+    current = [_review_to_response(r) for r in reviews if r.status == ReviewStatus.Current]
+    history = [_review_to_response(r) for r in reviews if r.status != ReviewStatus.Current]
     return RecordReviewsResponse(current=current, history=history)
 
 
@@ -186,7 +186,7 @@ def create_review(
         aspect_name=data.aspect_name,
         note=data.note,
         reviewed_by=user_id,
-        status="current",
+        status=ReviewStatus.Current,
     )
     review.save(db_session)
 
@@ -213,7 +213,7 @@ def delete_review(
     if not can_manage and str(current.reviewed_by) != user_id:
         raise HTTPException(status_code=403, detail="You can only delete your own reviews")
 
-    current.status = "superseded"
+    current.status = ReviewStatus.Superseded
     db_session.commit()
 
     # Update analytics for this record
