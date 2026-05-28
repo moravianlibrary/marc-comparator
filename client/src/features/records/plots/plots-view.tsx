@@ -254,7 +254,7 @@ export function PlotsView() {
     perValidatorData && perValidatorData.some(({ statuses }) => statuses.length > 0);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between gap-4">
         <p className="text-sm text-muted-foreground">
           {t("plots.total-records", { count: facetsData.total })}

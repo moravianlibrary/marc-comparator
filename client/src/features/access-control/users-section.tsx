@@ -87,7 +87,7 @@ export function UsersSection() {
       {isLoading ? (
         <SkeletonTable rows={4} columns={5} />
       ) : (
-      <Table>
+      <Table className="animate-fade-in">
         <TableHeader>
           <TableRow>
             <TableHead>{t("users.fields.email")}</TableHead>

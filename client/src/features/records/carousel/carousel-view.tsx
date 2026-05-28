@@ -334,14 +334,16 @@ function RecordDetail({
       {displayLoading ? (
         <SkeletonMarcTable showAnnotationColumn={viewOpt.kind !== "marc"} />
       ) : displayMarc ? (
-        <MarcTable
-          marc={displayMarc}
-          annotationType={annotationType}
-          comparisonAnnotations={comparisonAnnotations}
-          validationAnnotations={validationAnnotations}
-          targetTags={targetFieldsOnly && targetTags.size > 0 ? targetTags : undefined}
-          krameriusClientUrl={krameriusClientUrl}
-        />
+        <div className="animate-fade-in">
+          <MarcTable
+            marc={displayMarc}
+            annotationType={annotationType}
+            comparisonAnnotations={comparisonAnnotations}
+            validationAnnotations={validationAnnotations}
+            targetTags={targetFieldsOnly && targetTags.size > 0 ? targetTags : undefined}
+            krameriusClientUrl={krameriusClientUrl}
+          />
+        </div>
       ) : (
         <p className="text-muted-foreground">-</p>
       )}

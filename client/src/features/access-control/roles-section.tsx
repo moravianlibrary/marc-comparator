@@ -101,7 +101,7 @@ export function RolesSection() {
       {isLoading ? (
         <SkeletonTable rows={3} columns={3} />
       ) : (
-        <Table>
+        <Table className="animate-fade-in">
           <TableHeader>
             <TableRow>
               <TableHead>{t("roles.fields.name")}</TableHead>

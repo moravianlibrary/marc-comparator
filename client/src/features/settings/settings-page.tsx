@@ -121,22 +121,31 @@ export function SettingsPage() {
       onSubmit: (data: unknown) => saveMutation.mutate(data),
     };
 
+    let form: React.ReactNode;
     switch (activeScope) {
       case "catalog":
-        return <CatalogSettingsForm {...commonProps} />;
+        form = <CatalogSettingsForm {...commonProps} />;
+        break;
       case "tasks":
-        return <TaskSettingsForm {...commonProps} />;
+        form = <TaskSettingsForm {...commonProps} />;
+        break;
       case "authority-linkers":
-        return <AuthorityLinkingSettingsForm {...commonProps} />;
+        form = <AuthorityLinkingSettingsForm {...commonProps} />;
+        break;
       case "comparators":
-        return <ComparisonSettingsForm {...commonProps} />;
+        form = <ComparisonSettingsForm {...commonProps} />;
+        break;
       case "validators":
-        return <ValidationSettingsForm {...commonProps} />;
+        form = <ValidationSettingsForm {...commonProps} />;
+        break;
       case "process-records":
-        return <ProcessRecordsSettingsForm {...commonProps} />;
+        form = <ProcessRecordsSettingsForm {...commonProps} />;
+        break;
       case "maintenance":
-        return <MaintenanceSettingsForm {...commonProps} />;
+        form = <MaintenanceSettingsForm {...commonProps} />;
+        break;
     }
+    return <div className="animate-fade-in">{form}</div>;
   }
 
   return (

@@ -61,7 +61,7 @@ export function AppLayout() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex min-h-screen flex-col animate-fade-in">
       <div className="sticky top-0 z-50">
         <LockBanner />
         <MainBanner />

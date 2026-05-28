@@ -81,14 +81,16 @@ export function TasksPage() {
           {isLoading ? (
             <SkeletonTable rows={5} columns={5} />
           ) : (
-            <TaskTable
-              tasks={tasks}
-              selectedTaskId={selectedTaskId}
-              showCreatedBy={canSeeAll}
-              userNames={userNames}
-              onSelectTask={handleSelectTask}
-              onRevoke={(id) => revokeMutation.mutate(id)}
-            />
+            <div className="animate-fade-in">
+              <TaskTable
+                tasks={tasks}
+                selectedTaskId={selectedTaskId}
+                showCreatedBy={canSeeAll}
+                userNames={userNames}
+                onSelectTask={handleSelectTask}
+                onRevoke={(id) => revokeMutation.mutate(id)}
+              />
+            </div>
           )}
         </div>
         {selectedTaskId && (
