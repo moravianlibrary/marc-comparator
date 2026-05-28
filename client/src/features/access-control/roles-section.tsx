@@ -26,6 +26,7 @@ import {
 import { RoleFormDialog } from "./role-form-dialog";
 import type { Role } from "@/types/role";
 import type { RoleFormValues } from "./schemas";
+import { SkeletonTable } from "@/components/skeletons/skeleton-table";
 
 export function RolesSection() {
   const { t } = useTranslation("access-control");
@@ -34,7 +35,7 @@ export function RolesSection() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deletingRole, setDeletingRole] = useState<Role | null>(null);
 
-  const { data: rolesData } = useQuery<{ items: Role[]; num_found: number }>({
+  const { data: rolesData, isLoading } = useQuery<{ items: Role[]; num_found: number }>({
     queryKey: ["access-control", "roles"],
     queryFn: () =>
       apiClient
@@ -97,54 +98,58 @@ export function RolesSection() {
         </Button>
       </div>
 
-      <Table>
-        <TableHeader>
-          <TableRow>
-            <TableHead>{t("roles.fields.name")}</TableHead>
-            <TableHead>{t("roles.fields.permissions")}</TableHead>
-            <TableHead>{t("roles.fields.actions")}</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {roles.map((role) => (
-            <TableRow key={role.id}>
-              <TableCell className="font-medium">{role.name}</TableCell>
-              <TableCell>
-                <div className="flex flex-wrap gap-1">
-                  {role.permissions.map((p) => (
-                    <Badge key={p} variant="outline">
-                      {t(`permissions.${p}`)}
-                    </Badge>
-                  ))}
-                </div>
-              </TableCell>
-              <TableCell>
-                <div className="flex gap-1">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => {
-                      setEditingRole(role);
-                      setDialogOpen(true);
-                    }}
-                    disabled={role.immutable}
-                  >
-                    <Pencil className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setDeletingRole(role)}
-                    disabled={role.protected || role.immutable}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </TableCell>
+      {isLoading ? (
+        <SkeletonTable rows={3} columns={3} />
+      ) : (
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>{t("roles.fields.name")}</TableHead>
+              <TableHead>{t("roles.fields.permissions")}</TableHead>
+              <TableHead>{t("roles.fields.actions")}</TableHead>
             </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            {roles.map((role) => (
+              <TableRow key={role.id}>
+                <TableCell className="font-medium">{role.name}</TableCell>
+                <TableCell>
+                  <div className="flex flex-wrap gap-1">
+                    {role.permissions.map((p) => (
+                      <Badge key={p} variant="outline">
+                        {t(`permissions.${p}`)}
+                      </Badge>
+                    ))}
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <div className="flex gap-1">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => {
+                        setEditingRole(role);
+                        setDialogOpen(true);
+                      }}
+                      disabled={role.immutable}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setDeletingRole(role)}
+                      disabled={role.protected || role.immutable}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      )}
 
       <RoleFormDialog
         open={dialogOpen}

@@ -20,13 +20,14 @@ import {
 } from "@/components/ui/select";
 import type { User } from "@/types/user";
 import type { Role } from "@/types/role";
+import { SkeletonTable } from "@/components/skeletons/skeleton-table";
 
 export function UsersSection() {
   const { t } = useTranslation("access-control");
   const queryClient = useQueryClient();
   const { data: me } = useGetMe();
 
-  const { data: usersData } = useQuery<{ items: User[]; num_found: number }>({
+  const { data: usersData, isLoading } = useQuery<{ items: User[]; num_found: number }>({
     queryKey: ["access-control", "users"],
     queryFn: () =>
       apiClient
@@ -83,6 +84,9 @@ export function UsersSection() {
     <div className="space-y-4">
       <h2 className="text-lg font-medium">{t("users.title")}</h2>
 
+      {isLoading ? (
+        <SkeletonTable rows={4} columns={5} />
+      ) : (
       <Table>
         <TableHeader>
           <TableRow>
@@ -174,6 +178,7 @@ export function UsersSection() {
           })}
         </TableBody>
       </Table>
+      )}
     </div>
   );
 }
