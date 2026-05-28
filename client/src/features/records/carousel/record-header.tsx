@@ -4,6 +4,8 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useHasPermission } from "@/hooks/use-permissions";
+import { Permission } from "@/types/permission";
 import { STATE_COLORS, type RecordSummary, type ValidationSummary } from "../types";
 import { RecordTaskActions, AdvancedTaskActions } from "../record-task-actions";
 
@@ -32,6 +34,9 @@ interface RecordHeaderProps {
 
 export function RecordHeader({ record, onSelectView }: RecordHeaderProps) {
   const { t } = useTranslation("records");
+  const { hasPermission } = useHasPermission();
+  const canProcess = hasPermission(Permission.ProcessRecords) === true;
+  const canRunPartial = hasPermission(Permission.RunPartialRecordTasks) === true;
   const filters = { record_ids: [record.id] };
 
   return (
@@ -56,8 +61,8 @@ export function RecordHeader({ record, onSelectView }: RecordHeaderProps) {
           >
             <Link2 className="h-4 w-4" />
           </Button>
-          <RecordTaskActions filters={filters} totalCount={1} />
-          <AdvancedTaskActions filters={filters} totalCount={1} />
+          {canProcess && <RecordTaskActions filters={filters} totalCount={1} />}
+          {canRunPartial && <AdvancedTaskActions filters={filters} totalCount={1} />}
         </div>
       </div>
 
