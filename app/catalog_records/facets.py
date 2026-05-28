@@ -3,6 +3,7 @@ from concurrent.futures import ThreadPoolExecutor
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from .analytics import CUBE_HIST_TABLE, CUBE_TABLE
 from .filter_spec import parse_filters
 from .filter_sql import compile_conditions
 from .models import (
@@ -38,6 +39,7 @@ ARRAY_FACETS = [
 
 # ---- GROUPING SETS column list for scalar + bool facets ----
 _GS_COLUMNS = SCALAR_FACETS + list(BOOL_FACETS.keys())
+_ALL_FACET_FIELDS = SCALAR_FACETS + list(BOOL_FACETS.keys()) + ARRAY_FACETS
 
 
 def get_facets(request: FacetsRequest, db: Session) -> FacetsResponse:
@@ -106,29 +108,91 @@ def get_facets(request: FacetsRequest, db: Session) -> FacetsResponse:
 def get_facets_preview(
     request: FacetsPreviewRequest, db: Session
 ) -> FacetsPreviewResponse:
-    """Compute facet distributions for every value of target_field.
-
-    Uses 3 queries total:
-      1. GROUPING SETS for scalar/bool facets + totals (includes empty set for counts)
-      2. Single UNION ALL for all array facets
-      3. Histogram
-    """
-    where, params = compile_conditions(parse_filters(request.filters))
     target = request.target_field
-
-    if target in SCALAR_FACETS or target in BOOL_FACETS:
-        target_col = target
-    elif target in ARRAY_FACETS:
-        target_col = "target_val"
-    else:
+    if target not in _ALL_FACET_FIELDS:
         return FacetsPreviewResponse(target_field=target, previews=[])
 
-    if target in ARRAY_FACETS:
-        from_clause = f"{TABLE}, unnest({target}) AS t(target_val)"
-    else:
-        from_clause = TABLE
+    conditions = parse_filters(request.filters)
+    if not conditions:
+        return _preview_from_cube(target, db)
 
-    # --- Build SQL for 3 concurrent queries ---
+    where, params = compile_conditions(conditions)
+    if target in ARRAY_FACETS:
+        return _preview_live_per_value(target, where, params, db)
+    return _preview_live_grouped(target, where, params, db)
+
+
+# ---------------------------------------------------------------------------
+# Preview: cube path (unfiltered — sub-millisecond)
+# ---------------------------------------------------------------------------
+
+def _preview_from_cube(target: str, db: Session) -> FacetsPreviewResponse:
+    rows = db.execute(text(
+        f"SELECT target_value, facet_field, facet_value, cnt "
+        f"FROM {CUBE_TABLE} WHERE target_field = :tf"
+    ), {"tf": target}).mappings().all()
+
+    hist_rows = db.execute(text(
+        f"SELECT target_value, bucket_min, bucket_max, cnt "
+        f"FROM {CUBE_HIST_TABLE} WHERE target_field = :tf"
+    ), {"tf": target}).mappings().all()
+
+    # Group facets by target_value
+    facets_by_tv: dict[str, dict[str, list[FacetBucket]]] = {}
+    totals: dict[str, int] = {}
+    for r in rows:
+        tv = r["target_value"]
+        if r["facet_field"] == "_total_":
+            totals[tv] = r["cnt"]
+        else:
+            facets_by_tv.setdefault(tv, {}).setdefault(r["facet_field"], []).append(
+                FacetBucket(key=r["facet_value"], count=r["cnt"])
+            )
+
+    # Group histogram by target_value
+    hist_by_tv: dict[str, list[HistogramBucket]] = {}
+    for r in hist_rows:
+        hist_by_tv.setdefault(r["target_value"], []).append(
+            HistogramBucket(min=r["bucket_min"], max=r["bucket_max"], count=r["cnt"])
+        )
+
+    # Build ordered facet field list (same order as live queries)
+    other_fields = [f for f in _ALL_FACET_FIELDS if f != target]
+
+    previews = []
+    for tv in sorted(totals):
+        tv_facet_data = facets_by_tv.get(tv, {})
+        tv_facets = []
+        for field in other_fields:
+            buckets = tv_facet_data.get(field, [])
+            buckets.sort(key=lambda b: -b.count)
+            tv_facets.append(FacetResult(field=field, buckets=buckets))
+
+        tv_histograms = []
+        if tv in hist_by_tv:
+            tv_histograms.append(HistogramResult(
+                field="overall_score", buckets=hist_by_tv[tv]
+            ))
+
+        previews.append(FacetsPreviewEntry(
+            target_value=tv,
+            facets=tv_facets,
+            histograms=tv_histograms,
+            total=totals.get(tv, 0),
+        ))
+
+    return FacetsPreviewResponse(target_field=target, previews=previews)
+
+
+# ---------------------------------------------------------------------------
+# Preview: live grouped path (filtered, scalar/bool target)
+# ---------------------------------------------------------------------------
+
+def _preview_live_grouped(
+    target: str, where: str, params: dict, db: Session
+) -> FacetsPreviewResponse:
+    """Scalar/bool targets: single unnest only, use GROUPING SETS + concurrent queries."""
+    target_col = target
     other_gs_cols = [c for c in _GS_COLUMNS if c != target]
     gs_sets = ", ".join(f"({col})" for col in other_gs_cols)
     col_list = ", ".join(other_gs_cols)
@@ -136,38 +200,29 @@ def get_facets_preview(
 
     q1_sql = (
         f"SELECT {target_col} AS target_value, {col_list}, count(*) AS cnt "
-        f"FROM {from_clause} {where} "
+        f"FROM {TABLE} {where} "
         f"GROUP BY {target_col}, GROUPING SETS ({gs_sets}, ())"
     )
 
     arr_parts = []
     for field in array_fields:
-        if target in ARRAY_FACETS:
-            arr_from = f"{TABLE}, unnest({target}) AS t(target_val), unnest({field}) AS t2(val)"
-        else:
-            arr_from = f"{TABLE}, unnest({field}) AS t2(val)"
         arr_parts.append(
             f"SELECT {target_col} AS target_value, "
             f"'{field}' AS facet_field, t2.val, count(*) AS cnt "
-            f"FROM {arr_from} {where} "
+            f"FROM {TABLE}, unnest({field}) AS t2(val) {where} "
             f"GROUP BY {target_col}, t2.val"
         )
     q2_sql = " UNION ALL ".join(arr_parts) if arr_parts else None
 
-    if target in ARRAY_FACETS:
-        hist_from = f"{TABLE}, unnest({target}) AS t(target_val), unnest(overall_scores) AS t3(val)"
-    else:
-        hist_from = f"{TABLE}, unnest(overall_scores) AS t3(val)"
     q3_sql = (
         f"SELECT {target_col} AS target_value, "
         f"       floor(t3.val / 0.05) * 0.05 AS bucket_min, "
         f"       floor(t3.val / 0.05) * 0.05 + 0.05 AS bucket_max, "
         f"       count(*) AS cnt "
-        f"FROM {hist_from} {where} "
+        f"FROM {TABLE}, unnest(overall_scores) AS t3(val) {where} "
         f"GROUP BY {target_col}, bucket_min, bucket_max ORDER BY bucket_min"
     )
 
-    # --- Execute all 3 queries concurrently ---
     engine = db.get_bind()
 
     def _run(sql):
@@ -182,7 +237,7 @@ def get_facets_preview(
         arr_rows = f2.result() if f2 else []
         hist_rows = f3.result()
 
-    # --- Parse array results ---
+    # Parse array results
     array_results: dict[str, dict[str, list[FacetBucket]]] = {}
     for r in arr_rows:
         tv = str(r["target_value"])
@@ -190,7 +245,7 @@ def get_facets_preview(
             FacetBucket(key=r["val"], count=r["cnt"])
         )
 
-    # --- Parse histogram ---
+    # Parse histogram
     hist_by_target: dict[str, list[HistogramBucket]] = {}
     for r in hist_rows:
         tv = str(r["target_value"])
@@ -198,7 +253,7 @@ def get_facets_preview(
             HistogramBucket(min=r["bucket_min"], max=r["bucket_max"], count=r["cnt"])
         )
 
-    # --- Assemble previews ---
+    # Assemble previews
     total_by_target, target_values = _extract_totals_and_targets(
         scalar_rows, other_gs_cols
     )
@@ -227,6 +282,110 @@ def get_facets_preview(
 
         previews.append(FacetsPreviewEntry(
             target_value=label,
+            facets=tv_facets,
+            histograms=tv_histograms,
+            total=total_by_target.get(tv, 0),
+        ))
+
+    return FacetsPreviewResponse(target_field=target, previews=previews)
+
+
+# ---------------------------------------------------------------------------
+# Preview: live per-value path (filtered, array target — no double unnest)
+# ---------------------------------------------------------------------------
+
+def _preview_live_per_value(
+    target: str, where: str, params: dict, db: Session
+) -> FacetsPreviewResponse:
+    """Array targets with filters: use WHERE val = ANY(target) per value.
+
+    Eliminates double unnest — each query does single unnest at most.
+    """
+    other_gs_cols = [c for c in _GS_COLUMNS if c != target]
+    gs_sets = ", ".join(f"({col})" for col in other_gs_cols)
+    col_list = ", ".join(other_gs_cols)
+    array_fields = [f for f in ARRAY_FACETS if f != target]
+
+    # Q1: scalar/bool facets + totals via single unnest of target (fast)
+    q1_sql = (
+        f"SELECT target_val AS target_value, {col_list}, count(*) AS cnt "
+        f"FROM {TABLE}, unnest({target}) AS t(target_val) {where} "
+        f"GROUP BY target_val, GROUPING SETS ({gs_sets}, ())"
+    )
+    scalar_rows = db.execute(text(q1_sql), params).mappings().all()
+    total_by_target, target_values = _extract_totals_and_targets(
+        scalar_rows, other_gs_cols
+    )
+
+    if not target_values:
+        return FacetsPreviewResponse(target_field=target, previews=[])
+
+    # Q2+Q3 per target value: WHERE :tv = ANY(target) — single unnest only
+    where_any = f"{where} AND :_tv = ANY({target})"
+    engine = db.get_bind()
+
+    def _run_for_value(tv: str):
+        tv_params = {**params, "_tv": tv}
+        with engine.connect() as conn:
+            # Array facets
+            parts = []
+            for field in array_fields:
+                parts.append(
+                    f"SELECT '{field}' AS facet_field, t2.val, count(*) AS cnt "
+                    f"FROM {TABLE}, unnest({field}) AS t2(val) "
+                    f"{where_any} GROUP BY t2.val"
+                )
+            arr_rows = (
+                conn.execute(text(" UNION ALL ".join(parts)), tv_params)
+                .mappings().all()
+            ) if parts else []
+
+            # Histogram
+            hist_rows = conn.execute(text(
+                f"SELECT floor(t3.val / 0.05) * 0.05 AS bucket_min, "
+                f"       floor(t3.val / 0.05) * 0.05 + 0.05 AS bucket_max, "
+                f"       count(*) AS cnt "
+                f"FROM {TABLE}, unnest(overall_scores) AS t3(val) "
+                f"{where_any} "
+                f"GROUP BY bucket_min, bucket_max ORDER BY bucket_min"
+            ), tv_params).mappings().all()
+
+            return arr_rows, hist_rows
+
+    with ThreadPoolExecutor(max_workers=min(len(target_values), 8)) as pool:
+        futures = {tv: pool.submit(_run_for_value, tv) for tv in target_values}
+        per_value = {tv: f.result() for tv, f in futures.items()}
+
+    # Assemble previews
+    previews = []
+    for tv in sorted(target_values):
+        tv_facets = _parse_preview_grouping_rows(scalar_rows, tv, other_gs_cols)
+
+        arr_rows, hist_rows = per_value[tv]
+        arr_by_field: dict[str, list[FacetBucket]] = {}
+        for r in arr_rows:
+            arr_by_field.setdefault(r["facet_field"], []).append(
+                FacetBucket(key=r["val"], count=r["cnt"])
+            )
+        for field in array_fields:
+            buckets = arr_by_field.get(field, [])
+            buckets.sort(key=lambda b: -b.count)
+            tv_facets.append(FacetResult(field=field, buckets=buckets))
+
+        tv_histograms = []
+        if hist_rows:
+            tv_histograms.append(HistogramResult(
+                field="overall_score",
+                buckets=[
+                    HistogramBucket(
+                        min=r["bucket_min"], max=r["bucket_max"], count=r["cnt"]
+                    )
+                    for r in hist_rows
+                ],
+            ))
+
+        previews.append(FacetsPreviewEntry(
+            target_value=tv,
             facets=tv_facets,
             histograms=tv_histograms,
             total=total_by_target.get(tv, 0),

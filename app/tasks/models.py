@@ -16,6 +16,13 @@ class TaskSettings(SettingsSchema):
         500,
         description="Number of records to index in a single batch operation.",
     )
+    analytics_rebuild_interval: int = Field(
+        5000,
+        description=(
+            "Interval (in number of records) to rebuild analytics and facet cube "
+            "during long-running tasks. 0 to disable mid-task rebuilds."
+        ),
+    )
 
 
 class TracebackLinesRequestParams(BaseModel):

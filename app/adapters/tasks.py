@@ -272,6 +272,24 @@ def handle_batch_progress_snippet(ctx: ManagedTask) -> None:
     if ctx.progress % ctx.task_settings.indexing_batch_size == 0:
         ctx.db_session.commit()
 
+    # Periodically rebuild analytics + facet cube for live dashboard updates
+    interval = ctx.task_settings.analytics_rebuild_interval
+    if (
+        interval > 0
+        and ctx.task.type in ANALYTICS_REBUILD_TASK_TYPES
+        and ctx.progress % interval == 0
+    ):
+        _rebuild_analytics(ctx)
+
+
+def _rebuild_analytics(ctx: ManagedTask) -> None:
+    """Rebuild analytics table and facet cube. Swallows errors to avoid killing the task."""
+    try:
+        from catalog_records.analytics import rebuild_all
+        rebuild_all(ctx.db_session)
+    except Exception as e:
+        ctx.logger.warning(f"Mid-task analytics rebuild failed: {e}")
+
 
 def handle_final_batch_snippet(ctx: ManagedTask) -> None:
     """Commit any remaining DB changes and update task progress."""

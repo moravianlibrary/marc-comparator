@@ -24,6 +24,8 @@ FAKE_USER_ID = "12345678-1234-4678-9abc-1234567890ab"
 
 # All table names in dependency order (children first for TRUNCATE CASCADE)
 ALL_TABLES = [
+    "facet_cube",
+    "facet_cube_histogram",
     "catalog_records_analytics",
     "record_reviews",
     "result_snapshots",
@@ -97,8 +99,10 @@ async def db_engine(postgres_container):
 
     yield engine
 
-    # Drop analytics table before ORM tables
+    # Drop non-ORM tables before ORM tables
     with engine.connect() as conn:
+        conn.execute(text("DROP TABLE IF EXISTS facet_cube"))
+        conn.execute(text("DROP TABLE IF EXISTS facet_cube_histogram"))
         conn.execute(text("DROP TABLE IF EXISTS catalog_records_analytics"))
         conn.commit()
 

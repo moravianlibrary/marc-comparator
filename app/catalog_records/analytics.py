@@ -2,6 +2,8 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 TABLE = "catalog_records_analytics"
+CUBE_TABLE = "facet_cube"
+CUBE_HIST_TABLE = "facet_cube_histogram"
 
 # ---------------------------------------------------------------------------
 # DDL
@@ -53,6 +55,31 @@ CREATE_INDEXES_SQL = [
     "CREATE INDEX IF NOT EXISTS idx_analytics_val_tags ON catalog_records_analytics USING gin (validation_target_tags)",
     "CREATE INDEX IF NOT EXISTS idx_analytics_val_reasons ON catalog_records_analytics USING gin (validation_reasons)",
     "CREATE INDEX IF NOT EXISTS idx_analytics_field_expl ON catalog_records_analytics USING gin (field_explanations)",
+]
+
+CREATE_CUBE_SQL = f"""
+CREATE TABLE IF NOT EXISTS {CUBE_TABLE} (
+    target_field TEXT NOT NULL,
+    target_value TEXT NOT NULL,
+    facet_field  TEXT NOT NULL,
+    facet_value  TEXT NOT NULL,
+    cnt          BIGINT NOT NULL
+)
+"""
+
+CREATE_CUBE_HIST_SQL = f"""
+CREATE TABLE IF NOT EXISTS {CUBE_HIST_TABLE} (
+    target_field TEXT NOT NULL,
+    target_value TEXT NOT NULL,
+    bucket_min   DOUBLE PRECISION NOT NULL,
+    bucket_max   DOUBLE PRECISION NOT NULL,
+    cnt          BIGINT NOT NULL
+)
+"""
+
+CREATE_CUBE_INDEXES_SQL = [
+    f"CREATE INDEX IF NOT EXISTS idx_cube_target ON {CUBE_TABLE} (target_field)",
+    f"CREATE INDEX IF NOT EXISTS idx_cube_hist_target ON {CUBE_HIST_TABLE} (target_field)",
 ]
 
 # ---------------------------------------------------------------------------
@@ -164,9 +191,13 @@ _ANALYTICS_GROUP_BY = "GROUP BY cr.id"
 
 
 def init_analytics_table(db: Session) -> None:
-    """Create the analytics table and indexes if they don't exist."""
+    """Create the analytics table, cube tables, and indexes if they don't exist."""
     db.execute(text(CREATE_TABLE_SQL))
     for idx_sql in CREATE_INDEXES_SQL:
+        db.execute(text(idx_sql))
+    db.execute(text(CREATE_CUBE_SQL))
+    db.execute(text(CREATE_CUBE_HIST_SQL))
+    for idx_sql in CREATE_CUBE_INDEXES_SQL:
         db.execute(text(idx_sql))
     db.commit()
 
@@ -208,10 +239,127 @@ def upsert_records(db: Session, record_ids: list[str]) -> None:
 
 
 def rebuild_all(db: Session) -> None:
-    """Full rebuild of the analytics table. Use as maintenance fallback."""
+    """Full rebuild of the analytics table and facet cube."""
     db.execute(text(f"TRUNCATE {TABLE}"))
     db.execute(text(f"""
         INSERT INTO {TABLE} {_ANALYTICS_SELECT}
             {_ANALYTICS_GROUP_BY}
     """))
+    db.commit()
+    rebuild_cube(db)
+
+
+# ---------------------------------------------------------------------------
+# Facet co-occurrence cube
+# ---------------------------------------------------------------------------
+
+# Facet field definitions — must match catalog_records.facets constants.
+_SCALAR_FACETS = ["base", "type_of_record", "bibliographic_level", "review_status"]
+_BOOL_FACETS = {
+    "is_deleted": ("Active", "Deleted"),
+    "is_processed": ("Unprocessed", "Processed"),
+}
+_ARRAY_FACETS = [
+    "authority_link_linkers",
+    "authority_link_bases",
+    "comparison_bases",
+    "match_qualities",
+    "validators",
+    "validation_statuses",
+    "validation_target_tags",
+    "validation_reasons",
+    "field_explanations",
+]
+_ALL_FACET_FIELDS = _SCALAR_FACETS + list(_BOOL_FACETS.keys()) + _ARRAY_FACETS
+
+
+def _target_sql(field: str) -> tuple[str, str, str]:
+    """Return (select_expr, from_extra, group_col) for a target field."""
+    if field in _ARRAY_FACETS:
+        return "tv::text", f", unnest({field}) AS _t(tv)", "tv"
+    if field in _BOOL_FACETS:
+        fl, tl = _BOOL_FACETS[field]
+        return f"CASE WHEN {field} THEN '{tl}' ELSE '{fl}' END", "", field
+    return f"{field}::text", "", field
+
+
+def _facet_sql(field: str) -> tuple[str, str, str]:
+    """Return (select_expr, from_extra, group_col) for a facet field."""
+    if field in _ARRAY_FACETS:
+        return "fv::text", f", unnest({field}) AS _f(fv)", "fv"
+    if field in _BOOL_FACETS:
+        fl, tl = _BOOL_FACETS[field]
+        return f"CASE WHEN {field} THEN '{tl}' ELSE '{fl}' END", "", field
+    return f"{field}::text", "", field
+
+
+def _build_cube_sql_for_target(target: str) -> str:
+    """Build INSERT ... SELECT UNION ALL for one target field (co-occurrences + totals)."""
+    t_expr, t_from, t_group = _target_sql(target)
+    t_lit = f"'{target}'"
+
+    # NULL filter for scalar targets (array/bool can't be NULL in practice)
+    t_where = f" WHERE {target} IS NOT NULL" if target in _SCALAR_FACETS else ""
+
+    branches = []
+
+    # Totals per target value
+    branches.append(
+        f"SELECT {t_lit} AS target_field, {t_expr} AS target_value, "
+        f"'_total_' AS facet_field, '_total_' AS facet_value, count(*) AS cnt "
+        f"FROM {TABLE}{t_from}{t_where} GROUP BY {t_group}"
+    )
+
+    for facet in _ALL_FACET_FIELDS:
+        if facet == target:
+            continue
+        f_expr, f_from, f_group = _facet_sql(facet)
+        f_lit = f"'{facet}'"
+
+        # For scalar facets, filter NULLs
+        where_parts = []
+        if target in _SCALAR_FACETS:
+            where_parts.append(f"{target} IS NOT NULL")
+        if facet in _SCALAR_FACETS:
+            where_parts.append(f"{facet} IS NOT NULL")
+        where = (" WHERE " + " AND ".join(where_parts)) if where_parts else ""
+
+        branches.append(
+            f"SELECT {t_lit} AS target_field, {t_expr} AS target_value, "
+            f"{f_lit} AS facet_field, {f_expr} AS facet_value, count(*) AS cnt "
+            f"FROM {TABLE}{t_from}{f_from}{where} "
+            f"GROUP BY {t_group}, {f_group}"
+        )
+
+    return f"INSERT INTO {CUBE_TABLE} " + " UNION ALL ".join(branches)
+
+
+def _build_cube_hist_sql_for_target(target: str) -> str:
+    """Build INSERT ... SELECT for histogram buckets of one target field."""
+    t_expr, t_from, t_group = _target_sql(target)
+    t_lit = f"'{target}'"
+
+    hist_from = f", unnest(overall_scores) AS _h(val)"
+    t_where = f" WHERE {target} IS NOT NULL" if target in _SCALAR_FACETS else ""
+
+    return (
+        f"INSERT INTO {CUBE_HIST_TABLE} "
+        f"SELECT {t_lit} AS target_field, {t_expr} AS target_value, "
+        f"floor(_h.val / 0.05) * 0.05 AS bucket_min, "
+        f"floor(_h.val / 0.05) * 0.05 + 0.05 AS bucket_max, "
+        f"count(*) AS cnt "
+        f"FROM {TABLE}{t_from}{hist_from}{t_where} "
+        f"GROUP BY {t_group}, bucket_min, bucket_max"
+    )
+
+
+def rebuild_cube(db: Session) -> None:
+    """Rebuild the facet co-occurrence cube from the analytics table."""
+    db.execute(text(f"TRUNCATE {CUBE_TABLE}"))
+    db.execute(text(f"TRUNCATE {CUBE_HIST_TABLE}"))
+
+    for target in _ALL_FACET_FIELDS:
+        db.execute(text(_build_cube_sql_for_target(target)))
+        db.execute(text(_build_cube_hist_sql_for_target(target)))
+
     db.commit()
