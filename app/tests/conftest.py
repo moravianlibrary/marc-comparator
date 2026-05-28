@@ -24,6 +24,9 @@ FAKE_USER_ID = "12345678-1234-4678-9abc-1234567890ab"
 
 # All table names in dependency order (children first for TRUNCATE CASCADE)
 ALL_TABLES = [
+    "catalog_records_analytics",
+    "record_reviews",
+    "result_snapshots",
     "authority_links",
     "comparisons",
     "validations",
@@ -78,11 +81,27 @@ async def db_engine(postgres_container):
     from entities.catalog_record import CatalogRecord  # noqa: F401
     from entities.comparison import Comparison  # noqa: F401
     from entities.marc_sector import MarcRecordIndex, MarcSector  # noqa: F401
+    from entities.record_review import RecordReview  # noqa: F401
+    from entities.result_snapshot import ResultSnapshot  # noqa: F401
     from entities.validation import Validation  # noqa: F401
+
+    from catalog_records.analytics import init_analytics_table
 
     engine = create_engine(postgres_container.get_connection_url())
     await asyncio.to_thread(Base.metadata.create_all, engine)
+
+    # Create non-ORM analytics table
+    Session = sessionmaker(bind=engine)
+    with Session() as session:
+        init_analytics_table(session)
+
     yield engine
+
+    # Drop analytics table before ORM tables
+    with engine.connect() as conn:
+        conn.execute(text("DROP TABLE IF EXISTS catalog_records_analytics"))
+        conn.commit()
+
     await asyncio.to_thread(Base.metadata.drop_all, engine)
     engine.dispose()
 
