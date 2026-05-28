@@ -28,6 +28,21 @@ class ValidatorInstance:
     instance: BaseValidator
 
 
+def load_validators(
+    db_session: DatabaseSession,
+    validators: List[Validator],
+    logger: logging.Logger,
+) -> List[ValidatorInstance] | None:
+    """Load settings from DB and initialize validators. Returns None on failure."""
+    settings = Settings.get(
+        db_session, SettingsScope.Validation, ValidationSettings
+    )
+    if not settings:
+        return None
+    result = init_validators(settings, validators, logger)
+    return result or None
+
+
 def init_validators(
     settings: ValidationSettings,
     validators: List[Validator],
@@ -87,19 +102,13 @@ async def handle_catalog_record_validation(
 async def validate_records(task_id: str) -> None:
     async with ManagedTask(task_id=task_id) as ctx:
         data = ValidationTaskData.model_validate(ctx.task.data)
-        settings = Settings.get(
-            ctx.db_session,
-            SettingsScope.Validation,
-            ValidationSettings,
-        )
 
-        if not settings:
-            ctx.logger.error("Validation settings not found")
+        validator_instances = load_validators(
+            ctx.db_session, data.validators, ctx.logger
+        )
+        if not validator_instances:
+            ctx.logger.error("Validators could not be initialized")
             return
-
-        validator_instances: List[ValidatorInstance] = init_validators(
-            settings, data.validators, ctx.logger
-        )
 
         record_ids = [
             r.id for r in build_filtered_query(

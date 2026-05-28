@@ -44,6 +44,20 @@ class AuthorityLinkerInstance:
     instance: BaseAuthorityLinker
 
 
+def load_authority_linkers(
+    db_session: DatabaseSession,
+    linkers: List[AuthorityLinker],
+) -> List[AuthorityLinkerInstance] | None:
+    """Load settings from DB and initialize linkers. Returns None on failure."""
+    settings = Settings.get(
+        db_session, SettingsScope.AuthorityLinking, AuthorityLinkingSettings
+    )
+    if not settings:
+        return None
+    result = init_authority_linkers(settings, linkers)
+    return result or None
+
+
 def init_authority_linkers(
     settings: AuthorityLinkingSettings,
     linkers: List[AuthorityLinker],
@@ -300,20 +314,10 @@ def handle_catalog_record_link_action(
 async def authority_linking(task_id: str) -> None:
     async with ManagedTask(task_id=task_id) as ctx:
         data = AuthorityLinkingTaskData.model_validate(ctx.task.data)
-        settings = Settings.get(
-            ctx.db_session,
-            SettingsScope.AuthorityLinking,
-            AuthorityLinkingSettings,
-        )
 
-        if not settings:
-            ctx.logger.error("Authority linking settings not found")
-            return
-
-        authority_linkers = init_authority_linkers(settings, data.linkers)
-
+        authority_linkers = load_authority_linkers(ctx.db_session, data.linkers)
         if not authority_linkers:
-            ctx.logger.error("No authority linkers could be initialized")
+            ctx.logger.error("Authority linkers could not be initialized")
             return
 
         counters: defaultdict[LinkActionResult, int] = defaultdict(int)

@@ -17,6 +17,19 @@ from . import UsedComparator, UsedComparatorClass
 from .models import ComparisonSettings, ComparisonTaskData
 
 
+def load_comparator(db_session: DatabaseSession) -> BaseComparator | None:
+    """Load settings from DB and initialize comparator. Returns None on failure."""
+    settings = Settings.get(
+        db_session, SettingsScope.Comparison, ComparisonSettings
+    )
+    if not settings:
+        return None
+    try:
+        return init_comparator(settings)
+    except ValueError:
+        return None
+
+
 def init_comparator(settings: ComparisonSettings) -> BaseComparator:
     config = settings.comparator
     if config is not None:
@@ -77,20 +90,10 @@ async def handle_catalog_record_comparison(
 async def compare_records(task_id: str) -> None:
     async with ManagedTask(task_id=task_id) as ctx:
         data = ComparisonTaskData.model_validate(ctx.task.data)
-        settings = Settings.get(
-            ctx.db_session,
-            SettingsScope.Comparison,
-            ComparisonSettings,
-        )
 
-        if not settings:
-            ctx.logger.error("Comparison settings not found")
-            return
-
-        try:
-            comparator = init_comparator(settings)
-        except ValueError as e:
-            ctx.logger.error(str(e))
+        comparator = load_comparator(ctx.db_session)
+        if not comparator:
+            ctx.logger.error("Comparator could not be initialized")
             return
 
         record_ids = [

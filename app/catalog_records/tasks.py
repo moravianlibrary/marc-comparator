@@ -10,12 +10,11 @@ from adapters.tasks import (
     handle_batch_progress_snippet,
     handle_final_batch_snippet,
 )
-from authority_linking.models import AuthorityLinkingSettings
 from authority_linking.tasks import (
     LinkActionResult,
     find_best_link_for_record,
     handle_catalog_record_link_action,
-    init_authority_linkers,
+    load_authority_linkers,
 )
 from catalog_records.models import (
     FetchBatchOfRecordsData,
@@ -28,15 +27,13 @@ import hashlib
 import json
 
 from catalog_records.search import build_filtered_query
-from comparison.models import ComparisonSettings
-from comparison.tasks import handle_catalog_record_comparison, init_comparator
+from comparison.tasks import handle_catalog_record_comparison, load_comparator
 from config import config
 from entities.record_review import RecordReview
 from entities.result_snapshot import ResultSnapshot
 from entities.catalog_record import CatalogRecord
 from entities.settings import Settings, SettingsScope
-from validation.models import ValidationSettings
-from validation.tasks import handle_catalog_record_validation, init_validators
+from validation.tasks import handle_catalog_record_validation, load_validators
 
 
 class AlephError(Exception):
@@ -341,49 +338,24 @@ async def process_records(task_id: str) -> None:
         filters = RecordFilter.model_validate(ctx.task.data)
         ctx.logger.info("Starting processing of catalog records")
 
-        al_settings = Settings.get(
-            ctx.db_session,
-            SettingsScope.AuthorityLinking,
-            AuthorityLinkingSettings,
-        )
-        if not al_settings:
-            ctx.logger.error("Authority linking settings not found")
-            return
-
-        authority_linkers = init_authority_linkers(
-            al_settings, settings.authority_linkers
+        authority_linkers = load_authority_linkers(
+            ctx.db_session, settings.authority_linkers
         )
         if not authority_linkers:
-            ctx.logger.error("No authority linkers could be initialized")
+            ctx.logger.error("Authority linkers could not be initialized")
             return
 
-        c_settings = Settings.get(
-            ctx.db_session,
-            SettingsScope.Comparison,
-            ComparisonSettings,
+        comparator = load_comparator(ctx.db_session)
+        if not comparator:
+            ctx.logger.error("Comparator could not be initialized")
+            return
+
+        validator_instances = load_validators(
+            ctx.db_session, settings.validators, ctx.logger
         )
-        if not c_settings:
-            ctx.logger.error("Comparison settings not found")
+        if not validator_instances:
+            ctx.logger.error("Validators could not be initialized")
             return
-
-        try:
-            comparator = init_comparator(c_settings)
-        except ValueError as e:
-            ctx.logger.error(str(e))
-            return
-
-        validation_settings = Settings.get(
-            ctx.db_session,
-            SettingsScope.Validation,
-            ValidationSettings,
-        )
-        if not validation_settings:
-            ctx.logger.error("Validation settings not found")
-            return
-
-        validator_instances = init_validators(
-            validation_settings, settings.validators, ctx.logger
-        )
 
         counters: defaultdict[LinkActionResult, int] = defaultdict(int)
 
