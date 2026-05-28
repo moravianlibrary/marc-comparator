@@ -41,6 +41,7 @@ import type { SearchRecordsResponse } from "../types";
 import { RecordTaskActions, AdvancedTaskActions } from "../record-task-actions";
 import { createColumns } from "./columns";
 import { ColumnConfig } from "./column-config";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const PAGE_SIZES = [10, 25, 50, 100, 1000];
 
@@ -229,11 +230,15 @@ export function TableView() {
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow>
-                <TableCell colSpan={columns.length} className="text-center">
-                  {t("common:loading")}
-                </TableCell>
-              </TableRow>
+              Array.from({ length: 10 }).map((_, i) => (
+                <TableRow key={i}>
+                  {Array.from({ length: columns.length }).map((_, j) => (
+                    <TableCell key={j}>
+                      <Skeleton className="h-4 w-full" />
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))
             ) : table.getRowModel().rows.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={columns.length} className="text-center">
