@@ -1,6 +1,8 @@
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from .filter_spec import parse_filters
+from .filter_sql import compile_conditions
 from .models import (
     FacetBucket,
     FacetResult,
@@ -11,7 +13,6 @@ from .models import (
     FacetsPreviewResponse,
     HistogramBucket,
     HistogramResult,
-    RecordFilter,
 )
 
 TABLE = "catalog_records_analytics"
@@ -33,19 +34,12 @@ ARRAY_FACETS = [
     "field_explanations",
 ]
 
-_FILTER_TO_MATVIEW = {
-    "bases": "base",
-    "deleted": "is_deleted",
-    "processed": "is_processed",
-    "review_statuses": "review_status",
-}
-
 # ---- GROUPING SETS column list for scalar + bool facets ----
 _GS_COLUMNS = SCALAR_FACETS + list(BOOL_FACETS.keys())
 
 
 def get_facets(request: FacetsRequest, db: Session) -> FacetsResponse:
-    where, params = _build_where(request.filters)
+    where, params = compile_conditions(parse_filters(request.filters))
 
     # --- 1. Scalar + bool facets via GROUPING SETS (single scan) ---
     gs_sets = ", ".join(f"({col})" for col in _GS_COLUMNS)
@@ -105,7 +99,7 @@ def get_facets_preview(
     For scalar/bool targets: one GROUPING SETS query grouped by (target, facet_dims).
     For array targets: unnest first, then group.
     """
-    where, params = _build_where(request.filters)
+    where, params = compile_conditions(parse_filters(request.filters))
     target = request.target_field
 
     # --- Build the preview query: all facets grouped by target_value ---
@@ -302,49 +296,3 @@ def _parse_preview_grouping_rows(
                 buckets=buckets_by_field.get(field, []),
             ))
     return result
-
-
-def _build_where(filters: RecordFilter) -> tuple[str, dict]:
-    conditions = ["TRUE"]
-    params: dict = {}
-
-    if filters.record_ids:
-        conditions.append("id = ANY(:record_ids)")
-        params["record_ids"] = filters.record_ids
-    if filters.bases:
-        conditions.append("base = ANY(:bases)")
-        params["bases"] = filters.bases
-    if filters.deleted is not None:
-        conditions.append("is_deleted = :is_deleted")
-        params["is_deleted"] = filters.deleted
-    if filters.review_statuses:
-        conditions.append("review_status = ANY(:review_statuses)")
-        params["review_statuses"] = filters.review_statuses
-    if filters.processed is not None:
-        conditions.append("is_processed = :is_processed")
-        params["is_processed"] = filters.processed
-    if filters.type_of_record:
-        conditions.append("type_of_record = ANY(:type_of_record)")
-        params["type_of_record"] = filters.type_of_record
-    if filters.bibliographic_level:
-        conditions.append("bibliographic_level = ANY(:bib_level)")
-        params["bib_level"] = filters.bibliographic_level
-
-    for field in ARRAY_FACETS:
-        if values := getattr(filters, field, None):
-            conditions.append(f"CAST({field} AS text[]) && :arr_{field}")
-            params[f"arr_{field}"] = values
-
-    if filters.score_min is not None:
-        conditions.append(
-            "EXISTS (SELECT 1 FROM unnest(overall_scores) s WHERE s >= :score_min)"
-        )
-        params["score_min"] = filters.score_min
-    if filters.score_max is not None:
-        conditions.append(
-            "EXISTS (SELECT 1 FROM unnest(overall_scores) s WHERE s <= :score_max)"
-        )
-        params["score_max"] = filters.score_max
-
-    where = "WHERE " + " AND ".join(conditions)
-    return where, params
