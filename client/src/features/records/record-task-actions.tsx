@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { MoreHorizontal } from "lucide-react";
 import apiClient from "@/lib/api-client";
+import { useSystemInfo } from "@/hooks/use-system-info";
 import { Button } from "@/components/ui/button";
 import {
   AlertDialog,
@@ -39,7 +40,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import type { RecordFilter } from "./types";
-import type { ProcessRecordsSettings, SystemInfo } from "@/types/settings";
+import type { ProcessRecordsSettings } from "@/types/settings";
 
 type SimpleAction = "process" | "compare";
 type DialogAction = "link-authorities" | "validate";
@@ -131,10 +132,7 @@ export function AdvancedTaskActions({ filters, totalCount }: AdvancedTaskActions
   // -- Validation dialog state --
   const [selectedValidators, setSelectedValidators] = useState<Set<string>>(new Set());
 
-  const { data: systemInfo } = useQuery<SystemInfo>({
-    queryKey: ["system", "info"],
-    queryFn: () => apiClient.get<SystemInfo>("/system/info").then((r) => r.data),
-  });
+  const { data: systemInfo } = useSystemInfo();
 
   const { data: processSettings } = useQuery<ProcessRecordsSettings>({
     queryKey: ["settings", "process-records"],

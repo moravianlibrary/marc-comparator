@@ -2,10 +2,11 @@ import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import apiClient from "@/lib/api-client";
+import { useAvailableBases } from "@/hooks/use-system-info";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,7 +25,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { SystemInfo } from "@/types/settings";
 
 const schema = z.object({
   base: z.string().min(1),
@@ -36,11 +36,7 @@ type FormValues = z.infer<typeof schema>;
 export function FetchSingleForm() {
   const { t } = useTranslation("records");
 
-  const { data: systemInfo } = useQuery({
-    queryKey: ["system", "info"],
-    queryFn: () => apiClient.get<SystemInfo>("/system/info").then((r) => r.data),
-  });
-  const availableBases = systemInfo?.available_bases ?? [];
+  const availableBases = useAvailableBases();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),

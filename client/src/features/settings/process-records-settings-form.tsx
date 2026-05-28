@@ -2,8 +2,7 @@ import { useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslation } from "react-i18next";
-import { useQuery } from "@tanstack/react-query";
-import apiClient from "@/lib/api-client";
+import { useSystemInfo } from "@/hooks/use-system-info";
 import { processRecordsSettingsSchema, type ProcessRecordsSettingsFormValues } from "./schemas";
 import {
   Form,
@@ -21,7 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Checkbox } from "@/components/ui/checkbox";
-import type { ProcessRecordsSettings, SystemInfo } from "@/types/settings";
+import type { ProcessRecordsSettings } from "@/types/settings";
 
 interface Props {
   data: ProcessRecordsSettings;
@@ -38,10 +37,7 @@ export function ProcessRecordsSettingsForm({
 }: Props) {
   const { t } = useTranslation("settings");
 
-  const { data: systemInfo } = useQuery<SystemInfo>({
-    queryKey: ["system", "info"],
-    queryFn: () => apiClient.get<SystemInfo>("/system/info").then((r) => r.data),
-  });
+  const { data: systemInfo } = useSystemInfo();
 
   const form = useForm<ProcessRecordsSettingsFormValues>({
     resolver: zodResolver(processRecordsSettingsSchema),

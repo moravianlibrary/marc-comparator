@@ -1,6 +1,5 @@
-import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
-import apiClient from "@/lib/api-client";
+import { useSystemInfo } from "@/hooks/use-system-info";
 import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
@@ -8,7 +7,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import type { SystemInfo } from "@/types/settings";
 
 interface Props {
   open: boolean;
@@ -24,11 +22,7 @@ function formatUptime(seconds: number): string {
 export function SystemInfoDialog({ open, onClose }: Props) {
   const { t } = useTranslation("system");
 
-  const { data: info, isLoading } = useQuery<SystemInfo>({
-    queryKey: ["system", "info"],
-    queryFn: () => apiClient.get<SystemInfo>("/system/info").then((r) => r.data),
-    enabled: open,
-  });
+  const { data: info, isLoading } = useSystemInfo(open);
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
