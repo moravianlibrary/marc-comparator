@@ -1,10 +1,28 @@
 import type { ColumnDef } from "@tanstack/react-table";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
-import { STATE_COLORS, type RecordSummary } from "../types";
+import { STATE_COLORS, type RecordSummary, type ValidationSummary } from "../types";
 
 /** Column IDs that the backend can sort by. */
 const SORTABLE_COLUMNS = new Set(["base", "system_number", "latest_sync", "comparison_score"]);
+
+const STATUS_ORDER: Record<string, number> = { Valid: 0, ForReview: 1, Invalid: 2, AdditionalInfo: 3 };
+
+function groupValidations(validations: ValidationSummary[]) {
+  const map = new Map<string, { validator: string; target_tag: string; status: string; count: number }>();
+  for (const v of validations) {
+    const key = `${v.validator}|${v.target_tag}|${v.status}`;
+    const existing = map.get(key);
+    if (existing) {
+      existing.count++;
+    } else {
+      map.set(key, { validator: v.validator, target_tag: v.target_tag, status: v.status, count: 1 });
+    }
+  }
+  return [...map.values()].sort(
+    (a, b) => (STATUS_ORDER[a.status] ?? 99) - (STATUS_ORDER[b.status] ?? 99),
+  );
+}
 
 export function createColumns(
   t: (key: string) => string,
@@ -141,22 +159,27 @@ export function createColumns(
         if (vals.length === 0) return "-";
         return (
           <div className="flex flex-wrap gap-1">
-            {vals.map((v, i) => {
-              const viewKey = `val:${v.validator}`;
+            {groupValidations(vals).map((g) => {
+              const viewKey = `val:${g.validator}`;
               return (
                 <Badge
-                  key={i}
+                  key={`${g.validator}-${g.target_tag}-${g.status}`}
                   variant="outline"
                   className={cn(
                     "text-xs",
-                    v.status === "Valid" && "border-green-500 text-green-700 dark:text-green-400",
-                    v.status === "Invalid" && "border-red-500 text-red-700 dark:text-red-400",
-                    v.status === "ForReview" && "border-yellow-500 text-yellow-700 dark:text-yellow-400",
+                    g.status === "Valid" && "border-green-500 text-green-700 dark:text-green-400",
+                    g.status === "Invalid" && "border-red-500 text-red-700 dark:text-red-400",
+                    g.status === "ForReview" && "border-yellow-500 text-yellow-700 dark:text-yellow-400",
                     onNavigate && "cursor-pointer hover:bg-accent",
                   )}
                   onClick={onNavigate ? (e) => { e.stopPropagation(); onNavigate(row.index, viewKey); } : undefined}
                 >
-                  {t(`records:validator-name.${v.validator}`)} [{v.target_tag}]: {t(`records:validity-status.${v.status}`)}
+                  {t(`records:validator-name.${g.validator}`)} [{g.target_tag}]: {t(`records:validity-status.${g.status}`)}
+                  {g.count > 1 && (
+                    <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-muted-foreground/20 px-1 text-[10px] font-medium">
+                      {g.count}
+                    </span>
+                  )}
                 </Badge>
               );
             })}

@@ -4,8 +4,26 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { STATE_COLORS, type RecordSummary } from "../types";
+import { STATE_COLORS, type RecordSummary, type ValidationSummary } from "../types";
 import { RecordTaskActions, AdvancedTaskActions } from "../record-task-actions";
+
+const STATUS_ORDER: Record<string, number> = { Valid: 0, ForReview: 1, Invalid: 2, AdditionalInfo: 3 };
+
+function groupValidations(validations: ValidationSummary[]) {
+  const map = new Map<string, { validator: string; target_tag: string; status: string; count: number }>();
+  for (const v of validations) {
+    const key = `${v.validator}|${v.target_tag}|${v.status}`;
+    const existing = map.get(key);
+    if (existing) {
+      existing.count++;
+    } else {
+      map.set(key, { validator: v.validator, target_tag: v.target_tag, status: v.status, count: 1 });
+    }
+  }
+  return [...map.values()].sort(
+    (a, b) => (STATUS_ORDER[a.status] ?? 99) - (STATUS_ORDER[b.status] ?? 99),
+  );
+}
 
 interface RecordHeaderProps {
   record: RecordSummary;
@@ -103,25 +121,27 @@ export function RecordHeader({ record, onSelectView }: RecordHeaderProps) {
             </Badge>
           );
         })}
-        {[...record.validations].sort((a, b) => {
-          const order: Record<string, number> = { Valid: 0, ForReview: 1, Invalid: 2, AdditionalInfo: 3 };
-          return (order[a.status] ?? 99) - (order[b.status] ?? 99);
-        }).map((v, i) => {
-          const viewKey = `val:${v.validator}`;
+        {groupValidations(record.validations).map((g) => {
+          const viewKey = `val:${g.validator}`;
           return (
             <Badge
-              key={i}
+              key={`${g.validator}-${g.target_tag}-${g.status}`}
               variant="outline"
               className={cn(
                 "text-xs",
-                v.status === "Valid" && "border-green-500 text-green-700 dark:text-green-400",
-                v.status === "Invalid" && "border-red-500 text-red-700 dark:text-red-400",
-                v.status === "ForReview" && "border-yellow-500 text-yellow-700 dark:text-yellow-400",
+                g.status === "Valid" && "border-green-500 text-green-700 dark:text-green-400",
+                g.status === "Invalid" && "border-red-500 text-red-700 dark:text-red-400",
+                g.status === "ForReview" && "border-yellow-500 text-yellow-700 dark:text-yellow-400",
                 onSelectView && "cursor-pointer hover:bg-accent",
               )}
               onClick={onSelectView ? () => onSelectView(viewKey) : undefined}
             >
-              {t(`validator-name.${v.validator}`)} [{v.target_tag}]: {t(`validity-status.${v.status}`)}
+              {t(`validator-name.${g.validator}`)} [{g.target_tag}]: {t(`validity-status.${g.status}`)}
+              {g.count > 1 && (
+                <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-muted-foreground/20 px-1 text-[10px] font-medium">
+                  {g.count}
+                </span>
+              )}
             </Badge>
           );
         })}
