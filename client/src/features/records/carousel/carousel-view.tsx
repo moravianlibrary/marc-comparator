@@ -29,6 +29,7 @@ import { RecordHeader } from "./record-header";
 import { MarcTable } from "./marc-table";
 import { ReviewButton } from "./review-button";
 import { useRecordReviews } from "./use-reviews";
+import { SkeletonMarcTable } from "@/components/skeletons/skeleton-marc-table";
 
 type ViewOption =
   | { kind: "marc" }
@@ -211,7 +212,10 @@ function RecordDetail({
 
   const isAuthority = viewOpt.kind === "authority";
   const displayMarc = isAuthority ? authorityMarcData : marcData;
-  const displayLoading = isAuthority ? authorityMarcLoading : marcLoading;
+  const annotationLoading =
+    (viewOpt.kind === "comparison" && comparisonsFetching) ||
+    (viewOpt.kind === "validation" && validationsFetching);
+  const displayLoading = (isAuthority ? authorityMarcLoading : marcLoading) || annotationLoading;
 
   const hasAnnotation = annotationType !== undefined;
   const targetTags = new Set<string>();
@@ -328,7 +332,7 @@ function RecordDetail({
       </div>
 
       {displayLoading ? (
-        <p className="text-muted-foreground">{t("common:loading")}</p>
+        <SkeletonMarcTable showAnnotationColumn={viewOpt.kind !== "marc"} />
       ) : displayMarc ? (
         <MarcTable
           marc={displayMarc}
