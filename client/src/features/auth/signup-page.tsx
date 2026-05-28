@@ -2,6 +2,7 @@ import { useNavigate, Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslation } from "react-i18next";
+import { AxiosError } from "axios";
 import { Moon, Sun } from "lucide-react";
 import { useTheme } from "next-themes";
 import { useSignUp } from "@/hooks/use-auth";
@@ -44,9 +45,13 @@ export function SignupPage() {
         password: values.password,
       });
       navigate("/login", { replace: true });
-    } catch (error: any) {
+    } catch (error) {
+      const detail =
+        error instanceof AxiosError
+          ? error.response?.data?.detail
+          : undefined;
       form.setError("root", {
-        message: error.response?.data?.detail ?? t("common:error"),
+        message: detail ?? t("common:error"),
       });
     }
   }
