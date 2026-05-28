@@ -377,6 +377,18 @@ function extractDetailsParams(text: string): Record<string, string> {
   return params;
 }
 
+function extractHintParams(text: string): Record<string, string> {
+  const params: Record<string, string> = {};
+  const colonIdx = text.lastIndexOf(": ");
+  if (colonIdx !== -1) {
+    const tail = text.slice(colonIdx + 2);
+    if (tail.startsWith("http")) {
+      params.url = tail;
+    }
+  }
+  return params;
+}
+
 function renderDetailsWithPidLinks(text: string, krameriusClientUrl?: string) {
   if (!krameriusClientUrl) return text;
   const parts: (string | JSX.Element)[] = [];
@@ -426,9 +438,12 @@ function ValidationFieldAnnotation({ annotation, krameriusClientUrl }: { annotat
           )}
         </p>
       )}
-      {annotation.hint && (
+      {annotation.hint && annotation.reason && (
         <p className="text-xs text-muted-foreground/70">
-          {t(`validation-hint.${annotation.hint}`, { defaultValue: annotation.hint })}
+          {t(`validation-hint.${annotation.reason}`, {
+            ...extractHintParams(annotation.hint),
+            defaultValue: annotation.hint,
+          })}
         </p>
       )}
     </div>

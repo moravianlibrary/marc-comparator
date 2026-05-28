@@ -252,22 +252,27 @@
   },
   "validation-detail": {
     "Missing link text in $y": "Pole 856 neobsahuje očekávaný text odkazu odpovídající vzoru: {{pattern}}",
-    "Invalid Kramerius link format": "Hodnota '{{value}}' neodpovídá očekávanému formátu URL.",
+    "Invalid Kramerius link format": "Odkaz '{{value}}' neobsahuje rozpoznatelný PID Kramerius.",
     "No Kramerius links found or expected": "Záznam neobsahuje žádné odkazy na Kramerius a žádné odpovídající dokumenty neexistují.",
     "Kramerius link points to non-top-level document": "Dokument s PID '{{pid}}' a modelem '{{model}}' je na úrovni {{level}} a není dokumentem nejvyšší úrovně.",
     "Found Kramerius document with non-linkable model": "V Kramerius nalezen dokument s PID '{{pid}}' a modelem '{{model}}'. Tento typ modelu se neočekává jako odkaz z katalogového záznamu.",
     "Link not found in Kramerius": "PID '{{pid}}' je uveden v MARC, ale nebyl nalezen v Kramerius.",
     "Missing Kramerius link in MARC": "PID '{{pid}}' existuje v Kramerius, ale není v MARC záznamu.",
     "Valid Kramerius link": "PID '{{pid}}' je správně formátovaný a odpovídá existujícímu dokumentu v Kramerius.",
-    "Non-standard Kramerius link format": "Hodnota '{{value}}' obsahuje platný PID, ale používá nestandardní formát URL."
+    "Non-standard Kramerius link format": "Hodnota '{{value}}' obsahuje platný PID, ale používá nestandardní formát URL.",
+    "Non-standard URL path": "Odkaz '{{value}}' vede na správný server, ale používá nestandardní cestu (očekáváno /uuid/).",
+    "Wrong Kramerius client URL": "Odkaz '{{value}}' obsahuje platný PID, ale vede na jiný server než očekávaný."
   },
   "validation-hint": {
-    "Add appropriate link text to subfield $y.": "Přidejte odpovídající text odkazu do podpole $y.",
-    "Remove or correct the invalid Kramerius link.": "Odeberte nebo opravte neplatný odkaz na Kramerius.",
-    "Add a corresponding 856$u for this PID.": "Přidejte odpovídající 856$u pro tento PID.",
-    "Link should point to a top-level document.": "Odkaz by měl vést na dokument nejvyšší úrovně.",
-    "Check integrity of the data in Kramerius.": "Zkontrolujte integritu dat v Kramerius.",
-    "Update the link to use the standard format.": "Aktualizujte odkaz na standardní formát."
+    "Missing link text in $y": "Přidejte odpovídající text odkazu do podpole $y.",
+    "Link not found in Kramerius": "Odeberte nebo opravte neplatný odkaz na Kramerius.",
+    "Missing Kramerius link in MARC": "Přidejte odpovídající 856$u pro tento PID.",
+    "Kramerius link points to non-top-level document": "Odkaz by měl vést na dokument nejvyšší úrovně.",
+    "Found Kramerius document with non-linkable model": "Zkontrolujte integritu dat v Kramerius.",
+    "Non-standard URL path": "Aktualizujte odkaz na standardní formát: {{url}}",
+    "Wrong Kramerius client URL": "Aktualizujte odkaz tak, aby vedl na správný server: {{url}}",
+    "Invalid Kramerius link format": "Ujistěte se, že odkaz odpovídá očekávanému formátu: {{url}}",
+    "Non-standard Kramerius link format": "Aktualizujte odkaz na standardní formát."
   },
   "validation-reason": {
     "Missing link text in $y": "Chybějící text odkazu v $y",
@@ -278,6 +283,8 @@
     "Link not found in Kramerius": "Odkaz nenalezen v Kramerius",
     "Missing Kramerius link in MARC": "Chybějící odkaz Kramerius v MARC",
     "Valid Kramerius link": "Platný odkaz na Kramerius",
-    "Non-standard Kramerius link format": "Nestandardní formát odkazu Kramerius"
+    "Non-standard Kramerius link format": "Nestandardní formát odkazu Kramerius",
+    "Non-standard URL path": "Nestandardní cesta v URL",
+    "Wrong Kramerius client URL": "Nesprávný server v odkazu Kramerius"
   }
 }

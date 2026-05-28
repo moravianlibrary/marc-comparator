@@ -389,7 +389,7 @@ class KrameriusLinksValidator(BaseValidator):
                 field_index=pid_field_index.get(pid),
             )
 
-        for pid in found_set - current_set:
+        for pid in valid_set - current_set:
             add_result(
                 reason="Missing Kramerius link in MARC",
                 details=(

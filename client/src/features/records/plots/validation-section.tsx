@@ -9,6 +9,8 @@ const REASON_TO_STATUS: Record<string, string> = {
   "Missing link text in $y": "ForReview",
   "Invalid Kramerius link format": "Invalid",
   "Non-standard Kramerius link format": "AdditionalInfo",
+  "Non-standard URL path": "AdditionalInfo",
+  "Wrong Kramerius client URL": "AdditionalInfo",
   "No Kramerius links found or expected": "Valid",
   "Kramerius link points to non-top-level document": "Invalid",
   "Found Kramerius document with non-linkable model": "AdditionalInfo",
