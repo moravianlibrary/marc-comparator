@@ -55,7 +55,7 @@ def _compile_one(c: FilterCondition) -> tuple[str | None, dict]:
             | FilterField.ValidationReasons
         ):
             field = c.field.value  # enum value matches the analytics column name
-            return f"CAST({field} AS text[]) && :arr_{field}", {f"arr_{field}": c.value}
+            return f"CAST({field} AS text[]) @> :arr_{field}", {f"arr_{field}": c.value}
 
         case FilterField.ScoreMin:
             return (

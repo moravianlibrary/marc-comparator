@@ -1,5 +1,4 @@
 from sqlalchemy import and_, bindparam, func, or_, String, text
-from sqlalchemy.dialects.postgresql import ARRAY
 
 from entities.authority_link import AuthorityLink
 from entities.catalog_record import CatalogRecord
@@ -82,45 +81,55 @@ def _compile_one(query, c: FilterCondition):
 
         case FilterField.AuthorityLinkLinkers | FilterField.AuthorityLinkBases | FilterField.Validators:
             relationship, column = RELATIONSHIP_FILTERS[c.field]
-            return query.filter(relationship.any(column.in_(c.value)))
+            for val in c.value:
+                query = query.filter(relationship.any(column == val))
+            return query
 
         case FilterField.ComparisonBases:
-            return query.filter(
-                CatalogRecord.comparisons.any(Comparison.base.in_(c.value))
-            )
+            for val in c.value:
+                query = query.filter(
+                    CatalogRecord.comparisons.any(Comparison.base == val)
+                )
+            return query
 
         case FilterField.MatchQualities:
             score_col = Comparison._result["overall_score"].as_float()
-            conditions = []
             for quality in c.value:
                 lo, hi = MATCH_QUALITY_RANGES.get(quality, (None, None))
+                condition = None
                 if lo is not None and hi is not None:
-                    conditions.append((score_col >= lo) & (score_col < hi))
+                    condition = (score_col >= lo) & (score_col < hi)
                 elif lo is not None:
-                    conditions.append(score_col >= lo)
+                    condition = score_col >= lo
                 elif hi is not None:
-                    conditions.append(score_col < hi)
-            if conditions:
-                return query.filter(CatalogRecord.comparisons.any(or_(*conditions)))
+                    condition = score_col < hi
+                if condition is not None:
+                    query = query.filter(CatalogRecord.comparisons.any(condition))
             return query
 
         case FilterField.ValidationStatuses:
             status_col = Validation._result["status"].as_string()
-            return query.filter(
-                CatalogRecord.validations.any(status_col.in_(c.value))
-            )
+            for val in c.value:
+                query = query.filter(
+                    CatalogRecord.validations.any(status_col == val)
+                )
+            return query
 
         case FilterField.ValidationTargetTags:
             tag_col = Validation._result["target"]["tag"].as_string()
-            return query.filter(
-                CatalogRecord.validations.any(tag_col.in_(c.value))
-            )
+            for val in c.value:
+                query = query.filter(
+                    CatalogRecord.validations.any(tag_col == val)
+                )
+            return query
 
         case FilterField.ValidationReasons:
             reason_col = Validation._result["reason"].as_string()
-            return query.filter(
-                CatalogRecord.validations.any(reason_col.in_(c.value))
-            )
+            for val in c.value:
+                query = query.filter(
+                    CatalogRecord.validations.any(reason_col == val)
+                )
+            return query
 
         case FilterField.ScoreMin:
             score_col = Comparison._result["overall_score"].as_float()
@@ -131,18 +140,21 @@ def _compile_one(query, c: FilterCondition):
             return query.filter(CatalogRecord.comparisons.any(score_col <= c.value))
 
         case FilterField.FieldExplanations:
-            return query.filter(
-                text(
-                    "EXISTS ("
-                    "  SELECT 1 FROM comparisons c_fe,"
-                    "  LATERAL jsonb_array_elements(c_fe._result->'field_results') AS elem(val)"
-                    "  WHERE c_fe.main_record_id = catalog_records.id"
-                    "  AND elem.val->>'explanation' = ANY(:fe_arr)"
-                    ")"
-                ).bindparams(
-                    bindparam("fe_arr", value=c.value, type_=ARRAY(String))
+            for i, val in enumerate(c.value):
+                param_name = f"fe_val_{i}"
+                query = query.filter(
+                    text(
+                        "EXISTS ("
+                        "  SELECT 1 FROM comparisons c_fe,"
+                        "  LATERAL jsonb_array_elements(c_fe._result->'field_results') AS elem(val)"
+                        "  WHERE c_fe.main_record_id = catalog_records.id"
+                        f"  AND elem.val->>'explanation' = :{param_name}"
+                        ")"
+                    ).bindparams(
+                        bindparam(param_name, value=val, type_=String)
+                    )
                 )
-            )
+            return query
 
         case _:
             raise ValueError(f"Unhandled ORM filter: {c.field}")
