@@ -37,7 +37,7 @@ export interface Task {
   type: TaskType;
   status: TaskStatus;
   severity: TaskSeverity;
-  progress: number;
+  progress: number | null;
   created_by: string;
   created_at: string;
   started_at: string | null;

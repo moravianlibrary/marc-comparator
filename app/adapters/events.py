@@ -24,7 +24,7 @@ class TaskStatusEvent(BaseModel):
 class TaskProgressEvent(BaseModel):
     type: Literal["task_progress"] = "task_progress"
     task_id: str
-    progress: float
+    progress: float | None
     created_by: str
 
 

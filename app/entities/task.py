@@ -67,7 +67,7 @@ class TaskSchema(BaseModel):
     started_at: datetime | None = None
     finished_at: datetime | None = None
 
-    progress: float
+    progress: float | None
     traceback_lines: int
 
     class Config:
@@ -99,7 +99,7 @@ class Task(
     finished_at = Column(TIMESTAMP, nullable=True)
 
     data = Column(JSON, nullable=True)
-    progress = Column(Float, nullable=False, default=0.0)
+    progress = Column(Float, nullable=True)
     traceback = Column(Text, nullable=True)
 
     @property

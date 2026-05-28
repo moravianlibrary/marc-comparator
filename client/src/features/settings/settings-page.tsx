@@ -29,12 +29,6 @@ import { ComparisonSettingsForm } from "./comparison-settings-form";
 import { ValidationSettingsForm } from "./validation-settings-form";
 import { ProcessRecordsSettingsForm } from "./process-records-settings-form";
 import { MaintenanceSettingsForm } from "./maintenance-settings-form";
-import { HelpDialog } from "./help-dialog";
-import {
-  CatalogHelp,
-  TasksHelp,
-  ProcessRecordsHelp,
-} from "./help-content";
 import { SkeletonForm } from "@/components/skeletons/skeleton-form";
 
 const SETTINGS_SCOPES: SettingsScope[] = [
@@ -167,16 +161,6 @@ export function SettingsPage() {
             ))}
           </SelectContent>
         </Select>
-
-        {activeScope === "catalog" && (
-          <HelpDialog titleKey="types.catalog"><CatalogHelp /></HelpDialog>
-        )}
-        {activeScope === "tasks" && (
-          <HelpDialog titleKey="types.tasks"><TasksHelp /></HelpDialog>
-        )}
-        {activeScope === "process-records" && (
-          <HelpDialog titleKey="types.process-records"><ProcessRecordsHelp /></HelpDialog>
-        )}
 
         <Button
           onClick={() => formRef.current?.submit()}

@@ -28,6 +28,7 @@ async def delete_tasks(task_id: str) -> None:
             ctx.logger.info("Deleting all completed/failed/revoked tasks.")
 
         tasks = query.all()
+        ctx.total = len(tasks)
 
         for task in tasks:
             try:

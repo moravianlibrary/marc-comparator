@@ -185,6 +185,7 @@ async def fetch_record_task(task_id: str) -> None:
 async def fetch_batch_of_records_task(task_id: str) -> None:
     async with ManagedTask(task_id=task_id) as ctx:
         data = FetchBatchOfRecordsData.model_validate(ctx.task.data)
+        ctx.total = sum(len(d.system_numbers) for d in data.per_base)
 
         for fetch_base_data in data.per_base:
             base = fetch_base_data.base
@@ -257,6 +258,7 @@ async def records_sync_task(
             return
 
         buffer = SectorBuffer(ctx.db_session)
+        ctx.before_commit = buffer.flush_all
 
         for base, system_number, status, record in client.OAI.list_records(
             from_date, None
@@ -311,7 +313,6 @@ async def records_sync_task(
                 )
                 handle_batch_progress_snippet(ctx)
 
-        buffer.flush_all()
         handle_final_batch_snippet(ctx)
 
         ctx.logger.info(
@@ -365,6 +366,7 @@ async def process_records(task_id: str) -> None:
             .with_entities(CatalogRecord.id)
             .all()
         ]
+        ctx.total = len(record_ids)
 
         batch_size = 1000
         for i in range(0, len(record_ids), batch_size):
@@ -430,6 +432,12 @@ async def process_records(task_id: str) -> None:
                     catalog_record.processed_at = config.timestamp
                     catalog_record.save(ctx.db_session)
 
+                    handle_batch_progress_snippet(ctx)
+
+                except ValueError as e:
+                    ctx.logger.warning(
+                        f"Skipping record {catalog_record.id}: {e}"
+                    )
                     handle_batch_progress_snippet(ctx)
 
                 except Exception as e:

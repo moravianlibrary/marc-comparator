@@ -17,6 +17,8 @@ export interface CatalogSettings {
 
 export interface TaskSettings {
   progress_update_interval: number;
+  commit_interval: number;
+  analytics_rebuild_interval: number;
 }
 
 export interface KnihovnyCZBaseMapping {
@@ -49,6 +51,8 @@ export interface ComparisonSettings {
 
 export interface KrameriusLinksValidatorConfig {
   url_to_pid_pattern: string;
+  url_to_pid_wrong_path_pattern: string;
+  url_to_pid_fallback_pattern: string;
   link_text_pattern: string;
   kramerius_host: string;
   kramerius_client_url: string;

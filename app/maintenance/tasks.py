@@ -33,6 +33,7 @@ async def compact_sectors(task_id: str) -> None:
             .all()
         )
 
+        ctx.total = len(sectors)
         ctx.logger.info(f"Found {len(sectors)} sectors to check for compaction.")
 
         for base, sector_id in sectors:
@@ -57,20 +58,18 @@ async def compact_sectors(task_id: str) -> None:
                 marc_bytes = raw[idx.offset_in_sector:idx.offset_in_sector + idx.record_length]
                 records[idx.system_number] = marc_bytes
 
-            if len(records) == sector.record_count:
-                continue
+            if len(records) != sector.record_count:
+                ctx.logger.info(
+                    f"Compacting sector {base}/{sector_id}: "
+                    f"{sector.record_count} stored -> {len(records)} live records"
+                )
 
-            ctx.logger.info(
-                f"Compacting sector {base}/{sector_id}: "
-                f"{sector.record_count} stored -> {len(records)} live records"
-            )
-
-            if len(records) == 0:
-                ctx.db_session.delete(sector)
-                ctx.db_session.commit()
-            else:
-                write_records_to_sector(ctx.db_session, base, sector_id, records)
-                ctx.db_session.commit()
+                if len(records) == 0:
+                    ctx.db_session.delete(sector)
+                    ctx.db_session.commit()
+                else:
+                    write_records_to_sector(ctx.db_session, base, sector_id, records)
+                    ctx.db_session.commit()
 
             handle_batch_progress_snippet(ctx)
 
@@ -84,6 +83,7 @@ async def rebuild_search_vectors(task_id: str) -> None:
 
     async with ManagedTask(task_id=task_id) as ctx:
         total = ctx.db_session.query(func.count(CatalogRecord.id)).scalar()
+        ctx.total = total
         ctx.logger.info(f"Rebuilding search vectors for {total} records...")
 
         records = ctx.db_session.query(CatalogRecord).yield_per(500)

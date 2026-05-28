@@ -18,15 +18,20 @@ from ._base import (
 
 
 class KrameriusLinksValidatorConfig(BaseModel):
-    url_to_pid_pattern: str = r"https?://[^/]+/mzk/uuid/(uuid:[0-9a-fA-F-]+)"
+    url_to_pid_pattern: str = (
+        r"https?://(?:www\.)?digitalniknihovna\.cz/mzk/uuid/(?P<pid>uuid:[0-9a-fA-F-]+)"
+    )
+    url_to_pid_wrong_path_pattern: str = (
+        r"https?://(?:www\.)?digitalniknihovna\.cz/mzk/[^/]+/(?P<pid>uuid:[0-9a-fA-F-]+)"
+    )
     url_to_pid_fallback_pattern: str = (
-        r"https?://[^/]+/mzk/[^/]+/(uuid:[0-9a-fA-F-]+)"
+        r"https?://[^/]+/.*?(?P<pid>uuid:[0-9a-fA-F-]+)"
     )
     link_text_pattern: str = r"Digitalizovaný dokument"
 
     kramerius_host: str = "https://api.kramerius.mzk.cz/search"
-    kramerius_client_url: str = "https://www.digitalniknihovna.cz/mzk/{pid}"
-    solr_cloud: bool = False
+    kramerius_client_url: str = "https://www.digitalniknihovna.cz/mzk/uuid/{pid}"
+    solr_cloud: bool = True
 
 
 VALIDATION_FIELD = ValidationTarget(tag="856", codes=["u", "y"])
@@ -85,6 +90,9 @@ class KrameriusLinksValidator(BaseValidator):
         self.config = config
 
         self.url_to_pid_regex = re.compile(config.url_to_pid_pattern)
+        self.url_to_pid_wrong_path_regex = re.compile(
+            config.url_to_pid_wrong_path_pattern
+        )
         self.url_to_pid_fallback_regex = re.compile(
             config.url_to_pid_fallback_pattern
         )
@@ -230,26 +238,51 @@ class KrameriusLinksValidator(BaseValidator):
                 match = self.url_to_pid_regex.search(v)
 
                 if match:
-                    pid = match.group(1)
+                    pid = match.group("pid")
                     current_kramerius_pids.append(pid)
                     pid_field_index.setdefault(pid, field_idx)
+                    continue
+
+                wrong_path_match = self.url_to_pid_wrong_path_regex.search(v)
+
+                if wrong_path_match:
+                    pid = wrong_path_match.group("pid")
+                    current_kramerius_pids.append(pid)
+                    pid_field_index.setdefault(pid, field_idx)
+                    add_result(
+                        status=ValidityStatus.AdditionalInfo,
+                        reason="Non-standard URL path",
+                        details=(
+                            f"Link '{v}' points to the correct server "
+                            "but uses a non-standard path (expected /uuid/)."
+                        ),
+                        details_params={"value": v},
+                        hint=(
+                            "Update the link to use the standard format: "
+                            f"{self.config.kramerius_client_url}"
+                        ),
+                        field_index=field_idx,
+                    )
                     continue
 
                 fallback_match = self.url_to_pid_fallback_regex.search(v)
 
                 if fallback_match:
-                    pid = fallback_match.group(1)
+                    pid = fallback_match.group("pid")
                     current_kramerius_pids.append(pid)
                     pid_field_index.setdefault(pid, field_idx)
                     add_result(
                         status=ValidityStatus.AdditionalInfo,
-                        reason="Non-standard Kramerius link format",
+                        reason="Wrong Kramerius client URL",
                         details=(
-                            f"Value '{v}' contains a valid PID "
-                            "but uses a non-standard URL format."
+                            f"Link '{v}' contains a valid PID "
+                            "but points to a different server than expected."
                         ),
                         details_params={"value": v},
-                        hint="Update the link to use the standard format.",
+                        hint=(
+                            "Update the link to point to the correct server: "
+                            f"{self.config.kramerius_client_url}"
+                        ),
                         field_index=field_idx,
                     )
                     continue
@@ -257,15 +290,13 @@ class KrameriusLinksValidator(BaseValidator):
                 add_result(
                     reason="Invalid Kramerius link format",
                     details=(
-                        f"Value '{v}' does not match expected URL pattern."
+                        f"Link '{v}' does not contain "
+                        "a recognizable Kramerius PID."
                     ),
-                    details_params={
-                        "value": v,
-                        "pattern": self.config.url_to_pid_pattern,
-                    },
+                    details_params={"value": v},
                     hint=(
-                        "Ensure the link follows the pattern: "
-                        f"{self.config.url_to_pid_pattern}"
+                        "Ensure the link follows the expected format: "
+                        f"{self.config.kramerius_client_url}"
                     ),
                     field_index=field_idx,
                 )

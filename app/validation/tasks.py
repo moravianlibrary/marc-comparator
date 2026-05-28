@@ -115,6 +115,7 @@ async def validate_records(task_id: str) -> None:
                 ctx.db_session, data.filters
             ).with_entities(CatalogRecord.id).all()
         ]
+        ctx.total = len(record_ids) * len(validator_instances)
 
         for record_id in record_ids:
             catalog_record = ctx.db_session.get(CatalogRecord, record_id)
@@ -126,6 +127,13 @@ async def validate_records(task_id: str) -> None:
                         validator_instance,
                     )
 
+                    handle_batch_progress_snippet(ctx)
+
+                except ValueError as e:
+                    ctx.logger.warning(
+                        f"Skipping record {catalog_record.id} "
+                        f"with validator {validator_instance.type.value}: {e}"
+                    )
                     handle_batch_progress_snippet(ctx)
 
                 except Exception as e:

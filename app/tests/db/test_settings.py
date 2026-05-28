@@ -26,7 +26,7 @@ def _catalog_settings_data():
 def _task_settings_data():
     return {
         "progress_update_interval": 200,
-        "indexing_batch_size": 1000,
+        "commit_interval": 1000,
     }
 
 
@@ -248,7 +248,7 @@ class TestSettingsUpdate:
         data_v1 = _task_settings_data()
         data_v2 = {
             "progress_update_interval": 50,
-            "indexing_batch_size": 250,
+            "commit_interval": 250,
         }
 
         await client.post("/settings/system/tasks", json=data_v1)
@@ -275,7 +275,7 @@ class TestSettingsService:
         Settings.save(
             db_session,
             SettingsScope.Tasks,
-            TaskSettings(progress_update_interval=42, indexing_batch_size=100),
+            TaskSettings(progress_update_interval=42, commit_interval=100),
             TaskSettings,
         )
 

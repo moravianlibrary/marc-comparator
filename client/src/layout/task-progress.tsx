@@ -25,7 +25,7 @@ export function TaskProgress({ runningTasks }: TaskProgressProps) {
   if (!task) return null;
 
   if (runningTasks.length === 1) {
-    const percent = Math.round(task.progress * 100);
+    const percent = task.progress != null ? Math.round(task.progress * 100) : null;
 
     return (
       <div
@@ -36,7 +36,9 @@ export function TaskProgress({ runningTasks }: TaskProgressProps) {
           {taskLabel(task, t)}
         </span>
         <Progress value={percent} className="w-24 h-2" />
-        <span className="text-xs text-muted-foreground">{percent}%</span>
+        {percent != null && (
+          <span className="text-xs text-muted-foreground">{percent}%</span>
+        )}
       </div>
     );
   }
@@ -51,7 +53,7 @@ export function TaskProgress({ runningTasks }: TaskProgressProps) {
       <PopoverContent className="w-80">
         <div className="space-y-3">
           {runningTasks.map((task) => {
-            const percent = Math.round(task.progress * 100);
+            const percent = task.progress != null ? Math.round(task.progress * 100) : null;
 
             return (
               <div
@@ -61,7 +63,9 @@ export function TaskProgress({ runningTasks }: TaskProgressProps) {
               >
                 <div className="flex items-center justify-between text-sm">
                   <span className="truncate">{taskLabel(task, t)}</span>
-                  <span className="text-muted-foreground">{percent}%</span>
+                  {percent != null && (
+                    <span className="text-muted-foreground">{percent}%</span>
+                  )}
                 </div>
                 <Progress value={percent} className="h-2" />
               </div>

@@ -67,7 +67,7 @@ export function ComparisonSettingsForm({
             <CardTitle className="text-base">{t("comparator.title")}</CardTitle>
             <HelpDialog titleKey="comparators.comparator.title"><ComparatorsHelp /></HelpDialog>
           </CardHeader>
-          <CardContent className="max-w-md space-y-4">
+          <CardContent className="max-w-xl space-y-4">
             <FormField
               control={form.control}
               name="comparator.ollama_url"

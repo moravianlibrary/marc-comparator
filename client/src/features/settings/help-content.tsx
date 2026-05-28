@@ -29,6 +29,8 @@ export function TasksHelp() {
       <TypographyH3>{t("help.tasks.fields-title")}</TypographyH3>
       <TypographyList>
         <li><strong>{t("tasks-settings.progress-update-interval")}</strong> — {t("help.tasks.progress-update-interval")}</li>
+        <li><strong>{t("tasks-settings.commit-interval")}</strong> — {t("help.tasks.commit-interval")}</li>
+        <li><strong>{t("tasks-settings.analytics-rebuild-interval")}</strong> — {t("help.tasks.analytics-rebuild-interval")}</li>
       </TypographyList>
     </>
   );
@@ -82,9 +84,26 @@ export function ValidatorsHelp() {
       <TypographyH3>{t("help.validators.kramerius-links.fields-title")}</TypographyH3>
       <TypographyList>
         <li><strong>{t("validators.kramerius-links.url-to-pid-pattern")}</strong> — {t("help.validators.kramerius-links.url-to-pid-pattern")}</li>
+        <li><strong>{t("validators.kramerius-links.url-to-pid-wrong-path-pattern")}</strong> — {t("help.validators.kramerius-links.url-to-pid-wrong-path-pattern")}</li>
+        <li><strong>{t("validators.kramerius-links.url-to-pid-fallback-pattern")}</strong> — {t("help.validators.kramerius-links.url-to-pid-fallback-pattern")}</li>
         <li><strong>{t("validators.kramerius-links.link-text-pattern")}</strong> — {t("help.validators.kramerius-links.link-text-pattern")}</li>
         <li><strong>{t("validators.kramerius-links.kramerius-host")}</strong> — {t("help.validators.kramerius-links.kramerius-host")}</li>
         <li><strong>{t("validators.kramerius-links.solr-cloud")}</strong> — {t("help.validators.kramerius-links.solr-cloud")}</li>
+      </TypographyList>
+    </>
+  );
+}
+
+export function MaintenanceHelp() {
+  const { t } = useTranslation("settings");
+  return (
+    <>
+      <TypographyP>{t("help.maintenance.intro")}</TypographyP>
+      <TypographyH3>{t("help.maintenance.fields-title")}</TypographyH3>
+      <TypographyList>
+        <li><strong>{t("maintenance.enabled")}</strong> — {t("help.maintenance.enabled")}</li>
+        <li><strong>{t("maintenance.interval-hours")}</strong> — {t("help.maintenance.interval-hours")}</li>
+        <li><strong>{t("maintenance.max-age-days")}</strong> — {t("help.maintenance.max-age-days")}</li>
       </TypographyList>
     </>
   );

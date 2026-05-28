@@ -21,6 +21,8 @@ export type CatalogSettingsFormValues = z.infer<typeof catalogSettingsSchema>;
 
 export const taskSettingsSchema = z.object({
   progress_update_interval: z.number().int().min(1),
+  commit_interval: z.number().int().min(1),
+  analytics_rebuild_interval: z.number().int().min(0),
 });
 
 export type TaskSettingsFormValues = z.infer<typeof taskSettingsSchema>;
@@ -63,6 +65,8 @@ export type ComparisonSettingsFormValues = z.infer<
 
 export const krameriusLinksConfigSchema = z.object({
   url_to_pid_pattern: z.string().min(1),
+  url_to_pid_wrong_path_pattern: z.string().min(1),
+  url_to_pid_fallback_pattern: z.string().min(1),
   link_text_pattern: z.string().min(1),
   kramerius_host: z.url(),
   kramerius_client_url: z.string().min(1),

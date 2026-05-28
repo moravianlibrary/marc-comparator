@@ -108,7 +108,7 @@ def mock_no_comparator(mocker: MockerFixture) -> MockerFixture:
 def task_settings_one_by_one(db_session: DatabaseSession) -> TaskSettings:
     settings = TaskSettings(
         progress_update_interval=1,
-        indexing_batch_size=1,
+        commit_interval=1,
     )
     return Settings.save(
         db_session,

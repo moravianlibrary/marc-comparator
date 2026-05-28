@@ -1,5 +1,5 @@
 import logging
-from typing import ContextManager, List, Optional
+from typing import Callable, ContextManager, List, Optional
 
 from celery import Celery
 from celery import Task as CeleryTask
@@ -137,15 +137,16 @@ class ManagedTask:
         self.task: Task | None = None
         self.task_settings: TaskSettings | None = None
 
-        self.total: int = 0
+        self.total: int | None = None
         self.progress: int = 0
+        self.before_commit: Callable[[], None] | None = None
 
     def save_task(self):
         self.task.save(self.db_session)
 
     def update_progress(self) -> None:
         self.task.progress = (
-            self.progress / self.total if self.total > 0 else 0.0
+            self.progress / self.total if self.total else None
         )
         self.save_task()
         publish_event(TaskProgressEvent(
@@ -269,7 +270,9 @@ def handle_batch_progress_snippet(ctx: ManagedTask) -> None:
         ctx.update_progress()
 
     # Periodically commit DB changes
-    if ctx.progress % ctx.task_settings.indexing_batch_size == 0:
+    if ctx.progress % ctx.task_settings.commit_interval == 0:
+        if ctx.before_commit:
+            ctx.before_commit()
         ctx.db_session.commit()
 
     # Periodically rebuild analytics + facet cube for live dashboard updates
@@ -293,6 +296,8 @@ def _rebuild_analytics(ctx: ManagedTask) -> None:
 
 def handle_final_batch_snippet(ctx: ManagedTask) -> None:
     """Commit any remaining DB changes and update task progress."""
+    if ctx.before_commit:
+        ctx.before_commit()
     ctx.db_session.commit()
     ctx.update_progress()
 

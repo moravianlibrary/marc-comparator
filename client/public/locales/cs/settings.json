@@ -2,7 +2,7 @@
   "title": "Nastavení",
   "unsaved-warning": "Máte neuložené změny. Uložte nebo zahoďte změny před přepnutím.",
   "types": {
-    "catalog": "Nastavení katalogu",
+    "catalog": "Nastavení Aleph katalogů",
     "tasks": "Nastavení úkolů",
     "authority-linkers": "Nastavení propojení autorit",
     "comparators": "Nastavení porovnávání",
@@ -11,8 +11,8 @@
     "maintenance": "Nastavení údržby"
   },
   "catalog": {
-    "clients": "Klienti katalogu",
-    "add-client": "Přidat klienta",
+    "clients": "Nastavení Aleph katalogů",
+    "add-client": "Přidat katalog",
     "base": "Báze",
     "host": "Adresa serveru",
     "endpoint": "Endpoint",
@@ -25,7 +25,11 @@
   },
   "tasks-settings": {
     "progress-update-interval": "Interval aktualizace průběhu",
-    "progress-update-interval-description": "Počet záznamů mezi aktualizacemi průběhu"
+    "progress-update-interval-description": "Počet záznamů mezi aktualizacemi průběhu",
+    "commit-interval": "Interval ukládání do databáze",
+    "commit-interval-description": "Počet záznamů mezi uloženími změn do databáze",
+    "analytics-rebuild-interval": "Interval přebudování analytiky",
+    "analytics-rebuild-interval-description": "Počet záznamů mezi přebudováním analytiky během běhu úkolu. 0 pro vypnutí."
   },
   "authority-linkers": {
     "knihovny-cz": {
@@ -54,6 +58,8 @@
       "title": "Odkazy na Kramerius",
       "enabled": "Aktivní",
       "url-to-pid-pattern": "Vzor URL na PID",
+      "url-to-pid-wrong-path-pattern": "Vzor URL s nesprávnou cestou",
+      "url-to-pid-fallback-pattern": "Záložní vzor URL na PID",
       "link-text-pattern": "Vzor textu odkazu",
       "kramerius-host": "Adresa serveru Kramerius",
       "kramerius-client-url": "URL klienta Kramerius (výchozí)",
@@ -81,7 +87,7 @@
   "help": {
     "title": "Nápověda",
     "catalog": {
-      "intro": "Nastavení připojení ke katalogům knihoven přes OAI-PMH protokol. Každý klient představuje jednu bázi katalogu, ze které se sklízejí záznamy.",
+      "intro": "Nastavení připojení k Aleph katalogům přes OAI-PMH protokol. Každý klient představuje jednu bázi katalogu, ze které se sklízejí záznamy.",
       "fields-title": "Popis polí",
       "base": "Název báze katalogu (např. MZK01, MZK03). Slouží jako identifikátor v celé aplikaci.",
       "host": "Adresa serveru OAI poskytovatele, ze kterého se stahují záznamy.",
@@ -95,7 +101,9 @@
     "tasks": {
       "intro": "Obecné nastavení chování úkolů v systému.",
       "fields-title": "Popis polí",
-      "progress-update-interval": "Určuje, po kolika zpracovaných záznamech se aktualizuje informace o průběhu úkolu. Nižší hodnota znamená častější aktualizace, ale vyšší zátěž."
+      "progress-update-interval": "Určuje, po kolika zpracovaných záznamech se aktualizuje informace o průběhu úkolu. Nižší hodnota znamená častější aktualizace, ale vyšší zátěž.",
+      "commit-interval": "Určuje, po kolika zpracovaných záznamech se uloží změny do databáze. Nižší hodnota znamená menší riziko ztráty dat při selhání, ale vyšší zátěž databáze.",
+      "analytics-rebuild-interval": "Určuje, po kolika zpracovaných záznamech se přebuduje analytika pro živé aktualizace dashboardu. Hodnota 0 vypne přebudování během běhu úkolu."
     },
     "authority-linkers": {
       "knihovny-cz": {
@@ -123,11 +131,20 @@
       "kramerius-links": {
         "intro": "Validátor odkazů na systém Kramerius. Kontroluje, zda odkazy na digitalizované dokumenty v MARC záznamech vedou na platné a dostupné dokumenty.",
         "fields-title": "Popis polí",
-        "url-to-pid-pattern": "Regulární výraz pro extrakci PID (Persistent IDentifier) z URL odkazu na Kramerius.",
-        "link-text-pattern": "Regulární výraz pro rozpoznání textu odkazu, který odkazuje na Kramerius (např. 'Digitalizovaný dokument').",
+        "url-to-pid-pattern": "Regulární výraz pro extrakci PID z URL odkazu na správný server Kramerius se standardní cestou (/uuid/). Musí obsahovat pojmenovanou skupinu (?P<pid>...).",
+        "url-to-pid-wrong-path-pattern": "Regulární výraz pro extrakci PID z URL na správném serveru, ale s nestandardní cestou (např. bez /uuid/). Musí obsahovat pojmenovanou skupinu (?P<pid>...).",
+        "url-to-pid-fallback-pattern": "Záložní regulární výraz pro extrakci PID z URL na jiném serveru než je očekáváno. Musí obsahovat pojmenovanou skupinu (?P<pid>...).",
+        "link-text-pattern": "Regulární výraz pro rozpoznání textu odkazu v podpoli $y, který odkazuje na Kramerius (např. 'Digitalizovaný dokument').",
         "kramerius-host": "Adresa serveru Kramerius pro ověření dostupnosti odkazovaných dokumentů.",
         "solr-cloud": "Zda Kramerius používá distribuovaný SolrCloud místo samostatného Solr serveru. Ovlivňuje způsob dotazování."
       }
+    },
+    "maintenance": {
+      "intro": "Nastavení automatických údržbových úkolů, které se spouštějí periodicky na pozadí.",
+      "fields-title": "Popis polí",
+      "enabled": "Zapne nebo vypne automatické spouštění daného údržbového úkolu.",
+      "interval-hours": "Jak často se má údržbový úkol spouštět (v hodinách).",
+      "max-age-days": "Maximální stáří úkolů v dnech. Starší úkoly budou automaticky smazány."
     },
     "process-records": {
       "intro": "Nastavení hromadného zpracování záznamů. Definuje, které báze se zpracují a jaké nástroje se při zpracování použijí.",

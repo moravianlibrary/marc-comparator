@@ -12,9 +12,9 @@ class TaskSettings(SettingsSchema):
         100,
         description="Interval (in number of records) to update task progress.",
     )
-    indexing_batch_size: int = Field(
+    commit_interval: int = Field(
         500,
-        description="Number of records to index in a single batch operation.",
+        description="Number of records between database commits.",
     )
     analytics_rebuild_interval: int = Field(
         5000,
@@ -55,7 +55,7 @@ class TaskSummary(BaseModel):
     created_at: datetime
     started_at: datetime | None = None
     finished_at: datetime | None = None
-    progress: float
+    progress: float | None
     traceback_lines: int
 
 

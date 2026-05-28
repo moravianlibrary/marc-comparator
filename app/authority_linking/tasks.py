@@ -327,6 +327,7 @@ async def authority_linking(task_id: str) -> None:
                 ctx.db_session, data.filters
             ).with_entities(CatalogRecord.id).all()
         ]
+        ctx.total = len(record_ids)
 
         for record_id in record_ids:
             catalog_record = ctx.db_session.get(CatalogRecord, record_id)
@@ -356,6 +357,12 @@ async def authority_linking(task_id: str) -> None:
                 for result in results:
                     counters[result] += 1
 
+                handle_batch_progress_snippet(ctx)
+
+            except ValueError as e:
+                ctx.logger.warning(
+                    f"Skipping record {catalog_record.id}: {e}"
+                )
                 handle_batch_progress_snippet(ctx)
 
             except Exception as e:
