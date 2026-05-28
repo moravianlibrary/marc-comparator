@@ -1,3 +1,5 @@
+from concurrent.futures import ThreadPoolExecutor
+
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
@@ -126,55 +128,69 @@ def get_facets_preview(
     else:
         from_clause = TABLE
 
-    # --- Query 1: Scalar/bool facets + totals via GROUPING SETS ---
-    # The empty () set gives us count per target_value (total).
+    # --- Build SQL for 3 concurrent queries ---
     other_gs_cols = [c for c in _GS_COLUMNS if c != target]
     gs_sets = ", ".join(f"({col})" for col in other_gs_cols)
     col_list = ", ".join(other_gs_cols)
-    scalar_rows = db.execute(text(
+    array_fields = [f for f in ARRAY_FACETS if f != target]
+
+    q1_sql = (
         f"SELECT {target_col} AS target_value, {col_list}, count(*) AS cnt "
         f"FROM {from_clause} {where} "
         f"GROUP BY {target_col}, GROUPING SETS ({gs_sets}, ())"
-    ), params).mappings().all()
+    )
 
-    # --- Query 2: All array facets in a single UNION ALL ---
-    array_fields = [f for f in ARRAY_FACETS if f != target]
-    array_results: dict[str, dict[str, list[FacetBucket]]] = {}
-    if array_fields:
-        parts = []
-        for field in array_fields:
-            if target in ARRAY_FACETS:
-                arr_from = f"{TABLE}, unnest({target}) AS t(target_val), unnest({field}) AS t2(val)"
-            else:
-                arr_from = f"{TABLE}, unnest({field}) AS t2(val)"
-            parts.append(
-                f"SELECT {target_col} AS target_value, "
-                f"'{field}' AS facet_field, t2.val, count(*) AS cnt "
-                f"FROM {arr_from} {where} "
-                f"GROUP BY {target_col}, t2.val"
-            )
-        arr_rows = db.execute(
-            text(" UNION ALL ".join(parts)), params
-        ).mappings().all()
-        for r in arr_rows:
-            tv = str(r["target_value"])
-            array_results.setdefault(tv, {}).setdefault(r["facet_field"], []).append(
-                FacetBucket(key=r["val"], count=r["cnt"])
-            )
+    arr_parts = []
+    for field in array_fields:
+        if target in ARRAY_FACETS:
+            arr_from = f"{TABLE}, unnest({target}) AS t(target_val), unnest({field}) AS t2(val)"
+        else:
+            arr_from = f"{TABLE}, unnest({field}) AS t2(val)"
+        arr_parts.append(
+            f"SELECT {target_col} AS target_value, "
+            f"'{field}' AS facet_field, t2.val, count(*) AS cnt "
+            f"FROM {arr_from} {where} "
+            f"GROUP BY {target_col}, t2.val"
+        )
+    q2_sql = " UNION ALL ".join(arr_parts) if arr_parts else None
 
-    # --- Query 3: Histogram grouped by target ---
     if target in ARRAY_FACETS:
         hist_from = f"{TABLE}, unnest({target}) AS t(target_val), unnest(overall_scores) AS t3(val)"
     else:
         hist_from = f"{TABLE}, unnest(overall_scores) AS t3(val)"
-    hist_rows = db.execute(text(
+    q3_sql = (
         f"SELECT {target_col} AS target_value, "
         f"       floor(t3.val / 0.05) * 0.05 AS bucket_min, "
         f"       floor(t3.val / 0.05) * 0.05 + 0.05 AS bucket_max, "
         f"       count(*) AS cnt "
         f"FROM {hist_from} {where} "
         f"GROUP BY {target_col}, bucket_min, bucket_max ORDER BY bucket_min"
-    ), params).mappings().all()
+    )
+
+    # --- Execute all 3 queries concurrently ---
+    engine = db.get_bind()
+
+    def _run(sql):
+        with engine.connect() as conn:
+            return conn.execute(text(sql), params).mappings().all()
+
+    with ThreadPoolExecutor(max_workers=3) as pool:
+        f1 = pool.submit(_run, q1_sql)
+        f2 = pool.submit(_run, q2_sql) if q2_sql else None
+        f3 = pool.submit(_run, q3_sql)
+        scalar_rows = f1.result()
+        arr_rows = f2.result() if f2 else []
+        hist_rows = f3.result()
+
+    # --- Parse array results ---
+    array_results: dict[str, dict[str, list[FacetBucket]]] = {}
+    for r in arr_rows:
+        tv = str(r["target_value"])
+        array_results.setdefault(tv, {}).setdefault(r["facet_field"], []).append(
+            FacetBucket(key=r["val"], count=r["cnt"])
+        )
+
+    # --- Parse histogram ---
     hist_by_target: dict[str, list[HistogramBucket]] = {}
     for r in hist_rows:
         tv = str(r["target_value"])
