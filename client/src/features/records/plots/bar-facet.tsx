@@ -76,7 +76,6 @@ export function BarFacet({
       style={{ height: Math.max(120, data.length * 36) }}
     >
       <BarChart
-        accessibilityLayer
         data={chartData}
         layout="vertical"
         margin={{ right: 48 }}
@@ -94,10 +93,10 @@ export function BarFacet({
             const disabled = isShowingPreview && entry?.preview === 0;
             const w = tickWidth ?? resolvedLabelWidth;
             return (
-              <foreignObject x={x - w} y={y - 18} width={w} height={36}>
+              <foreignObject x={x - w} y={y - 18} width={w} height={36} focusable="false">
                 <div
                   style={{ cursor: disabled ? "default" : "pointer" }}
-                  className="flex items-center justify-end h-full text-xs text-foreground leading-tight pr-2"
+                  className="flex items-center justify-end h-full text-xs text-foreground leading-tight pr-2 outline-none"
                   onClick={(e) => { e.stopPropagation(); if (!disabled) onToggle(key); }}
                   onMouseEnter={() => { if (!disabled) onHover(key); }}
                   onMouseLeave={onLeave}
