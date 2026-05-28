@@ -1,5 +1,6 @@
 import { Outlet } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
+import { useTranslation } from "react-i18next";
 import apiClient from "@/lib/api-client";
 import { useGetMe } from "@/hooks/use-auth";
 import { useWsEvents } from "@/hooks/use-ws-events";
@@ -7,6 +8,7 @@ import { LockBanner } from "./lock-banner";
 import { MainBanner } from "./main-banner";
 
 export function AppLayout() {
+  const { t } = useTranslation("common");
   const {
     isLoading: isHealthLoading,
     isError: isHealthError,
@@ -22,7 +24,7 @@ export function AppLayout() {
   if (isHealthLoading || isMeLoading) {
     return (
       <div className="flex h-screen items-center justify-center">
-        <div className="text-muted-foreground">Načítání...</div>
+        <div className="text-muted-foreground">{t("loading")}</div>
       </div>
     );
   }

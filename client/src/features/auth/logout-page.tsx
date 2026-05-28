@@ -1,7 +1,9 @@
 import { useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useLogout } from "@/hooks/use-auth";
 
 export function LogoutPage() {
+  const { t } = useTranslation("auth");
   const logout = useLogout();
 
   useEffect(() => {
@@ -10,7 +12,7 @@ export function LogoutPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center">
-      <div className="text-muted-foreground">Odhlašování...</div>
+      <div className="text-muted-foreground">{t("logging-out")}</div>
     </div>
   );
 }
