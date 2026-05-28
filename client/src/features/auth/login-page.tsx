@@ -3,8 +3,9 @@ import { useNavigate, useSearchParams, Link } from "react-router-dom";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslation } from "react-i18next";
-import { ChevronDown, Moon, Sun } from "lucide-react";
-import { useTheme } from "next-themes";
+import { ChevronDown } from "lucide-react";
+import { ThemeToggle } from "@/components/theme-toggle";
+import { AppLogo } from "@/components/app-logo";
 import { useLogin, useOidcEnabled } from "@/hooks/use-auth";
 import { loginSchema, type LoginFormValues } from "./schemas";
 import { Separator } from "@/components/ui/separator";
@@ -32,7 +33,6 @@ export function LoginPage() {
   const redirectTo = searchParams.get("redirect") || "/";
   const login = useLogin();
   const { data: oidc } = useOidcEnabled();
-  const { resolvedTheme, setTheme } = useTheme();
   const [emailFormOpen, setEmailFormOpen] = useState(false);
 
   const isOidcDefault = oidc?.enabled && oidc?.default;
@@ -122,22 +122,10 @@ export function LoginPage() {
 
   return (
     <div className="relative flex min-h-screen items-center justify-center bg-muted/50">
-      <Button
-        variant="ghost"
-        size="icon"
-        className="absolute right-4 top-4"
-        onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
-      >
-        <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-        <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-      </Button>
+      <ThemeToggle className="absolute right-4 top-4" />
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <img
-            src={resolvedTheme === "dark" ? "/marcomparator-logo-transparent.png" : "/marcomparator-logo-dark-text-transparent.png"}
-            alt="MARC Comparator"
-            className="mx-auto mb-4 h-16 w-auto"
-          />
+          <AppLogo />
           <CardTitle>{t("login.title")}</CardTitle>
           <CardDescription>{t("login.subtitle")}</CardDescription>
         </CardHeader>

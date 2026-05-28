@@ -2,8 +2,8 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
-import { CircleHelp, LogOut, Moon, Sun } from "lucide-react";
-import { useTheme } from "next-themes";
+import { CircleHelp, LogOut } from "lucide-react";
+import { ThemeToggle } from "@/components/theme-toggle";
 import apiClient from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { useGetMe, useLogout } from "@/hooks/use-auth";
@@ -20,7 +20,6 @@ export function MainBanner() {
   const { t } = useTranslation();
   const { data: me } = useGetMe();
   const logout = useLogout();
-  const { theme, setTheme } = useTheme();
   const { hasPermission } = useHasPermission();
   const [showHelp, setShowHelp] = useState(false);
 
@@ -80,15 +79,7 @@ export function MainBanner() {
       <TaskProgress runningTasks={runningTasks} />
       <ToastHistory />
 
-      <Button
-        variant="ghost"
-        size="icon"
-        title={theme === "dark" ? t("common:theme.light") : t("common:theme.dark")}
-        onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-      >
-        <Sun className="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-        <Moon className="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-      </Button>
+      <ThemeToggle />
 
       {me && (
         <div className="flex items-center gap-2">
