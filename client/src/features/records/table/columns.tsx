@@ -170,6 +170,7 @@ export function createColumns(
                     g.status === "Valid" && "border-green-500 text-green-700 dark:text-green-400",
                     g.status === "Invalid" && "border-red-500 text-red-700 dark:text-red-400",
                     g.status === "ForReview" && "border-yellow-500 text-yellow-700 dark:text-yellow-400",
+                    g.status === "AdditionalInfo" && "border-blue-500 text-blue-700 dark:text-blue-400",
                     onNavigate && "cursor-pointer hover:bg-accent",
                   )}
                   onClick={onNavigate ? (e) => { e.stopPropagation(); onNavigate(row.index, viewKey); } : undefined}
