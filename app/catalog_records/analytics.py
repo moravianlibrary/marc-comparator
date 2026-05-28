@@ -122,11 +122,11 @@ _ANALYTICS_SELECT = """
 
         array_agg(DISTINCT v.validator)
             FILTER (WHERE v.validator IS NOT NULL)                  AS validators,
-        array_agg(DISTINCT (v.result->>'status'))
+        array_agg(DISTINCT (v.validator || ':' || (v.result->>'status')))
             FILTER (WHERE v.result->>'status' IS NOT NULL)         AS validation_statuses,
         array_agg(DISTINCT (v.result->'target'->>'tag'))
             FILTER (WHERE v.result->'target'->>'tag' IS NOT NULL)  AS validation_target_tags,
-        array_agg(DISTINCT (v.result->>'reason'))
+        array_agg(DISTINCT (v.validator || ':' || (v.result->>'reason')))
             FILTER (WHERE v.result->>'reason' IS NOT NULL)         AS validation_reasons,
 
         array_agg(DISTINCT rr.aspect_name)

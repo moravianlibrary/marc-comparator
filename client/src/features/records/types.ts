@@ -161,9 +161,7 @@ export interface ValidationResult {
   target: { tag: string; codes: string[] | null; field_index: number | null };
   status: string;
   reason: string | null;
-  details: string | null;
-  details_params: Record<string, string> | null;
-  hint: string | null;
+  params: Record<string, string> | null;
 }
 
 // --- Comparison/validation detail responses (from per-record endpoints) ---

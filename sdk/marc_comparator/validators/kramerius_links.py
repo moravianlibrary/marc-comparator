@@ -187,9 +187,7 @@ class KrameriusLinksValidator(BaseValidator):
         def add_result(
             status: ValidityStatus = ValidityStatus.Invalid,
             reason: str | None = None,
-            details: str | None = None,
-            details_params: dict | None = None,
-            hint: str | None = None,
+            params: dict | None = None,
             field_index: int | None = None,
         ):
             results.append(
@@ -201,9 +199,7 @@ class KrameriusLinksValidator(BaseValidator):
                         field_index=field_index,
                     ),
                     reason=reason,
-                    details=details,
-                    details_params=details_params,
-                    hint=hint,
+                    params=params,
                 )
             )
 
@@ -222,15 +218,8 @@ class KrameriusLinksValidator(BaseValidator):
 
                 add_result(
                     status=ValidityStatus.ForReview,
-                    reason="Missing link text in $y",
-                    details=(
-                        "Field 856 is missing expected link text "
-                        f"matching pattern: {self.config.link_text_pattern}"
-                    ),
-                    details_params={
-                        "pattern": self.config.link_text_pattern,
-                    },
-                    hint="Add appropriate link text to subfield $y.",
+                    reason="missing_link_text",
+                    params={"pattern": self.config.link_text_pattern},
                     field_index=field_idx,
                 )
 
@@ -251,16 +240,11 @@ class KrameriusLinksValidator(BaseValidator):
                     pid_field_index.setdefault(pid, field_idx)
                     add_result(
                         status=ValidityStatus.AdditionalInfo,
-                        reason="Non-standard URL path",
-                        details=(
-                            f"Link '{v}' points to the correct server "
-                            "but uses a non-standard path (expected /uuid/)."
-                        ),
-                        details_params={"value": v},
-                        hint=(
-                            "Update the link to use the standard format: "
-                            f"{self.config.kramerius_client_url}"
-                        ),
+                        reason="non_standard_url_path",
+                        params={
+                            "value": v,
+                            "url": self.config.kramerius_client_url,
+                        },
                         field_index=field_idx,
                     )
                     continue
@@ -273,31 +257,21 @@ class KrameriusLinksValidator(BaseValidator):
                     pid_field_index.setdefault(pid, field_idx)
                     add_result(
                         status=ValidityStatus.AdditionalInfo,
-                        reason="Wrong Kramerius client URL",
-                        details=(
-                            f"Link '{v}' contains a valid PID "
-                            "but points to a different server than expected."
-                        ),
-                        details_params={"value": v},
-                        hint=(
-                            "Update the link to point to the correct server: "
-                            f"{self.config.kramerius_client_url}"
-                        ),
+                        reason="wrong_kramerius_client_url",
+                        params={
+                            "value": v,
+                            "url": self.config.kramerius_client_url,
+                        },
                         field_index=field_idx,
                     )
                     continue
 
                 add_result(
-                    reason="Invalid Kramerius link format",
-                    details=(
-                        f"Link '{v}' does not contain "
-                        "a recognizable Kramerius PID."
-                    ),
-                    details_params={"value": v},
-                    hint=(
-                        "Ensure the link follows the expected format: "
-                        f"{self.config.kramerius_client_url}"
-                    ),
+                    reason="invalid_link_format",
+                    params={
+                        "value": v,
+                        "url": self.config.kramerius_client_url,
+                    },
                     field_index=field_idx,
                 )
 
@@ -309,11 +283,7 @@ class KrameriusLinksValidator(BaseValidator):
             if not results:
                 add_result(
                     status=ValidityStatus.Valid,
-                    reason="No Kramerius links found or expected",
-                    details=(
-                        "Record contains no Kramerius links, "
-                        "and no matching documents exist."
-                    ),
+                    reason="no_links_found_or_expected",
                 )
 
             return results
@@ -326,36 +296,22 @@ class KrameriusLinksValidator(BaseValidator):
 
             if link.level > 0:
                 add_result(
-                    reason="Kramerius link points to non-top-level document",
-                    details=(
-                        f"Document with PID '{link.pid}' "
-                        f"and model '{link.model.value}' "
-                        f"is at level {link.level} "
-                        "and not a top-level document."
-                    ),
-                    details_params={
+                    reason="non_top_level_document",
+                    params={
                         "pid": link.pid,
                         "model": link.model.value,
                         "level": str(link.level),
                     },
-                    hint="Link should point to a top-level document.",
                 )
 
             elif link.has_wrong_model:
                 add_result(
                     status=ValidityStatus.AdditionalInfo,
-                    reason="Found Kramerius document with non-linkable model",
-                    details=(
-                        f"Found document with PID '{link.pid}' "
-                        f"and model '{link.model.value}' in Kramerius. "
-                        "This model type is not expected to be linked "
-                        "from a catalog record."
-                    ),
-                    details_params={
+                    reason="non_linkable_model",
+                    params={
                         "pid": link.pid,
                         "model": link.model.value,
                     },
-                    hint="Check integrity of the data in Kramerius.",
                 )
 
             else:
@@ -368,35 +324,22 @@ class KrameriusLinksValidator(BaseValidator):
         for pid in current_set & valid_set:
             add_result(
                 status=ValidityStatus.Valid,
-                reason="Valid Kramerius link",
-                details=(
-                    f"PID '{pid}' is well-formed "
-                    "and matches an existing Kramerius document."
-                ),
-                details_params={"pid": pid},
+                reason="valid_link",
+                params={"pid": pid},
                 field_index=pid_field_index.get(pid),
             )
 
         for pid in current_set - found_set:
             add_result(
-                reason="Link not found in Kramerius",
-                details=(
-                    f"PID '{pid}' is present in MARC "
-                    "but not found in Kramerius."
-                ),
-                details_params={"pid": pid},
-                hint="Remove or correct the invalid Kramerius link.",
+                reason="link_not_found",
+                params={"pid": pid},
                 field_index=pid_field_index.get(pid),
             )
 
         for pid in valid_set - current_set:
             add_result(
-                reason="Missing Kramerius link in MARC",
-                details=(
-                    f"PID '{pid}' exists in Kramerius but not in MARC record."
-                ),
-                details_params={"pid": pid},
-                hint="Add a corresponding 856$u for this PID.",
+                reason="missing_link_in_marc",
+                params={"pid": pid},
             )
 
         return results

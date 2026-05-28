@@ -106,9 +106,5 @@ class Validation(Base):
         return self.validation_result.reason
 
     @property
-    def details(self) -> str | None:
-        return self.validation_result.details
-
-    @property
-    def hint(self) -> str | None:
-        return self.validation_result.hint
+    def params(self) -> dict | None:
+        return self.validation_result.params

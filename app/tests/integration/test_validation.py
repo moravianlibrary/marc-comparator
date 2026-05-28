@@ -70,7 +70,7 @@ def mock_validator_result(mocker: MockerFixture) -> MockerFixture:
                 ValidationResult(
                     target=ValidationTarget(tag="001"),
                     status=ValidityStatus.Valid,
-                    reason="Mock validation passed",
+                    reason="mock_passed",
                 )
             ]
 
@@ -113,7 +113,7 @@ def validation(
         result={
             "target": {"tag": "001"},
             "status": "valid",
-            "reason": "Mock validation passed",
+            "reason": "mock_passed",
         },
     )
     db_session.add(validation)

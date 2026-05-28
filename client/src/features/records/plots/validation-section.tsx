@@ -6,18 +6,22 @@ import type { FacetBucket } from "../types";
 import type { ChartId } from "./use-section-visibility";
 
 const REASON_TO_STATUS: Record<string, string> = {
-  "Missing link text in $y": "ForReview",
-  "Invalid Kramerius link format": "Invalid",
-  "Non-standard Kramerius link format": "AdditionalInfo",
-  "Non-standard URL path": "AdditionalInfo",
-  "Wrong Kramerius client URL": "AdditionalInfo",
-  "No Kramerius links found or expected": "Valid",
-  "Kramerius link points to non-top-level document": "Invalid",
-  "Found Kramerius document with non-linkable model": "AdditionalInfo",
-  "Valid Kramerius link": "Valid",
-  "Link not found in Kramerius": "Invalid",
-  "Missing Kramerius link in MARC": "Invalid",
+  missing_link_text: "ForReview",
+  invalid_link_format: "Invalid",
+  non_standard_url_path: "AdditionalInfo",
+  wrong_kramerius_client_url: "AdditionalInfo",
+  no_links_found_or_expected: "Valid",
+  non_top_level_document: "Invalid",
+  non_linkable_model: "AdditionalInfo",
+  valid_link: "Valid",
+  link_not_found: "Invalid",
+  missing_link_in_marc: "Invalid",
 };
+
+function stripPrefix(key: string): string {
+  const i = key.indexOf(":");
+  return i >= 0 ? key.slice(i + 1) : key;
+}
 
 interface ValidatorData {
   validator: string;
@@ -82,21 +86,25 @@ export function ValidationSection({
                 >
                   {(chartProps) => {
                     const rawByTranslated = new Map(
-                      chartProps.data.map((b) => [t(`validation-reason.${b.key}`, b.key), b.key]),
+                      chartProps.data.map((b) => {
+                        const reason = stripPrefix(b.key);
+                        return [t(`validation-reason.${reason}`, reason), b.key];
+                      }),
                     );
                     const translatedData = chartProps.data.map((b) => ({
                       ...b,
-                      key: t(`validation-reason.${b.key}`, b.key),
+                      key: t(`validation-reason.${stripPrefix(b.key)}`, stripPrefix(b.key)),
                     }));
                     const translatedPreview = chartProps.previewData?.map((b) => ({
                       ...b,
-                      key: t(`validation-reason.${b.key}`, b.key),
+                      key: t(`validation-reason.${stripPrefix(b.key)}`, stripPrefix(b.key)),
                     }));
                     const labelIndicators: Record<string, string> = {};
                     for (const b of chartProps.data) {
-                      const status = REASON_TO_STATUS[b.key];
+                      const reason = stripPrefix(b.key);
+                      const status = REASON_TO_STATUS[reason];
                       if (status && STATUS_COLORS[status]) {
-                        const translatedKey = t(`validation-reason.${b.key}`, b.key);
+                        const translatedKey = t(`validation-reason.${reason}`, reason);
                         labelIndicators[translatedKey] = STATUS_COLORS[status];
                       }
                     }
@@ -105,7 +113,7 @@ export function ValidationSection({
                         data={translatedData}
                         previewData={translatedPreview}
                         activeValues={chartProps.activeValues.map(
-                          (v) => t(`validation-reason.${v}`, v),
+                          (v) => t(`validation-reason.${stripPrefix(v)}`, stripPrefix(v)),
                         )}
                         onToggle={(translated) =>
                           chartProps.onToggle(rawByTranslated.get(translated) ?? translated)

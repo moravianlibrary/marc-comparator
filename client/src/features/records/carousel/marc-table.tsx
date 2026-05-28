@@ -362,34 +362,7 @@ function ComparisonFieldAnnotation({ annotation }: { annotation: FieldComparison
 
 const PID_REGEX = /uuid:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/g;
 
-function extractDetailsParams(text: string): Record<string, string> {
-  const params: Record<string, string> = {};
-  const pidMatch = text.match(PID_REGEX);
-  if (pidMatch) params.pid = pidMatch[0];
-  const modelMatch = text.match(/model '([^']+)'/);
-  if (modelMatch) params.model = modelMatch[1];
-  const levelMatch = text.match(/level (\d+)/);
-  if (levelMatch) params.level = levelMatch[1];
-  const valueMatch = text.match(/Value '([^']+)'/);
-  if (valueMatch) params.value = valueMatch[1];
-  const patternMatch = text.match(/pattern: (.+)$/);
-  if (patternMatch) params.pattern = patternMatch[1];
-  return params;
-}
-
-function extractHintParams(text: string): Record<string, string> {
-  const params: Record<string, string> = {};
-  const colonIdx = text.lastIndexOf(": ");
-  if (colonIdx !== -1) {
-    const tail = text.slice(colonIdx + 2);
-    if (tail.startsWith("http")) {
-      params.url = tail;
-    }
-  }
-  return params;
-}
-
-function renderDetailsWithPidLinks(text: string, krameriusClientUrl?: string) {
+function renderTextWithPidLinks(text: string, krameriusClientUrl?: string) {
   if (!krameriusClientUrl) return text;
   const parts: (string | JSX.Element)[] = [];
   let lastIndex = 0;
@@ -411,6 +384,7 @@ function renderDetailsWithPidLinks(text: string, krameriusClientUrl?: string) {
 
 function ValidationFieldAnnotation({ annotation, krameriusClientUrl }: { annotation: ValidationResult; krameriusClientUrl?: string }) {
   const { t } = useTranslation("records");
+  const params = annotation.params ?? {};
   return (
     <div className="space-y-0.5">
       <span
@@ -424,26 +398,20 @@ function ValidationFieldAnnotation({ annotation, krameriusClientUrl }: { annotat
       >
         {t(`validity-status.${annotation.status}`, { defaultValue: annotation.status })}
         {annotation.reason && (
-          <> - {t(`validation-reason.${annotation.reason}`, { defaultValue: annotation.reason })}</>
+          <> - {t(`validation-reason.${annotation.reason}`, { ...params, defaultValue: annotation.reason })}</>
         )}
       </span>
-      {annotation.details && annotation.reason && (
+      {annotation.reason && t(`validation-detail.${annotation.reason}`, { ...params, defaultValue: "" }) && (
         <p className="text-xs text-muted-foreground">
-          {renderDetailsWithPidLinks(
-            t(`validation-detail.${annotation.reason}`, {
-              ...(annotation.details_params ?? extractDetailsParams(annotation.details)),
-              defaultValue: annotation.details,
-            }),
+          {renderTextWithPidLinks(
+            t(`validation-detail.${annotation.reason}`, params),
             krameriusClientUrl,
           )}
         </p>
       )}
-      {annotation.hint && annotation.reason && (
+      {annotation.reason && t(`validation-hint.${annotation.reason}`, { ...params, defaultValue: "" }) && (
         <p className="text-xs text-muted-foreground/70">
-          {t(`validation-hint.${annotation.reason}`, {
-            ...extractHintParams(annotation.hint),
-            defaultValue: annotation.hint,
-          })}
+          {t(`validation-hint.${annotation.reason}`, params)}
         </p>
       )}
     </div>

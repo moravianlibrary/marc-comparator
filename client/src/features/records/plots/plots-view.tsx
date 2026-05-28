@@ -180,10 +180,16 @@ export function PlotsView() {
     bibliographic_level: (v) => t(`bibliographic-level.${v}`, { defaultValue: v }),
     validators: (v) => t(`validator-name.${v}`, { defaultValue: v }),
     match_qualities: (v) => t(`match-quality.${v}`, { defaultValue: v }),
-    validation_statuses: (v) => t(`validity-status.${v}`, { defaultValue: v }),
+    validation_statuses: (v) => {
+      const s = v.includes(":") ? v.slice(v.indexOf(":") + 1) : v;
+      return t(`validity-status.${s}`, { defaultValue: s });
+    },
     field_explanations: (v) => t(`field-explanation.${v}`, { defaultValue: v }),
     authority_link_linkers: (v) => t(`linker-name.${v}`, { defaultValue: v }),
-    validation_reasons: (v) => t(`validation-reason.${v}`, { defaultValue: v }),
+    validation_reasons: (v) => {
+      const r = v.includes(":") ? v.slice(v.indexOf(":") + 1) : v;
+      return t(`validation-reason.${r}`, { defaultValue: r });
+    },
   };
   for (const field of allFacetFields) {
     const values = getActiveValues(field);

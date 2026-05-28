@@ -161,27 +161,33 @@ def validate(
                 record = MarcRecord.from_mrc(f.read())
 
             for result in asyncio.run(validator_inst.run(record)):
-                report_data.append(
-                    {
-                        "path": path,
-                        "validator": validator,
-                        "tag": result.target.tag,
-                        "codes": (
-                            ",".join(result.target.codes)
-                            if result.target.codes
-                            else None
-                        ),
-                        "status": result.status.value,
-                        "reason": result.reason,
-                        "details": result.details,
-                        "hint": result.hint,
-                    }
-                )
+                row = {
+                    "path": path,
+                    "validator": validator,
+                    "tag": result.target.tag,
+                    "codes": (
+                        ",".join(result.target.codes)
+                        if result.target.codes
+                        else None
+                    ),
+                    "status": result.status.value,
+                    "reason": result.reason,
+                }
+                if result.params:
+                    for k, v in result.params.items():
+                        row[k] = v
+                report_data.append(row)
 
     if report_data:
-        fieldnames = report_data[0].keys()
+        seen = set()
+        fieldnames = []
+        for row in report_data:
+            for k in row:
+                if k not in seen:
+                    seen.add(k)
+                    fieldnames.append(k)
         with open(output, "w", newline="", encoding="utf-8") as f:
-            writer = csv.DictWriter(f, fieldnames=fieldnames)
+            writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
             writer.writeheader()
             writer.writerows(report_data)
 

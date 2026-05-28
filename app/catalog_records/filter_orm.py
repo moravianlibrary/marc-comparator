@@ -108,10 +108,13 @@ def _compile_one(query, c: FilterCondition):
             return query
 
         case FilterField.ValidationStatuses:
-            status_col = Validation._result["status"].as_string()
             for val in c.value:
+                validator, status = val.split(":", 1) if ":" in val else (None, val)
+                conditions = [Validation._result["status"].as_string() == status]
+                if validator:
+                    conditions.append(Validation.validator == validator)
                 query = query.filter(
-                    CatalogRecord.validations.any(status_col == val)
+                    CatalogRecord.validations.any(and_(*conditions))
                 )
             return query
 
@@ -124,10 +127,13 @@ def _compile_one(query, c: FilterCondition):
             return query
 
         case FilterField.ValidationReasons:
-            reason_col = Validation._result["reason"].as_string()
             for val in c.value:
+                validator, reason = val.split(":", 1) if ":" in val else (None, val)
+                conditions = [Validation._result["reason"].as_string() == reason]
+                if validator:
+                    conditions.append(Validation.validator == validator)
                 query = query.filter(
-                    CatalogRecord.validations.any(reason_col == val)
+                    CatalogRecord.validations.any(and_(*conditions))
                 )
             return query
 

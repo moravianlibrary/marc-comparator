@@ -26,18 +26,15 @@ class ValidationResult(BaseModel):
     Attributes:
         status: The validity status (e.g., Valid, Invalid).
         target: The field in the MARC record that was validated.
-        reason: A short reason for the validation result.
-        details: Optional additional context or data.
-        hint: Optional guidance for fixing the issue.
+        reason: Identifier key for the validation result.
+        params: Contextual parameters associated with the result.
     """
 
     target: ValidationTarget
     status: ValidityStatus
 
     reason: str | None = None
-    details: str | None = None
-    details_params: Dict[str, str] | None = None
-    hint: str | None = None
+    params: Dict[str, str] | None = None
 
 
 class BaseValidator(ABC):

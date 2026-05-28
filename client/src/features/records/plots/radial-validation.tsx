@@ -28,6 +28,11 @@ export const STATUS_COLORS: Record<string, string> = {
   AdditionalInfo: "var(--status-info)",
 };
 
+function stripPrefix(key: string): string {
+  const i = key.indexOf(":");
+  return i >= 0 ? key.slice(i + 1) : key;
+}
+
 export function RadialValidation({
   data,
   previewData,
@@ -55,8 +60,9 @@ export function RadialValidation({
 
   // One entry per status, rendered as concentric rings (innermost first in data)
   const chartData = STATUS_ORDER.map((status) => {
-    const bucket = data.find((b) => b.key === status);
-    const previewCount = previewData?.find((p) => p.key === status)?.count ?? 0;
+    const bucket = data.find((b) => stripPrefix(b.key) === status);
+    const previewCount = previewData?.find((p) => stripPrefix(p.key) === status)?.count ?? 0;
+    const rawKey = bucket?.key ?? status;
     // Scale preview relative to previewTotal so shadow tracks fill proportionally
     const minArc = total * 0.03;
     const rawPreview =
@@ -66,7 +72,8 @@ export function RadialValidation({
     const scaledPreview = rawPreview > 0 ? Math.max(rawPreview, minArc) : 0;
     return {
       name: t(`validity-status.${status}`),
-      key: status,
+      key: rawKey,
+      status,
       count: bucket?.count ?? 0,
       preview: scaledPreview,
       rawPreview: previewCount,
@@ -112,8 +119,8 @@ export function RadialValidation({
               >
                 {chartData.map((entry) => (
                   <Cell
-                    key={entry.key}
-                    fill={`color-mix(in oklch, ${STATUS_COLORS[entry.key]} 25%, transparent)`}
+                    key={entry.status}
+                    fill={`color-mix(in oklch, ${STATUS_COLORS[entry.status]} 25%, transparent)`}
                   />
                 ))}
               </RadialBar>
@@ -135,10 +142,11 @@ export function RadialValidation({
       </div>
       <div className="flex flex-col gap-2 text-xs">
         {STATUS_ORDER.toReversed().map((status) => {
-          const bucket = data.find((b) => b.key === status);
+          const bucket = data.find((b) => stripPrefix(b.key) === status);
+          const rawKey = bucket?.key ?? status;
           const count = bucket?.count ?? 0;
-          const previewCount = previewData?.find((p) => p.key === status)?.count ?? 0;
-          const isActive = activeValues.includes(status);
+          const previewCount = previewData?.find((p) => stripPrefix(p.key) === status)?.count ?? 0;
+          const isActive = activeValues.some((v) => stripPrefix(v) === status);
           const isDisabled = !isActive && (count === 0 || (isShowingPreview && previewCount === 0));
           return (
             <button
@@ -150,8 +158,8 @@ export function RadialValidation({
                   ? "opacity-30 cursor-not-allowed"
                   : activeValues.length > 0 && !isActive && "opacity-40",
               )}
-              onClick={() => onToggle(status)}
-              onMouseEnter={() => onHover(status)}
+              onClick={() => onToggle(rawKey)}
+              onMouseEnter={() => onHover(rawKey)}
               onMouseLeave={onLeave}
             >
               <span
