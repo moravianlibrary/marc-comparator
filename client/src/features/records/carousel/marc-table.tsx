@@ -411,14 +411,12 @@ function ValidationFieldAnnotation({ annotation, krameriusClientUrl }: { annotat
         )}
       >
         {t(`validity-status.${annotation.status}`, { defaultValue: annotation.status })}
+        {annotation.reason && (
+          <> - {t(`validation-reason.${annotation.reason}`, { defaultValue: annotation.reason })}</>
+        )}
       </span>
-      {annotation.reason && (
-        <p className="text-xs text-muted-foreground">
-          {t(`validation-reason.${annotation.reason}`, { defaultValue: annotation.reason })}
-        </p>
-      )}
       {annotation.details && annotation.reason && (
-        <p className="text-xs text-muted-foreground/70">
+        <p className="text-xs text-muted-foreground">
           {renderDetailsWithPidLinks(
             t(`validation-detail.${annotation.reason}`, {
               ...(annotation.details_params ?? extractDetailsParams(annotation.details)),
@@ -429,7 +427,7 @@ function ValidationFieldAnnotation({ annotation, krameriusClientUrl }: { annotat
         </p>
       )}
       {annotation.hint && (
-        <p className="text-xs text-muted-foreground/70 italic">
+        <p className="text-xs text-muted-foreground/70">
           {t(`validation-hint.${annotation.hint}`, { defaultValue: annotation.hint })}
         </p>
       )}

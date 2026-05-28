@@ -1,9 +1,21 @@
 import { useTranslation } from "react-i18next";
 import { FacetChart } from "./facet-chart";
 import { BarFacet } from "./bar-facet";
-import { RadialValidation } from "./radial-validation";
+import { RadialValidation, STATUS_COLORS } from "./radial-validation";
 import type { FacetBucket } from "../types";
 import type { ChartId } from "./use-section-visibility";
+
+const REASON_TO_STATUS: Record<string, string> = {
+  "Missing link text in $y": "ForReview",
+  "Invalid Kramerius link format": "Invalid",
+  "Non-standard Kramerius link format": "AdditionalInfo",
+  "No Kramerius links found or expected": "Valid",
+  "Kramerius link points to non-top-level document": "Invalid",
+  "Found Kramerius document with non-linkable model": "AdditionalInfo",
+  "Valid Kramerius link": "Valid",
+  "Link not found in Kramerius": "Invalid",
+  "Missing Kramerius link in MARC": "Invalid",
+};
 
 interface ValidatorData {
   validator: string;
@@ -78,6 +90,14 @@ export function ValidationSection({
                       ...b,
                       key: t(`validation-reason.${b.key}`, b.key),
                     }));
+                    const labelIndicators: Record<string, string> = {};
+                    for (const b of chartProps.data) {
+                      const status = REASON_TO_STATUS[b.key];
+                      if (status && STATUS_COLORS[status]) {
+                        const translatedKey = t(`validation-reason.${b.key}`, b.key);
+                        labelIndicators[translatedKey] = STATUS_COLORS[status];
+                      }
+                    }
                     return (
                       <BarFacet
                         data={translatedData}
@@ -93,6 +113,7 @@ export function ValidationSection({
                         }
                         onLeave={chartProps.onLeave}
                         labelWidth="50%"
+                        labelIndicators={labelIndicators}
                       />
                     );
                   }}

@@ -21,7 +21,7 @@ interface RadialValidationProps {
 
 const STATUS_ORDER = ["AdditionalInfo", "Invalid", "ForReview", "Valid"] as const;
 
-const STATUS_COLORS: Record<string, string> = {
+export const STATUS_COLORS: Record<string, string> = {
   Valid: "var(--status-success)",
   ForReview: "var(--status-warning)",
   Invalid: "var(--status-danger)",

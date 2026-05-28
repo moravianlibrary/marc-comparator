@@ -19,6 +19,8 @@ interface BarFacetProps {
   formatLabel?: (key: string) => string;
   /** Width of the Y-axis label column. A number is pixels; a string like "50%" is relative to container width. Default: 100. */
   labelWidth?: number | string;
+  /** Optional map from label key to CSS color value. When present, a small colored circle is rendered before the label text. */
+  labelIndicators?: Record<string, string>;
 }
 
 export function BarFacet({
@@ -30,6 +32,7 @@ export function BarFacet({
   onLeave,
   formatLabel,
   labelWidth = 100,
+  labelIndicators,
 }: BarFacetProps) {
   const { t } = useTranslation();
   const chartConfig = useMemo<ChartConfig>(() => ({
@@ -99,6 +102,12 @@ export function BarFacet({
                   onMouseEnter={() => { if (!disabled) onHover(key); }}
                   onMouseLeave={onLeave}
                 >
+                  {labelIndicators?.[key] && (
+                    <span
+                      className="inline-block h-2 w-2 rounded-full flex-shrink-0 mr-1.5"
+                      style={{ backgroundColor: labelIndicators[key] }}
+                    />
+                  )}
                   <span className="text-right line-clamp-2">{payload.value}</span>
                 </div>
               </foreignObject>
