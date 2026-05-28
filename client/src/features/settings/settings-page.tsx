@@ -35,6 +35,7 @@ import {
   TasksHelp,
   ProcessRecordsHelp,
 } from "./help-content";
+import { SkeletonForm } from "@/components/skeletons/skeleton-form";
 
 const SETTINGS_SCOPES: SettingsScope[] = [
   "catalog",
@@ -111,7 +112,7 @@ export function SettingsPage() {
   }, [pendingScope]);
 
   function renderForm() {
-    if (isLoading || !settings) return null;
+    if (isLoading || !settings) return <SkeletonForm fields={6} />;
 
     const commonProps = {
       data: settings,
