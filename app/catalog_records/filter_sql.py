@@ -1,17 +1,5 @@
 from .filter_spec import FilterCondition, FilterField
 
-ARRAY_FACETS = [
-    "authority_link_linkers",
-    "authority_link_bases",
-    "comparison_bases",
-    "match_qualities",
-    "validators",
-    "validation_statuses",
-    "validation_target_tags",
-    "validation_reasons",
-    "field_explanations",
-]
-
 
 def compile_conditions(conditions: list[FilterCondition]) -> tuple[str, dict]:
     """Compile filter conditions to a SQL WHERE clause for the analytics table."""
