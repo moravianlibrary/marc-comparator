@@ -25,10 +25,7 @@ export function TaskProgress({ runningTasks }: TaskProgressProps) {
   if (!task) return null;
 
   if (runningTasks.length === 1) {
-    const percent =
-      task.progress != null && task.total != null && task.total > 0
-        ? Math.round((task.progress / task.total) * 100)
-        : 0;
+    const percent = Math.round(task.progress * 100);
 
     return (
       <div
@@ -54,10 +51,7 @@ export function TaskProgress({ runningTasks }: TaskProgressProps) {
       <PopoverContent className="w-80">
         <div className="space-y-3">
           {runningTasks.map((task) => {
-            const percent =
-              task.progress != null && task.total != null && task.total > 0
-                ? Math.round((task.progress / task.total) * 100)
-                : 0;
+            const percent = Math.round(task.progress * 100);
 
             return (
               <div
