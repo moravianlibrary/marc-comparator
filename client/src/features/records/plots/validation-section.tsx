@@ -8,14 +8,16 @@ import type { ChartId } from "./use-section-visibility";
 const REASON_TO_STATUS: Record<string, string> = {
   missing_link_text: "ForReview",
   invalid_link_format: "Invalid",
-  non_standard_url_path: "AdditionalInfo",
-  wrong_kramerius_client_url: "AdditionalInfo",
   no_links_found_or_expected: "Valid",
   non_top_level_document: "Invalid",
   non_linkable_model: "AdditionalInfo",
   valid_link: "Valid",
   link_not_found: "Invalid",
   missing_link_in_marc: "Invalid",
+  wrong_path_found: "AdditionalInfo",
+  wrong_path_not_found: "AdditionalInfo",
+  wrong_server_found: "Invalid",
+  wrong_server_not_found: "Invalid",
 };
 
 function stripPrefix(key: string): string {

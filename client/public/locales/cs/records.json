@@ -259,8 +259,10 @@
     "link_not_found": "Odkaz nenalezen v Kramerius",
     "missing_link_in_marc": "Chybějící odkaz Kramerius v MARC",
     "valid_link": "Platný odkaz na Kramerius",
-    "non_standard_url_path": "Nestandardní cesta v URL",
-    "wrong_kramerius_client_url": "Nesprávný server v odkazu Kramerius"
+    "wrong_path_found": "Nestandardní cesta v URL, PID nalezen",
+    "wrong_path_not_found": "Nestandardní cesta v URL, PID nenalezen",
+    "wrong_server_found": "Nesprávný server v odkazu, PID nalezen",
+    "wrong_server_not_found": "Nesprávný server v odkazu, PID nenalezen"
   },
   "validation-detail": {
     "missing_link_text": "Pole 856 neobsahuje očekávaný text odkazu odpovídající vzoru: {{pattern}}",
@@ -270,9 +272,11 @@
     "non_linkable_model": "V Kramerius nalezen dokument s PID '{{pid}}' a modelem '{{model}}'. Tento typ modelu se neočekává jako odkaz z katalogového záznamu.",
     "link_not_found": "PID '{{pid}}' je uveden v MARC, ale nebyl nalezen v Kramerius.",
     "missing_link_in_marc": "PID '{{pid}}' existuje v Kramerius, ale není v MARC záznamu.",
-    "valid_link": "PID '{{pid}}' je správně formátovaný a odpovídá existujícímu dokumentu v Kramerius.",
-    "non_standard_url_path": "Odkaz '{{value}}' vede na správný server, ale používá nestandardní cestu (očekáváno /uuid/).",
-    "wrong_kramerius_client_url": "Odkaz '{{value}}' obsahuje platný PID, ale vede na jiný server než očekávaný."
+    "valid_link": "PID '{{pid}}' odpovídá existujícímu dokumentu v Kramerius.",
+    "wrong_path_found": "Odkaz '{{value}}' používá nestandardní cestu (očekáváno /uuid/), ale PID '{{pid}}' byl nalezen v Kramerius.",
+    "wrong_path_not_found": "Odkaz '{{value}}' používá nestandardní cestu (očekáváno /uuid/) a PID '{{pid}}' nebyl nalezen v Kramerius.",
+    "wrong_server_found": "Odkaz '{{value}}' vede na jiný server než očekávaný, ale PID '{{pid}}' byl nalezen v Kramerius.",
+    "wrong_server_not_found": "Odkaz '{{value}}' vede na jiný server než očekávaný a PID '{{pid}}' nebyl nalezen v Kramerius."
   },
   "validation-hint": {
     "missing_link_text": "Přidejte odpovídající text odkazu do podpole $y.",
@@ -280,8 +284,10 @@
     "missing_link_in_marc": "Přidejte odpovídající 856$u pro tento PID.",
     "non_top_level_document": "Odkaz by měl vést na dokument nejvyšší úrovně.",
     "non_linkable_model": "Zkontrolujte integritu dat v Kramerius.",
-    "non_standard_url_path": "Aktualizujte odkaz na standardní formát: {{url}}",
-    "wrong_kramerius_client_url": "Aktualizujte odkaz tak, aby vedl na správný server: {{url}}",
+    "wrong_path_found": "Aktualizujte odkaz na standardní formát: {{url}}",
+    "wrong_path_not_found": "Aktualizujte odkaz na standardní formát: {{url}}",
+    "wrong_server_found": "Aktualizujte odkaz tak, aby vedl na správný server: {{url}}",
+    "wrong_server_not_found": "Aktualizujte odkaz tak, aby vedl na správný server: {{url}}",
     "invalid_link_format": "Ujistěte se, že odkaz odpovídá očekávanému formátu: {{url}}"
   }
 }

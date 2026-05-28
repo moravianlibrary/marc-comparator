@@ -182,6 +182,8 @@ class KrameriusLinksValidator(BaseValidator):
     async def run(self, record: MarcRecord) -> List[ValidationResult]:
         current_kramerius_pids: List[str] = []
         pid_field_index: Dict[str, int] = {}
+        # PIDs extracted from URLs with wrong path or wrong server
+        url_issue_pids: Dict[str, dict] = {}
         results: List[ValidationResult] = []
 
         def add_result(
@@ -238,15 +240,11 @@ class KrameriusLinksValidator(BaseValidator):
                     pid = wrong_path_match.group("pid")
                     current_kramerius_pids.append(pid)
                     pid_field_index.setdefault(pid, field_idx)
-                    add_result(
-                        status=ValidityStatus.AdditionalInfo,
-                        reason="non_standard_url_path",
-                        params={
-                            "value": v,
-                            "url": self.config.kramerius_client_url,
-                        },
-                        field_index=field_idx,
-                    )
+                    url_issue_pids[pid] = {
+                        "type": "wrong_path",
+                        "value": v,
+                        "field_index": field_idx,
+                    }
                     continue
 
                 fallback_match = self.url_to_pid_fallback_regex.search(v)
@@ -255,15 +253,11 @@ class KrameriusLinksValidator(BaseValidator):
                     pid = fallback_match.group("pid")
                     current_kramerius_pids.append(pid)
                     pid_field_index.setdefault(pid, field_idx)
-                    add_result(
-                        status=ValidityStatus.AdditionalInfo,
-                        reason="wrong_kramerius_client_url",
-                        params={
-                            "value": v,
-                            "url": self.config.kramerius_client_url,
-                        },
-                        field_index=field_idx,
-                    )
+                    url_issue_pids[pid] = {
+                        "type": "wrong_server",
+                        "value": v,
+                        "field_index": field_idx,
+                    }
                     continue
 
                 add_result(
@@ -322,19 +316,57 @@ class KrameriusLinksValidator(BaseValidator):
         valid_set = set(valid_kramerius_pids)
 
         for pid in current_set & valid_set:
-            add_result(
-                status=ValidityStatus.Valid,
-                reason="valid_link",
-                params={"pid": pid},
-                field_index=pid_field_index.get(pid),
-            )
+            issue = url_issue_pids.get(pid)
+            if issue:
+                if issue["type"] == "wrong_path":
+                    reason = "wrong_path_found"
+                    status = ValidityStatus.AdditionalInfo
+                else:
+                    reason = "wrong_server_found"
+                    status = ValidityStatus.Invalid
+                add_result(
+                    status=status,
+                    reason=reason,
+                    params={
+                        "pid": pid,
+                        "value": issue["value"],
+                        "url": self.config.kramerius_client_url,
+                    },
+                    field_index=issue["field_index"],
+                )
+            else:
+                add_result(
+                    status=ValidityStatus.Valid,
+                    reason="valid_link",
+                    params={"pid": pid},
+                    field_index=pid_field_index.get(pid),
+                )
 
         for pid in current_set - found_set:
-            add_result(
-                reason="link_not_found",
-                params={"pid": pid},
-                field_index=pid_field_index.get(pid),
-            )
+            issue = url_issue_pids.get(pid)
+            if issue:
+                if issue["type"] == "wrong_path":
+                    reason = "wrong_path_not_found"
+                    status = ValidityStatus.AdditionalInfo
+                else:
+                    reason = "wrong_server_not_found"
+                    status = ValidityStatus.Invalid
+                add_result(
+                    status=status,
+                    reason=reason,
+                    params={
+                        "pid": pid,
+                        "value": issue["value"],
+                        "url": self.config.kramerius_client_url,
+                    },
+                    field_index=issue["field_index"],
+                )
+            else:
+                add_result(
+                    reason="link_not_found",
+                    params={"pid": pid},
+                    field_index=pid_field_index.get(pid),
+                )
 
         for pid in valid_set - current_set:
             add_result(
