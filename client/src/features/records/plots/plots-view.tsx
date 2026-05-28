@@ -15,6 +15,11 @@ import { RecordsSection } from "./records-section";
 import { ComparisonSection } from "./comparison-section";
 import { ValidationSection } from "./validation-section";
 import type { FacetBucket, FacetResult, HistogramBucket } from "../types";
+import {
+  SkeletonRecordsSection,
+  SkeletonComparisonSection,
+  SkeletonValidationSection,
+} from "@/components/skeletons/skeleton-plots-section";
 
 const FACET_TO_URL_PARAM: Record<string, string> = {
   base: "bases",
@@ -70,7 +75,13 @@ export function PlotsView() {
   );
 
   if (isLoading) {
-    return <p className="text-muted-foreground">{t("common:loading")}</p>;
+    return (
+      <div className="space-y-6">
+        <SkeletonRecordsSection />
+        <SkeletonComparisonSection />
+        <SkeletonValidationSection />
+      </div>
+    );
   }
 
   if (!facetsData) {
