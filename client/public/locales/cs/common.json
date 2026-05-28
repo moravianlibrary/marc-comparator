@@ -37,6 +37,12 @@
     "light": "Světlý režim",
     "dark": "Tmavý režim"
   },
+  "font-size": {
+    "small": "Malé",
+    "default": "Výchozí",
+    "large": "Velké",
+    "x-large": "Velmi velké"
+  },
   "user-menu": {
     "logout": "Odhlásit se"
   },

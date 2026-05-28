@@ -69,6 +69,16 @@
   }
 }
 
+html[data-font-size="small"] {
+  font-size: 87.5%;
+}
+html[data-font-size="large"] {
+  font-size: 112.5%;
+}
+html[data-font-size="x-large"] {
+  font-size: 125%;
+}
+
 :root {
   --background: oklch(1 0 0);
   --foreground: oklch(0.147 0.004 49.3);

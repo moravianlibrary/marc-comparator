@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { useQuery } from "@tanstack/react-query";
 import { CircleHelp, LogOut } from "lucide-react";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { FontSizeControl } from "@/components/font-size-control";
 import apiClient from "@/lib/api-client";
 import { Button } from "@/components/ui/button";
 import { useGetMe, useLogout } from "@/hooks/use-auth";
@@ -79,6 +80,7 @@ export function MainBanner() {
       <TaskProgress runningTasks={runningTasks} />
       <ToastHistory />
 
+      <FontSizeControl />
       <ThemeToggle />
 
       {me && (
