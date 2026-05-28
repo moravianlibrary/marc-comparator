@@ -123,4 +123,7 @@ def register_user(
 
 
 def get_current_user_data(current_user: TokenData, db: Session) -> User:
-    return db.query(User).filter(User.id == UUID(current_user.user_id)).one()
+    user = db.query(User).filter(User.id == UUID(current_user.user_id)).one_or_none()
+    if not user:
+        raise AuthenticationError("User not found")
+    return user
