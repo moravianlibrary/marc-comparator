@@ -171,6 +171,49 @@ def scenario_found_link_update(
     ]
 
 
+def _upsert_authority_record_and_link(
+    db_session: DatabaseSession,
+    catalog_record: CatalogRecord,
+    found_link: SdkAuthorityLink,
+    linker_instance: AuthorityLinkerInstance,
+    target_base: str,
+) -> tuple[CatalogRecord, LinkActionResult]:
+    """Upsert the authority CatalogRecord, store its MARC, and create a new link."""
+    authority_record = CatalogRecord.find_by_base_and_system_number(
+        db_session, found_link.base, found_link.system_number
+    )
+
+    if not authority_record:
+        authority_record = CatalogRecord(
+            base=found_link.base,
+            system_number=found_link.system_number,
+            source_type=CatalogRecordSource.AuthorityLinker,
+            source_name=linker_instance.linker.value,
+        )
+        record_result = LinkActionResult.CreatedAuthorityRecord
+    else:
+        authority_record.latest_sync = config.timestamp
+        authority_record.source_name = linker_instance.linker.value
+        record_result = LinkActionResult.UpdatedAuthorityRecord
+
+    authority_record.update_search_text_from(found_link.record)
+    authority_record.save(db_session)
+    upsert_record_in_sector(
+        db_session, found_link.base,
+        found_link.system_number, found_link.record._marc,
+    )
+
+    new_link = AuthorityLink(
+        main_record_id=catalog_record.id,
+        linker=linker_instance.linker.value,
+        base=target_base,
+        authority_record_id=authority_record.id,
+        confidence=found_link.confidence,
+    )
+    new_link.save(db_session)
+    return authority_record, record_result
+
+
 def scenario_found_link_replace(
     db_session: DatabaseSession,
     catalog_record: CatalogRecord,
@@ -181,41 +224,10 @@ def scenario_found_link_replace(
 ) -> List[LinkActionResult]:
     """Found link has different authority than existing; replace."""
     existing_link.delete(db_session)
-
-    authority_record = CatalogRecord.find_by_base_and_system_number(
-        db_session, found_link.base, found_link.system_number
+    _, record_result = _upsert_authority_record_and_link(
+        db_session, catalog_record, found_link, linker_instance, target_base
     )
-
-    results = [LinkActionResult.ReplacedLink]
-    if not authority_record:
-        authority_record = CatalogRecord(
-            base=found_link.base,
-            system_number=found_link.system_number,
-            source_type=CatalogRecordSource.AuthorityLinker,
-            source_name=linker_instance.linker.value,
-        )
-        results.append(LinkActionResult.CreatedAuthorityRecord)
-    else:
-        authority_record.latest_sync = config.timestamp
-        authority_record.source_name = linker_instance.linker.value
-        results.append(LinkActionResult.UpdatedAuthorityRecord)
-
-    authority_record.update_search_text_from(found_link.record)
-    authority_record.save(db_session)
-    upsert_record_in_sector(
-        db_session, found_link.base,
-        found_link.system_number, found_link.record._marc,
-    )
-
-    new_link = AuthorityLink(
-        main_record_id=catalog_record.id,
-        linker=linker_instance.linker.value,
-        base=target_base,
-        authority_record_id=authority_record.id,
-        confidence=found_link.confidence,
-    )
-    new_link.save(db_session)
-    return results
+    return [LinkActionResult.ReplacedLink, record_result]
 
 
 def scenario_found_link_create(
@@ -226,40 +238,10 @@ def scenario_found_link_create(
     target_base: str,
 ) -> List[LinkActionResult]:
     """Found new link; create it (no existing link for this base)."""
-    authority_record = CatalogRecord.find_by_base_and_system_number(
-        db_session, found_link.base, found_link.system_number
+    _, record_result = _upsert_authority_record_and_link(
+        db_session, catalog_record, found_link, linker_instance, target_base
     )
-
-    results = [LinkActionResult.CreatedLink]
-    if not authority_record:
-        authority_record = CatalogRecord(
-            base=found_link.base,
-            system_number=found_link.system_number,
-            source_type=CatalogRecordSource.AuthorityLinker,
-            source_name=linker_instance.linker.value,
-        )
-        results.append(LinkActionResult.CreatedAuthorityRecord)
-    else:
-        authority_record.latest_sync = config.timestamp
-        authority_record.source_name = linker_instance.linker.value
-        results.append(LinkActionResult.UpdatedAuthorityRecord)
-
-    authority_record.update_search_text_from(found_link.record)
-    authority_record.save(db_session)
-    upsert_record_in_sector(
-        db_session, found_link.base,
-        found_link.system_number, found_link.record._marc,
-    )
-
-    new_link = AuthorityLink(
-        main_record_id=catalog_record.id,
-        linker=linker_instance.linker.value,
-        base=target_base,
-        authority_record_id=authority_record.id,
-        confidence=found_link.confidence,
-    )
-    new_link.save(db_session)
-    return results
+    return [LinkActionResult.CreatedLink, record_result]
 
 
 def handle_catalog_record_link_action(
