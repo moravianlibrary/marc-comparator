@@ -61,32 +61,28 @@ def _compute_result_hashes(
         .filter_by(main_record_id=record_id)
         .all()
     )
-    by_comparator: dict[str, list[dict]] = {}
-    for c in comparisons:
-        by_comparator.setdefault(c.comparator, []).append(c.result)
-    for aspect, results in by_comparator.items():
-        canonical = json.dumps(results, sort_keys=True, ensure_ascii=False)
-        hashes[aspect] = (
-            hashlib.sha256(canonical.encode()).hexdigest(),
-            results,
-        )
+    _hash_grouped_results(comparisons, "comparator", hashes)
 
     validations = (
         db_session.query(Validation)
         .filter_by(catalog_record_id=record_id)
         .all()
     )
-    by_validator: dict[str, list[dict]] = {}
-    for v in validations:
-        by_validator.setdefault(v.validator, []).append(v.result)
-    for aspect, results in by_validator.items():
-        canonical = json.dumps(results, sort_keys=True, ensure_ascii=False)
-        hashes[aspect] = (
-            hashlib.sha256(canonical.encode()).hexdigest(),
-            results,
-        )
+    _hash_grouped_results(validations, "validator", hashes)
 
     return hashes
+
+
+def _hash_grouped_results(
+    entities, group_key_attr: str, out: dict[str, tuple[str, list[dict]]]
+) -> None:
+    """Group entities by an attribute, hash each group's results, and store in `out`."""
+    by_key: dict[str, list[dict]] = {}
+    for e in entities:
+        by_key.setdefault(getattr(e, group_key_attr), []).append(e.result)
+    for aspect, results in by_key.items():
+        canonical = json.dumps(results, sort_keys=True, ensure_ascii=False)
+        out[aspect] = (hashlib.sha256(canonical.encode()).hexdigest(), results)
 
 
 def _handle_result_changes(
