@@ -30,3 +30,8 @@ export function groupValidations(validations: ValidationSummary[]) {
     (a, b) => (STATUS_ORDER[a.status] ?? 99) - (STATUS_ORDER[b.status] ?? 99),
   );
 }
+
+export function stripPrefix(key: string): string {
+  const i = key.indexOf(":");
+  return i >= 0 ? key.slice(i + 1) : key;
+}

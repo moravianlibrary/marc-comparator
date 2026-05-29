@@ -9,6 +9,7 @@ import {
 import { FacetTooltip } from "./facet-tooltip";
 import { useTranslation } from "react-i18next";
 import type { FacetBucket } from "../types";
+import { stripPrefix } from "../utils";
 
 interface RadialValidationProps {
   data: FacetBucket[];
@@ -27,11 +28,6 @@ export const STATUS_COLORS: Record<string, string> = {
   Invalid: "var(--status-danger)",
   AdditionalInfo: "var(--status-info)",
 };
-
-function stripPrefix(key: string): string {
-  const i = key.indexOf(":");
-  return i >= 0 ? key.slice(i + 1) : key;
-}
 
 export function RadialValidation({
   data,

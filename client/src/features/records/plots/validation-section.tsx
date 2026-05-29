@@ -5,6 +5,7 @@ import { BarFacet } from "./bar-facet";
 import { RadialValidation, STATUS_COLORS } from "./radial-validation";
 import type { FacetBucket } from "../types";
 import type { ChartId } from "./use-section-visibility";
+import { stripPrefix } from "../utils";
 
 const REASON_TO_STATUS: Record<string, string> = {
   missing_link_text: "ForReview",
@@ -20,11 +21,6 @@ const REASON_TO_STATUS: Record<string, string> = {
   wrong_server_found: "Invalid",
   wrong_server_not_found: "Invalid",
 };
-
-function stripPrefix(key: string): string {
-  const i = key.indexOf(":");
-  return i >= 0 ? key.slice(i + 1) : key;
-}
 
 interface ValidatorData {
   validator: string;
