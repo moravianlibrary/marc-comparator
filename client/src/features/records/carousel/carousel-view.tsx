@@ -466,7 +466,7 @@ export function CarouselView() {
         ref={prevRef}
         onClick={goToPrev}
         disabled={!canGoPrev}
-        className="absolute left-0 top-1/2 -translate-y-1/2 inline-flex h-8 w-8 items-center justify-center rounded-full border bg-background shadow-sm hover:bg-accent disabled:opacity-50 disabled:pointer-events-none"
+        className="fixed left-2 top-1/2 -translate-y-1/2 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full border bg-background shadow-sm hover:bg-accent disabled:opacity-50 disabled:pointer-events-none"
         aria-label={t("carousel.previous")}
       >
         <ChevronLeft className="h-4 w-4" />
@@ -475,7 +475,7 @@ export function CarouselView() {
         ref={nextRef}
         onClick={goToNext}
         disabled={!canGoNext}
-        className="absolute right-0 top-1/2 -translate-y-1/2 inline-flex h-8 w-8 items-center justify-center rounded-full border bg-background shadow-sm hover:bg-accent disabled:opacity-50 disabled:pointer-events-none"
+        className="fixed right-2 top-1/2 -translate-y-1/2 z-10 inline-flex h-8 w-8 items-center justify-center rounded-full border bg-background shadow-sm hover:bg-accent disabled:opacity-50 disabled:pointer-events-none"
         aria-label={t("carousel.next")}
       >
         <ChevronRight className="h-4 w-4" />
