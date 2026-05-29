@@ -26,7 +26,8 @@
         "Vyhledávací pole hledá přesně podle systémového čísla nebo fulltextem v názvech a autorech",
         "Řadit lze podle báze, systémového čísla, data synchronizace a průměrného skóre porovnání",
         "Hromadné akce (zpracování, propojení autorit, porovnání, validace) se spouštějí nad všemi vyfiltrovanými záznamy",
-        "Nastavení sloupců (ikona vpravo) umožňuje zobrazit nebo skrýt jednotlivé sloupce — volba se ukládá"
+        "Nastavení sloupců (ikona vpravo) umožňuje zobrazit nebo skrýt jednotlivé sloupce — volba se ukládá",
+        "Klávesami A / D přecházíte na předchozí / další stránku výsledků"
       ]
     },
     "carousel": {

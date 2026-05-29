@@ -90,7 +90,8 @@
           "Kliknutím na řádek přejdete na detail záznamu. Kliknutím na štítek porovnání nebo validace přejdete rovnou na příslušný pohled.",
           "Vyhledávací pole podporuje přesné vyhledání podle systémového čísla i fulltextové hledání v názvech a autorech.",
           "Hromadné akce (zpracování, propojení autorit, porovnání, validace) se spouštějí nad všemi vyfiltrovanými záznamy.",
-          "Viditelnost sloupců lze upravit a nastavení se ukládá."
+          "Viditelnost sloupců lze upravit a nastavení se ukládá.",
+          "Klávesami A / D přecházíte na předchozí / další stránku výsledků."
         ]
       },
       "detail": {
@@ -163,7 +164,7 @@
     "shortcuts": {
       "title": "Klávesové zkratky",
       "items": [
-        "A / D — přechod na předchozí / další záznam v detailu záznamu"
+        "A / D — přechod na předchozí / další záznam v detailu záznamu, nebo stránku v tabulce"
       ]
     }
   },

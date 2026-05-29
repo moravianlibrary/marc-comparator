@@ -98,6 +98,22 @@ export function TableView() {
 
   const totalPages = data ? Math.ceil(data.total / filters.pageSize) : 0;
 
+  // A/D keyboard pagination
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+      if (e.key === "a" && filters.page > 1) {
+        e.preventDefault();
+        setFilters({ page: filters.page - 1 });
+      } else if (e.key === "d" && filters.page < totalPages) {
+        e.preventDefault();
+        setFilters({ page: filters.page + 1 });
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [filters.page, totalPages, setFilters]);
+
   const table = useReactTable({
     data: data?.items ?? [],
     columns,
