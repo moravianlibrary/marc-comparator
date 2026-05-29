@@ -6,10 +6,8 @@ import {
   type SortingState,
   type VisibilityState,
 } from "@tanstack/react-table";
-import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { Info, X } from "lucide-react";
-import apiClient from "@/lib/api-client";
 import { useHasPermission } from "@/hooks/use-permissions";
 import { Permission } from "@/types/permission";
 
@@ -37,11 +35,11 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { useRecordFilters } from "../use-record-filters";
-import type { SearchRecordsResponse } from "../types";
+import { useRecordsSearch } from "../use-records-query";
 import { RecordTaskActions, AdvancedTaskActions } from "../record-task-actions";
 import { createColumns } from "./columns";
 import { ColumnConfig } from "./column-config";
-import { Skeleton } from "@/components/ui/skeleton";
+import { SkeletonTable } from "@/components/skeletons/skeleton-table";
 
 const PAGE_SIZES = [10, 25, 50, 100, 1000];
 
@@ -67,13 +65,7 @@ export function TableView() {
 
   const payload = buildSearchPayload();
 
-  const { data, isLoading } = useQuery<SearchRecordsResponse>({
-    queryKey: ["catalog-records", "search", payload],
-    queryFn: () =>
-      apiClient
-        .post<SearchRecordsResponse>("/catalog-records/search", payload)
-        .then((r) => r.data),
-  });
+  const { data, isLoading } = useRecordsSearch(payload);
 
   const onNavigate = useMemo(
     () => (rowIndex: number, viewKey: string) => {
@@ -230,15 +222,11 @@ export function TableView() {
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              Array.from({ length: 10 }).map((_, i) => (
-                <TableRow key={i}>
-                  {Array.from({ length: columns.length }).map((_, j) => (
-                    <TableCell key={j}>
-                      <Skeleton className="h-4 w-full" />
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
+              <TableRow>
+                <TableCell colSpan={columns.length} className="p-0">
+                  <SkeletonTable rows={10} columns={columns.length} />
+                </TableCell>
+              </TableRow>
             ) : table.getRowModel().rows.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={columns.length} className="text-center">
