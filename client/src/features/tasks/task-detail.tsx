@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import apiClient from "@/lib/api-client";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface TaskDetailProps {
   taskId: string;
@@ -31,7 +32,7 @@ export function TaskDetail({ taskId, isRunning }: TaskDetailProps) {
       </CardHeader>
       <CardContent>
         {isLoading ? (
-          <p className="text-sm text-muted-foreground">{t("common:loading")}</p>
+          <Skeleton className="h-[60vh] w-full rounded-md" />
         ) : traceback ? (
           <ScrollArea className="h-[60vh]">
             <pre className="whitespace-pre-wrap text-xs font-mono bg-muted p-4 rounded-md">
