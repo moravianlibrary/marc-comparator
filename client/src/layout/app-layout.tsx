@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Outlet } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
@@ -21,6 +22,22 @@ export function AppLayout() {
 
   const { data: me, isLoading: isMeLoading, isError: isMeError } = useGetMe();
   useWsEvents();
+
+  const [redirecting, setRedirecting] = useState(false);
+
+  useEffect(() => {
+    if (isHealthError) {
+      setRedirecting(true);
+      const redirect = window.location.pathname + window.location.search;
+      window.location.href =
+        "/service-unavailable?redirect=" + encodeURIComponent(redirect);
+    } else if (!isHealthLoading && !isMeLoading && (isMeError || !me)) {
+      setRedirecting(true);
+      const currentPath = window.location.pathname;
+      window.location.href =
+        "/login?redirect=" + encodeURIComponent(currentPath);
+    }
+  }, [isHealthError, isHealthLoading, isMeLoading, isMeError, me]);
 
   if (isHealthLoading || isMeLoading) {
     return (
@@ -46,17 +63,7 @@ export function AppLayout() {
     );
   }
 
-  if (isHealthError) {
-    const redirect = window.location.pathname + window.location.search;
-    window.location.href =
-      "/service-unavailable?redirect=" + encodeURIComponent(redirect);
-    return null;
-  }
-
-  if (isMeError || !me) {
-    const currentPath = window.location.pathname;
-    window.location.href =
-      "/login?redirect=" + encodeURIComponent(currentPath);
+  if (redirecting || isHealthError || isMeError || !me) {
     return null;
   }
 
