@@ -137,16 +137,26 @@ class ManagedTask:
         self.task: Task | None = None
         self.task_settings: TaskSettings | None = None
 
-        self.total: int | None = None
+        self._total: int | None = None
         self.progress: int = 0
         self.before_commit: Callable[[], None] | None = None
+
+    @property
+    def total(self) -> int | None:
+        return self._total
+
+    @total.setter
+    def total(self, value: int | None) -> None:
+        self._total = value
+        if value is not None and self.task:
+            self.update_progress()
 
     def save_task(self):
         self.task.save(self.db_session)
 
     def update_progress(self) -> None:
         self.task.progress = (
-            self.progress / self.total if self.total else None
+            self.progress / self._total if self._total else None
         )
         self.save_task()
         publish_event(TaskProgressEvent(
