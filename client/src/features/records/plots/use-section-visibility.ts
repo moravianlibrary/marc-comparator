@@ -6,7 +6,7 @@ const STORAGE_KEY = "plots:hiddenCharts";
 
 /** All chart IDs that can be toggled, grouped by section. */
 export const SECTION_GROUPS = {
-  context: ["base", "validators", "authority_link_linkers", "authority_link_bases"],
+  context: ["base", "validators", "authority_link_linkers", "authority_link_bases", "comparison_bases"],
   records: ["record_status", "type_of_record", "bibliographic_level"],
   comparison: ["match_quality", "overall_score", "field_explanations"],
   validation: ["validation_status", "validation_reasons"],
