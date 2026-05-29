@@ -7,6 +7,7 @@ from adapters.database import Base, engine, get_db_session
 from adapters.events import subscribe_events
 from auth.models import RegisterUserRequest
 from entities.marc_sector import MarcRecordIndex, MarcSector  # noqa: F401 — register with ORM
+from entities.result_snapshot import ResultSnapshot  # noqa: F401 — register with ORM
 from auth.service import register_user
 from config import config
 from entities.role import Role
