@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { useTranslation } from "react-i18next";
 import { FacetChart } from "./facet-chart";
 import { BarFacet } from "./bar-facet";
@@ -60,7 +61,7 @@ export function ValidationSection({
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {perValidatorData.map(({ validator, statuses, reasons }) =>
           statuses.length > 0 ? (
-            <>
+            <Fragment key={validator}>
               {isVisible("validation_status") && (
                 <FacetChart
                   key={`status-${validator}`}
@@ -132,7 +133,7 @@ export function ValidationSection({
                   }}
                 </FacetChart>
               )}
-            </>
+            </Fragment>
           ) : null,
         )}
       </div>
