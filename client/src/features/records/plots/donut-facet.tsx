@@ -91,7 +91,7 @@ export function DonutFacet({
   return (
     <div className="flex items-center gap-4">
       <div className="relative flex-shrink-0">
-        <ChartContainer config={chartConfig} className="aspect-square" style={{ width: 180, height: 180 }}>
+        <ChartContainer config={chartConfig} className="aspect-square" style={{ width: 240, height: 240 }}>
           <PieChart>
             {/* Preview data as faded background */}
             {isShowingPreview && (
@@ -101,8 +101,8 @@ export function DonutFacet({
                 nameKey="name"
                 cx="50%"
                 cy="50%"
-                innerRadius={50}
-                outerRadius={80}
+                innerRadius={68}
+                outerRadius={105}
                 isAnimationActive={false}
               >
                 {previewChartData.map((entry) => (
@@ -120,8 +120,8 @@ export function DonutFacet({
               nameKey="name"
               cx="50%"
               cy="50%"
-              innerRadius={50}
-              outerRadius={80}
+              innerRadius={68}
+              outerRadius={105}
               cursor="pointer"
               onClick={(entry) => {
                 if (isShowingPreview && entry.preview === 0) return;
