@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslation } from "react-i18next";
@@ -33,7 +33,7 @@ export function ValidationSettingsForm({
 }: Props) {
   const { t } = useTranslation("settings");
 
-  const defaultValues: ValidationSettingsFormValues = {
+  const defaultValues = useMemo<ValidationSettingsFormValues>(() => ({
     "kramerius-links": data["kramerius-links"] ?? {
       url_to_pid_pattern: "",
       url_to_pid_wrong_path_pattern: "",
@@ -43,7 +43,7 @@ export function ValidationSettingsForm({
       kramerius_client_url: "",
       solr_cloud: true,
     },
-  };
+  }), [data]);
 
   const form = useForm<ValidationSettingsFormValues>({
     resolver: zodResolver(validationSettingsSchema),

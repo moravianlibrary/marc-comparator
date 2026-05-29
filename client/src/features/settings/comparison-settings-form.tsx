@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslation } from "react-i18next";
@@ -33,7 +33,7 @@ export function ComparisonSettingsForm({
 }: Props) {
   const { t } = useTranslation("settings");
 
-  const defaultValues: ComparisonSettingsFormValues = {
+  const defaultValues = useMemo<ComparisonSettingsFormValues>(() => ({
     comparator: data.comparator ?? {
       ollama_url: "http://localhost:11434",
       llm_enabled: false,
@@ -41,7 +41,7 @@ export function ComparisonSettingsForm({
       valid_threshold: 6,
       warning_threshold: 12,
     },
-  };
+  }), [data]);
 
   const form = useForm<ComparisonSettingsFormValues>({
     resolver: zodResolver(comparisonSettingsSchema),

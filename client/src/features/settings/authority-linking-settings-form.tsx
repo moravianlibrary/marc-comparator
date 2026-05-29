@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useMemo } from "react";
 import { useForm, useFieldArray } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslation } from "react-i18next";
@@ -35,12 +35,12 @@ export function AuthorityLinkingSettingsForm({
 }: Props) {
   const { t } = useTranslation("settings");
 
-  const defaultValues: AuthorityLinkingSettingsFormValues = {
+  const defaultValues = useMemo<AuthorityLinkingSettingsFormValues>(() => ({
     "knihovny-cz": data["knihovny-cz"] ?? {
       api_url: "https://www.knihovny.cz/api/v1",
       mappings: [{ base: "", id_template: "", pattern: "", is_target: false }],
     },
-  };
+  }), [data]);
 
   const form = useForm<AuthorityLinkingSettingsFormValues>({
     resolver: zodResolver(authorityLinkingSettingsSchema),
