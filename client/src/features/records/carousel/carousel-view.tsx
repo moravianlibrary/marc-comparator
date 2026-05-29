@@ -415,10 +415,10 @@ export function CarouselView() {
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-      if (e.key === "ArrowLeft" && canGoPrev) {
+      if (e.key === "a" && canGoPrev) {
         e.preventDefault();
         goToPrev();
-      } else if (e.key === "ArrowRight" && canGoNext) {
+      } else if (e.key === "d" && canGoNext) {
         e.preventDefault();
         goToNext();
       }
@@ -426,6 +426,7 @@ export function CarouselView() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [canGoPrev, canGoNext, recordIndex, records.length, filters.page, filters.pageSize, total, setFilters]);
+
 
   if (records.length === 0) {
     return (
