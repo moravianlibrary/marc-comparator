@@ -72,7 +72,7 @@ export function MarcTable({
   let rowIndex = 0;
 
   return (
-    <div className="rounded-md border overflow-hidden">
+    <div className="rounded-md border overflow-x-auto">
       {/* Leader */}
       {showLeader && (
         <MarcRow

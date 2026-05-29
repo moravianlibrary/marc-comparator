@@ -228,9 +228,9 @@ function RecordDetail({
     <div className="space-y-4">
       <RecordHeader record={record} onSelectView={setSelectedView} />
 
-      <div className="flex items-center gap-4">
+      <div className="flex flex-wrap items-center gap-4">
         <Select value={selectedView} onValueChange={setSelectedView}>
-          <SelectTrigger className="w-[320px]">
+          <SelectTrigger className="w-full sm:w-[320px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -437,7 +437,7 @@ export function CarouselView() {
   // Single record — no carousel chrome
   if (records.length === 1 && total <= 1) {
     return (
-      <div className="mx-12">
+      <div className="mx-2 sm:mx-12">
         <RecordDetail
           record={records[0]}
           selectedView={selectedView}
@@ -451,19 +451,21 @@ export function CarouselView() {
 
   // Multiple records — use carousel
   return (
-    <div className="mx-12 relative">
-      <RecordDetail
-        record={currentRecord!}
-        selectedView={selectedView}
-        setSelectedView={setSelectedView}
-        targetFieldsOnly={targetFieldsOnly}
-        setTargetFieldsOnly={setTargetFieldsOnly}
-      />
+    <div className="relative">
+      <div className="mx-2 sm:mx-12">
+        <RecordDetail
+          record={currentRecord!}
+          selectedView={selectedView}
+          setSelectedView={setSelectedView}
+          targetFieldsOnly={targetFieldsOnly}
+          setTargetFieldsOnly={setTargetFieldsOnly}
+        />
+      </div>
       <button
         ref={prevRef}
         onClick={goToPrev}
         disabled={!canGoPrev}
-        className="fixed left-4 top-1/2 -translate-y-1/2 inline-flex h-8 w-8 items-center justify-center rounded-full border bg-background shadow-sm hover:bg-accent disabled:opacity-50 disabled:pointer-events-none"
+        className="absolute left-0 top-1/2 -translate-y-1/2 inline-flex h-8 w-8 items-center justify-center rounded-full border bg-background shadow-sm hover:bg-accent disabled:opacity-50 disabled:pointer-events-none"
         aria-label={t("carousel.previous")}
       >
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m15 18-6-6 6-6"/></svg>
@@ -472,7 +474,7 @@ export function CarouselView() {
         ref={nextRef}
         onClick={goToNext}
         disabled={!canGoNext}
-        className="fixed right-4 top-1/2 -translate-y-1/2 inline-flex h-8 w-8 items-center justify-center rounded-full border bg-background shadow-sm hover:bg-accent disabled:opacity-50 disabled:pointer-events-none"
+        className="absolute right-0 top-1/2 -translate-y-1/2 inline-flex h-8 w-8 items-center justify-center rounded-full border bg-background shadow-sm hover:bg-accent disabled:opacity-50 disabled:pointer-events-none"
         aria-label={t("carousel.next")}
       >
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m9 18 6-6-6-6"/></svg>
