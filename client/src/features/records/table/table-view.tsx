@@ -238,7 +238,7 @@ export function TableView() {
           </TableHeader>
           <TableBody>
             {isLoading ? (
-              <TableRow>
+              <TableRow className="animate-fade-in">
                 <TableCell colSpan={columns.length} className="p-0">
                   <SkeletonTable rows={10} columns={columns.length} />
                 </TableCell>
@@ -253,7 +253,7 @@ export function TableView() {
               table.getRowModel().rows.map((row) => (
                 <TableRow
                   key={row.id}
-                  className="cursor-pointer"
+                  className="cursor-pointer animate-fade-in"
                   onClick={() => setFilters({ tab: "carousel", recordIndex: row.index })}
                 >
                   {row.getVisibleCells().map((cell) => (
