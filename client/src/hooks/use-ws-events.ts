@@ -5,6 +5,12 @@ import { useTranslation } from "react-i18next";
 import { wsClient } from "@/lib/ws-client";
 import { addNotification } from "@/layout/toast-history";
 
+interface TaskStatusMessage {
+  task_id: string;
+  task_type?: string;
+  status: "Started" | "Success" | "Failure";
+}
+
 export function useWsEvents() {
   const { t } = useTranslation("tasks");
   const queryClient = useQueryClient();
@@ -15,7 +21,8 @@ export function useWsEvents() {
   useEffect(() => {
     wsClient.connect();
 
-    const unsubStatus = wsClient.on("task_status", (data: any) => {
+    const unsubStatus = wsClient.on("task_status", (raw) => {
+      const data = raw as TaskStatusMessage;
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
 
       const taskName = data.task_type ? tRef.current(`type.${data.task_type}`, { defaultValue: data.task_type }) : data.task_type;
