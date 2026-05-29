@@ -152,7 +152,7 @@ export function AuthorityLinkingSettingsForm({
                 type="button"
                 variant="outline"
                 size="sm"
-                onClick={() => append({ base: "", id_template: "", pattern: "" })}
+                onClick={() => append({ base: "", id_template: "", pattern: "", is_target: false })}
               >
                 <Plus className="mr-2 h-4 w-4" />
                 {t("authority-linkers.knihovny-cz.add-mapping")}
