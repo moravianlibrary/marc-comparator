@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { RadialBarChart, RadialBar, PolarAngleAxis, Cell } from "recharts";
 import {
@@ -52,6 +52,9 @@ export function RadialValidation({
   }), [t]);
 
   const isShowingPreview = previewData != null;
+  const wasShowingPreview = useRef(false);
+  const justStartedPreview = isShowingPreview && !wasShowingPreview.current;
+  wasShowingPreview.current = isShowingPreview;
 
   const total = data.reduce((sum, b) => sum + b.count, 0);
   const previewTotal = isShowingPreview
@@ -115,7 +118,8 @@ export function RadialValidation({
               <RadialBar
                 dataKey="preview"
                 cornerRadius={4}
-                isAnimationActive={false}
+                isAnimationActive={justStartedPreview}
+                animationDuration={300}
               >
                 {chartData.map((entry) => (
                   <Cell
@@ -132,11 +136,12 @@ export function RadialValidation({
             <p className={cn("font-bold tabular-nums", total > 999999 ? "text-xs" : total > 99999 ? "text-sm" : total > 9999 ? "text-lg" : "text-2xl")}>
               {total.toLocaleString("cs-CZ")}
             </p>
-            {isShowingPreview && (
-              <p className="text-xs tabular-nums text-muted-foreground">
-                {previewTotal.toLocaleString("cs-CZ")}
-              </p>
-            )}
+            <span
+              className="text-xs tabular-nums text-muted-foreground fade-toggle"
+              data-visible={isShowingPreview}
+            >
+              {previewTotal.toLocaleString("cs-CZ")}
+            </span>
           </div>
         </div>
       </div>
@@ -170,11 +175,12 @@ export function RadialValidation({
               <span className="tabular-nums text-foreground">
                 {count.toLocaleString("cs-CZ")}
               </span>
-              {isShowingPreview && (
-                <span className="tabular-nums text-muted-foreground">
-                  {previewCount.toLocaleString("cs-CZ")}
-                </span>
-              )}
+              <span
+                className="tabular-nums text-muted-foreground fade-toggle"
+                data-visible={isShowingPreview}
+              >
+                {previewCount.toLocaleString("cs-CZ")}
+              </span>
             </button>
           );
         })}

@@ -197,11 +197,12 @@ export function DonutFacet({
               <span className="tabular-nums text-foreground">
                 {entry.count.toLocaleString("cs-CZ")}
               </span>
-              {isShowingPreview && (
-                <span className="tabular-nums text-muted-foreground">
-                  {entry.preview.toLocaleString("cs-CZ")}
-                </span>
-              )}
+              <span
+                className="tabular-nums text-muted-foreground fade-toggle"
+                data-visible={isShowingPreview}
+              >
+                {entry.preview.toLocaleString("cs-CZ")}
+              </span>
             </button>
           );
         })}

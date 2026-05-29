@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { PieChart, Pie, Cell } from "recharts";
 import {
@@ -45,6 +45,9 @@ export function RadialQuality({
   }), [t]);
 
   const isShowingPreview = previewData != null;
+  const wasShowingPreview = useRef(false);
+  const justStartedPreview = isShowingPreview && !wasShowingPreview.current;
+  wasShowingPreview.current = isShowingPreview;
 
   const total = data.reduce((sum, b) => sum + b.count, 0);
   const previewTotal = isShowingPreview
@@ -75,33 +78,32 @@ export function RadialQuality({
   return (
     <div className="flex flex-col items-center">
       <div className="relative w-full" style={{ height: 160 }}>
-        <ChartContainer config={chartConfig} className="w-full [&_.recharts-wrapper]:z-10" style={{ height: 320 }}>
+        <ChartContainer config={chartConfig} className="w-full [&_.recharts-wrapper]:z-10 [&_.recharts-pie]:transition-opacity [&_.recharts-pie]:duration-300" style={{ height: 320 }}>
           <PieChart>
             <ChartTooltip
               cursor={false}
               content={<FacetTooltip />}
             />
-            {isShowingPreview && (
-              <Pie
-                data={previewSegments}
-                dataKey="count"
-                nameKey="name"
-                startAngle={180}
-                endAngle={0}
-                innerRadius="55%"
-                outerRadius="68%"
-                paddingAngle={1}
-                cornerRadius={4}
-                isAnimationActive={false}
-              >
-                {previewSegments.map((entry) => (
-                  <Cell
-                    key={entry.key}
-                    fill={`color-mix(in oklch, ${QUALITY_COLORS[entry.key]} 25%, transparent)`}
-                  />
-                ))}
-              </Pie>
-            )}
+            <Pie
+              data={isShowingPreview ? previewSegments : previewSegments.map((s) => ({ ...s, count: 0 }))}
+              dataKey="count"
+              nameKey="name"
+              startAngle={180}
+              endAngle={0}
+              innerRadius="55%"
+              outerRadius="68%"
+              paddingAngle={1}
+              cornerRadius={4}
+              isAnimationActive={justStartedPreview}
+              animationDuration={300}
+            >
+              {previewSegments.map((entry) => (
+                <Cell
+                  key={entry.key}
+                  fill={`color-mix(in oklch, ${QUALITY_COLORS[entry.key]} 25%, transparent)`}
+                />
+              ))}
+            </Pie>
             <Pie
               data={mainSegments}
               dataKey="count"
@@ -135,11 +137,12 @@ export function RadialQuality({
           <p className={cn("font-bold tabular-nums", total > 999999 ? "text-xs" : total > 99999 ? "text-sm" : total > 9999 ? "text-lg" : "text-2xl")}>
             {total.toLocaleString("cs-CZ")}
           </p>
-          {isShowingPreview && (
-            <p className="text-xs tabular-nums text-muted-foreground">
-              {previewTotal.toLocaleString("cs-CZ")}
-            </p>
-          )}
+          <span
+            className="text-xs tabular-nums text-muted-foreground fade-toggle"
+            data-visible={isShowingPreview}
+          >
+            {previewTotal.toLocaleString("cs-CZ")}
+          </span>
         </div>
       </div>
       <div className="flex gap-4 mt-2 text-xs">
@@ -171,9 +174,12 @@ export function RadialQuality({
               />
               <span>{t(`match-quality.${quality}`)}</span>
               <span className="tabular-nums text-foreground">{pct}%</span>
-              {isShowingPreview && (
-                <span className="tabular-nums text-muted-foreground">{previewPct}%</span>
-              )}
+              <span
+                className="tabular-nums text-muted-foreground fade-toggle"
+                data-visible={isShowingPreview}
+              >
+                {previewPct}%
+              </span>
             </button>
           );
         })}

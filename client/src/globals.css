@@ -81,6 +81,16 @@
   html {
     @apply font-sans;
   }
+  .fade-toggle {
+    @apply transition-all duration-300 inline-block overflow-hidden whitespace-nowrap;
+    max-width: 10rem;
+    margin-left: 0.25rem;
+  }
+  .fade-toggle[data-visible="false"] {
+    @apply opacity-0;
+    max-width: 0;
+    margin-left: 0;
+  }
 }
 
 html[data-font-size="small"] {
