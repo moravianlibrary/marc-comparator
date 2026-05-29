@@ -133,6 +133,47 @@
     border-color: var(--status-success);
     color: var(--status-success);
   }
+  /* Record state badges */
+  .state-active {
+    border-color: var(--status-success);
+    background-color: color-mix(in oklch, var(--status-success) 10%, transparent);
+    color: var(--status-success);
+  }
+  .state-deleted {
+    border-color: var(--status-danger);
+    background-color: color-mix(in oklch, var(--status-danger) 10%, transparent);
+    color: var(--status-danger);
+  }
+  .state-unprocessed {
+    border-color: var(--status-warning);
+    background-color: color-mix(in oklch, var(--status-warning) 10%, transparent);
+    color: var(--status-warning);
+  }
+  .state-processed {
+    border-color: var(--status-violet);
+    background-color: color-mix(in oklch, var(--status-violet) 10%, transparent);
+    color: var(--status-violet);
+  }
+  .state-reviewed {
+    border-color: var(--status-sky);
+    background-color: color-mix(in oklch, var(--status-sky) 10%, transparent);
+    color: var(--status-sky);
+  }
+  .state-partially-reviewed {
+    border-color: var(--status-cyan);
+    background-color: color-mix(in oklch, var(--status-cyan) 10%, transparent);
+    color: var(--status-cyan);
+  }
+  .state-unreviewed {
+    border-color: var(--status-slate);
+    background-color: color-mix(in oklch, var(--status-slate) 10%, transparent);
+    color: var(--status-slate);
+  }
+  .state-review-not-needed {
+    border-color: var(--status-gray);
+    background-color: color-mix(in oklch, var(--status-gray) 10%, transparent);
+    color: var(--status-gray);
+  }
 }
 
 html[data-font-size="small"] {
@@ -174,6 +215,11 @@ html[data-font-size="x-large"] {
   --status-warning: oklch(0.75 0.18 75);
   --status-danger: oklch(0.55 0.22 25);
   --status-info: oklch(0.55 0.18 250);
+  --status-violet: oklch(0.55 0.18 295);
+  --status-sky: oklch(0.55 0.18 230);
+  --status-cyan: oklch(0.55 0.18 200);
+  --status-slate: oklch(0.55 0.03 260);
+  --status-gray: oklch(0.60 0.01 260);
   --radius: 0.625rem;
   --sidebar: oklch(0.986 0.002 67.8);
   --sidebar-foreground: oklch(0.147 0.004 49.3);
@@ -213,6 +259,11 @@ html[data-font-size="x-large"] {
   --status-warning: oklch(0.80 0.16 80);
   --status-danger: oklch(0.65 0.20 25);
   --status-info: oklch(0.65 0.16 250);
+  --status-violet: oklch(0.65 0.16 295);
+  --status-sky: oklch(0.65 0.16 230);
+  --status-cyan: oklch(0.65 0.16 200);
+  --status-slate: oklch(0.65 0.03 260);
+  --status-gray: oklch(0.65 0.01 260);
   --sidebar: oklch(0.214 0.009 43.1);
   --sidebar-foreground: oklch(0.986 0.002 67.8);
   --sidebar-primary: oklch(0.769 0.188 70.08);

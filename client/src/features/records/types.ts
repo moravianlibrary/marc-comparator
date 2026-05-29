@@ -204,12 +204,12 @@ export type RecordTab = "plots" | "table" | "carousel" | "addition";
 // --- Shared style constants ---
 
 export const STATE_COLORS: Record<string, string> = {
-  Active: "border-emerald-500 bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400",
-  Deleted: "border-red-500 bg-red-50 text-red-700 dark:bg-red-950 dark:text-red-400",
-  Unprocessed: "border-amber-500 bg-amber-50 text-amber-700 dark:bg-amber-950 dark:text-amber-400",
-  Processed: "border-violet-500 bg-violet-50 text-violet-700 dark:bg-violet-950 dark:text-violet-400",
-  Reviewed: "border-sky-500 bg-sky-50 text-sky-700 dark:bg-sky-950 dark:text-sky-400",
-  PartiallyReviewed: "border-cyan-500 bg-cyan-50 text-cyan-700 dark:bg-cyan-950 dark:text-cyan-400",
-  Unreviewed: "border-slate-400 bg-slate-50 text-slate-600 dark:bg-slate-900 dark:text-slate-400",
-  ReviewNotNeeded: "border-gray-300 bg-gray-50 text-gray-500 dark:bg-gray-900 dark:text-gray-500",
+  Active: "state-active",
+  Deleted: "state-deleted",
+  Unprocessed: "state-unprocessed",
+  Processed: "state-processed",
+  Reviewed: "state-reviewed",
+  PartiallyReviewed: "state-partially-reviewed",
+  Unreviewed: "state-unreviewed",
+  ReviewNotNeeded: "state-review-not-needed",
 };
