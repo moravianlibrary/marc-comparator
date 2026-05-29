@@ -62,11 +62,15 @@ export function ContextPills({
             >
               {bucket.count.toLocaleString("cs-CZ")}
             </span>
-            {showPreviewCount && (
-              <span className="absolute -top-2 -right-2 text-[10px] tabular-nums leading-none rounded-full bg-primary text-primary-foreground px-1 py-0.5 min-w-[1.25rem] text-center">
-                {previewCount.toLocaleString("cs-CZ")}
-              </span>
-            )}
+            <span
+              className="absolute -top-2 -right-2 text-[10px] tabular-nums leading-none rounded-full bg-primary text-primary-foreground px-1 py-0.5 min-w-[1.25rem] text-center transition-all duration-300 origin-center"
+              style={{
+                opacity: showPreviewCount ? 1 : 0,
+                transform: showPreviewCount ? "scale(1)" : "scale(0)",
+              }}
+            >
+              {previewCount.toLocaleString("cs-CZ")}
+            </span>
           </button>
         );
       })}
