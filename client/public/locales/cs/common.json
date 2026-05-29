@@ -97,7 +97,7 @@
         "title": "Detail záznamu",
         "description": "Zobrazuje MARC záznam s možností přepínat mezi originálním záznamem, autoritními záznamy, výsledky porovnání a validací.",
         "tips": [
-          "Šipkami vlevo/vpravo nebo klávesami procházejte záznamy — aktuální pohled se zachová.",
+          "Šipkami nebo klávesami A / D procházejte záznamy — aktuální pohled se zachová.",
           "U porovnání se vedle každého pole zobrazuje hodnota z autority, procentuální skóre a klasifikace odchylky (identický, překlep, neúplný, nestandardizovaný, nesprávný, chybějící).",
           "U validací se zobrazuje stav, důvod, detaily s prokliky na Kramerius a nápověda k opravě.",
           "Zaškrtnutím volby Pouze cílová pole zobrazíte jen pole s anotacemi.",
@@ -163,7 +163,7 @@
     "shortcuts": {
       "title": "Klávesové zkratky",
       "items": [
-        "← / → — přechod na předchozí/další záznam v detailu záznamu"
+        "A / D — přechod na předchozí / další záznam v detailu záznamu"
       ]
     }
   },
