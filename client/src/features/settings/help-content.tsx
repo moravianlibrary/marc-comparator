@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { TypographyH3, TypographyP, TypographyList, TypographyCode } from "@/components/ui/typography";
+import { TypographyH3, TypographyP, TypographyList } from "@/components/ui/typography";
 
 export function CatalogHelp() {
   const { t } = useTranslation("settings");
