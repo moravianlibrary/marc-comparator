@@ -21,7 +21,24 @@ import {
   SkeletonValidationSection,
 } from "@/components/skeletons/skeleton-plots-section";
 
-const FACET_TO_URL_PARAM: Record<string, string> = {
+type FilterKey =
+  | "bases"
+  | "typeOfRecord"
+  | "bibliographicLevel"
+  | "deleted"
+  | "processed"
+  | "reviewStatuses"
+  | "authorityLinkLinkers"
+  | "authorityLinkBases"
+  | "comparisonBases"
+  | "matchQualities"
+  | "fieldExplanations"
+  | "validators"
+  | "validationStatuses"
+  | "validationTargetTags"
+  | "validationReasons";
+
+const FACET_TO_URL_PARAM: Partial<Record<string, FilterKey>> = {
   base: "bases",
   type_of_record: "typeOfRecord",
   bibliographic_level: "bibliographicLevel",
@@ -76,7 +93,7 @@ export function PlotsView() {
 
   if (isLoading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 animate-fade-in">
         <SkeletonRecordsSection />
         <SkeletonComparisonSection />
         <SkeletonValidationSection />
@@ -97,7 +114,7 @@ export function PlotsView() {
   function getActiveValues(facetField: string): string[] {
     const paramKey = FACET_TO_URL_PARAM[facetField];
     if (!paramKey) return [];
-    const paramValue = (filters as any)[paramKey];
+    const paramValue = filters[paramKey];
     if (paramKey === "deleted" || paramKey === "processed") {
       if (!paramValue) return [];
       const labelMap = BOOL_LABEL_TO_VALUE[paramKey];
@@ -114,7 +131,7 @@ export function PlotsView() {
     if (paramKey === "deleted" || paramKey === "processed") {
       const labelMap = BOOL_LABEL_TO_VALUE[paramKey];
       const targetValue = labelMap[value];
-      const currentValue = (filters as any)[paramKey];
+      const currentValue = filters[paramKey];
       setFilters({
         [paramKey]: currentValue === targetValue ? "" : targetValue,
         page: 1,
