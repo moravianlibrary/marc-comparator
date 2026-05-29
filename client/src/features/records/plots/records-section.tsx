@@ -42,10 +42,11 @@ export function RecordsSection({
       <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
         {t("plots.sections.records")}
       </h3>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {isVisible("record_status") && (
           <Card
             className={cn(
+              "xl:col-span-1",
               (getActiveValues("is_deleted").length > 0 ||
                 getActiveValues("review_status").length > 0 ||
                 getActiveValues("is_processed").length > 0) &&
@@ -128,6 +129,7 @@ export function RecordsSection({
             <FacetChart
               title={t("facet-fields.type_of_record")}
               facetField="type_of_record"
+              className="md:order-3 md:col-span-2 xl:order-none xl:col-span-1"
               data={getBuckets("type_of_record")}
               previewData={getPreviewBuckets("type_of_record")}
               activeValues={getActiveValues("type_of_record")}
@@ -143,6 +145,7 @@ export function RecordsSection({
             <FacetChart
               title={t("facet-fields.bibliographic_level")}
               facetField="bibliographic_level"
+              className="md:order-2 xl:order-none"
               data={getBuckets("bibliographic_level")}
               previewData={getPreviewBuckets("bibliographic_level")}
               activeValues={getActiveValues("bibliographic_level")}

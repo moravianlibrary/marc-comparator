@@ -57,7 +57,7 @@ export function ValidationSection({
       <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
         {t("plots.sections.validation")}
       </h3>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {perValidatorData.map(({ validator, statuses, reasons }) =>
           statuses.length > 0 ? (
             <>
@@ -66,6 +66,7 @@ export function ValidationSection({
                   key={`status-${validator}`}
                   title={`${t(`validator-name.${validator}`, validator)}: ${t("facet-fields.validation_statuses")}`}
                   facetField="validation_statuses"
+                  className="md:col-span-2 xl:col-span-1"
                   data={statuses}
                   previewData={getPreviewBuckets("validation_statuses")}
                   activeValues={getActiveValues("validation_statuses")}
@@ -84,7 +85,7 @@ export function ValidationSection({
                   previewData={getPreviewBuckets("validation_reasons")}
                   activeValues={getActiveValues("validation_reasons")}
                   {...makeChartHandlers("validation_reasons")}
-                  className="md:col-span-2"
+                  className="md:col-span-2 xl:col-span-2"
                 >
                   {(chartProps) => {
                     const rawByTranslated = new Map(

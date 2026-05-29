@@ -51,7 +51,7 @@ export function ComparisonSection({
       <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
         {t("plots.sections.comparison")}
       </h3>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {isVisible("match_quality") &&
           getBuckets("match_qualities").length > 0 && (
             <FacetChart
@@ -98,6 +98,7 @@ export function ComparisonSection({
             <FacetChart
               title={t("facet-fields.field_explanations")}
               facetField="field_explanations"
+              className="md:col-span-2 xl:col-span-1"
               data={visibleExplanations}
               previewData={getPreviewBuckets("field_explanations")}
               activeValues={getActiveValues("field_explanations")}
