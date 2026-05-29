@@ -1,6 +1,8 @@
 import { useTranslation } from "react-i18next";
+import { Fragment } from "react";
 import { useSystemInfo } from "@/hooks/use-system-info";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -31,7 +33,14 @@ export function SystemInfoDialog({ open, onClose }: Props) {
           <DialogTitle>{t("info.title")}</DialogTitle>
         </DialogHeader>
         {isLoading ? (
-          <p className="text-muted-foreground">{t("common:loading")}</p>
+          <div className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-3">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Fragment key={i}>
+                <Skeleton className="h-4 w-20" />
+                <Skeleton className="h-4 w-full" />
+              </Fragment>
+            ))}
+          </div>
         ) : info ? (
           <dl className="grid grid-cols-[auto_1fr] gap-x-6 gap-y-2 text-sm">
             <dt className="text-muted-foreground">{t("info.version")}</dt>
