@@ -146,7 +146,9 @@
       "remove": "Zrušit revizi",
       "re-review": "Znovu revidovat",
       "not-needed": "Revize není potřeba",
-      "history": "Historie revizí"
+      "history": "Historie revizí",
+      "created": "Revize uložena",
+      "deleted": "Revize zrušena"
     }
   },
   "addition": {
