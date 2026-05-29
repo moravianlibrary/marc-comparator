@@ -57,7 +57,7 @@ export function SignupPage() {
   }
 
   return (
-    <div className="relative flex min-h-screen items-center justify-center bg-muted/50">
+    <div className="relative flex min-h-screen items-center justify-center bg-muted/50 animate-fade-in">
       <ThemeToggle className="absolute right-4 top-4" />
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">

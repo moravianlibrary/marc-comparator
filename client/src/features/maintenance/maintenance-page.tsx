@@ -12,7 +12,7 @@ export function MaintenancePage() {
   const { t } = useTranslation("maintenance");
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       <h1 className="text-2xl font-semibold">{t("title")}</h1>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <MaintenanceActionCard

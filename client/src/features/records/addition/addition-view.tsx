@@ -16,7 +16,7 @@ export function AdditionView() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 animate-fade-in">
       <h2 className="text-lg font-semibold">{t("addition.title")}</h2>
       {canAdd && <FetchSingleForm />}
       {canAdd && <FetchBatchForm />}
