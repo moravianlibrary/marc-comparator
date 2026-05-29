@@ -29,7 +29,7 @@ LABEL_ORDER = {
     "MISSING": 5,
 }
 
-def _gather_simple_occurrences(rec: Dict[str, Any], tag: str) -> List[Dict[str, str]]:
+def _gather_occurrences(rec: Dict[str, Any], tag: str) -> List[Dict[str, str]]:
     occs: List[Dict[str, str]] = []
     for f in rec.get("fields", []):
         if not isinstance(f, dict) or tag not in f:
@@ -52,8 +52,8 @@ def _udc_key_by_a(occ: Dict[str, str]) -> tuple[str, str]:
 
 def _compare_udc_tag(main_rec: Dict[str, Any], test_rec: Dict[str, Any], role_for) -> List[Dict[str, Any]]:
     diffs: List[Dict[str, Any]] = []
-    A = _gather_simple_occurrences(main_rec, "080")
-    B = _gather_simple_occurrences(test_rec, "080")
+    A = _gather_occurrences(main_rec, "080")
+    B = _gather_occurrences(test_rec, "080")
 
     idxA: Dict[tuple[str,str], List[Dict[str,str]]] = {}
     for occ in A:
@@ -138,22 +138,6 @@ def _diff_sort_key(d: dict):
     )
 
 
-def _gather_heading_occurrences(rec: Dict[str, Any], tag: str) -> List[Dict[str, str]]:
-    occs: List[Dict[str, str]] = []
-    for f in rec.get("fields", []):
-        if not isinstance(f, dict) or tag not in f: 
-            continue
-        payload = f[tag]
-        if isinstance(payload, str): 
-            continue
-        occ: Dict[str, str] = {}
-        for sf in payload.get("subfields", []):
-            k, v = next(iter(sf.items()))
-            occ[str(k)] = str(v)
-        if occ:
-            occs.append(occ)
-    return occs
-
 def _heading_key(tag: str, occ: Dict[str, str], role_for) -> tuple[str, str]:
     aid = occ.get("7")
     src = occ.get("2", "")
@@ -167,8 +151,8 @@ def _heading_key(tag: str, occ: Dict[str, str], role_for) -> tuple[str, str]:
 def _compare_heading_tag(tag: str, main_rec: Dict[str, Any], test_rec: Dict[str, Any], role_for,
                          label_extra="ADDITION", label_missing="MISSING") -> List[Dict[str, Any]]:
     diffs: List[Dict[str, Any]] = []
-    A = _gather_heading_occurrences(main_rec, tag)
-    B = _gather_heading_occurrences(test_rec, tag)
+    A = _gather_occurrences(main_rec, tag)
+    B = _gather_occurrences(test_rec, tag)
 
     idxA: Dict[tuple[str,str], List[Dict[str,str]]] = {}
     for occ in A:
@@ -378,24 +362,6 @@ def _classify(a: str, b: str, role: str, context: Optional[Dict[str, Any]] = Non
             return res
     return {"label": "INCORRECT", "confidence": 0.8, "details": {}}
 
-
-
-def _gather_occurrences(rec: Dict[str, Any], tag: str) -> List[Dict[str, str]]:
-    occs: List[Dict[str, str]] = []
-    for f in rec.get("fields", []):
-        if not isinstance(f, dict) or tag not in f:
-            continue
-        payload = f[tag]
-        if isinstance(payload, str):
-            continue
-        sfs = payload.get("subfields", [])
-        occ: Dict[str, str] = {}
-        for sf in sfs:
-            k, v = next(iter(sf.items()))
-            occ[str(k)] = str(v)
-        if occ:
-            occs.append(occ)
-    return occs
 
 
 def _occ_key(tag: str, occ: Dict[str, str], role_for) -> Tuple[str, str]:
