@@ -95,17 +95,18 @@ async def oidc_callback(code: str, state: str = "/"):
             user.save(db_session)
             db_session.commit()
             logger.info(f"OIDC: provisioned new user {email}")
+        user_id = user.id
     finally:
         db_session.close()
 
     # Issue app's own JWT cookies (same as local login)
     app_access_token = service.create_access_token(
         email,
-        user.id,
+        user_id,
         timedelta(minutes=config.auth.access_token_expire_minutes),
     )
     app_refresh_token = service.create_refresh_token(
-        user.id,
+        user_id,
         timedelta(days=config.auth.refresh_token_expire_days),
     )
 
