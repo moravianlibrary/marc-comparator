@@ -1,4 +1,4 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, keepPreviousData } from "@tanstack/react-query";
 import apiClient from "@/lib/api-client";
 import type { SearchRecordsResponse, SearchRecordsRequest } from "./types";
 
@@ -9,5 +9,6 @@ export function useRecordsSearch(payload: SearchRecordsRequest) {
       apiClient
         .post<SearchRecordsResponse>("/catalog-records/search", payload)
         .then((r) => r.data),
+    placeholderData: keepPreviousData,
   });
 }
