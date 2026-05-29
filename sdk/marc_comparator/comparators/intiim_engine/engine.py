@@ -16,7 +16,7 @@ HEADING_TAGS = {"600", "610", "648", "650", "651", "655"}
 
 UDC_TAGS = {"080"}
 
-TAG_ALIASES = {
+CANONICAL_TAG_MAP = {
     "260": "264",
 }
 
@@ -339,7 +339,7 @@ def _is_tag_ignored(tag: str) -> bool:
 
 
 def _canonical_tag(tag: str) -> str:
-    return TAG_ALIASES.get(str(tag), str(tag))
+    return CANONICAL_TAG_MAP.get(str(tag), str(tag))
 
 
 def _role_for(tag: str, code: Optional[str]) -> str:

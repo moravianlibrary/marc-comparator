@@ -231,7 +231,7 @@ class DefaultComparator(BaseComparator):
         )
 
 
-TAG_ALIASES = {
+TAG_ALIASES_BIDIRECTIONAL = {
     "260": "264",
     "264": "260",
 }
@@ -244,8 +244,8 @@ def get_field_and_subfield_indexes(
     variable_fields = record.variable_fields.root.get(tag, [])
     # Fallback to alias
     used_tag = tag
-    if not variable_fields and tag in TAG_ALIASES:
-        used_tag = TAG_ALIASES[tag]
+    if not variable_fields and tag in TAG_ALIASES_BIDIRECTIONAL:
+        used_tag = TAG_ALIASES_BIDIRECTIONAL[tag]
         variable_fields = record.variable_fields.root.get(used_tag, [])
 
     if not variable_fields:
