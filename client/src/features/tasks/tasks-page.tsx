@@ -1,15 +1,28 @@
-import { useMemo } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import apiClient from "@/lib/api-client";
 import { useHasPermission } from "@/hooks/use-permissions";
 import { Permission } from "@/types/permission";
+import { Button } from "@/components/ui/button";
 import type { Task } from "@/types/task";
 import type { User } from "@/types/user";
 import { TaskTable } from "./task-table";
 import { TaskDetail } from "./task-detail";
 import { SkeletonTable } from "@/components/skeletons/skeleton-table";
+
+const XL_QUERY = "(min-width: 1280px)";
+function useIsXl() {
+  return useSyncExternalStore(
+    (cb) => {
+      const mql = window.matchMedia(XL_QUERY);
+      mql.addEventListener("change", cb);
+      return () => mql.removeEventListener("change", cb);
+    },
+    () => window.matchMedia(XL_QUERY).matches,
+  );
+}
 
 export function TasksPage() {
   const { t } = useTranslation("tasks");
@@ -17,6 +30,9 @@ export function TasksPage() {
   const { hasPermission } = useHasPermission();
   const [searchParams, setSearchParams] = useSearchParams();
   const selectedTaskId = searchParams.get("taskId");
+  const isXl = useIsXl();
+  const pageSize = isXl ? 20 : 15;
+  const [page, setPage] = useState(1);
 
   function handleSelectTask(id: string) {
     setSearchParams((prev) => {
@@ -34,10 +50,10 @@ export function TasksPage() {
   const searchEndpoint = canSeeAll ? "/tasks/search-all" : "/tasks/search-own";
 
   const { data, isLoading } = useQuery<{ items: Task[]; total: number }>({
-    queryKey: ["tasks", "list", searchEndpoint],
+    queryKey: ["tasks", "list", searchEndpoint, page],
     queryFn: () =>
       apiClient
-        .post(searchEndpoint, { page: 1, page_size: 50 })
+        .post(searchEndpoint, { page, page_size: pageSize })
         .then((r) => r.data),
   });
 
@@ -68,6 +84,8 @@ export function TasksPage() {
   });
 
   const tasks = data?.items ?? [];
+  const total = data?.total ?? 0;
+  const totalPages = Math.ceil(total / pageSize);
   const selectedTask = selectedTaskId
     ? tasks.find((t) => t.task_id === selectedTaskId)
     : undefined;
@@ -76,8 +94,8 @@ export function TasksPage() {
     <div className="space-y-4">
       <h1 className="text-2xl font-semibold">{t("title")}</h1>
 
-      <div className={`grid gap-4 ${selectedTaskId ? "grid-cols-[1fr_1fr]" : "grid-cols-1"}`}>
-        <div>
+      <div className={`grid gap-4 ${selectedTaskId ? "grid-cols-1 xl:grid-cols-[1fr_1fr]" : "grid-cols-1"}`}>
+        <div className="space-y-4">
           {isLoading ? (
             <SkeletonTable rows={5} columns={5} />
           ) : (
@@ -92,9 +110,34 @@ export function TasksPage() {
               />
             </div>
           )}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between">
+              <p className="text-sm text-muted-foreground">
+                {t("common:pagination.page", { page, total: totalPages })}
+              </p>
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(page - 1)}
+                  disabled={page <= 1}
+                >
+                  {t("common:pagination.previous")}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage(page + 1)}
+                  disabled={page >= totalPages}
+                >
+                  {t("common:pagination.next")}
+                </Button>
+              </div>
+            </div>
+          )}
         </div>
         {selectedTaskId && (
-          <div>
+          <div className="xl:sticky xl:top-20 xl:self-start">
             <TaskDetail taskId={selectedTaskId} isRunning={selectedTask?.status === "Started" || selectedTask?.status === "Pending"} />
           </div>
         )}
