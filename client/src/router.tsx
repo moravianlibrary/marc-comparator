@@ -3,7 +3,6 @@ import { AppLayout } from "@/layout/app-layout";
 import { LoginPage } from "@/features/auth/login-page";
 import { SignupPage } from "@/features/auth/signup-page";
 import { LogoutPage } from "@/features/auth/logout-page";
-import { SettingsPage } from "@/features/settings/settings-page";
 import { TasksPage } from "@/features/tasks/tasks-page";
 import { AccessControlPage } from "@/features/access-control/access-control-page";
 import { ServiceUnavailablePage } from "@/features/errors/service-unavailable-page";
@@ -45,7 +44,12 @@ export const router = createBrowserRouter([
       },
       {
         path: "settings",
-        element: <SettingsPage />,
+        lazy: async () => {
+          const { SettingsPage } = await import(
+            "@/features/settings/settings-page"
+          );
+          return { Component: SettingsPage };
+        },
       },
       {
         path: "access-control",
