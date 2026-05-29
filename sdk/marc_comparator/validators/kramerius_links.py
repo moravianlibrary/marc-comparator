@@ -19,13 +19,13 @@ from ._base import (
 
 class KrameriusLinksValidatorConfig(BaseModel):
     url_to_pid_pattern: str = (
-        r"https?://(?:www\.)?digitalniknihovna\.cz/mzk/uuid/(?P<pid>uuid:[0-9a-fA-F-]+)"
+        r"https?://(?:www\.)?digitalniknihovna\.cz/mzk/uuid/(?P<pid>uuid:[0-9a-fA-F-]+)(?:\?.*)?"
     )
     url_to_pid_wrong_path_pattern: str = (
-        r"https?://(?:www\.)?digitalniknihovna\.cz/mzk/[^/]+/(?P<pid>uuid:[0-9a-fA-F-]+)"
+        r"https?://(?:www\.)?digitalniknihovna\.cz/mzk/[^/]+/(?P<pid>uuid:[0-9a-fA-F-]+)(?:\?.*)?"
     )
     url_to_pid_fallback_pattern: str = (
-        r"https?://[^/]+/.*?(?P<pid>uuid:[0-9a-fA-F-]+)"
+        r"https?://[^/]+/.*?(?P<pid>uuid:[0-9a-fA-F-]+)(?:\?.*)?"
     )
     link_text_pattern: str = r"Digitalizovaný dokument"
 
