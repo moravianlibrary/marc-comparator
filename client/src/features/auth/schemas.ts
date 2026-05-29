@@ -16,9 +16,14 @@ export const signupSchema = z
     password: z.string().min(8),
     confirm_password: z.string().min(8),
   })
-  .refine((data) => data.password === data.confirm_password, {
-    path: ["confirm_password"],
-    message: i18n.t("validation.passwords-mismatch"),
+  .superRefine((data, ctx) => {
+    if (data.password !== data.confirm_password) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["confirm_password"],
+        message: i18n.t("validation.passwords-mismatch"),
+      });
+    }
   });
 
 export type SignupFormValues = z.infer<typeof signupSchema>;
