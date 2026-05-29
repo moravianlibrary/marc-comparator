@@ -1,7 +1,5 @@
-import { useEffect } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslation } from "react-i18next";
+import { useSettingsForm } from "./use-settings-form";
 import { useSystemInfo } from "@/hooks/use-system-info";
 import { processRecordsSettingsSchema, type ProcessRecordsSettingsFormValues } from "./schemas";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -35,21 +33,13 @@ export function ProcessRecordsSettingsForm({
 
   const { data: systemInfo } = useSystemInfo();
 
-  const form = useForm<ProcessRecordsSettingsFormValues>({
-    resolver: zodResolver(processRecordsSettingsSchema),
+  const form = useSettingsForm({
+    schema: processRecordsSettingsSchema,
     defaultValues: data,
+    onFormRef,
+    onDirtyChange,
+    onSubmit,
   });
-
-  useEffect(() => {
-    onFormRef({
-      submit: () => form.handleSubmit(onSubmit)(),
-      reset: () => form.reset(data),
-    });
-  }, [form, onSubmit, data, onFormRef]);
-
-  useEffect(() => {
-    onDirtyChange(form.formState.isDirty);
-  }, [form.formState.isDirty, onDirtyChange]);
 
   const linkerTargetBases = [
     ...new Set(

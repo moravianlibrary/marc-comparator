@@ -1,7 +1,6 @@
-import { useEffect, useMemo } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
+import { useSettingsForm } from "./use-settings-form";
 import { validationSettingsSchema, type ValidationSettingsFormValues } from "./schemas";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
@@ -45,21 +44,13 @@ export function ValidationSettingsForm({
     },
   }), [data]);
 
-  const form = useForm<ValidationSettingsFormValues>({
-    resolver: zodResolver(validationSettingsSchema),
+  const form = useSettingsForm({
+    schema: validationSettingsSchema,
     defaultValues,
+    onFormRef,
+    onDirtyChange,
+    onSubmit,
   });
-
-  useEffect(() => {
-    onFormRef({
-      submit: () => form.handleSubmit(onSubmit)(),
-      reset: () => form.reset(defaultValues),
-    });
-  }, [form, onSubmit, defaultValues, onFormRef]);
-
-  useEffect(() => {
-    onDirtyChange(form.formState.isDirty);
-  }, [form.formState.isDirty, onDirtyChange]);
 
   return (
     <Form {...form}>

@@ -1,7 +1,6 @@
-import { useEffect } from "react";
-import { useForm, useFieldArray } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { useFieldArray } from "react-hook-form";
 import { useTranslation } from "react-i18next";
+import { useSettingsForm } from "./use-settings-form";
 import { Plus, Trash2 } from "lucide-react";
 import { catalogSettingsSchema, type CatalogSettingsFormValues } from "./schemas";
 import { Button } from "@/components/ui/button";
@@ -29,26 +28,18 @@ interface Props {
 export function CatalogSettingsForm({ data, onDirtyChange, onFormRef, onSubmit }: Props) {
   const { t } = useTranslation("settings");
 
-  const form = useForm<CatalogSettingsFormValues>({
-    resolver: zodResolver(catalogSettingsSchema),
+  const form = useSettingsForm({
+    schema: catalogSettingsSchema,
     defaultValues: data,
+    onFormRef,
+    onDirtyChange,
+    onSubmit,
   });
 
   const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: "clients",
   });
-
-  useEffect(() => {
-    onFormRef({
-      submit: () => form.handleSubmit(onSubmit)(),
-      reset: () => form.reset(data),
-    });
-  }, [form, onSubmit, data, onFormRef]);
-
-  useEffect(() => {
-    onDirtyChange(form.formState.isDirty);
-  }, [form.formState.isDirty, onDirtyChange]);
 
   return (
     <Form {...form}>

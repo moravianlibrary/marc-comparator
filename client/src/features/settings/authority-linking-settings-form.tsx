@@ -1,7 +1,7 @@
-import { useEffect, useMemo } from "react";
-import { useForm, useFieldArray } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
+import { useMemo } from "react";
+import { useFieldArray } from "react-hook-form";
 import { useTranslation } from "react-i18next";
+import { useSettingsForm } from "./use-settings-form";
 import { Plus, Trash2 } from "lucide-react";
 import { authorityLinkingSettingsSchema, type AuthorityLinkingSettingsFormValues } from "./schemas";
 import { Button } from "@/components/ui/button";
@@ -42,26 +42,18 @@ export function AuthorityLinkingSettingsForm({
     },
   }), [data]);
 
-  const form = useForm<AuthorityLinkingSettingsFormValues>({
-    resolver: zodResolver(authorityLinkingSettingsSchema),
+  const form = useSettingsForm({
+    schema: authorityLinkingSettingsSchema,
     defaultValues,
+    onFormRef,
+    onDirtyChange,
+    onSubmit,
   });
 
   const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: "knihovny-cz.mappings",
   });
-
-  useEffect(() => {
-    onFormRef({
-      submit: () => form.handleSubmit((values) => onSubmit(values))(),
-      reset: () => form.reset(defaultValues),
-    });
-  }, [form, onSubmit, defaultValues, onFormRef]);
-
-  useEffect(() => {
-    onDirtyChange(form.formState.isDirty);
-  }, [form.formState.isDirty, onDirtyChange]);
 
   return (
     <Form {...form}>

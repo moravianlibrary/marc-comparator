@@ -1,7 +1,5 @@
-import { useEffect } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
 import { useTranslation } from "react-i18next";
+import { useSettingsForm } from "./use-settings-form";
 import { taskSettingsSchema, type TaskSettingsFormValues } from "./schemas";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -28,21 +26,13 @@ interface Props {
 export function TaskSettingsForm({ data, onDirtyChange, onFormRef, onSubmit }: Props) {
   const { t } = useTranslation("settings");
 
-  const form = useForm<TaskSettingsFormValues>({
-    resolver: zodResolver(taskSettingsSchema),
+  const form = useSettingsForm({
+    schema: taskSettingsSchema,
     defaultValues: data,
+    onFormRef,
+    onDirtyChange,
+    onSubmit,
   });
-
-  useEffect(() => {
-    onFormRef({
-      submit: () => form.handleSubmit(onSubmit)(),
-      reset: () => form.reset(data),
-    });
-  }, [form, onSubmit, data, onFormRef]);
-
-  useEffect(() => {
-    onDirtyChange(form.formState.isDirty);
-  }, [form.formState.isDirty, onDirtyChange]);
 
   return (
     <Form {...form}>
