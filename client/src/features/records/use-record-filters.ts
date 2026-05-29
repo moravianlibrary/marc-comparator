@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import {
   useQueryStates,
   parseAsString,
@@ -24,7 +25,9 @@ export function useRecordFilters() {
     {
       tab: parseAsStringLiteral(tabValues).withDefault("plots"),
       page: parseAsInteger.withDefault(1),
-      pageSize: parseAsInteger.withDefault(25),
+      pageSize: parseAsInteger.withDefault(
+        Number(localStorage.getItem("records:pageSize")) || 25,
+      ),
       sortBy: parseAsStringLiteral(sortByValues).withDefault("latest_sync"),
       sortOrder: parseAsStringLiteral(sortOrderValues).withDefault("desc"),
       search: parseAsString.withDefault(""),
@@ -56,6 +59,10 @@ export function useRecordFilters() {
     },
     { history: "replace", shallow: true },
   );
+
+  useEffect(() => {
+    localStorage.setItem("records:pageSize", String(filters.pageSize));
+  }, [filters.pageSize]);
 
   function setTab(tab: RecordTab) {
     setFilters({ tab });
