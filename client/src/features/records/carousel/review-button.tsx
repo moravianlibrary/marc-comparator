@@ -174,9 +174,7 @@ export function ReviewButton({
             className={cn(
               "h-7 gap-1.5 text-xs",
               hasHistory && "rounded-r-none",
-              isOutdated
-                ? "border-amber-500 text-amber-700 dark:text-amber-400"
-                : "border-emerald-500 text-emerald-700 dark:text-emerald-400",
+              isOutdated ? "badge-review-outdated" : "badge-review-current",
             )}
           >
             {isOutdated ? (

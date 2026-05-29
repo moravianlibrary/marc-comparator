@@ -8,7 +8,7 @@ import { useHasPermission } from "@/hooks/use-permissions";
 import { Permission } from "@/types/permission";
 import { STATE_COLORS, type RecordSummary, type ValidationSummary } from "../types";
 import { RecordTaskActions, AdvancedTaskActions } from "../record-task-actions";
-import { groupValidations } from "../utils";
+import { groupValidations, VALIDATION_BADGE_CLASS, COMPARISON_BADGE_CLASS } from "../utils";
 
 interface RecordHeaderProps {
   record: RecordSummary;
@@ -98,9 +98,7 @@ export function RecordHeader({ record, onSelectView }: RecordHeaderProps) {
               variant="outline"
               className={cn(
                 "text-xs",
-                c.match_quality === "Excellent" && "border-green-500 text-green-700 dark:text-green-400",
-                c.match_quality === "Moderate" && "border-yellow-500 text-yellow-700 dark:text-yellow-400",
-                c.match_quality === "Poor" && "border-red-500 text-red-700 dark:text-red-400",
+                COMPARISON_BADGE_CLASS[c.match_quality],
                 onSelectView && "cursor-pointer hover:bg-accent",
               )}
               onClick={onSelectView ? () => onSelectView(viewKey) : undefined}
@@ -117,9 +115,7 @@ export function RecordHeader({ record, onSelectView }: RecordHeaderProps) {
               variant="outline"
               className={cn(
                 "text-xs",
-                g.status === "Valid" && "border-green-500 text-green-700 dark:text-green-400",
-                g.status === "Invalid" && "border-red-500 text-red-700 dark:text-red-400",
-                g.status === "ForReview" && "border-yellow-500 text-yellow-700 dark:text-yellow-400",
+                VALIDATION_BADGE_CLASS[g.status],
                 onSelectView && "cursor-pointer hover:bg-accent",
               )}
               onClick={onSelectView ? () => onSelectView(viewKey) : undefined}

@@ -94,6 +94,45 @@
     max-width: 0;
     margin-left: 0;
   }
+  /* Validation status badges */
+  .badge-valid {
+    border-color: var(--status-success);
+    color: var(--status-success);
+  }
+  .badge-invalid {
+    border-color: var(--status-danger);
+    color: var(--status-danger);
+  }
+  .badge-for-review {
+    border-color: var(--status-warning);
+    color: var(--status-warning);
+  }
+  .badge-additional-info {
+    border-color: var(--status-info);
+    color: var(--status-info);
+  }
+  /* Comparison quality badges */
+  .badge-excellent {
+    border-color: var(--status-success);
+    color: var(--status-success);
+  }
+  .badge-moderate {
+    border-color: var(--status-warning);
+    color: var(--status-warning);
+  }
+  .badge-poor {
+    border-color: var(--status-danger);
+    color: var(--status-danger);
+  }
+  /* Review status badges */
+  .badge-review-outdated {
+    border-color: var(--status-warning);
+    color: var(--status-warning);
+  }
+  .badge-review-current {
+    border-color: var(--status-success);
+    color: var(--status-success);
+  }
 }
 
 html[data-font-size="small"] {

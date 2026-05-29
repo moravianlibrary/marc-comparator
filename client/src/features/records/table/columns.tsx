@@ -2,7 +2,7 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { STATE_COLORS, type RecordSummary, type ValidationSummary } from "../types";
-import { groupValidations } from "../utils";
+import { groupValidations, VALIDATION_BADGE_CLASS, COMPARISON_BADGE_CLASS } from "../utils";
 
 /** Column IDs that the backend can sort by. */
 const SORTABLE_COLUMNS = new Set(["base", "system_number", "latest_sync", "comparison_score"]);
@@ -117,9 +117,7 @@ export function createColumns(
                   variant="outline"
                   className={cn(
                     "text-xs",
-                    c.match_quality === "Excellent" && "border-green-500 text-green-700 dark:text-green-400",
-                    c.match_quality === "Moderate" && "border-yellow-500 text-yellow-700 dark:text-yellow-400",
-                    c.match_quality === "Poor" && "border-red-500 text-red-700 dark:text-red-400",
+                    COMPARISON_BADGE_CLASS[c.match_quality],
                     onNavigate && "cursor-pointer hover:bg-accent",
                   )}
                   onClick={onNavigate ? (e) => { e.stopPropagation(); onNavigate(row.index, viewKey); } : undefined}
@@ -150,10 +148,7 @@ export function createColumns(
                   variant="outline"
                   className={cn(
                     "text-xs",
-                    g.status === "Valid" && "border-green-500 text-green-700 dark:text-green-400",
-                    g.status === "Invalid" && "border-red-500 text-red-700 dark:text-red-400",
-                    g.status === "ForReview" && "border-yellow-500 text-yellow-700 dark:text-yellow-400",
-                    g.status === "AdditionalInfo" && "border-blue-500 text-blue-700 dark:text-blue-400",
+                    VALIDATION_BADGE_CLASS[g.status],
                     onNavigate && "cursor-pointer hover:bg-accent",
                   )}
                   onClick={onNavigate ? (e) => { e.stopPropagation(); onNavigate(row.index, viewKey); } : undefined}
