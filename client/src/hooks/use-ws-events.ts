@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { useTranslation } from "react-i18next";
@@ -9,37 +9,40 @@ export function useWsEvents() {
   const { t } = useTranslation("tasks");
   const queryClient = useQueryClient();
 
+  const tRef = useRef(t);
+  tRef.current = t;
+
   useEffect(() => {
     wsClient.connect();
 
     const unsubStatus = wsClient.on("task_status", (data: any) => {
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
 
-      const taskName = data.task_type ? t(`type.${data.task_type}`, { defaultValue: data.task_type }) : data.task_type;
+      const taskName = data.task_type ? tRef.current(`type.${data.task_type}`, { defaultValue: data.task_type }) : data.task_type;
       if (data.status === "Started") {
-        toast.info(t("toast.started", { name: taskName }));
+        toast.info(tRef.current("toast.started", { name: taskName }));
         addNotification({
           title: taskName,
-          description: t("toast.started", { name: taskName }),
+          description: tRef.current("toast.started", { name: taskName }),
           variant: "default",
           timestamp: new Date().toISOString(),
           taskId: data.task_id,
         });
       } else if (data.status === "Success") {
-        toast.success(t("toast.completed", { name: taskName }));
+        toast.success(tRef.current("toast.completed", { name: taskName }));
         addNotification({
           title: taskName,
-          description: t("toast.completed", { name: taskName }),
+          description: tRef.current("toast.completed", { name: taskName }),
           variant: "success",
           timestamp: new Date().toISOString(),
           taskId: data.task_id,
         });
         queryClient.invalidateQueries({ queryKey: ["catalog-records"] });
       } else if (data.status === "Failure") {
-        toast.error(t("toast.failed", { name: taskName }));
+        toast.error(tRef.current("toast.failed", { name: taskName }));
         addNotification({
           title: taskName,
-          description: t("toast.failed", { name: taskName }),
+          description: tRef.current("toast.failed", { name: taskName }),
           variant: "error",
           timestamp: new Date().toISOString(),
           taskId: data.task_id,
@@ -67,5 +70,5 @@ export function useWsEvents() {
       unsubUnlock();
       wsClient.disconnect();
     };
-  }, [queryClient, t]);
+  }, [queryClient]);
 }
