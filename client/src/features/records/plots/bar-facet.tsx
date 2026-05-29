@@ -1,4 +1,5 @@
-import { useRef, useState, useEffect, useMemo } from "react";
+import { useRef, useState, useEffect, useMemo, useCallback } from "react";
+import { createPortal } from "react-dom";
 import { useTranslation } from "react-i18next";
 import { Bar, BarChart, Cell, LabelList, XAxis, YAxis } from "recharts";
 import {
@@ -8,6 +9,65 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 import type { FacetBucket } from "../types";
+
+interface HoveredLabel {
+  name: string;
+  count: number;
+  preview: number;
+  rect: DOMRect;
+}
+
+function LabelTooltip({ item, config }: { item: HoveredLabel; config: ChartConfig }) {
+  const left = item.rect.right;
+  const top = item.rect.top + item.rect.height / 2;
+
+  return createPortal(
+    <div
+      className="pointer-events-none fixed z-50 -translate-y-1/2"
+      style={{ left: left + 8, top }}
+    >
+      <div className="grid min-w-[8rem] items-start gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl">
+        <div className="font-medium">{item.name}</div>
+        <div className="grid gap-1.5">
+          <div className="flex w-full items-stretch gap-2">
+            <div
+              className="shrink-0 rounded-[2px] w-1"
+              style={{ backgroundColor: "var(--chart-1)" }}
+            />
+            <div className="flex flex-1 justify-between items-center leading-none">
+              <span className="text-muted-foreground">
+                {config.count?.label}
+              </span>
+              <span className="font-mono font-medium text-foreground tabular-nums">
+                {item.count.toLocaleString()}
+              </span>
+            </div>
+          </div>
+          {item.preview > 0 && (
+            <div className="flex w-full items-stretch gap-2">
+              <div
+                className="shrink-0 rounded-[2px] w-1"
+                style={{
+                  backgroundColor:
+                    "color-mix(in oklch, var(--muted-foreground) 15%, transparent)",
+                }}
+              />
+              <div className="flex flex-1 justify-between items-center leading-none">
+                <span className="text-muted-foreground">
+                  {config.preview?.label}
+                </span>
+                <span className="font-mono font-medium text-foreground tabular-nums">
+                  {item.preview.toLocaleString()}
+                </span>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
 
 interface BarFacetProps {
   data: FacetBucket[];
@@ -42,6 +102,8 @@ export function BarFacet({
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(0);
+  const [hoveredLabel, setHoveredLabel] = useState<HoveredLabel | null>(null);
+  const labelRefs = useRef<Map<string, HTMLDivElement>>(new Map());
 
   useEffect(() => {
     const el = containerRef.current;
@@ -67,6 +129,27 @@ export function BarFacet({
       preview: preview?.count ?? 0,
     };
   });
+
+  const handleLabelEnter = useCallback(
+    (key: string, entry: (typeof chartData)[0]) => {
+      onHover(key);
+      const el = labelRefs.current.get(key);
+      if (el) {
+        setHoveredLabel({
+          name: entry.name,
+          count: entry.count,
+          preview: entry.preview,
+          rect: el.getBoundingClientRect(),
+        });
+      }
+    },
+    [onHover],
+  );
+
+  const handleLabelLeave = useCallback(() => {
+    onLeave();
+    setHoveredLabel(null);
+  }, [onLeave]);
 
   return (
     <div ref={containerRef}>
@@ -95,11 +178,12 @@ export function BarFacet({
             return (
               <foreignObject x={x - w} y={y - 18} width={w} height={36} focusable="false">
                 <div
+                  ref={(el) => { if (el) labelRefs.current.set(key, el); }}
                   style={{ cursor: disabled ? "default" : "pointer" }}
                   className="flex items-center justify-end h-full text-xs text-foreground leading-tight pr-2 outline-none"
                   onClick={(e) => { e.stopPropagation(); if (!disabled) onToggle(key); }}
-                  onMouseEnter={() => { if (!disabled) onHover(key); }}
-                  onMouseLeave={onLeave}
+                  onMouseEnter={() => { if (!disabled && entry) handleLabelEnter(key, entry); }}
+                  onMouseLeave={handleLabelLeave}
                 >
                   {labelIndicators?.[key] && (
                     <span
@@ -163,6 +247,7 @@ export function BarFacet({
         </Bar>
       </BarChart>
     </ChartContainer>
+    {hoveredLabel && <LabelTooltip item={hoveredLabel} config={chartConfig} />}
     </div>
   );
 }
