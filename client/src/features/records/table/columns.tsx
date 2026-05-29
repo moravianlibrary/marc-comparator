@@ -2,27 +2,10 @@ import type { ColumnDef } from "@tanstack/react-table";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { STATE_COLORS, type RecordSummary, type ValidationSummary } from "../types";
+import { groupValidations } from "../utils";
 
 /** Column IDs that the backend can sort by. */
 const SORTABLE_COLUMNS = new Set(["base", "system_number", "latest_sync", "comparison_score"]);
-
-const STATUS_ORDER: Record<string, number> = { Valid: 0, ForReview: 1, Invalid: 2, AdditionalInfo: 3 };
-
-function groupValidations(validations: ValidationSummary[]) {
-  const map = new Map<string, { validator: string; target_tag: string; status: string; count: number }>();
-  for (const v of validations) {
-    const key = `${v.validator}|${v.target_tag}|${v.status}`;
-    const existing = map.get(key);
-    if (existing) {
-      existing.count++;
-    } else {
-      map.set(key, { validator: v.validator, target_tag: v.target_tag, status: v.status, count: 1 });
-    }
-  }
-  return [...map.values()].sort(
-    (a, b) => (STATUS_ORDER[a.status] ?? 99) - (STATUS_ORDER[b.status] ?? 99),
-  );
-}
 
 export function createColumns(
   t: (key: string) => string,
