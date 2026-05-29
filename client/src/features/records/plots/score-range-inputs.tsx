@@ -1,4 +1,5 @@
 import { useRef } from "react";
+import { Input } from "@/components/ui/input";
 
 interface ScoreRangeInputsProps {
   scoreMin: number;
@@ -35,7 +36,7 @@ export function ScoreRangeInputs({
 
   return (
     <div className="flex items-center gap-1.5 text-xs">
-      <input
+      <Input
         ref={minRef}
         type="number"
         min={0}
@@ -44,10 +45,10 @@ export function ScoreRangeInputs({
         defaultValue={Math.round(scoreMin * 100)}
         onKeyDown={handleKeyDown}
         onBlur={handleSubmit}
-        className="h-6 w-14 rounded border border-input bg-background px-1.5 text-xs tabular-nums text-center"
+        className="h-6 w-14 px-1.5 text-xs tabular-nums text-center"
       />
       <span className="text-muted-foreground">–</span>
-      <input
+      <Input
         ref={maxRef}
         type="number"
         min={0}
@@ -56,7 +57,7 @@ export function ScoreRangeInputs({
         defaultValue={Math.round(scoreMax * 100)}
         onKeyDown={handleKeyDown}
         onBlur={handleSubmit}
-        className="h-6 w-14 rounded border border-input bg-background px-1.5 text-xs tabular-nums text-center"
+        className="h-6 w-14 px-1.5 text-xs tabular-nums text-center"
       />
       <span className="text-muted-foreground">%</span>
     </div>
