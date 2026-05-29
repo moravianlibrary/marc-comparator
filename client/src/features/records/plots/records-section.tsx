@@ -58,8 +58,13 @@ export function RecordsSection({
             }}
           >
             <CardHeader className="pb-2">
-              <CardTitle className="text-sm font-medium">
+              <CardTitle className="text-sm font-medium flex items-center gap-2">
                 {t("plots.record-status")}
+                {(getActiveValues("is_deleted").length > 0 ||
+                  getActiveValues("review_status").length > 0 ||
+                  getActiveValues("is_processed").length > 0) && (
+                  <span className="inline-block h-2 w-2 rounded-full bg-primary" />
+                )}
               </CardTitle>
             </CardHeader>
             <CardContent>
