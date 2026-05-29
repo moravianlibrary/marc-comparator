@@ -1,7 +1,6 @@
 from collections import defaultdict
 
 from aleph_nought import RecordStatus
-from comparison import UsedComparator
 from marcdantic import MarcRecord
 
 from adapters.aleph_client_registry import AlephClientRegistry
