@@ -51,11 +51,11 @@ export function MaintenanceSettingsForm({ data, onDirtyChange, onFormRef, onSubm
                 control={form.control}
                 name="task_cleanup.enabled"
                 render={({ field }) => (
-                  <FormItem className="flex items-center gap-3">
+                  <FormItem className="flex items-center gap-3 space-y-0">
                     <FormControl>
                       <Switch checked={field.value} onCheckedChange={field.onChange} />
                     </FormControl>
-                    <FormLabel className="!mt-0">{t("maintenance.enabled")}</FormLabel>
+                    <FormLabel>{t("maintenance.enabled")}</FormLabel>
                   </FormItem>
                 )}
               />
@@ -98,11 +98,11 @@ export function MaintenanceSettingsForm({ data, onDirtyChange, onFormRef, onSubm
                 control={form.control}
                 name="sector_compaction.enabled"
                 render={({ field }) => (
-                  <FormItem className="flex items-center gap-3">
+                  <FormItem className="flex items-center gap-3 space-y-0">
                     <FormControl>
                       <Switch checked={field.value} onCheckedChange={field.onChange} />
                     </FormControl>
-                    <FormLabel className="!mt-0">{t("maintenance.enabled")}</FormLabel>
+                    <FormLabel>{t("maintenance.enabled")}</FormLabel>
                   </FormItem>
                 )}
               />
