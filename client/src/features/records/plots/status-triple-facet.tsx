@@ -152,8 +152,8 @@ export function StatusTripleFacet({
                     ref={(el) => {
                       if (el) buttonRefs.current.set(`${row.facetField}-${seg.key}`, el);
                     }}
-                    className="relative flex items-center justify-center px-2 overflow-hidden"
-                    style={{ width: `${percent}%`, color: "black" }}
+                    className="relative flex items-center justify-center px-2 overflow-hidden bar-segment-text"
+                    style={{ width: `${percent}%` }}
                     onClick={() => {
                       if (isShowingPreview && previewCount === 0) return;
                       onToggle(row.facetField, seg.key);

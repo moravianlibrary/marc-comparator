@@ -78,6 +78,9 @@
   body {
     @apply bg-background text-foreground;
   }
+  .bar-segment-text {
+    color: black;
+  }
   html {
     @apply font-sans;
   }
