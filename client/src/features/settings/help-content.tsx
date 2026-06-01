@@ -66,12 +66,23 @@ export function ComparatorsHelp() {
         <li><strong>{t("comparator.ollama-url")}</strong> — {t("help.comparator.ollama-url")}</li>
         <li><strong>{t("comparator.llm-enabled")}</strong> — {t("help.comparator.llm-enabled")}</li>
         <li><strong>{t("comparator.nonstandard-llm-enabled")}</strong> — {t("help.comparator.nonstandard-llm-enabled")}</li>
-        <li><strong>{t("comparator.valid-threshold")}</strong> — {t("help.comparator.valid-threshold")}</li>
-        <li><strong>{t("comparator.warning-threshold")}</strong> — {t("help.comparator.warning-threshold")}</li>
+        <li><strong>{t("comparator.excellent-threshold")}</strong> — {t("help.comparator.excellent-threshold")}</li>
+        <li><strong>{t("comparator.moderate-threshold")}</strong> — {t("help.comparator.moderate-threshold")}</li>
       </TypographyList>
-      <TypographyP>
-        {t("help.comparator.thresholds-note")}
-      </TypographyP>
+      <TypographyH3>{t("help.comparator.scoring-title")}</TypographyH3>
+      <TypographyP>{t("help.comparator.scoring-intro")}</TypographyP>
+      <TypographyList>
+        <li>{t("help.comparator.scoring-step-1")}</li>
+        <li>{t("help.comparator.scoring-step-2")}</li>
+        <li>{t("help.comparator.scoring-step-3")}</li>
+      </TypographyList>
+      <TypographyH3>{t("help.comparator.normalization-title")}</TypographyH3>
+      <TypographyP>{t("help.comparator.normalization-intro")}</TypographyP>
+      <TypographyList>
+        <li><strong>Excellent (0.9–1.0)</strong> — {t("help.comparator.normalization-excellent")}</li>
+        <li><strong>Moderate (0.7–0.9)</strong> — {t("help.comparator.normalization-moderate")}</li>
+        <li><strong>Poor (0.0–0.7)</strong> — {t("help.comparator.normalization-poor")}</li>
+      </TypographyList>
     </>
   );
 }

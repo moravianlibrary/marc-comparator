@@ -41,8 +41,8 @@ export interface ComparatorConfig {
   ollama_url: string;
   llm_enabled: boolean;
   nonstandard_llm_enabled: boolean;
-  valid_threshold: number;
-  warning_threshold: number;
+  excellent_threshold: number;
+  moderate_threshold: number;
 }
 
 export interface ComparisonSettings {

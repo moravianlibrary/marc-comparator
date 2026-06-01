@@ -1,5 +1,4 @@
 import asyncio
-import math
 from collections import defaultdict
 from typing import Any, Dict, List, Set, Tuple
 
@@ -32,8 +31,8 @@ class DefaultComparatorConfig(BaseModel):
     ollama_url: str = "http://localhost:11434"
     llm_enabled: bool = False
     nonstandard_llm_enabled: bool = False
-    valid_threshold: int = 6
-    warning_threshold: int = 12
+    excellent_threshold: int = 6
+    moderate_threshold: int = 12
 
 
 class DefaultComparator(BaseComparator):
@@ -107,8 +106,8 @@ class DefaultComparator(BaseComparator):
         field_scoring = {
             f["tag"]: normalize_score(
                 f.get("applied", 0.0),
-                valid_threshold=self.config.valid_threshold / 3,
-                warning_threshold=self.config.warning_threshold / 3,
+                excellent_threshold=self.config.excellent_threshold / 3,
+                moderate_threshold=self.config.moderate_threshold / 3,
                 cap=field_score_caps.get(f["tag"], 10.0),
             )
             for f in scoring.get("field_contributions", [])
@@ -116,8 +115,8 @@ class DefaultComparator(BaseComparator):
         subfield_scoring = {
             f"{s['tag']}|{s['code']}|{s["value_main"]}": normalize_score(
                 s.get("weight", 0.0),
-                valid_threshold=self.config.valid_threshold / 3,
-                warning_threshold=self.config.warning_threshold / 3,
+                excellent_threshold=self.config.excellent_threshold / 3,
+                moderate_threshold=self.config.moderate_threshold / 3,
                 cap=field_score_caps.get(s["tag"], 10.0),
             )
             for s in scoring.get("components", [])
@@ -224,8 +223,8 @@ class DefaultComparator(BaseComparator):
         return RecordComparisonResult(
             overall_score=normalize_score(
                 score_30,
-                self.config.valid_threshold,
-                self.config.warning_threshold,
+                self.config.excellent_threshold,
+                self.config.moderate_threshold,
                 30,
             ),
             field_results=field_results,
@@ -288,70 +287,30 @@ def get_field_and_subfield_indexes(
 
 
 def normalize_score(
-    score: float, valid_threshold: float, warning_threshold: float, cap: float
+    score: float,
+    excellent_threshold: float,
+    moderate_threshold: float,
+    cap: float,
 ) -> float:
     """
-    Piecewise logistic mapping:
+    Piecewise linear mapping:
     0 → 1.0
-    valid → 0.9
-    warning → 0.7
+    excellent_threshold → 0.9
+    moderate_threshold → 0.7
     cap → 0.0
     """
-    score = max(0, min(score, cap))
+    score = max(0.0, min(score, cap))
 
-    def logistic(x, midpoint, steepness=0.3):
-        return 1 / (1 + math.exp(steepness * (x - midpoint)))
+    if score <= excellent_threshold:
+        t = score / excellent_threshold if excellent_threshold else 0.0
+        return 1.0 - 0.1 * t
 
-    def normalized_segment(
-        x, start_x, end_x, start_y, end_y, midpoint, steepness=0.3
-    ):
-        """
-        Smooth logistic segment,
-        but exactly hits (start_x → start_y) and (end_x → end_y).
-        """
-
-        # raw logistic values at segment boundaries
-        raw_start = logistic(start_x, midpoint, steepness)
-        raw_end = logistic(end_x, midpoint, steepness)
-
-        # value at x
-        raw_x = logistic(x, midpoint, steepness)
-
-        # normalize raw curve to (start_y .. end_y)
-        denom = raw_end - raw_start
-        if abs(denom) < 1e-12:
-            return start_y
-        t = (raw_x - raw_start) / denom
-        return start_y + t * (end_y - start_y)
-
-    if score <= valid_threshold:
-        # map 0 → 1.0, valid → 0.9
-        return normalized_segment(
-            score,
-            0,
-            valid_threshold,
-            1.0,
-            0.9,
-            midpoint=valid_threshold / 2,
+    if score <= moderate_threshold:
+        t = (
+            (score - excellent_threshold)
+            / (moderate_threshold - excellent_threshold)
         )
+        return 0.9 - 0.2 * t
 
-    if score <= warning_threshold:
-        # map valid → 0.9, warning → 0.7
-        return normalized_segment(
-            score,
-            valid_threshold,
-            warning_threshold,
-            0.9,
-            0.7,
-            midpoint=(valid_threshold + warning_threshold) / 2,
-        )
-
-    # final segment: warning → 0.7, 30 → 0.0
-    return normalized_segment(
-        score,
-        warning_threshold,
-        cap,
-        0.7,
-        0.0,
-        midpoint=(warning_threshold + cap) / 2,
-    )
+    t = (score - moderate_threshold) / (cap - moderate_threshold)
+    return 0.7 * (1.0 - t)

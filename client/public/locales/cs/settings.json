@@ -50,8 +50,8 @@
     "ollama-url": "URL Ollama serveru",
     "llm-enabled": "Povolit LLM",
     "nonstandard-llm-enabled": "Povolit nestandardní LLM",
-    "valid-threshold": "Práh validity",
-    "warning-threshold": "Práh varování"
+    "excellent-threshold": "Práh výborné shody",
+    "moderate-threshold": "Práh částečné shody"
   },
   "validators": {
     "kramerius-links": {
@@ -123,9 +123,18 @@
       "ollama-url": "Adresa lokálního Ollama serveru pro LLM inference. Ollama musí běžet a mít stažený požadovaný model.",
       "llm-enabled": "Zapnout použití velkého jazykového modelu pro sémantické porovnávání standardních polí záznamu.",
       "nonstandard-llm-enabled": "Zapnout použití LLM i pro nestandardní pole (např. poznámky, anotace), kde přesné porovnání není možné.",
-      "valid-threshold": "Maximální skóre odchylky, při kterém je záznam považován za validní (bez výrazných změn).",
-      "warning-threshold": "Skóre odchylky, od kterého se zobrazí varování. Záznamy mezi prahem validity a prahem varování vyžadují pozornost.",
-      "thresholds-note": "Záznamy se skóre nad prahem varování jsou označeny jako nevalidní a vyžadují ruční kontrolu."
+      "excellent-threshold": "Maximální skóre odchylky (0–30), do kterého je shoda hodnocena jako výborná (Excellent, skóre 0.9–1.0).",
+      "moderate-threshold": "Skóre odchylky (0–30), do kterého je shoda hodnocena jako částečná (Moderate, skóre 0.7–0.9). Nad tímto prahem je shoda hodnocena jako slabá (Poor, skóre 0.0–0.7).",
+      "scoring-title": "Jak se počítá skóre",
+      "scoring-intro": "Porovnávač porovnává dva MARC záznamy pole po poli a každý rozdíl klasifikuje (překlep, neúplný, nesprávný, nestandardizovaný, chybějící). Výsledné skóre odchylky (0–30) se vypočítá takto:",
+      "scoring-step-1": "Každý rozdíl získá váhu podle důležitosti pole a typu chyby (konfigurovatelné váhy 1–10).",
+      "scoring-step-2": "Váhy se sečtou na úrovni pole s omezením na maximum pole, aby jedno pole nemohlo dominovat.",
+      "scoring-step-3": "Příspěvky polí se sloučí pomocí Lp-normy (euklidovská vzdálenost) do celkového skóre 0–30.",
+      "normalization-title": "Normalizace na procento shody",
+      "normalization-intro": "Skóre odchylky se převede na procento shody (0.0–1.0) pomocí lineární transformace s konfiguratelnými prahy:",
+      "normalization-excellent": "Záznamy s minimálními rozdíly (odchylka 0 až práh výborné shody).",
+      "normalization-moderate": "Záznamy s patrnými rozdíly vyžadujícími pozornost (odchylka mezi prahy).",
+      "normalization-poor": "Záznamy s významnými rozdíly vyžadujícími ruční kontrolu (odchylka nad prahem částečné shody)."
     },
     "validators": {
       "kramerius-links": {

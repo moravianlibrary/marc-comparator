@@ -3,7 +3,7 @@
         "ollama_url": "http://localhost:11434",
         "llm_enabled": false,
         "nonstandard_llm_enabled": false,
-        "valid_threshold": 6,
-        "warning_threshold": 12
+        "excellent_threshold": 6,
+        "moderate_threshold": 12
     }
 }

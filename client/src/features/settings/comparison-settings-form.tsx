@@ -37,8 +37,8 @@ export function ComparisonSettingsForm({
       ollama_url: "http://localhost:11434",
       llm_enabled: false,
       nonstandard_llm_enabled: false,
-      valid_threshold: 6,
-      warning_threshold: 12,
+      excellent_threshold: 6,
+      moderate_threshold: 12,
     },
   }), [data]);
 
@@ -96,10 +96,10 @@ export function ComparisonSettingsForm({
             />
             <FormField
               control={form.control}
-              name="comparator.valid_threshold"
+              name="comparator.excellent_threshold"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("comparator.valid-threshold")}</FormLabel>
+                  <FormLabel>{t("comparator.excellent-threshold")}</FormLabel>
                   <FormControl>
                     <Input type="number" {...field} onChange={(e) => field.onChange(Number(e.target.value))} />
                   </FormControl>
@@ -109,10 +109,10 @@ export function ComparisonSettingsForm({
             />
             <FormField
               control={form.control}
-              name="comparator.warning_threshold"
+              name="comparator.moderate_threshold"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("comparator.warning-threshold")}</FormLabel>
+                  <FormLabel>{t("comparator.moderate-threshold")}</FormLabel>
                   <FormControl>
                     <Input type="number" {...field} onChange={(e) => field.onChange(Number(e.target.value))} />
                   </FormControl>

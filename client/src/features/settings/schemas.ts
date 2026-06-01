@@ -51,8 +51,8 @@ export const comparatorConfigSchema = z.object({
   ollama_url: z.url(),
   llm_enabled: z.boolean(),
   nonstandard_llm_enabled: z.boolean(),
-  valid_threshold: z.number().int().min(0).max(100),
-  warning_threshold: z.number().int().min(0).max(100),
+  excellent_threshold: z.number().int().min(0).max(100),
+  moderate_threshold: z.number().int().min(0).max(100),
 });
 
 export const comparisonSettingsSchema = z.object({
