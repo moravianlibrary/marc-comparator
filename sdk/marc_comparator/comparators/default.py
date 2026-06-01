@@ -94,6 +94,7 @@ class DefaultComparator(BaseComparator):
             include_identical=True,
             llm_backend="ollama" if self.config.llm_enabled else None,
             nonstandard_llm=self.config.nonstandard_llm_enabled,
+            llm_enabled=self.config.llm_enabled,
         )
 
         scoring = await asyncio.to_thread(
