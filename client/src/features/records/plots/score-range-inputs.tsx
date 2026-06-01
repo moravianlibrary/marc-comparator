@@ -41,7 +41,7 @@ export function ScoreRangeInputs({
         type="number"
         min={0}
         max={100}
-        key={scoreMin}
+        key={`min-${scoreMin}`}
         defaultValue={Math.round(scoreMin * 100)}
         onKeyDown={handleKeyDown}
         onBlur={handleSubmit}
@@ -53,7 +53,7 @@ export function ScoreRangeInputs({
         type="number"
         min={0}
         max={100}
-        key={scoreMax}
+        key={`max-${scoreMax}`}
         defaultValue={Math.round(scoreMax * 100)}
         onKeyDown={handleKeyDown}
         onBlur={handleSubmit}
