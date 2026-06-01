@@ -28,7 +28,9 @@ SORT_COLUMNS = {
 
 def build_filtered_query(db: Session, filters: RecordFilter):
     """Build a filtered SQLAlchemy query for CatalogRecord. Used by task workers."""
-    query = db.query(CatalogRecord)
+    query = db.query(CatalogRecord).filter(
+        CatalogRecord.source_type == CatalogRecordSource.Main
+    )
     return apply_conditions(query, parse_filters(filters))
 
 
