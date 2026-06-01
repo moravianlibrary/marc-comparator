@@ -42,8 +42,7 @@ import { Label } from "@/components/ui/label";
 import type { RecordFilter } from "./types";
 import type { ProcessRecordsSettings } from "@/types/settings";
 
-type SimpleAction = "process" | "compare";
-type DialogAction = "link-authorities" | "validate";
+type DialogAction = "link-authorities" | "compare" | "validate";
 
 interface RecordTaskActionsProps {
   filters: RecordFilter;
@@ -53,7 +52,7 @@ interface RecordTaskActionsProps {
 export function RecordTaskActions({ filters, totalCount }: RecordTaskActionsProps) {
   const { t } = useTranslation("records");
   const queryClient = useQueryClient();
-  const [pendingAction, setPendingAction] = useState<SimpleAction | null>(null);
+  const [pendingAction, setPendingAction] = useState<"process" | null>(null);
 
   const onTaskCreated = () =>
     queryClient.invalidateQueries({ queryKey: ["tasks"] });
@@ -122,12 +121,14 @@ interface AdvancedTaskActionsProps {
 export function AdvancedTaskActions({ filters, totalCount }: AdvancedTaskActionsProps) {
   const { t } = useTranslation("records");
   const queryClient = useQueryClient();
-  const [pendingSimple, setPendingSimple] = useState<SimpleAction | null>(null);
   const [pendingDialog, setPendingDialog] = useState<DialogAction | null>(null);
 
   // -- Authority linking dialog state --
   const [selectedBase, setSelectedBase] = useState<string | null>(null);
   const [selectedLinkers, setSelectedLinkers] = useState<Set<string>>(new Set());
+
+  // -- Comparison dialog state --
+  const [selectedComparisonBases, setSelectedComparisonBases] = useState<Set<string>>(new Set());
 
   // -- Validation dialog state --
   const [selectedValidators, setSelectedValidators] = useState<Set<string>>(new Set());
@@ -162,10 +163,9 @@ export function AdvancedTaskActions({ filters, totalCount }: AdvancedTaskActions
   });
 
   const compareMutation = useMutation({
-    mutationFn: async () => {
-      if (!processSettings) return;
+    mutationFn: async (bases: string[]) => {
       await Promise.all(
-        processSettings.target_bases.map((targetBase) =>
+        bases.map((targetBase) =>
           apiClient.post("/comparison/task", {
             target_base: targetBase,
             filters,
@@ -185,9 +185,22 @@ export function AdvancedTaskActions({ filters, totalCount }: AdvancedTaskActions
     onError,
   });
 
-  function confirmSimple() {
-    if (pendingSimple === "compare") compareMutation.mutate();
-    setPendingSimple(null);
+  const mainBases = new Set(systemInfo?.available_bases ?? []);
+  const authorityBases = (processSettings?.target_bases ?? []).filter(
+    (b) => !mainBases.has(b),
+  );
+
+  function openCompare() {
+    setSelectedComparisonBases(
+      authorityBases.length === 1 ? new Set([authorityBases[0]]) : new Set(),
+    );
+    setPendingDialog("compare");
+  }
+
+  function confirmCompare() {
+    if (selectedComparisonBases.size === 0) return;
+    compareMutation.mutate(Array.from(selectedComparisonBases));
+    setPendingDialog(null);
   }
 
   function openLinkAuthorities() {
@@ -261,7 +274,7 @@ export function AdvancedTaskActions({ filters, totalCount }: AdvancedTaskActions
           <DropdownMenuItem onSelect={openLinkAuthorities}>
             {t("table.actions.link-authorities")}
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => setPendingSimple("compare")}>
+          <DropdownMenuItem onSelect={openCompare} disabled={authorityBases.length === 0}>
             {t("table.actions.compare")}
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={openValidate}>
@@ -270,33 +283,63 @@ export function AdvancedTaskActions({ filters, totalCount }: AdvancedTaskActions
         </DropdownMenuContent>
       </DropdownMenu>
 
-      {/* Simple confirm for compare */}
-      <AlertDialog
-        open={pendingSimple !== null}
-        onOpenChange={(open) => !open && setPendingSimple(null)}
+      {/* Comparison dialog */}
+      <Dialog
+        open={pendingDialog === "compare"}
+        onOpenChange={(open) => !open && setPendingDialog(null)}
       >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>{t("common:confirm")}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {pendingSimple && (isSingle
-                ? t("table.actions.confirm-task-single", {
-                    action: t(`table.actions.${pendingSimple}`),
-                  })
-                : t("table.actions.confirm-task-bulk", {
-                    action: t(`table.actions.${pendingSimple}`),
-                    count: totalCount ?? "?",
-                  }))}
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>{t("common:cancel")}</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmSimple}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("table.actions.compare-title")}</DialogTitle>
+            <DialogDescription>
+              {isSingle
+                ? t("table.actions.compare-description-single")
+                : t("table.actions.compare-description-bulk", { count: totalCount ?? "?" })}
+            </DialogDescription>
+          </DialogHeader>
+
+          {authorityBases.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              {t("table.actions.no-authority-bases")}
+            </p>
+          ) : (
+            <div className="space-y-2">
+              <Label>{t("table.actions.select-comparison-bases")}</Label>
+              <div className="space-y-2">
+                {authorityBases.map((base) => (
+                  <div key={base} className="flex items-center gap-2">
+                    <Checkbox
+                      id={`comp-base-${base}`}
+                      checked={selectedComparisonBases.has(base)}
+                      onCheckedChange={(checked) => {
+                        setSelectedComparisonBases((prev) => {
+                          const next = new Set(prev);
+                          if (checked) next.add(base);
+                          else next.delete(base);
+                          return next;
+                        });
+                      }}
+                    />
+                    <Label htmlFor={`comp-base-${base}`}>{base}</Label>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPendingDialog(null)}>
+              {t("common:cancel")}
+            </Button>
+            <Button
+              onClick={confirmCompare}
+              disabled={selectedComparisonBases.size === 0}
+            >
               {t("common:confirm")}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Authority Linking dialog */}
       <Dialog
