@@ -127,6 +127,7 @@ async def compare_records(task_id: str) -> None:
                 ctx.logger.error(
                     f"Failed comparing record {catalog_record.id}:\n{e}"
                 )
+                handle_batch_progress_snippet(ctx)
 
         handle_final_batch_snippet(ctx)
 

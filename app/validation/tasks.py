@@ -137,10 +137,12 @@ async def validate_records(task_id: str) -> None:
                     handle_batch_progress_snippet(ctx)
 
                 except Exception as e:
+                    ctx.db_session.rollback()
                     ctx.logger.error(
                         f"Failed validating record {catalog_record.id} "
                         f"with validator {validator_instance.type.value}:\n{e}"
                     )
+                    handle_batch_progress_snippet(ctx)
 
         handle_final_batch_snippet(ctx)
 
