@@ -1,11 +1,11 @@
-aleph-nought @ git+https://github.com/moravianlibrary/aleph-nought.git@v0.2.9
+aleph-nought @ git+https://github.com/moravianlibrary/aleph-nought.git@v0.2.10
 httpx
-kramerius @ git+https://github.com/moravianlibrary/kramerius-client.git@v0.3.1
+kramerius @ git+https://github.com/moravianlibrary/kramerius-client.git@v0.3.3
 lxml
-marcdantic @ git+https://github.com/moravianlibrary/marcdantic.git@v0.3.8
+marcdantic @ git+https://github.com/moravianlibrary/marcdantic.git@v0.3.10
 pydantic
 pymarc
 python-stdnum
 rapidfuzz
-solrify @ git+https://github.com/moravianlibrary/solrify.git@v0.1.0
+solrify @ git+https://github.com/moravianlibrary/solrify.git@v0.1.1
 typer
