@@ -32,6 +32,7 @@ class KrameriusLinksValidatorConfig(BaseModel):
     kramerius_host: str = "https://api.kramerius.mzk.cz/search"
     kramerius_client_url: str = "https://www.digitalniknihovna.cz/mzk/uuid/{pid}"
     solr_cloud: bool = True
+    search_page_size: int = 10
 
 
 VALIDATION_FIELD = ValidationTarget(tag="856", codes=["u", "y"])
@@ -100,7 +101,9 @@ class KrameriusLinksValidator(BaseValidator):
 
         self.client = KrameriusClient(
             KrameriusConfig(
-                host=config.kramerius_host, solr_cloud=config.solr_cloud
+                host=config.kramerius_host,
+                solr_cloud=config.solr_cloud,
+                search_page_size=config.search_page_size,
             )
         )
 
@@ -112,7 +115,7 @@ class KrameriusLinksValidator(BaseValidator):
         raw_fields = [
             (
                 KrameriusField.Barcode,
-                [i.barcode for i in record.issues_selector.all],
+                [i.barcode for i in record.issues_selector.all if i.barcode],
             ),
             (KrameriusField.Isbn, record.variable_fields.query(IsbnActiveJq)),
             (KrameriusField.Issn, record.variable_fields.query(IssnActiveJq)),
