@@ -164,11 +164,6 @@ class ManagedTask:
             progress=self.task.progress,
             created_by=str(self.task.created_by),
         ))
-        if self._lock_obj:
-            try:
-                self._lock_obj.reacquire()
-            except Exception:
-                pass
 
     async def __aenter__(self) -> "ManagedTask":
         # --- DB session ---

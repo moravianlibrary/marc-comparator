@@ -1,4 +1,5 @@
 import logging
+import threading
 from contextlib import contextmanager
 from typing import List
 
@@ -46,7 +47,8 @@ def one_at_a_time_lock(
     Lock | None
         The Lock object if acquired (truthy), None if not (falsy).
         Callers can use `if lock:` to check.
-        The Lock object exposes `lock.reacquire()` to extend the TTL.
+        A background watchdog thread auto-renews the TTL while the
+        context is open, so callers do not need to call reacquire().
     """
     lock = Lock(lock_server_client, name=lock_name, timeout=timeout)
 
@@ -56,9 +58,18 @@ def one_at_a_time_lock(
     if acquired:
         lock_server_client.sadd(ACTIVE_LOCKS_KEY, lock_name)
         _publish_lock_acquired(lock_name)
+        stop_event = threading.Event()
+        watchdog = threading.Thread(
+            target=_renewal_watchdog,
+            args=(lock, lock_name, timeout, stop_event),
+            daemon=True,
+        )
+        watchdog.start()
         try:
             yield lock
         finally:
+            stop_event.set()
+            watchdog.join(timeout=5)
             try:
                 lock.release()
             except Exception:
@@ -67,6 +78,19 @@ def one_at_a_time_lock(
             _publish_lock_released(lock_name)
     else:
         yield None
+
+
+def _renewal_watchdog(
+    lock: Lock, lock_name: str, timeout: int, stop_event: threading.Event
+) -> None:
+    """Background thread that extends the lock TTL every timeout/3 seconds."""
+    interval = max(timeout // 3, 1)
+    while not stop_event.wait(interval):
+        try:
+            lock.reacquire()
+        except Exception:
+            logger.warning(f"Lock renewal failed for '{lock_name}'", exc_info=True)
+            return
 
 
 def get_active_locks() -> List[str]:
