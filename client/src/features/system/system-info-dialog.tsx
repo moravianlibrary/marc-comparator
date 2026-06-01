@@ -22,7 +22,7 @@ function formatUptime(seconds: number): string {
 }
 
 export function SystemInfoDialog({ open, onClose }: Props) {
-  const { t } = useTranslation("system");
+  const { t } = useTranslation(["system", "records"]);
 
   const { data: info, isLoading } = useSystemInfo(open);
 
@@ -60,7 +60,13 @@ export function SystemInfoDialog({ open, onClose }: Props) {
             </dd>
 
             <dt className="text-muted-foreground">{t("info.validators")}</dt>
-            <dd>{info.enabled_validators.join(", ") || "-"}</dd>
+            <dd className="flex gap-1 flex-wrap">
+              {info.enabled_validators.length > 0
+                ? info.enabled_validators.map((v) => (
+                    <Badge key={v} variant="outline">{t(`records:validator-name.${v}`, v)}</Badge>
+                  ))
+                : "-"}
+            </dd>
           </dl>
         ) : null}
       </DialogContent>

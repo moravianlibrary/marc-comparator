@@ -45,6 +45,11 @@
   --color-status-warning: var(--status-warning);
   --color-status-danger: var(--status-danger);
   --color-status-info: var(--status-info);
+  --color-status-violet: var(--status-violet);
+  --color-status-sky: var(--status-sky);
+  --color-status-cyan: var(--status-cyan);
+  --color-status-slate: var(--status-slate);
+  --color-status-gray: var(--status-gray);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -94,86 +99,91 @@
     max-width: 0;
     margin-left: 0;
   }
-  /* Validation status badges */
-  .badge-valid {
-    border-color: var(--status-success);
-    color: var(--status-success);
-  }
-  .badge-invalid {
-    border-color: var(--status-danger);
-    color: var(--status-danger);
-  }
-  .badge-for-review {
-    border-color: var(--status-warning);
-    color: var(--status-warning);
-  }
-  .badge-additional-info {
-    border-color: var(--status-info);
-    color: var(--status-info);
-  }
-  /* Comparison quality badges */
-  .badge-excellent {
-    border-color: var(--status-success);
-    color: var(--status-success);
-  }
-  .badge-moderate {
-    border-color: var(--status-warning);
-    color: var(--status-warning);
-  }
-  .badge-poor {
-    border-color: var(--status-danger);
-    color: var(--status-danger);
-  }
-  /* Review status badges */
-  .badge-review-outdated {
-    border-color: var(--status-warning);
-    color: var(--status-warning);
-  }
-  .badge-review-current {
-    border-color: var(--status-success);
-    color: var(--status-success);
-  }
-  /* Record state badges */
-  .state-active {
-    border-color: var(--status-success);
-    background-color: color-mix(in oklch, var(--status-success) 10%, transparent);
-    color: var(--status-success);
-  }
-  .state-deleted {
-    border-color: var(--status-danger);
-    background-color: color-mix(in oklch, var(--status-danger) 10%, transparent);
-    color: var(--status-danger);
-  }
-  .state-unprocessed {
-    border-color: var(--status-warning);
-    background-color: color-mix(in oklch, var(--status-warning) 10%, transparent);
-    color: var(--status-warning);
-  }
-  .state-processed {
-    border-color: var(--status-violet);
-    background-color: color-mix(in oklch, var(--status-violet) 10%, transparent);
-    color: var(--status-violet);
-  }
-  .state-reviewed {
-    border-color: var(--status-sky);
-    background-color: color-mix(in oklch, var(--status-sky) 10%, transparent);
-    color: var(--status-sky);
-  }
-  .state-partially-reviewed {
-    border-color: var(--status-cyan);
-    background-color: color-mix(in oklch, var(--status-cyan) 10%, transparent);
-    color: var(--status-cyan);
-  }
-  .state-unreviewed {
-    border-color: var(--status-slate);
-    background-color: color-mix(in oklch, var(--status-slate) 10%, transparent);
-    color: var(--status-slate);
-  }
-  .state-review-not-needed {
-    border-color: var(--status-gray);
-    background-color: color-mix(in oklch, var(--status-gray) 10%, transparent);
-    color: var(--status-gray);
-  }
+}
+
+/* Status badge classes — intentionally unlayered so they override
+   Tailwind utilities (e.g. border-border / text-foreground from
+   the Badge outline variant) which live in @layer utilities. */
+
+/* Validation status badges */
+.badge-valid {
+  border-color: var(--status-success);
+  color: var(--status-success);
+}
+.badge-invalid {
+  border-color: var(--status-danger);
+  color: var(--status-danger);
+}
+.badge-for-review {
+  border-color: var(--status-warning);
+  color: var(--status-warning);
+}
+.badge-additional-info {
+  border-color: var(--status-info);
+  color: var(--status-info);
+}
+/* Comparison quality badges */
+.badge-excellent {
+  border-color: var(--status-success);
+  color: var(--status-success);
+}
+.badge-moderate {
+  border-color: var(--status-warning);
+  color: var(--status-warning);
+}
+.badge-poor {
+  border-color: var(--status-danger);
+  color: var(--status-danger);
+}
+/* Review status badges */
+.badge-review-outdated {
+  border-color: var(--status-warning);
+  color: var(--status-warning);
+}
+.badge-review-current {
+  border-color: var(--status-success);
+  color: var(--status-success);
+}
+/* Record state badges */
+.state-active {
+  border-color: var(--status-success);
+  background-color: color-mix(in oklch, var(--status-success) 10%, transparent);
+  color: var(--status-success);
+}
+.state-deleted {
+  border-color: var(--status-danger);
+  background-color: color-mix(in oklch, var(--status-danger) 10%, transparent);
+  color: var(--status-danger);
+}
+.state-unprocessed {
+  border-color: var(--status-warning);
+  background-color: color-mix(in oklch, var(--status-warning) 10%, transparent);
+  color: var(--status-warning);
+}
+.state-processed {
+  border-color: var(--status-violet);
+  background-color: color-mix(in oklch, var(--status-violet) 10%, transparent);
+  color: var(--status-violet);
+}
+.state-reviewed {
+  border-color: var(--status-sky);
+  background-color: color-mix(in oklch, var(--status-sky) 10%, transparent);
+  color: var(--status-sky);
+}
+.state-partially-reviewed {
+  border-color: var(--status-cyan);
+  background-color: color-mix(in oklch, var(--status-cyan) 10%, transparent);
+  color: var(--status-cyan);
+}
+.state-unreviewed {
+  border-color: var(--status-slate);
+  background-color: color-mix(in oklch, var(--status-slate) 10%, transparent);
+  color: var(--status-slate);
+}
+.state-review-not-needed {
+  border-color: var(--status-gray);
+  background-color: color-mix(in oklch, var(--status-gray) 10%, transparent);
+  color: var(--status-gray);
 }
 
 html[data-font-size="small"] {
