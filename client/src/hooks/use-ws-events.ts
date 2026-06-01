@@ -58,8 +58,20 @@ export function useWsEvents() {
       }
     });
 
-    const unsubProgress = wsClient.on("task_progress", () => {
-      queryClient.invalidateQueries({ queryKey: ["tasks", "running"] });
+    const unsubProgress = wsClient.on("task_progress", (raw) => {
+      const data = raw as { task_id: string; progress: number | null };
+      queryClient.setQueriesData<{ items: Task[] }>(
+        { queryKey: ["tasks", "running"] },
+        (old) => {
+          if (!old) return old;
+          return {
+            ...old,
+            items: old.items.map((t) =>
+              t.task_id === data.task_id ? { ...t, progress: data.progress } : t,
+            ),
+          };
+        },
+      );
     });
 
     const unsubLock = wsClient.on("lock_acquired", () => {
