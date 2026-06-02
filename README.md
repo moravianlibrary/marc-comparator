@@ -109,7 +109,7 @@ The SDK includes a CLI interface implemented with **Typer**, allowing easy usage
 
 * `print <mrc_files>` – display MARC record contents.
 * `to_json <mrc_files>` – convert MARC records to JSON (marcdantic format).
-* `validate <mrc_files> [--validator <name>] [--output <path>]` – run validators and export CSV reports.
+* `validate <mrc_files> [--validator <name>] [--config <path>] [--output <path>]` – run validators and export CSV reports.
 * `link <linker> <base> <system_number> <mrc_file> <target_base> [--linker-config <path>]` – run authority linking tasks.
 * `compare <comparator> <comparator_config> <mrc_file_a> <mrc_file_b>` – run comparisons between two records.
 
@@ -120,7 +120,7 @@ The SDK includes a CLI interface implemented with **Typer**, allowing easy usage
 ## Deployment
 
 * **Docker Compose**: `deploy/docker-compose/docker-compose.yml` sets up **PostgreSQL**, **Redis**, **backend**, **workers**, and **client**.
-* **Helm chart**: `deploy/helm/` for Kubernetes deployment (coming soon).
+* **Helm chart**: `deploy/helm/marc-comparator/` for Kubernetes deployment.
 * **Makefile**: provides commands for building Docker images, running services, testing, and local development. Run `make help` for a full list.
 
 ---
