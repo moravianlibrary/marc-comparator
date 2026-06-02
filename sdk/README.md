@@ -12,7 +12,7 @@ The SDK provides three core processing pipelines for MARC records, each built on
 
 All three follow the same pattern: an abstract base class, a concrete implementation, a string enum for dispatch, and a dispatcher dict that maps enum values to classes.
 
-> **SDK vs App**: The SDK supports registering multiple comparators, validators, and linkers. The web app hard-codes which ones to use (currently: Intiim comparator, Kramerius Links validator, Knihovny.cz linker). The SDK is the reusable library; the app is the opinionated deployment.
+> **SDK vs App**: The SDK supports registering multiple comparators, validators, and linkers. The web app hard-codes which ones to use (currently: Default comparator, Kramerius Links validator, Knihovny.cz linker). The SDK is the reusable library; the app is the opinionated deployment.
 
 ```
 marc_comparator/
@@ -23,7 +23,7 @@ marc_comparator/
 ├── comparators/
 │   ├── __init__.py                   # Comparator enum + dispatcher
 │   ├── _base.py                      # BaseComparator ABC, result models
-│   ├── intiim.py                     # IntiimComparator wrapper
+│   ├── default.py                    # DefaultComparator wrapper
 │   └── intiim_engine/                # Core comparison engine
 │       ├── config.py                 # Field roles, thresholds, aggregation constants
 │       ├── engine.py                 # Main comparison logic
@@ -104,19 +104,19 @@ The CLI, web app, and Celery workers all resolve implementations through the dis
 
 ## Comparators
 
-### Intiim Comparator
+### Default Comparator
 
 The only comparator. Compares two MARC records through a multi-stage pipeline:
 
 #### Configuration
 
 ```python
-class IntiimComparatorConfig(BaseModel):
+class DefaultComparatorConfig(BaseModel):
     ollama_url: str = "http://localhost:11434"
     llm_enabled: bool = False
     nonstandard_llm_enabled: bool = False
-    valid_threshold: int = 6       # score below this -> Excellent (0.9-1.0)
-    warning_threshold: int = 12    # score below this -> Moderate (0.7-0.9)
+    excellent_threshold: int = 6       # score below this -> Excellent (0.9-1.0)
+    moderate_threshold: int = 12       # score below this -> Moderate (0.7-0.9)
 ```
 
 #### Pipeline
@@ -156,7 +156,7 @@ Record A + Record B
           ▼
    ┌─────────────┐
    │  Normalize   │  Piecewise logistic: raw score → 0.0-1.0
-   │  Score       │  0→1.0, valid_threshold→0.9, warning→0.7, cap→0.0
+   │  Score       │  0→1.0, excellent_threshold→0.9, moderate→0.7, cap→0.0
    └──────┬──────┘
           │
           ▼
@@ -235,10 +235,14 @@ Validates MARC field 856 (Electronic Location) for Kramerius digital library lin
 
 ```python
 class KrameriusLinksValidatorConfig(BaseModel):
-    url_to_pid_pattern: str = r"https?://[^/]+/mzk/uuid/(uuid:[0-9a-fA-F-]+)"
+    url_to_pid_pattern: str = r"https?://(?:www\.)?digitalniknihovna\.cz/mzk/uuid/(?P<pid>uuid:[0-9a-fA-F-]+)(?:\?.*)?"
+    url_to_pid_wrong_path_pattern: str = r"https?://(?:www\.)?digitalniknihovna\.cz/mzk/[^/]+/(?P<pid>uuid:[0-9a-fA-F-]+)(?:\?.*)?"
+    url_to_pid_fallback_pattern: str = r"https?://[^/]+/.*?(?P<pid>uuid:[0-9a-fA-F-]+)(?:\?.*)?"
     link_text_pattern: str = r"Digitalizovaný dokument"
     kramerius_host: str = "https://api.kramerius.mzk.cz/search"
-    solr_cloud: bool = False
+    kramerius_client_url: str = "https://www.digitalniknihovna.cz/mzk/uuid/{pid}"
+    solr_cloud: bool = True
+    search_page_size: int = 10
 ```
 
 #### Checks Performed
@@ -322,7 +326,7 @@ Runs specified validators and writes results to CSV with columns: path, validato
 #### `compare` -- Compare two records
 
 ```bash
-marc-comparator compare intiim comparison.json record_a.mrc record_b.mrc
+marc-comparator compare default comparison.json record_a.mrc record_b.mrc
 ```
 
 Prints overall score and per-field/subfield comparison results.
@@ -358,6 +362,7 @@ The CLI auto-detects the wrapper and unwraps it before passing to the Pydantic c
 
 | Package | Purpose |
 |---|---|
+| `aleph-nought` | Aleph library system client |
 | `marcdantic` | MARC record parsing (MRC/XML) and Pydantic models |
 | `pydantic` | Configuration and result model validation |
 | `typer` | CLI framework |
