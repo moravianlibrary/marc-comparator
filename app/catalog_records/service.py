@@ -35,7 +35,10 @@ def get_marc_record(
     if not catalog_record or catalog_record.deleted:
         raise CatalogRecordNotFoundException(base, system_number)
 
-    return catalog_record.get_record(db_session)
+    try:
+        return catalog_record.get_record(db_session)
+    except ValueError:
+        raise CatalogRecordNotFoundException(base, system_number)
 
 
 def get_comparisons(

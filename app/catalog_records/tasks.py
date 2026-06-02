@@ -132,7 +132,7 @@ def save_record_metadata(
     catalog_record.type_of_record = record.leader_selector.type_of_record
     catalog_record.bibliographic_level = record.leader_selector.bibliographic_level
     catalog_record.update_search_text_from(record)
-    catalog_record.save(ctx.db_session)
+    catalog_record.save(ctx.db_session, commit=False)
 
     return catalog_record
 

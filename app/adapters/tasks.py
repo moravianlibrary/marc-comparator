@@ -59,15 +59,20 @@ class TaskHandler(logging.Handler):
 
     FLUSH_INTERVAL = 10
 
-    def __init__(self, db: Session, task: Task, level=logging.DEBUG):
+    def __init__(
+        self, db: Session, task: Task, managed_task: "ManagedTask", level=logging.DEBUG
+    ):
         super().__init__(level)
         self.db_session = db
         self.task = task
+        self._managed_task = managed_task
         self.current_level = logging.INFO
         self._pending = 0
 
     def _commit(self):
         try:
+            if self._managed_task.before_commit:
+                self._managed_task.before_commit()
             self.db_session.commit()
         except Exception:
             self.db_session.rollback()
@@ -175,7 +180,7 @@ class ManagedTask:
         try:
             # --- Logger ---
             self.logger = logging.getLogger(f"task-{self.task_id}")
-            handler = TaskHandler(self.db_session, self.task)
+            handler = TaskHandler(self.db_session, self.task, self)
             formatter = logging.Formatter("%(message)s")
             handler.setFormatter(formatter)
             self.logger.addHandler(handler)
