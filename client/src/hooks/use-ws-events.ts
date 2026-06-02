@@ -62,7 +62,7 @@ export function useWsEvents() {
 
     const unsubProgress = wsClient.on("task_progress", (raw) => {
       const data = raw as { task_id: string; progress: number | null };
-      queryClient.setQueriesData<{ items: { task_id: string; progress: number | null }[] }>({ queryKey: ["tasks", "running"] }, (old) => {
+      const updateItems = (old: { items: { task_id: string; progress: number | null }[] } | undefined) => {
         if (!old) return old;
         return {
           ...old,
@@ -70,7 +70,9 @@ export function useWsEvents() {
             t.task_id === data.task_id ? { ...t, progress: data.progress } : t,
           ),
         };
-      });
+      };
+      queryClient.setQueriesData<{ items: { task_id: string; progress: number | null }[] }>({ queryKey: ["tasks", "running"] }, updateItems);
+      queryClient.setQueriesData<{ items: { task_id: string; progress: number | null }[] }>({ queryKey: ["tasks", "list"] }, updateItems);
     });
 
     const unsubLock = wsClient.on("lock_acquired", () => {
