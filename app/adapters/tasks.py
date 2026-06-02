@@ -238,6 +238,7 @@ class ManagedTask:
         try:
             if exc_type is None:
                 self.task.status = TaskStatus.Success
+                self.task.progress = 1.0
                 self.logger.info("Task completed successfully")
             else:
                 self.task.status = TaskStatus.Failure
@@ -246,6 +247,11 @@ class ManagedTask:
                 )
             self.task.finished_at = config.timestamp
             self.save_task()
+            publish_event(TaskProgressEvent(
+                task_id=str(self.task.task_id),
+                progress=self.task.progress,
+                created_by=str(self.task.created_by),
+            ))
             publish_event(TaskStatusEvent(
                 task_id=str(self.task.task_id),
                 task_type=self.task.type.value,
