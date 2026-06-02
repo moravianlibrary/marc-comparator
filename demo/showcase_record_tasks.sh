@@ -74,7 +74,8 @@ SETTINGS_JSON=$(cat <<'EOF'
       {
         "base": "SKC",
         "id_template": "caslin.SKC01-{system_number}",
-        "pattern": "^caslin\\.SKC01-(\\d{9})$"
+        "pattern": "^caslin\\.SKC01-(\\d{9})$",
+        "is_target": true
       }
     ]
   }
