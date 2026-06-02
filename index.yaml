@@ -1,0 +1,14 @@
+apiVersion: v1
+entries:
+  marc-comparator:
+  - apiVersion: v2
+    appVersion: 1.0.0
+    created: "2026-06-02T16:19:01.938758615Z"
+    description: MARC Comparator — bibliographic record processing platform
+    digest: 6a89aa3b315f65e100550ae8fb00cb6f948efb9dc1deab2211f9b793ce1d0dfd
+    name: marc-comparator
+    type: application
+    urls:
+    - https://moravianlibrary.github.io/marc-comparator/marc-comparator-1.0.0-rc1.tgz
+    version: 1.0.0-rc1
+generated: "2026-06-02T16:19:01.937996006Z"
