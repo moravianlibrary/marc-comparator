@@ -12,7 +12,8 @@ class SystemInfo(BaseModel):
     system_version: str
     system_commit: str
     uptime_seconds: float
-    available_bases: List[str]
+    configured_bases: List[str]
+    authority_bases: List[str]
     enabled_authority_linkers: List[AuthorityLinkerInfo]
     enabled_validators: List[str]
     kramerius_client_urls: Dict[str, str] = {}

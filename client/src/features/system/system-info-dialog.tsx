@@ -52,11 +52,31 @@ export function SystemInfoDialog({ open, onClose }: Props) {
             <dt className="text-muted-foreground">{t("info.uptime")}</dt>
             <dd>{formatUptime(info.uptime_seconds)}</dd>
 
-            <dt className="text-muted-foreground">{t("info.bases")}</dt>
+            <dt className="text-muted-foreground">{t("info.configured-bases")}</dt>
             <dd className="flex gap-1 flex-wrap">
-              {info.available_bases.map((base) => (
-                <Badge key={base} variant="outline">{base}</Badge>
-              ))}
+              {info.configured_bases.length > 0
+                ? info.configured_bases.map((base) => (
+                    <Badge key={base} variant="outline">{base}</Badge>
+                  ))
+                : "-"}
+            </dd>
+
+            <dt className="text-muted-foreground">{t("info.authority-bases")}</dt>
+            <dd className="flex gap-1 flex-wrap">
+              {info.authority_bases.length > 0
+                ? info.authority_bases.map((base) => (
+                    <Badge key={base} variant="outline">{base}</Badge>
+                  ))
+                : "-"}
+            </dd>
+
+            <dt className="text-muted-foreground">{t("info.authority-linkers")}</dt>
+            <dd className="flex gap-1 flex-wrap">
+              {info.enabled_authority_linkers.length > 0
+                ? info.enabled_authority_linkers.map((l) => (
+                    <Badge key={l.name} variant="outline">{t(`records:linker-name.${l.name}`, l.name)}</Badge>
+                  ))
+                : "-"}
             </dd>
 
             <dt className="text-muted-foreground">{t("info.validators")}</dt>

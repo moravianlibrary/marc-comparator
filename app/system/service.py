@@ -30,7 +30,7 @@ def get_settings(scope: SettingsScope, db_session: DatabaseSession):
     return settings
 
 
-def get_available_bases(db_session: DatabaseSession) -> List[str]:
+def get_configured_bases(db_session: DatabaseSession) -> List[str]:
     settings: CatalogSettings = get_settings(SettingsScope.Catalog, db_session)
     return [client.base for client in settings.clients] if settings else []
 
@@ -110,14 +110,18 @@ async def get_system_info(db_session: DatabaseSession) -> SystemInfo:
             if url:
                 kramerius_client_urls[client.base] = url
 
+    enabled_linkers = await get_enabled_authority_linkers(db_session)
+    authority_bases = sorted(
+        {base for linker in enabled_linkers for base in linker.target_bases}
+    )
+
     return SystemInfo(
         system_version=os.getenv("SYSTEM_VERSION", "dev"),
         system_commit=os.getenv("SYSTEM_COMMIT", "dev"),
         uptime_seconds=time.time() - START_TS,
-        available_bases=get_available_bases(db_session),
-        enabled_authority_linkers=await get_enabled_authority_linkers(
-            db_session
-        ),
+        configured_bases=get_configured_bases(db_session),
+        authority_bases=authority_bases,
+        enabled_authority_linkers=enabled_linkers,
         enabled_validators=get_enabled_validators(db_session),
         kramerius_client_urls=kramerius_client_urls,
     )

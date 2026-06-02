@@ -6,7 +6,8 @@
     "version": "Verze",
     "commit": "Commit",
     "uptime": "Doba běhu",
-    "bases": "Dostupné báze",
+    "configured-bases": "Konfigurované báze",
+    "authority-bases": "Autoritní báze",
     "authority-linkers": "Aktivní propojení autorit",
     "comparators": "Aktivní porovnávače",
     "validators": "Aktivní validátory"

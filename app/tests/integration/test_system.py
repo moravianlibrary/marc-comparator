@@ -80,7 +80,7 @@ class TestSystemInfoEndpoint:
         response = await client.get("/system/info")
         assert response.status_code == 200
         body = response.json()
-        assert body["available_bases"] == []
+        assert body["configured_bases"] == []
         assert body["enabled_authority_linkers"] == []
         assert body["enabled_validators"] == []
         assert "system_version" in body
@@ -119,7 +119,7 @@ class TestSystemInfoEndpoint:
         response = await client.get("/system/info")
         assert response.status_code == 200
         body = response.json()
-        assert body["available_bases"] == ["MZK01"]
+        assert body["configured_bases"] == ["MZK01"]
 
     @pytest.mark.asyncio
     async def test_get_system_info_with_validation_settings(
@@ -159,10 +159,10 @@ class TestSystemInfoEndpoint:
 
 
 class TestSystemServiceUnit:
-    def test_get_available_bases_no_settings(self, db_session, user):
-        from system.service import get_available_bases
+    def test_get_configured_bases_no_settings(self, db_session, user):
+        from system.service import get_configured_bases
 
-        result = get_available_bases(db_session)
+        result = get_configured_bases(db_session)
         assert result == []
 
     def test_get_enabled_validators_no_settings(self, db_session, user):

@@ -106,7 +106,8 @@ export interface SystemInfo {
   system_version: string;
   system_commit: string;
   uptime_seconds: number;
-  available_bases: string[];
+  configured_bases: string[];
+  authority_bases: string[];
   enabled_authority_linkers: Array<{ name: string; target_bases: string[] }>;
   enabled_validators: string[];
   kramerius_client_urls: Record<string, string>;

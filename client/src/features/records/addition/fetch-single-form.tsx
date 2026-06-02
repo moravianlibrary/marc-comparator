@@ -6,7 +6,7 @@ import { useMutation } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import apiClient from "@/lib/api-client";
-import { useAvailableBases } from "@/hooks/use-system-info";
+import { useConfiguredBases } from "@/hooks/use-system-info";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -36,7 +36,7 @@ type FormValues = z.infer<typeof schema>;
 export function FetchSingleForm() {
   const { t } = useTranslation("records");
 
-  const availableBases = useAvailableBases();
+  const configuredBases = useConfiguredBases();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -44,10 +44,10 @@ export function FetchSingleForm() {
   });
 
   useEffect(() => {
-    if (availableBases.length > 0 && !form.getValues("base")) {
-      form.setValue("base", availableBases[0]);
+    if (configuredBases.length > 0 && !form.getValues("base")) {
+      form.setValue("base", configuredBases[0]);
     }
-  }, [availableBases, form]);
+  }, [configuredBases, form]);
 
   const mutation = useMutation({
     mutationFn: (data: FormValues) =>
@@ -82,7 +82,7 @@ export function FetchSingleForm() {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {availableBases.map((base) => (
+                      {configuredBases.map((base) => (
                         <SelectItem key={base} value={base}>
                           {base}
                         </SelectItem>

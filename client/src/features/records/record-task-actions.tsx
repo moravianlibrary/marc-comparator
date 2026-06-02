@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { MoreHorizontal } from "lucide-react";
@@ -40,7 +40,6 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import type { RecordFilter } from "./types";
-import type { ProcessRecordsSettings } from "@/types/settings";
 
 type DialogAction = "link-authorities" | "compare" | "validate";
 
@@ -135,14 +134,6 @@ export function AdvancedTaskActions({ filters, totalCount }: AdvancedTaskActions
 
   const { data: systemInfo } = useSystemInfo();
 
-  const { data: processSettings } = useQuery<ProcessRecordsSettings>({
-    queryKey: ["settings", "process-records"],
-    queryFn: () =>
-      apiClient
-        .get<ProcessRecordsSettings>("/settings/record-tools/process-records")
-        .then((r) => r.data),
-  });
-
   const authorityLinkers = systemInfo?.enabled_authority_linkers ?? [];
   const enabledValidators = systemInfo?.enabled_validators ?? [];
 
@@ -185,10 +176,7 @@ export function AdvancedTaskActions({ filters, totalCount }: AdvancedTaskActions
     onError,
   });
 
-  const mainBases = new Set(systemInfo?.available_bases ?? []);
-  const authorityBases = (processSettings?.target_bases ?? []).filter(
-    (b) => !mainBases.has(b),
-  );
+  const authorityBases = systemInfo?.authority_bases ?? [];
 
   function openCompare() {
     setSelectedComparisonBases(

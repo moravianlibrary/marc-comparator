@@ -11,7 +11,7 @@ export function useSystemInfo(enabled = true) {
   });
 }
 
-export function useAvailableBases() {
+export function useConfiguredBases() {
   const { data } = useSystemInfo();
-  return data?.available_bases ?? [];
+  return data?.configured_bases ?? [];
 }

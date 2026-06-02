@@ -7,7 +7,7 @@ import { useTranslation } from "react-i18next";
 import { toast } from "sonner";
 import { AxiosError } from "axios";
 import apiClient from "@/lib/api-client";
-import { useAvailableBases } from "@/hooks/use-system-info";
+import { useConfiguredBases } from "@/hooks/use-system-info";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -37,7 +37,7 @@ type FormValues = z.infer<typeof schema>;
 export function SyncForm() {
   const { t } = useTranslation("records");
 
-  const availableBases = useAvailableBases();
+  const configuredBases = useConfiguredBases();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -45,10 +45,10 @@ export function SyncForm() {
   });
 
   useEffect(() => {
-    if (availableBases.length > 0 && !form.getValues("base")) {
-      form.setValue("base", availableBases[0]);
+    if (configuredBases.length > 0 && !form.getValues("base")) {
+      form.setValue("base", configuredBases[0]);
     }
-  }, [availableBases, form]);
+  }, [configuredBases, form]);
 
   const { data: locks = [] } = useQuery<string[]>({
     queryKey: ["system", "locks"],
@@ -101,7 +101,7 @@ export function SyncForm() {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {availableBases.map((base) => (
+                      {configuredBases.map((base) => (
                         <SelectItem key={base} value={base}>
                           {base}
                         </SelectItem>
