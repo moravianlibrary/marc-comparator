@@ -42,7 +42,7 @@ export function ServiceUnavailablePage() {
               {t("service-unavailable.contact-prefix")}
             </p>
             <div className="flex flex-col items-center gap-1">
-              {emails.map((email) => (
+              {emails.map((email: string) => (
                 <a key={email} href={`mailto:${email}`} className="text-sm text-primary underline">
                   {email}
                 </a>

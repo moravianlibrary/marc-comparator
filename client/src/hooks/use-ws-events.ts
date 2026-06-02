@@ -27,11 +27,11 @@ export function useWsEvents() {
 
       const taskName = data.task_type
         ? tRef.current(`type.${data.task_type}`, { defaultValue: data.task_type })
-        : data.task_type;
+        : data.task_id;
       if (data.status === "Started") {
         toast.info(tRef.current("toast.started", { name: taskName }));
         addNotification({
-          title: taskName,
+          title: taskName ?? data.task_id,
           description: tRef.current("toast.started", { name: taskName }),
           variant: "default",
           timestamp: new Date().toISOString(),
@@ -40,7 +40,7 @@ export function useWsEvents() {
       } else if (data.status === "Success") {
         toast.success(tRef.current("toast.completed", { name: taskName }));
         addNotification({
-          title: taskName,
+          title: taskName ?? data.task_id,
           description: tRef.current("toast.completed", { name: taskName }),
           variant: "success",
           timestamp: new Date().toISOString(),
@@ -50,7 +50,7 @@ export function useWsEvents() {
       } else if (data.status === "Failure") {
         toast.error(tRef.current("toast.failed", { name: taskName }));
         addNotification({
-          title: taskName,
+          title: taskName ?? data.task_id,
           description: tRef.current("toast.failed", { name: taskName }),
           variant: "error",
           timestamp: new Date().toISOString(),
@@ -62,7 +62,7 @@ export function useWsEvents() {
 
     const unsubProgress = wsClient.on("task_progress", (raw) => {
       const data = raw as { task_id: string; progress: number | null };
-      queryClient.setQueriesData<{ items: Task[] }>({ queryKey: ["tasks", "running"] }, (old) => {
+      queryClient.setQueriesData<{ items: { task_id: string; progress: number | null }[] }>({ queryKey: ["tasks", "running"] }, (old) => {
         if (!old) return old;
         return {
           ...old,

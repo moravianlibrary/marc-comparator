@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { useSettingsForm } from "./use-settings-form";
-import { taskSettingsSchema, type TaskSettingsFormValues } from "./schemas";
+import { taskSettingsSchema } from "./schemas";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {

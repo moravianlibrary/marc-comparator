@@ -1,5 +1,11 @@
 import { useEffect } from "react";
-import { useForm, type DefaultValues, type FieldValues } from "react-hook-form";
+import {
+  useForm,
+  type DefaultValues,
+  type FieldValues,
+  type Resolver,
+  type SubmitHandler,
+} from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { ZodType } from "zod";
 
@@ -19,13 +25,14 @@ export function useSettingsForm<T extends FieldValues>({
   onSubmit,
 }: UseSettingsFormOptions<T>) {
   const form = useForm<T>({
-    resolver: zodResolver(schema),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    resolver: zodResolver(schema as any) as Resolver<T>,
     defaultValues,
   });
 
   useEffect(() => {
     onFormRef({
-      submit: () => form.handleSubmit(onSubmit)(),
+      submit: () => form.handleSubmit(onSubmit as SubmitHandler<T>)(),
       reset: () => form.reset(defaultValues),
     });
   }, [form, onSubmit, defaultValues, onFormRef]);

@@ -62,4 +62,4 @@ export function togglePermission(
   return removeDependents(current, permission);
 }
 
-export type PermissionGuard = Permission | { any: Permission[] } | { all: Permission[] };
+export type PermissionGuard = Permission | { any: readonly Permission[] } | { all: readonly Permission[] };

@@ -2,7 +2,7 @@ import { useFieldArray } from "react-hook-form";
 import { useTranslation } from "react-i18next";
 import { useSettingsForm } from "./use-settings-form";
 import { Plus, Trash2 } from "lucide-react";
-import { catalogSettingsSchema, type CatalogSettingsFormValues } from "./schemas";
+import { catalogSettingsSchema } from "./schemas";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

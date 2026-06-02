@@ -117,10 +117,10 @@ export function DonutFacet({
               outerRadius={105}
               cursor="pointer"
               onClick={(entry) => {
-                if (isShowingPreview && entry.preview === 0) return;
-                onToggle(entry.key);
+                if (isShowingPreview && (entry as any).preview === 0) return;
+                onToggle((entry as any).key);
               }}
-              onMouseEnter={(_, index) => onHover(chartData[index].key)}
+              onMouseEnter={(_, index) => onHover(chartData[index]!.key)}
               onMouseLeave={onLeave}
             >
               {chartData.map((entry) => {

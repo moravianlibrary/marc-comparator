@@ -8,7 +8,7 @@ function formatLockName(
 ): string {
   const syncMatch = lock.match(/^catalog_sync_(.+)$/);
   if (syncMatch) {
-    return t("common:lock-banner.catalog-sync", { base: syncMatch[1] });
+    return t("common:lock-banner.catalog-sync", { base: syncMatch[1]! });
   }
   return lock;
 }

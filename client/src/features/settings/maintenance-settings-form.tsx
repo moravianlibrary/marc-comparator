@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next";
 import { useSettingsForm } from "./use-settings-form";
-import { maintenanceSettingsSchema, type MaintenanceSettingsFormValues } from "./schemas";
+import { maintenanceSettingsSchema } from "./schemas";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";

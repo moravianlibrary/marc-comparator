@@ -177,7 +177,9 @@ export function AdvancedTaskActions({ filters, totalCount }: AdvancedTaskActions
 
   function openCompare() {
     setSelectedComparisonBases(
-      authorityBases.length === 1 ? new Set([authorityBases[0]]) : new Set(),
+      authorityBases.length === 1 && authorityBases[0] != null
+        ? new Set([authorityBases[0]])
+        : new Set(),
     );
     setPendingDialog("compare");
   }
@@ -190,19 +192,25 @@ export function AdvancedTaskActions({ filters, totalCount }: AdvancedTaskActions
 
   function openLinkAuthorities() {
     const bases = [...new Set(authorityLinkers.flatMap((l) => l.target_bases))];
-    const defaultBase = bases.length === 1 ? bases[0] : null;
+    const defaultBase = bases.length === 1 ? bases[0] ?? null : null;
     setSelectedBase(defaultBase);
     // If only one base, pre-select all compatible linkers if there's exactly one
     const compatible = defaultBase
       ? authorityLinkers.filter((l) => l.target_bases.includes(defaultBase))
       : [];
-    setSelectedLinkers(compatible.length === 1 ? new Set([compatible[0].name]) : new Set());
+    setSelectedLinkers(
+      compatible.length === 1 && compatible[0] != null
+        ? new Set([compatible[0].name])
+        : new Set(),
+    );
     setPendingDialog("link-authorities");
   }
 
   function openValidate() {
     setSelectedValidators(
-      enabledValidators.length === 1 ? new Set([enabledValidators[0]]) : new Set(),
+      enabledValidators.length === 1 && enabledValidators[0] != null
+        ? new Set([enabledValidators[0]])
+        : new Set(),
     );
     setPendingDialog("validate");
   }
@@ -335,7 +343,9 @@ export function AdvancedTaskActions({ filters, totalCount }: AdvancedTaskActions
                     setSelectedBase(v);
                     const compatible = authorityLinkers.filter((l) => l.target_bases.includes(v));
                     setSelectedLinkers(
-                      compatible.length === 1 ? new Set([compatible[0].name]) : new Set(),
+                      compatible.length === 1 && compatible[0] != null
+                        ? new Set([compatible[0].name])
+                        : new Set(),
                     );
                   }}
                 >

@@ -85,7 +85,7 @@ export function RoleFormDialog({ open, onClose, onSubmit, role }: RoleFormDialog
                           checked={field.value.includes(perm)}
                           disabled={role?.immutable}
                           onCheckedChange={(checked) => {
-                            field.onChange(togglePermission(field.value, perm, !!checked));
+                            field.onChange(togglePermission(field.value as Permission[], perm, !!checked));
                           }}
                         />
                         <span className="text-sm">{t(`permissions.${perm}`)}</span>

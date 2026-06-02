@@ -50,7 +50,7 @@ export function SkeletonMarcTable({
                 showAnnotationColumn ? "w-[35%] flex-none" : "flex-1",
               )}
             >
-              {widths.map((w, i) => (
+              {widths!.map((w, i) => (
                 <div key={i} className="flex gap-2">
                   <Skeleton className="h-4 w-5 flex-none" />
                   <Skeleton className={cn("h-4", w)} />

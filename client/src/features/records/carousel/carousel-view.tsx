@@ -23,7 +23,6 @@ import type {
   ComparisonDetail,
   ValidationDetail,
   RecordSummary,
-  RecordReviewsResponse,
 } from "../types";
 import type { AnnotationType } from "./marc-table";
 import { RecordHeader } from "./record-header";
@@ -456,7 +455,7 @@ export function CarouselView() {
     return (
       <div className="mx-2 sm:mx-12">
         <RecordDetail
-          record={records[0]}
+          record={records[0]!}
           selectedView={selectedView}
           setSelectedView={setSelectedView}
           targetFieldsOnly={targetFieldsOnly}

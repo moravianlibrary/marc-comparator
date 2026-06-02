@@ -119,11 +119,12 @@ export function RadialQuality({
               cursor="pointer"
               onClick={(_, index) => {
                 const entry = mainSegments[index];
+                if (!entry) return;
                 if (entry.count === 0) return;
                 if (isShowingPreview && entry.preview === 0) return;
                 onToggle(entry.key);
               }}
-              onMouseEnter={(_, index) => onHover(mainSegments[index].key)}
+              onMouseEnter={(_, index) => onHover(mainSegments[index]!.key)}
               onMouseLeave={onLeave}
             >
               {mainSegments.map((entry) => (
@@ -156,7 +157,7 @@ export function RadialQuality({
         </div>
       </div>
       <div className="flex gap-4 mt-2 text-xs">
-        {QUALITY_ORDER.toReversed().map((quality) => {
+        {[...QUALITY_ORDER].reverse().map((quality: string) => {
           const segment = mainSegments.find((s) => s.key === quality)!;
           const pct = total > 0 ? Math.round((segment.count / total) * 100) : 0;
           const previewPct =

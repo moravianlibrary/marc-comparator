@@ -101,11 +101,11 @@ export function RadialValidation({
               cursor="pointer"
               background={isShowingPreview ? undefined : { fill: "var(--muted)" }}
               onClick={(entry) => {
-                if (entry.count === 0) return;
-                if (isShowingPreview && entry.rawPreview === 0) return;
-                onToggle(entry.key);
+                if ((entry as any).count === 0) return;
+                if (isShowingPreview && (entry as any).rawPreview === 0) return;
+                onToggle((entry as any).key);
               }}
-              onMouseEnter={(_, index) => onHover(chartData[index].key)}
+              onMouseEnter={(_, index) => onHover(chartData[index]!.key)}
               onMouseLeave={onLeave}
             />
             {isShowingPreview && (
@@ -151,7 +151,7 @@ export function RadialValidation({
         </div>
       </div>
       <div className="flex flex-col gap-2 text-xs">
-        {STATUS_ORDER.toReversed().map((status) => {
+        {[...STATUS_ORDER].reverse().map((status: string) => {
           const bucket = data.find((b) => stripPrefix(b.key) === status);
           const rawKey = bucket?.key ?? status;
           const count = bucket?.count ?? 0;

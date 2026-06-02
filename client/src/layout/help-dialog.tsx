@@ -53,7 +53,7 @@ export function HelpDialog({ open, onClose }: Props) {
 
   const tList = (key: string): string[] => {
     const val = t(key, { returnObjects: true });
-    return Array.isArray(val) ? val : [];
+    return Array.isArray(val) ? (val as string[]) : [];
   };
 
   const sections: HelpSection[] = [

@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useHasPermission } from "@/hooks/use-permissions";
 import { Permission } from "@/types/permission";
-import { STATE_COLORS, type RecordSummary, type ValidationSummary } from "../types";
+import { STATE_COLORS, type RecordSummary } from "../types";
 import { RecordTaskActions, AdvancedTaskActions } from "../record-task-actions";
 import { groupValidations, VALIDATION_BADGE_CLASS, COMPARISON_BADGE_CLASS } from "../utils";
 

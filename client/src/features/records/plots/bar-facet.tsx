@@ -81,7 +81,7 @@ interface BarFacetProps {
 export function BarFacet({
   data,
   previewData,
-  activeValues,
+  activeValues: _activeValues,
   onToggle,
   onHover,
   onLeave,
@@ -106,7 +106,7 @@ export function BarFacet({
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
-    const ro = new ResizeObserver(([entry]) => setContainerWidth(entry.contentRect.width));
+    const ro = new ResizeObserver(([entry]) => { if (entry) setContainerWidth(entry.contentRect.width); });
     ro.observe(el);
     return () => ro.disconnect();
   }, []);
@@ -220,11 +220,11 @@ export function BarFacet({
             dataKey="count"
             fill="var(--color-count)"
             radius={4}
-            onClick={(entry) => {
+            onClick={(entry: any) => {
               if (isShowingPreview && entry.preview === 0) return;
-              onToggle(entry.key);
+              onToggle(entry.key as string);
             }}
-            onMouseEnter={(_, index) => onHover(chartData[index].key)}
+            onMouseEnter={(_: any, index: number) => onHover(chartData[index]!.key)}
             onMouseLeave={onLeave}
           >
             {chartData.map((entry) => (

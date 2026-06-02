@@ -1,7 +1,7 @@
 import type { ColumnDef } from "@tanstack/react-table";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
-import { STATE_COLORS, type RecordSummary, type ValidationSummary } from "../types";
+import { STATE_COLORS, type RecordSummary } from "../types";
 import { groupValidations, VALIDATION_BADGE_CLASS, COMPARISON_BADGE_CLASS } from "../utils";
 
 /** Column IDs that the backend can sort by. */

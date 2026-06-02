@@ -1,11 +1,10 @@
 import { useTranslation } from "react-i18next";
 import { useSettingsForm } from "./use-settings-form";
 import { useSystemInfo } from "@/hooks/use-system-info";
-import { processRecordsSettingsSchema, type ProcessRecordsSettingsFormValues } from "./schemas";
+import { processRecordsSettingsSchema } from "./schemas";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Form,
-  FormControl,
   FormField,
   FormItem,
   FormLabel,

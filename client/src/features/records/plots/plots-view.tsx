@@ -109,7 +109,7 @@ export function PlotsView() {
     const paramValue = filters[paramKey];
     if (paramKey === "deleted" || paramKey === "processed") {
       if (!paramValue) return [];
-      const labelMap = BOOL_LABEL_TO_VALUE[paramKey];
+      const labelMap = BOOL_LABEL_TO_VALUE[paramKey]!;
       return Object.entries(labelMap)
         .filter(([, v]) => v === paramValue)
         .map(([label]) => label);
@@ -121,7 +121,7 @@ export function PlotsView() {
     const paramKey = FACET_TO_URL_PARAM[facetField];
     if (!paramKey) return;
     if (paramKey === "deleted" || paramKey === "processed") {
-      const labelMap = BOOL_LABEL_TO_VALUE[paramKey];
+      const labelMap = BOOL_LABEL_TO_VALUE[paramKey]!;
       const targetValue = labelMap[value];
       const currentValue = filters[paramKey];
       setFilters({
@@ -343,7 +343,7 @@ export function PlotsView() {
           getActiveValues={getActiveValues}
           getPreviewBuckets={getPreviewBuckets}
           makeChartHandlers={makeChartHandlers}
-          perValidatorData={perValidatorData}
+          perValidatorData={perValidatorData!}
         />
       )}
     </div>
