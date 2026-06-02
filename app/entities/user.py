@@ -18,6 +18,7 @@ class User(Base, BaseOperationsMixin, RetrievalOperationsMixin):
     first_name = Column(String, nullable=False)
     last_name = Column(String, nullable=False)
     password_hash = Column(String, nullable=False)
+    oidc_sub = Column(String, unique=True, nullable=True)
 
     roles: Mapped[list[Role]] = relationship(
         "Role",
@@ -36,6 +37,10 @@ class User(Base, BaseOperationsMixin, RetrievalOperationsMixin):
     @classmethod
     def find_by_email(cls, db_session, email: str) -> "User | None":
         return db_session.query(cls).filter_by(email=email).one_or_none()
+
+    @classmethod
+    def find_by_oidc_sub(cls, db_session, oidc_sub: str) -> "User | None":
+        return db_session.query(cls).filter_by(oidc_sub=oidc_sub).one_or_none()
 
     def __repr__(self):
         return (

@@ -74,30 +74,43 @@ async def oidc_callback(code: str, state: str = "/"):
         return RedirectResponse(url="/login?error=oidc_failed")
 
     userinfo = userinfo_response.json()
+    sub = userinfo.get("sub")
     email = userinfo.get("email")
     first_name = userinfo.get("given_name", "")
     last_name = userinfo.get("family_name", "")
+
+    if not sub:
+        logger.error("OIDC userinfo missing sub")
+        return RedirectResponse(url="/login?error=oidc_failed")
 
     if not email:
         logger.error("OIDC userinfo missing email")
         return RedirectResponse(url="/login?error=oidc_no_email")
 
-    # Provision user in app's database (find by email or create)
+    # Provision user in app's database (find by sub, then email, or create)
     db_session: DatabaseSession = get_db_session()
     try:
-        user = User.find_by_email(db_session, email)
+        user = User.find_by_oidc_sub(db_session, sub)
         if not user:
-            user = User(
-                first_name=first_name,
-                last_name=last_name,
-                email=email,
-                password_hash="",  # No password for OIDC users
-            )
-            guest_role = Role.get_by_name(db_session, "Guest")
-            user.roles.append(guest_role)
-            user.save(db_session)
-            db_session.commit()
-            logger.info(f"OIDC: provisioned new user {email} with Guest role")
+            user = User.find_by_email(db_session, email)
+            if user:
+                # Link existing local account to OIDC
+                user.oidc_sub = sub
+                db_session.commit()
+                logger.info(f"OIDC: linked existing user {email} to sub {sub}")
+            else:
+                user = User(
+                    first_name=first_name,
+                    last_name=last_name,
+                    email=email,
+                    password_hash="",
+                    oidc_sub=sub,
+                )
+                guest_role = Role.get_by_name(db_session, "Guest")
+                user.roles.append(guest_role)
+                user.save(db_session)
+                db_session.commit()
+                logger.info(f"OIDC: provisioned new user {email} with Guest role")
         user_id = user.id
     finally:
         db_session.close()
