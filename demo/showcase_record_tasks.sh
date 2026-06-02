@@ -10,7 +10,7 @@ NC='\033[0m'
 
 pause() {
     echo -e "${YELLOW}Press any key to continue...${NC}"
-    read -n1 -s
+    [[ -t 0 ]] && read -n1 -s
     echo
 }
 
@@ -45,7 +45,7 @@ ADMIN_PASSWORD="AdminPassword"
 ###############################################################################
 print_step "Logging in as admin"
 
-http --session=demo-admin POST "$APP_URL/auth/login" \
+http --ignore-stdin --session=demo-admin POST "$APP_URL/auth/login" \
     email="$ADMIN_EMAIL" \
     password="$ADMIN_PASSWORD"
 

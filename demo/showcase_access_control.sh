@@ -10,7 +10,7 @@ NC='\033[0m'
 
 pause() {
     echo -e "${YELLOW}Press any key to continue...${NC}"
-    read -n1 -s
+    [[ -t 0 ]] && read -n1 -s
     echo
 }
 
@@ -35,7 +35,7 @@ print_step "Registering test user"
 echo "Registration can fail if the user already exists, which is fine."
 echo
 
-http POST "$APP_URL/auth/sign-up" \
+http --ignore-stdin POST "$APP_URL/auth/sign-up" \
     email="$TEST_EMAIL" \
     first_name="$TEST_FIRSTNAME" \
     last_name="$TEST_LASTNAME" \
@@ -48,7 +48,7 @@ pause
 ###############################################################################
 print_step "Logging in as test user"
 
-http --session=demo-test POST "$APP_URL/auth/login" \
+http --ignore-stdin --session=demo-test POST "$APP_URL/auth/login" \
     email="$TEST_EMAIL" \
     password="$TEST_PASSWORD"
 
@@ -71,7 +71,7 @@ pause
 ###############################################################################
 print_step "Logging in as admin"
 
-http --session=demo-admin POST "$APP_URL/auth/login" \
+http --ignore-stdin --session=demo-admin POST "$APP_URL/auth/login" \
     email="$ADMIN_EMAIL" \
     password="$ADMIN_PASSWORD"
 
@@ -100,7 +100,7 @@ pause
 ###############################################################################
 print_step "Creating new role"
 
-http --session=demo-admin POST "$APP_URL/access-control/roles" \
+http --ignore-stdin --session=demo-admin POST "$APP_URL/access-control/roles" \
     name="DemoRole" \
     permissions:='["ReadRecords"]'
 
@@ -114,7 +114,7 @@ pause
 ###############################################################################
 print_step "Updating role $ROLE_ID"
 
-http --session=demo-admin PUT "$APP_URL/access-control/roles/$ROLE_ID" \
+http --ignore-stdin --session=demo-admin PUT "$APP_URL/access-control/roles/$ROLE_ID" \
     name="DemoRoleUpdated" \
     permissions:='["ReadRecords"]'
 

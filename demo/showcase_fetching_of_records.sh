@@ -10,7 +10,7 @@ NC='\033[0m'
 
 pause() {
     echo -e "${YELLOW}Press any key to continue...${NC}"
-    read -n1 -s
+    [[ -t 0 ]] && read -n1 -s
     echo
 }
 
@@ -27,7 +27,7 @@ ADMIN_PASSWORD="AdminPassword"
 ###############################################################################
 print_step "Logging in as admin"
 
-http --session=demo-admin POST "$APP_URL/auth/login" \
+http --ignore-stdin --session=demo-admin POST "$APP_URL/auth/login" \
     email="$ADMIN_EMAIL" \
     password="$ADMIN_PASSWORD"
 
@@ -42,18 +42,12 @@ SETTINGS_JSON=$(cat <<'EOF'
 {
   "clients": [
     {
+      "host": "https://aleph.mzk.cz",
+      "endpoint": "OAI",
       "base": "MZK01",
-      "oai": {
-        "host": "https://aleph.mzk.cz",
-        "endpoint": "OAI",
-        "timeout": 30,
-        "total_retry": 5,
-        "retry_backoff_factor": 1,
-        "base": "MZK01",
-        "system_number_pattern": "\\d{9}",
-        "oai_sets": ["MZK01-VDK"],
-        "oai_identifier_template": "oai:aleph.mzk.cz:{base}-{doc_number}"
-      }
+      "system_number_pattern": "\\d{9}",
+      "oai_sets": ["MZK01-VDK"],
+      "oai_identifier_template": "oai:aleph.mzk.cz:{base}-{doc_number}"
     }
   ]
 }
@@ -71,7 +65,7 @@ pause
 ###############################################################################
 print_step "Fetching 1 catalog record from Aleph"
 
-http --session=demo-admin POST "$APP_URL/catalog-records/fetch" \
+http --ignore-stdin --session=demo-admin POST "$APP_URL/catalog-records/fetch" \
     base="MZK01" \
     system_number="001818019"
 
