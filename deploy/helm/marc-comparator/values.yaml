@@ -45,6 +45,19 @@ beat:
       cpu: 250m
       memory: 256Mi
 
+# -- Client (nginx + React SPA, proxies /api to app)
+client:
+  replicaCount: 1
+  image:
+    repository: marc-comparator-client
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
 # -- Redis (StatefulSet)
 redis:
   image:
