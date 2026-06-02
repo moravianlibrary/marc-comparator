@@ -46,12 +46,12 @@ export function FetchBatchForm() {
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { base: "", system_numbers_text: "" },
+    defaultValues: { base: configuredBases[0] ?? "", system_numbers_text: "" },
   });
 
   useEffect(() => {
     if (configuredBases.length > 0 && !form.getValues("base")) {
-      form.setValue("base", configuredBases[0]);
+      form.reset({ base: configuredBases[0], system_numbers_text: "" });
     }
   }, [configuredBases, form]);
 
@@ -66,7 +66,7 @@ export function FetchBatchForm() {
         per_base: [{ base: values.base, system_numbers: systemNumbers }],
       });
     },
-    onSuccess: () => form.reset(),
+    onSuccess: () => form.reset({ base: configuredBases[0] ?? "", system_numbers_text: "" }),
     onError: () => toast.error(t("common:error")),
   });
 

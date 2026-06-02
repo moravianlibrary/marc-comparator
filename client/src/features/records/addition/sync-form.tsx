@@ -41,12 +41,12 @@ export function SyncForm() {
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { base: "", from_date: "" },
+    defaultValues: { base: configuredBases[0] ?? "", from_date: "" },
   });
 
   useEffect(() => {
     if (configuredBases.length > 0 && !form.getValues("base")) {
-      form.setValue("base", configuredBases[0]);
+      form.reset({ base: configuredBases[0], from_date: "" });
     }
   }, [configuredBases, form]);
 
@@ -66,7 +66,7 @@ export function SyncForm() {
         base: values.base,
         from_date: values.from_date || null,
       }),
-    onSuccess: () => form.reset(),
+    onSuccess: () => form.reset({ base: configuredBases[0] ?? "", from_date: "" }),
     onError: (error: AxiosError) => {
       if (error.response?.status === 409) {
         queryClient.invalidateQueries({ queryKey: ["system", "locks"] });

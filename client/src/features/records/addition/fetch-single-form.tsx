@@ -40,19 +40,19 @@ export function FetchSingleForm() {
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { base: "", system_number: "" },
+    defaultValues: { base: configuredBases[0] ?? "", system_number: "" },
   });
 
   useEffect(() => {
     if (configuredBases.length > 0 && !form.getValues("base")) {
-      form.setValue("base", configuredBases[0]);
+      form.reset({ base: configuredBases[0], system_number: "" });
     }
   }, [configuredBases, form]);
 
   const mutation = useMutation({
     mutationFn: (data: FormValues) =>
       apiClient.post("/catalog-records/fetch", data),
-    onSuccess: () => form.reset(),
+    onSuccess: () => form.reset({ base: configuredBases[0] ?? "", system_number: "" }),
     onError: () => toast.error(t("common:error")),
   });
 
