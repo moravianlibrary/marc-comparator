@@ -2,34 +2,53 @@
 
 ## **Permissions**
 
-| Permission               | Description                             |
-| ------------------------ | --------------------------------------- |
-| `ReadRecords`            | View catalog records and search results |
-| `AddRecords`             | Add new records to the catalog          |
-| `SyncRecordsFromCatalog` | Synchronize records from the catalog    |
-| `RunRecordTasks`         | Execute automated tasks on records      |
-| `ManageTasks`            | Read and manage all tasks               |
-| `ManageAccessControl`    | Configure user roles and permissions    |
-| `ManageAppSettings`      | Update global application settings      |
-| `ManageTaskSettings`     | Configure settings for individual tasks |
-| `ManageSystem`           | Manage system resources                 |
+| Permission               | Description                                          |
+| ------------------------ | ---------------------------------------------------- |
+| `ReadRecords`            | View catalog records and search results              |
+| `AddRecords`             | Add new records to the catalog                       |
+| `SyncRecordsFromCatalog` | Synchronize records from the catalog                 |
+| `ReviewRecords`          | Create and manage own reviews on records             |
+| `ManageReviews`          | Manage all reviews (including other users' reviews)  |
+| `ProcessRecords`         | Run the full processing pipeline on records          |
+| `RunPartialRecordTasks`  | Run individual tasks (validation, comparison, etc.)  |
+| `ManageTasks`            | View and manage own tasks                            |
+| `ManageAllTasks`         | View and manage all tasks in the system              |
+| `ManageAccessControl`    | Configure user roles and permissions                 |
+| `ManageAppSettings`      | Update global application and maintenance settings   |
+| `ManageTaskSettings`     | Configure record tools (validators, linkers, etc.)   |
+
+### Permission Dependencies
+
+Granting a permission automatically includes its dependencies:
+
+- `AddRecords` → `ReadRecords`
+- `SyncRecordsFromCatalog` → `ReadRecords`, `AddRecords`, `ManageTasks`
+- `ReviewRecords` → `ReadRecords`
+- `ManageReviews` → `ReviewRecords`
+- `ProcessRecords` → `ReadRecords`
+- `RunPartialRecordTasks` → `ReadRecords`
+- `ManageTasks` → `ProcessRecords`, `RunPartialRecordTasks`
+- `ManageAllTasks` → `ManageTasks`
+- `ManageTaskSettings` → `ManageTasks`
 
 ---
 
 ## **Authentication**
 
+The application uses **httpOnly cookie-based authentication**. On successful login, the server sets `access_token` and `refresh_token` cookies. All subsequent requests are authenticated via these cookies.
+
 ### `POST /auth/sign-up`
 
-**Description:** Sign up a new user.
+**Description:** Register a new user.
 
 **Request Body:**
 
 ```json
 {
-  "email": "string",
+  "email": "user@example.com",
   "first_name": "string",
   "last_name": "string",
-  "password": "string"
+  "password": "string (min 8 characters)"
 }
 ```
 
@@ -39,19 +58,54 @@
 
 ### `POST /auth/login`
 
-**Description:** Login and obtain an access token.
+**Description:** Login and receive authentication cookies.
 
-**Request Form:**
+**Request Body:**
 
-* `username` (string)
-* `password` (string)
+```json
+{
+  "email": "user@example.com",
+  "password": "string"
+}
+```
 
 **Successful Response:**
 
 ```json
 {
-  "access_token": "string",
-  "token_type": "bearer"
+  "status": "ok"
+}
+```
+
+Sets `access_token` and `refresh_token` httpOnly cookies.
+
+---
+
+### `POST /auth/refresh`
+
+**Description:** Refresh the access token using the refresh token cookie.
+
+**Successful Response:**
+
+```json
+{
+  "status": "ok"
+}
+```
+
+Sets new `access_token` and `refresh_token` cookies.
+
+---
+
+### `POST /auth/logout`
+
+**Description:** Clear authentication cookies.
+
+**Successful Response:**
+
+```json
+{
+  "status": "ok"
 }
 ```
 
@@ -72,15 +126,32 @@
   "roles": [
     {
       "id": 0,
-      "name": "string",
-      "permissions": ["ReadRecords"],
-      "immutable": true,
-      "protected": true
+      "name": "string"
     }
   ],
   "permissions": ["ReadRecords"]
 }
 ```
+
+---
+
+### OIDC Authentication (Optional)
+
+When configured, the application supports OpenID Connect (Keycloak) authentication.
+
+#### `GET /auth/oidc/enabled`
+
+**Description:** Check if OIDC authentication is enabled.
+
+**Response:** `{"enabled": bool, "default": bool}`
+
+#### `GET /auth/oidc/login`
+
+**Description:** Redirect to Keycloak authorization page. Query parameter: `redirect` (default `/`).
+
+#### `GET /auth/oidc/callback`
+
+**Description:** Handle Keycloak callback. Sets auth cookies and redirects to the original page.
 
 ---
 
@@ -96,8 +167,8 @@
 
 **Request Parameters (optional):**
 
-* `page` (integer)
-* `page_size` (integer)
+* `page` (integer, default 1)
+* `page_size` (integer, default 20)
 
 **Successful Response:**
 
@@ -145,7 +216,7 @@
 
 ---
 
-### `PUT /access-control/roles/{id}`
+### `PUT /access-control/roles/{role_id}`
 
 **Description:** Update an existing role.
 
@@ -158,35 +229,15 @@
 }
 ```
 
-**Successful Response:**
-
-```json
-{
-  "id": 0,
-  "name": "string",
-  "permissions": ["ReadRecords", "AddRecords"],
-  "immutable": false,
-  "protected": false
-}
-```
+**Successful Response:** Updated `RoleSchema`
 
 ---
 
-### `DELETE /access-control/roles/{id}`
+### `DELETE /access-control/roles/{role_id}`
 
 **Description:** Delete a role.
 
-**Successful Response:**
-
-```json
-{
-  "id": 0,
-  "name": "string",
-  "permissions": ["ReadRecords"],
-  "immutable": false,
-  "protected": false
-}
-```
+**Successful Response:** Deleted `RoleSchema`
 
 ---
 
@@ -196,11 +247,11 @@
 
 **Request Parameters (optional):**
 
-* `page` (integer)
-* `page_size` (integer)
+* `page` (integer, default 1)
+* `page_size` (integer, default 20)
 * `email` (string, filter by email)
 
-**Successful Response:** JSON schema
+**Successful Response:**
 
 ```json
 {
@@ -213,13 +264,9 @@
       "roles": [
         {
           "id": 0,
-          "name": "string",
-          "permissions": ["ReadRecords"],
-          "immutable": false,
-          "protected": false
+          "name": "string"
         }
-      ],
-      "permissions": ["ReadRecords"]
+      ]
     }
   ],
   "num_found": 0
@@ -232,57 +279,15 @@
 
 **Description:** Assign a role to a user.
 
-**Required Permission:** `ManageAccessControl`
-
-**Successful Response:** `200 OK`
-
-```json
-{
-  "id": "uuid",
-  "email": "string",
-  "first_name": "string",
-  "last_name": "string",
-  "roles": [
-    {
-      "id": 0,
-      "name": "string",
-      "permissions": ["ReadRecords"],
-      "immutable": false,
-      "protected": false
-    }
-  ],
-  "permissions": ["ReadRecords"]
-}
-```
+**Successful Response:** `200 OK` with updated `UserSchema`
 
 ---
 
 ### `PATCH /access-control/users/{user_id}/unassign-role/{role_id}`
 
-**Description:** Unassign a role to a user.
+**Description:** Unassign a role from a user.
 
-**Required Permission:** `ManageAccessControl`
-
-**Successful Response:** `200 OK`
-
-```json
-{
-  "id": "uuid",
-  "email": "string",
-  "first_name": "string",
-  "last_name": "string",
-  "roles": [
-    {
-      "id": 0,
-      "name": "string",
-      "permissions": ["ReadRecords"],
-      "immutable": false,
-      "protected": false
-    }
-  ],
-  "permissions": ["ReadRecords"]
-}
-```
+**Successful Response:** `200 OK` with updated `UserSchema`
 
 ---
 
@@ -292,41 +297,154 @@
 
 ### `POST /catalog-records/search`
 
-**Description:** Search catalog records using a custom query.
-**Permissions Required:** `ReadRecords`
-
-**Request Body (Elasticsearch DSL query):**
-
-```json
-{
-  /* Elasticsearch DSL query */
-}
-```
-
-**Response:** Raw Elasticsearch response.
-
----
-
-### `GET /catalog-records/{base}/{system_number}/marc`
-
-**Description:** Return marc of the record in JSON format.
-**Permissions Required:** `ReadRecords`
-
-**Response:** Raw marc record in JSON format.
-
----
-
-### `POST /catalog-records/fetch`
-
-**Description:** Fetch a single MARC record by system number.
-**Permissions Required:** `AddRecords`
+**Description:** Search catalog records using structured filters.
+**Permission Required:** `ReadRecords`
 
 **Request Body:**
 
 ```json
 {
-  "base": "TEST",
-  "system_number": "123"
+  "filters": {
+    "bases": ["MZK01"],
+    "text_query": "string",
+    "type_of_record": ["a"],
+    "bibliographic_level": ["m"],
+    "deleted": false,
+    "processed": true,
+    "review_statuses": ["reviewed"],
+    "match_qualities": ["Excellent", "Moderate"],
+    "score_min": 0.5,
+    "score_max": 1.0,
+    "validators": ["kramerius-links"],
+    "validation_statuses": ["Valid", "Invalid"],
+    "authority_link_linkers": ["knihovny-cz"],
+    "authority_link_bases": ["SKC"],
+    "comparison_bases": ["SKC"]
+  },
+  "page": 1,
+  "page_size": 25,
+  "sort_by": "id",
+  "sort_order": "asc"
+}
+```
+
+All filter fields are optional. Available `sort_by` values: `id`, `base`, `system_number`, `latest_sync`, `updated_at`, `comparison_score`.
+
+**Response:**
+
+```json
+{
+  "items": [
+    {
+      "id": "MZK01/001818019",
+      "base": "MZK01",
+      "system_number": "001818019",
+      "title": "string",
+      "authors": ["string"],
+      "type_of_record": "a",
+      "bibliographic_level": "m",
+      "state": ["string"],
+      "authority_links": [
+        {"linker": "knihovny-cz", "base": "SKC", "authority_record_id": "SKC/000123456"}
+      ],
+      "comparisons": [
+        {"comparator": "default", "base": "SKC", "other_record_id": "SKC/000123456", "overall_score": 0.95, "match_quality": "Excellent"}
+      ],
+      "validations": [
+        {"validator": "kramerius-links", "target_tag": "856", "status": "Valid"}
+      ],
+      "latest_sync": "2025-10-31T12:00:00Z",
+      "latest_transaction": "2025-10-31T12:00:00Z",
+      "processed_at": "2025-10-31T12:00:00Z"
+    }
+  ],
+  "total": 100,
+  "page": 1,
+  "page_size": 25
+}
+```
+
+---
+
+### `POST /catalog-records/facets`
+
+**Description:** Get aggregated facets for catalog records matching filters.
+**Permission Required:** `ReadRecords`
+
+**Request Body:**
+
+```json
+{
+  "filters": { /* RecordFilter */ }
+}
+```
+
+**Response:**
+
+```json
+{
+  "facets": [
+    {"field": "base", "buckets": [{"key": "MZK01", "count": 50}]}
+  ],
+  "histograms": [
+    {"field": "comparison_score", "buckets": [{"min": 0.0, "max": 0.5, "count": 10}]}
+  ],
+  "total": 100
+}
+```
+
+---
+
+### `POST /catalog-records/facets-preview`
+
+**Description:** Preview facet distributions grouped by values of a target field.
+**Permission Required:** `ReadRecords`
+
+**Request Body:**
+
+```json
+{
+  "filters": { /* RecordFilter */ },
+  "target_field": "base"
+}
+```
+
+---
+
+### `GET /catalog-records/{base}/{system_number}/marc`
+
+**Description:** Return the MARC record in JSON format.
+**Permission Required:** `ReadRecords`
+
+**Response:** MARC record in JSON format (marcdantic structure).
+
+---
+
+### `GET /catalog-records/{base}/{system_number}/comparisons`
+
+**Description:** Get comparison results for a record.
+**Permission Required:** `ReadRecords`
+
+---
+
+### `GET /catalog-records/{base}/{system_number}/validations`
+
+**Description:** Get validation results for a record.
+**Permission Required:** `ReadRecords`
+
+---
+
+### `POST /catalog-records/fetch`
+
+**Description:** Fetch a single MARC record by system number from the configured catalog.
+**Permission Required:** `AddRecords`
+
+**Request Body:**
+
+```json
+{
+  "base": "MZK01",
+  "system_number": "001818019"
 }
 ```
 
@@ -337,20 +455,16 @@
 ### `POST /catalog-records/fetch-batch`
 
 **Description:** Fetch multiple MARC records in batch by system numbers.
-**Permissions Required:** `AddRecords`
+**Permission Required:** `AddRecords`
 
-**Request Body (example JSON based on `FetchBatchOfRecordsData`):**
+**Request Body:**
 
 ```json
 {
   "per_base": [
     {
-      "base": "TEST",
-      "system_numbers": ["123", "124", "125"]
-    },
-    {
-      "base": "MAIN",
-      "system_numbers": ["456", "457"]
+      "base": "MZK01",
+      "system_numbers": ["001818019", "001618553", "001778730"]
     }
   ]
 }
@@ -362,57 +476,91 @@
 
 ### `POST /catalog-records/sync`
 
-**Description:** Synchronize MARC records from the Aleph catalog. Only changes from `from_date` to `to_date` are fetched.
-**Permissions Required:** `SyncRecordsFromCatalog`
+**Description:** Synchronize MARC records from the catalog. Fetches changes from `from_date` onwards.
+**Permission Required:** `SyncRecordsFromCatalog`
 
 **Request Body:**
 
 ```json
 {
-  "base": "TEST",
-  "from_date": "2025-10-01T00:00:00Z",  // optional
-  "to_date": "2025-10-01T00:00:00Z",  // optional
+  "base": "MZK01",
+  "from_date": "2025-10-01"
 }
 ```
+
+Both fields are required. `from_date` can be `null` to sync all records.
 
 **Response:** `TaskSchema`
 
 ---
 
-### `POST /catalog-records/reindex`
+### `POST /catalog-records/process`
 
-**Description:** Reindex catalog records matching a query.
-**Permissions Required:** `RunRecordTasks`
+**Description:** Run the full processing pipeline (authority linking, comparison, validation) on records matching filters.
+**Permission Required:** `ProcessRecords`
 
 **Request Body:**
 
 ```json
 {
-  /* Elasticsearch DSL query */
+  "bases": ["MZK01"],
+  "text_query": "string"
 }
 ```
+
+The request body is a `RecordFilter` (same fields as the search filters).
 
 **Response:** `TaskSchema`
 
 ---
 
-### `POST /catalog-records/visibility`
+### Reviews
 
-**Description:** Change visibility of catalog records matching a query.
-**Permissions Required:** `RunRecordTasks`
+#### `GET /catalog-records/{base}/{system_number}/reviews`
 
-**Request Body:** 
+**Description:** Get current and historical reviews for a record.
+**Permission Required:** `ReadRecords`
+
+**Response:**
 
 ```json
 {
-  "visible": false,
-  "query":{
-    /* Elasticsearch DSL query */
-  }
+  "current": [
+    {
+      "id": "string",
+      "record_id": "string",
+      "aspect_name": "string",
+      "note": "string",
+      "reviewed_by": "uuid",
+      "reviewer_name": "string",
+      "reviewed_at": "2025-10-31T12:00:00Z",
+      "status": "string"
+    }
+  ],
+  "history": []
 }
 ```
 
-**Response:** `TaskSchema`
+#### `POST /catalog-records/{base}/{system_number}/review`
+
+**Description:** Create a review for a record.
+**Permission Required:** `ReviewRecords`
+
+**Request Body:**
+
+```json
+{
+  "aspect_name": "string",
+  "note": "optional string"
+}
+```
+
+#### `DELETE /catalog-records/{base}/{system_number}/review`
+
+**Description:** Delete a review. Users can delete their own reviews with `ReviewRecords`; deleting others' reviews requires `ManageReviews`.
+**Permission Required:** `ReviewRecords` (own) or `ManageReviews` (others')
+
+**Query Parameter:** `aspect_name` (string, required)
 
 ---
 
@@ -420,18 +568,16 @@
 
 ### `POST /validation/task`
 
-**Description:** Start a validation task for catalog records that match a query, using the specified validators.
-**Permissions Required:** `RunRecordTasks`
+**Description:** Start a validation task for catalog records matching filters.
+**Permission Required:** `RunPartialRecordTasks`
 
 **Request Body:**
 
 ```json
 {
-  "validators": [
-    "kramerius-links"
-  ],
-  "query": {
-    /* Elasticsearch DSL query */
+  "validators": ["kramerius-links"],
+  "filters": {
+    "bases": ["MZK01"]
   }
 }
 ```
@@ -444,19 +590,17 @@
 
 ### `POST /authority-linking/task`
 
-**Description:** Start a task to link catalog records with authority records from the specified authority base.
-**Permissions Required:** `RunRecordTasks`
+**Description:** Start a task to link catalog records with authority records.
+**Permission Required:** `RunPartialRecordTasks`
 
 **Request Body:**
 
 ```json
 {
-  "linkers": [
-    "knihovny-cz"
-  ],
-  "target_base": "string",
-  "query": {
-    /* Elasticsearch DSL query */
+  "linkers": ["knihovny-cz"],
+  "target_base": "SKC",
+  "filters": {
+    "bases": ["MZK01"]
   }
 }
 ```
@@ -469,17 +613,16 @@
 
 ### `POST /comparison/task`
 
-**Description:** Start a task to compare catalog records with linked authority records from the specified base.
-**Permissions Required:** `RunRecordTasks`
+**Description:** Start a task to compare catalog records with their linked authority records.
+**Permission Required:** `RunPartialRecordTasks`
 
 **Request Body:**
 
 ```json
 {
-  "comparator": "rule-based",
-  "target_base": "string",
-  "query": {
-    /* Elasticsearch DSL query */
+  "target_base": "SKC",
+  "filters": {
+    "bases": ["MZK01"]
   }
 }
 ```
@@ -496,13 +639,15 @@ The `TaskSchema` represents tasks in the system:
 {
   "task_id": "uuid",
   "name": "string",
-  "type": "FetchRecord | FetchBatchOfRecords | SyncRecords | ValidateRecords | LinkRecordsToAuthorities | CompareRecords | ReindexRecords | DeleteTasks",
+  "type": "FetchRecord | FetchBatchOfRecords | SyncRecords | ValidateRecords | LinkRecordsToAuthorities | CompareRecords | ProcessRecords | DeleteTasks | RefreshAnalytics | CleanupStaleLocks | CompactSectors | RebuildSearchVectors",
   "status": "Pending | Started | Success | Failure | Revoked",
-  "traceback_lines": 0,
+  "severity": "Info | Warning | Error | Critical",
   "created_by": "uuid",
   "created_at": "2025-10-31T12:00:00Z",
   "started_at": "2025-10-31T12:01:00Z",
-  "finished_at": "2025-10-31T12:05:00Z"
+  "finished_at": "2025-10-31T12:05:00Z",
+  "progress": 0.75,
+  "traceback_lines": 0
 }
 ```
 
@@ -510,147 +655,213 @@ The `TaskSchema` represents tasks in the system:
 
 ### `POST /tasks/search-own`
 
-**Description:** Search your own tasks using index queries.
-**Permissions Required:** `ManageTasks`
+**Description:** Search your own tasks.
+**Permission Required:** `ManageTasks`
 
 **Request Body:**
 
 ```json
 {
-  /* Elasticsearch DSL query */
+  "filters": {
+    "type": ["FetchRecord", "SyncRecords"],
+    "status": ["Pending", "Started"],
+    "severity": ["Info", "Warning"]
+  },
+  "page": 1,
+  "page_size": 25,
+  "sort_by": "created_at",
+  "sort_order": "desc"
 }
 ```
 
-**Response:** Raw Elasticsearch response.
+All filter fields are optional. Available `sort_by` values: `created_at`, `started_at`, `finished_at`.
+
+**Response:**
+
+```json
+{
+  "items": [/* TaskSchema objects */],
+  "total": 10,
+  "page": 1,
+  "page_size": 25
+}
+```
 
 ---
 
 ### `POST /tasks/search-all`
 
 **Description:** Search all tasks in the system.
-**Permissions Required:** `ManageAllTasks`
+**Permission Required:** `ManageAllTasks`
 
-**Request Body:**
+**Request Body:** Same as `/tasks/search-own`.
 
-```json
-{
-  /* Elasticsearch DSL query */
-}
-```
-
-**Response:** Raw Elasticsearch response.
+**Response:** Same format as `/tasks/search-own`.
 
 ---
 
 ### `GET /tasks/{task_id}/traceback`
 
 **Description:** Retrieve task traceback lines.
-**Permissions Required:** If the user is the task owner, `ManageTasks` is sufficient; otherwise, `ManageAllTasks` is required.
+**Permission Required:** `ManageTasks` (own tasks) or `ManageAllTasks` (all tasks)
 
-**Request Parameters:**
+**Query Parameters:**
 
 * `from` (integer, optional) — starting line number
 * `to` (integer, optional) — ending line number
 
-**Response:** Plain text of traceback lines
+**Response:** Plain text of traceback lines.
 
 ---
 
 ### `PATCH /tasks/{task_id}/revoke`
 
-**Description:** Revoke a task that is pending or currently running. If the task is already finished or failed, revocation will fail.
-**Permissions Required:** If the user is the task owner, `ManageTasks` is sufficient; otherwise, `ManageAllTasks` is required.
+**Description:** Revoke a pending or running task.
+**Permission Required:** `ManageTasks` (own tasks) or `ManageAllTasks` (all tasks)
 
-**Response:** `200 OK` with updated task info (`TaskSchema`)
+**Response:** `200 OK` with updated `TaskSchema`
 
 ---
 
 ### `POST /tasks/delete`
 
-**Description:** Plan deletion of selected tasks based on query.
-**Permissions Required:** `ManageAllTasks`
+**Description:** Delete old tasks.
+**Permission Required:** `ManageAllTasks`
 
 **Request Body:**
 
 ```json
 {
-  /* Elasticsearch DSL query */
+  "max_age_days": 30
 }
 ```
 
-**Response:** Raw Elasticsearch response.
+`max_age_days` is optional — if omitted, deletes all finished tasks.
+
+**Response:** `TaskSchema` (the delete task itself)
 
 ---
 
 ## **System Settings**
 
+**Permission Required:** `ManageAppSettings`
+
 ### `GET /settings/system/{scope}`
 
-**Description:** Retrieve the current application settings for the specified scope.
-**Permissions Required:** `ManageSystemSettings`
+**Description:** Retrieve application settings for the specified scope.
 
-**Path Parameters:**
+**Available scopes:** `catalog`, `tasks`, `maintenance`
 
-* `scope` (string, required) — Scope of the app settings
-  *Available values:* `catalog`, `tasks`
-
-**Response:** JSON object containing the current settings for the specified scope
+**Response:** JSON object with settings for the specified scope.
 
 ---
 
 ### `POST /settings/system/{scope}`
 
-**Description:** Update or set application settings for the specified scope.
-**Permissions Required:** `ManageSystemSettings`
+**Description:** Update application settings for the specified scope.
 
-**Path Parameters:**
+**Available scopes:** `catalog`, `tasks`, `maintenance`
 
-* `scope` (string, required) — Scope of the app settings
-  *Available values:* `catalog`, `tasks`
+**Request Body:** JSON object with settings for the specified scope.
 
-**Request Body:** JSON object containing settings for the specified scope, based on the schema
-
-**Response:** JSON object of the updated settings for that scope
+**Response:** Updated settings.
 
 ---
 
 ## **Record Tools Settings**
 
+**Permission Required:** `ManageTaskSettings`
+
 ### `GET /settings/record-tools/{scope}`
 
-**Description:** Retrieve the current record tools settings for the specified scope.
-**Permissions Required:** `ManageRecordToolsSettings`
+**Description:** Retrieve record tools configuration for the specified scope.
 
-**Path Parameters:**
+**Available scopes:** `validators`, `authority-linkers`, `comparators`, `process-records`
 
-* `scope` (string, required) — Scope of the record tools settings
-  *Available values:* `validators`, `authority-linkers`, `comparators`
-
-**Response:** JSON object containing the current settings for the specified scope
+**Response:** JSON object with configuration for the specified scope.
 
 ---
 
-### `POST /settings/tasks/{scope}`
+### `POST /settings/record-tools/{scope}`
 
-**Description:** Update or set record tools settings for the specified scope.
-**Permissions Required:** `ManageRecordToolsSettings`
+**Description:** Update record tools configuration for the specified scope.
 
-**Path Parameters:**
+**Available scopes:** `validators`, `authority-linkers`, `comparators`, `process-records`
 
-* `scope` (string, required) — Scope of the task settings
-  *Available values:* `validators`, `authority-linkers`, `comparators`
+**Request Body:** JSON object with configuration for the specified scope.
 
-**Request Body:** JSON object containing settings for the specified scope, based on the schema
+**Response:** Updated configuration.
 
-**Response:** JSON object of the updated settings for that scope
+---
+
+## **Maintenance**
+
+**Permission Required:** `ManageAppSettings`
+
+### `POST /maintenance/refresh-analytics`
+
+**Description:** Refresh analytics data (aggregated counts, facets).
+
+**Response:** `TaskSchema`
+
+---
+
+### `POST /maintenance/cleanup-stale-locks`
+
+**Description:** Remove stale record locks.
+
+**Response:** `TaskSchema`
+
+---
+
+### `POST /maintenance/compact-sectors`
+
+**Description:** Compact database sectors.
+
+**Response:** `TaskSchema`
+
+---
+
+### `POST /maintenance/rebuild-search-vectors`
+
+**Description:** Rebuild full-text search vectors for all records.
+
+**Response:** `TaskSchema`
+
+---
+
+### `POST /maintenance/delete-tasks`
+
+**Description:** Delete old finished tasks.
+
+**Query Parameter:** `max_age_days` (integer, optional)
+
+**Response:** `TaskSchema`
 
 ---
 
 ## **System**
 
+### `GET /system/health`
+
+**Description:** Health check endpoint. Returns 200 if healthy, 503 if unhealthy.
+
+**Response:**
+
+```json
+{
+  "status": "healthy",
+  "details": {
+    "database": "ok"
+  }
+}
+```
+
+---
+
 ### `GET /system/info`
 
-**Description:** Get system information.
+**Description:** Get system information. Requires authentication.
 
 **Response:**
 
@@ -659,29 +870,31 @@ The `TaskSchema` represents tasks in the system:
   "system_version": "string",
   "system_commit": "string",
   "uptime_seconds": 0,
-  "available_bases": [
-    "string"
-  ],
+  "configured_bases": ["MZK01"],
+  "authority_bases": ["SKC"],
   "enabled_authority_linkers": [
     {
-      "name": "string",
-      "target_bases": [
-        "string"
-      ]
+      "name": "knihovny-cz",
+      "target_bases": ["SKC"]
     }
   ],
-  "enabled_comparators": [
-    "string"
-  ],
-  "enabled_validators": [
-    "string"
-  ]
+  "enabled_validators": ["kramerius-links"],
+  "kramerius_client_urls": {}
 }
 ```
 
-### `POST /system/recreate-indexes`
+---
 
-**Description:** Start a task to recreate all indexes and reindex all entities.  
-**Permissions Required:** `ManageSystem`
+### `GET /system/locks`
 
-**Response:** `TaskSchema`
+**Description:** Get currently active record locks. Requires authentication.
+
+**Response:** `["MZK01/001818019", ...]`
+
+---
+
+## **WebSocket**
+
+### `WS /ws`
+
+**Description:** WebSocket endpoint for real-time updates (task progress, status changes). Authenticated via the `access_token` cookie. Closes with code `4001` if the token is missing or invalid.

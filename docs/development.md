@@ -2,11 +2,12 @@
 
 ## Project Overview
 
-This repository consists of three main parts:
+This repository consists of four main parts:
 
 1. **App** (`app/`) – the FastAPI web application exposing endpoints and orchestrating business logic.
 2. **Workers** (also `app/`) – background tasks (Celery) for asynchronous processing, like fetching and indexing records.
-3. **SDK** (`sdk/`) – a reusable MARC comparator library, including validators, comparators, and CLI tools.
+3. **SDK** (`sdk/`) – a reusable MARC comparator library, including validators, comparators, authority linkers, and CLI tools.
+4. **Client** (`client/`) – a React frontend (Vite + TypeScript) for browsing records and visualizing results.
 
 ---
 
@@ -25,13 +26,13 @@ feature/
  └─ exceptions.py   # Feature-specific errors (optional)
 ```
 
-**Example: Catalog module**
+**Example: Catalog Records module**
 
-* `catalog/controller.py` – exposes REST endpoints or orchestrates task calls.
-* `catalog/service.py` – logic for fetching, transforming, and validating MARC records.
-* `catalog/models.py` - defines Pydantic schemas for API payloads and task data.
-* `catalog/tasks.py` – Celery jobs for record fetching and indexing.
-* `catalog/exceptions.py` – domain-specific errors.
+* `catalog_records/controller.py` – exposes REST endpoints or orchestrates task calls.
+* `catalog_records/service.py` – logic for fetching, transforming, and validating MARC records.
+* `catalog_records/models.py` – defines Pydantic schemas for API payloads and task data.
+* `catalog_records/tasks.py` – Celery jobs for record fetching and indexing.
+* `catalog_records/exceptions.py` – domain-specific errors.
 
 **Notes:**
 
@@ -60,37 +61,44 @@ feature/
 The SDK is independent of the app:
 
 ```
-marc_comparator_sdk/
- ├─ validators/       # Validation logic (e.g., Kramerius link validator)
- ├─ comparators/      # Comparisons between MARC records
- └─ cli/              # Command-line interface for validation & comparison
+sdk/marc_comparator/
+ ├─ validators/          # Validation logic (e.g., Kramerius link validator)
+ ├─ comparators/         # Comparisons between MARC records
+ ├─ authority_linkers/   # Authority record linking (e.g., knihovny.cz)
+ └─ cli/                 # Command-line interface for record processing
 ```
 
 * Validators follow the `BaseValidator` interface.
-* CLI commands allow running validations locally against MARC records.
+* Comparators follow the `BaseComparator` interface.
+* Authority linkers follow the `BaseAuthorityLinker` interface.
+* CLI commands allow running validations, comparisons, and linking locally against MARC records.
 
 ---
 
 ## Development Environment
 
 * Python >= 3.12
-* Virtual environment recommended: `.venv/`
+* Node.js (for client development)
+* Virtual environments: `app/.venv/` and `sdk/.venv/`
 * Install dependencies:
 
 ```bash
-make generate-env
+make app-env    # Create app virtualenv and install dependencies
+make sdk-env    # Create SDK virtualenv and install dependencies
 ```
 
-* Run app locally:
+* Run app locally (requires infrastructure services):
 
 ```bash
-make run
+make up-infra   # Start PostgreSQL, Redis, etc.
+make dev-app    # Start FastAPI app locally
+make dev-worker # Start Celery worker locally
 ```
 
-* Run Celery worker:
+* Run client in development mode:
 
 ```bash
-docker compose up -d worker
+make dev-client # Start Vite dev server with HMR
 ```
 
 * Run tests:
@@ -109,10 +117,11 @@ make coverage-report
 
 ## Docker
 
-Two main containers:
+Three main containers:
 
-* **App container** – runs FastAPI.
-* **Worker container** – runs Celery tasks.
+* **App container** – runs FastAPI (`app.Containerfile`).
+* **Worker container** – runs Celery tasks (`worker.Containerfile`).
+* **Client container** – serves the React frontend via Nginx (`client/Containerfile`).
 
 Build containers:
 
@@ -123,13 +132,22 @@ make build
 Start all services:
 
 ```bash
-make start
+make up
 ```
 
 Stop services:
 
 ```bash
-make stop
+make down
+```
+
+View logs:
+
+```bash
+make logs        # All services
+make logs-app    # API server only
+make logs-worker # Worker only
+make logs-client # Frontend only
 ```
 
 ---
@@ -166,13 +184,14 @@ make stop
 
 ## Testing
 
+* Unit tests located in `app/tests/unit/`.
 * Integration tests located in `app/tests/integration/`.
 * Use pytest with `pytest-asyncio` for async tests.
-* Mock external services (Aleph, Elasticsearch, Kramerius) in unit tests.
+* Mock external services (Aleph, Kramerius) in unit tests.
 * Run only a subset of tests:
 
 ```bash
-make test-integration target=_smoke
+make test-integration APP_TEST_TARGET=_smoke
 ```
 
 ---

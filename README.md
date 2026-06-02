@@ -18,7 +18,6 @@ The **React client** provides an intuitive interface for users to interact with 
 * **FastAPI backend** with REST API for orchestrating tasks and accessing processed data.
 * Background processing using Celery workers for heavy tasks.
 * PostgreSQL database for persistent storage.
-* Elasticsearch index for fast search and retrieval.
 * Redis for task queue and caching.
 * Role-based access control (RBAC) for users and permissions.
 * **React client** for browsing, searching, and visualizing records and comparison/validation results.
@@ -28,8 +27,11 @@ The **React client** provides an intuitive interface for users to interact with 
 ## Project Structure
 
 ```
+Makefile                    # Build, run, test, and deploy commands
+VERSION                     # Current version number
+
 app/                        # FastAPI backend and Celery workers
-├─ adapters/                # External system adapters (Aleph, DB, Elasticsearch, locks, etc.)
+├─ adapters/                # External system adapters (Aleph, DB, locks, etc.)
 ├─ entities/                # Core domain models (DB tables)
 ├─ common/                  # Shared schema models, utilities, and helpers
 ├─ access_control/          # RBAC and permission management
@@ -37,8 +39,12 @@ app/                        # FastAPI backend and Celery workers
 ├─ authority_linking/       # MARC authority linking features
 ├─ catalog_records/         # Catalog record fetching, syncing, and local storage
 ├─ comparison/              # MARC record comparison logic
+├─ maintenance/             # System maintenance tasks (analytics, cleanup, etc.)
 ├─ settings/                # Application and task settings management
+├─ system/                  # System info and health endpoints
+├─ tasks/                   # Background task management
 ├─ validation/              # Validation logic for MARC records
+├─ ws/                      # WebSocket for real-time updates
 ├─ config.py                # Environment configuration schemas
 ├─ app.py                   # FastAPI application entrypoint
 ├─ app_lifespan.py          # Startup/shutdown lifecycle handlers
@@ -46,10 +52,12 @@ app/                        # FastAPI backend and Celery workers
 ├─ worker.Containerfile     # Containerfile for Celery worker image
 ├─ requirements.app.txt     # App dependencies
 ├─ requirements.worker.txt  # Worker dependencies
-├─ Makefile                 # Commands for building, running, and testing
 └─ tests/                   # Unit and integration tests
 
-client/                     # React client implementation
+client/                     # React client (Vite + TypeScript)
+├─ src/                     # Application source code
+├─ Containerfile            # Containerfile for client image
+└─ nginx.conf               # Nginx config for SPA routing and API proxy
 
 sdk/                        # Python SDK for MARC record operations
 └─ marc_comparator/
@@ -58,9 +66,10 @@ sdk/                        # Python SDK for MARC record operations
     ├─ comparators/         # Field and record comparators
     └─ cli/                 # CLI tool for record inspection and processing
 
+config/                     # Configuration files (e.g., Aleph catalog config)
 deploy/                     # Docker Compose and Helm charts for deployment
-
-demo/                       # Demo configurations, data, and scripts for showcasing usage
+demo/                       # Demo scripts for showcasing API usage
+docs/                       # Project documentation
 ```
 
 ---
@@ -110,9 +119,9 @@ The SDK includes a CLI interface implemented with **Typer**, allowing easy usage
 
 ## Deployment
 
-* **Docker Compose**: `deploy/docker-compose/docker-compose.yml` sets up **PostgreSQL**, **Elasticsearch**, **Redis**, **backend**, **workers**, and **client**.
-* **Helm chart**: `deploy/helms` for Kubernetes deployment (coming soon).
-* **Makefile**: provides commands for building Docker images and running the system locally.
+* **Docker Compose**: `deploy/docker-compose/docker-compose.yml` sets up **PostgreSQL**, **Redis**, **backend**, **workers**, and **client**.
+* **Helm chart**: `deploy/helm/` for Kubernetes deployment (coming soon).
+* **Makefile**: provides commands for building Docker images, running services, testing, and local development. Run `make help` for a full list.
 
 ---
 
