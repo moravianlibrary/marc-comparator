@@ -138,7 +138,7 @@ export function TasksPage() {
         </div>
         {selectedTaskId && (
           <div className="xl:sticky xl:top-20 xl:self-start">
-            <TaskDetail taskId={selectedTaskId} isRunning={selectedTask?.status === "Started" || selectedTask?.status === "Pending"} />
+            <TaskDetail taskId={selectedTaskId} isRunning={selectedTask?.status === "Started" || selectedTask?.status === "Pending"} progress={selectedTask?.progress} />
           </div>
         )}
       </div>
