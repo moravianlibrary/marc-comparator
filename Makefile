@@ -35,6 +35,7 @@ APP_TEST_TARGET ?= not _smoke
         app-env app-env-clean app-env-reset \
         test test-integration test-integration-verbose coverage-report \
         dev-sdk dev-app dev-worker dev-beat \
+        db-migrate db-upgrade db-downgrade db-history \
         clean clean-images clean-volumes clean-all
 
 # ─── Help ────────────────────────────────────────────────────────────────────
@@ -163,6 +164,22 @@ dev-worker: ## Start Celery worker locally (requires infra services)
 
 dev-beat: ## Start Celery Beat locally with redbeat scheduler
 	cd app && PYTHONPATH=. $(abspath $(APP_PYTHON)) -m celery -A adapters.tasks beat -S redbeat.RedBeatScheduler --loglevel=info
+
+# ─── Database migrations (Alembic) ───────────────────────────────────────────
+
+ALEMBIC := cd app && set -a && . ../deploy/docker-compose/app.env && set +a && POSTGRES_HOST=localhost PYTHONPATH=. $(abspath $(APP_PYTHON)) -m alembic
+
+db-migrate: ## Generate a new migration (usage: make db-migrate MSG="add foo column")
+	$(ALEMBIC) revision --autogenerate -m "$(MSG)"
+
+db-upgrade: ## Apply all pending migrations (or specify REV=<revision>)
+	$(ALEMBIC) upgrade $(or $(REV),head)
+
+db-downgrade: ## Revert last migration (or specify REV=<revision>)
+	$(ALEMBIC) downgrade $(or $(REV),-1)
+
+db-history: ## Show migration history
+	$(ALEMBIC) history --verbose
 
 # ─── Cleanup ─────────────────────────────────────────────────────────────────
 

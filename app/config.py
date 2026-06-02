@@ -20,7 +20,7 @@ class PostgresConfig(BaseSettings):
 
     host: str = Field(default="localhost")
     port: int = Field(default=5432)
-    database_name: str = Field(default="marc", alias="db")
+    database_name: str = Field(default="marc", validation_alias="POSTGRES_DB")
     user: str = Field(default="marcAdmin")
     password: str = Field(default="replaceMe")
 

@@ -3,13 +3,11 @@ import logging
 
 from sqlalchemy import text
 
-from adapters.database import Base, engine, get_db_session
+from adapters.database import get_db_session
 from adapters.events import subscribe_events
 from auth.models import RegisterUserRequest
 from auth.service import register_user
 from config import config
-from entities.marc_sector import MarcRecordIndex, MarcSector  # noqa: F401 — register with ORM
-from entities.result_snapshot import ResultSnapshot  # noqa: F401 — register with ORM
 from entities.role import Role
 from entities.settings import Settings
 from entities.user import User
@@ -27,8 +25,12 @@ async def lifespan(app):
             "This is insecure — set a strong secret via AUTH_SECRET_KEY env var."
         )
 
-    # Generate database schema
-    await asyncio.to_thread(Base.metadata.create_all, bind=engine)
+    # Run database migrations
+    from alembic import command as alembic_command
+    from alembic.config import Config as AlembicConfig
+
+    alembic_cfg = AlembicConfig("alembic.ini")
+    await asyncio.to_thread(alembic_command.upgrade, alembic_cfg, "head")
 
     with get_db_session() as db:
         db.execute(
