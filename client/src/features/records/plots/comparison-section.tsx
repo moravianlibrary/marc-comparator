@@ -128,6 +128,7 @@ export function ComparisonSection({
                       chartProps.onHover(rawByTranslated.get(translated) ?? translated)
                     }
                     onLeave={chartProps.onLeave}
+                    labelWidth="40%"
                   />
                   {explanationBuckets.length > 10 && (
                     <button
