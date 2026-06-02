@@ -1,0 +1,40 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "marc-comparator.fullname" . }}-config
+  labels:
+    {{- include "marc-comparator.labels" . | nindent 4 }}
+data:
+  POSTGRES_HOST: {{ .Values.config.postgresHost | quote }}
+  POSTGRES_PORT: {{ .Values.config.postgresPort | quote }}
+  POSTGRES_DB: {{ .Values.config.postgresDb | quote }}
+  POSTGRES_USER: {{ .Values.config.postgresUser | quote }}
+  BROKER_HOST: {{ printf "%s-redis" (include "marc-comparator.fullname" .) | quote }}
+  BROKER_PORT: {{ .Values.redis.port | quote }}
+  BROKER_DB: {{ .Values.config.brokerDb | quote }}
+  ALGORITHM: {{ .Values.config.algorithm | quote }}
+  ACCESS_TOKEN_EXPIRE_MINUTES: {{ .Values.config.accessTokenExpireMinutes | quote }}
+  REFRESH_TOKEN_EXPIRE_DAYS: {{ .Values.config.refreshTokenExpireDays | quote }}
+  COOKIE_SECURE: {{ .Values.config.cookieSecure | quote }}
+  {{- if .Values.config.cookieDomain }}
+  COOKIE_DOMAIN: {{ .Values.config.cookieDomain | quote }}
+  {{- end }}
+  ADMIN_EMAIL: {{ .Values.config.adminEmail | quote }}
+  ADMIN_FIRSTNAME: {{ .Values.config.adminFirstname | quote }}
+  ADMIN_LASTNAME: {{ .Values.config.adminLastname | quote }}
+  TIMEZONE_NAME: {{ .Values.config.timezoneName | quote }}
+  LOG_LEVEL: {{ .Values.config.logLevel | quote }}
+  OIDC_ENABLED: {{ .Values.config.oidcEnabled | quote }}
+  OIDC_DEFAULT: {{ .Values.config.oidcDefault | quote }}
+  {{- if .Values.config.oidcIssuerUrl }}
+  OIDC_ISSUER_URL: {{ .Values.config.oidcIssuerUrl | quote }}
+  {{- end }}
+  {{- if .Values.config.oidcClientId }}
+  OIDC_CLIENT_ID: {{ .Values.config.oidcClientId | quote }}
+  {{- end }}
+  {{- if .Values.config.oidcAppBaseUrl }}
+  OIDC_APP_BASE_URL: {{ .Values.config.oidcAppBaseUrl | quote }}
+  {{- end }}
+  {{- if .Values.ollama.enabled }}
+  OLLAMA_URL: {{ printf "http://%s-ollama:%d" (include "marc-comparator.fullname" .) (.Values.ollama.port | int) | quote }}
+  {{- end }}

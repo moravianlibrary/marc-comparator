@@ -1,0 +1,37 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "marc-comparator.fullname" . }}-beat
+  labels:
+    {{- include "marc-comparator.labels" . | nindent 4 }}
+    app.kubernetes.io/component: beat
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "marc-comparator.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: beat
+  template:
+    metadata:
+      labels:
+        {{- include "marc-comparator.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: beat
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: beat
+          image: {{ include "marc-comparator.image" (dict "image" .Values.beat.image "global" .Values.image) }}
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["celery", "-A", "adapters.tasks", "beat", "-S", "redbeat.RedBeatScheduler", "--loglevel=info"]
+          envFrom:
+            - configMapRef:
+                name: {{ include "marc-comparator.fullname" . }}-config
+            - secretRef:
+                name: {{ include "marc-comparator.fullname" . }}-secret
+          resources:
+            {{- toYaml .Values.beat.resources | nindent 12 }}

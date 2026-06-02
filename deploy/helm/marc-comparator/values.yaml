@@ -1,0 +1,149 @@
+# -- Global image settings
+image:
+  registry: ""
+  tag: "latest"
+  pullPolicy: IfNotPresent
+
+imagePullSecrets: []
+
+# -- App (FastAPI)
+app:
+  replicaCount: 1
+  image:
+    repository: marc-comparator-app
+  port: 8000
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+# -- Worker (Celery)
+worker:
+  replicaCount: 1
+  image:
+    repository: marc-comparator-worker
+  resources:
+    requests:
+      cpu: 500m
+      memory: 1Gi
+    limits:
+      cpu: "2"
+      memory: 2Gi
+
+# -- Beat (Celery Beat with redbeat scheduler)
+beat:
+  image:
+    repository: marc-comparator-worker
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+# -- Redis (StatefulSet)
+redis:
+  image:
+    repository: redis
+    tag: "7-alpine"
+  port: 6379
+  storage:
+    size: 1Gi
+    storageClassName: ""
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+# -- PostgreSQL via CloudNativePG
+cnpg:
+  # Name of the CNPG Cluster resource to create
+  name: marc-comparator-db
+  instances: 1
+  storage:
+    size: 10Gi
+    storageClassName: ""
+  database: marc
+  owner: marcAdmin
+  resources:
+    requests:
+      cpu: 250m
+      memory: 512Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+# -- Ollama (optional LLM for comparison)
+ollama:
+  enabled: false
+  image:
+    repository: ollama/ollama
+    tag: "latest"
+  port: 11434
+  models: "qwen2.5vl:7b"
+  storage:
+    size: 20Gi
+    storageClassName: ""
+  resources:
+    requests:
+      cpu: "1"
+      memory: 4Gi
+    limits:
+      cpu: "4"
+      memory: 8Gi
+
+# -- Shared application config
+config:
+  # PostgreSQL (should match cnpg settings)
+  postgresHost: "marc-comparator-db-rw"
+  postgresPort: "5432"
+  postgresDb: "marc"
+  postgresUser: "marcAdmin"
+
+  # Broker (auto-configured to internal redis)
+  brokerDb: "0"
+
+  # Auth
+  algorithm: "HS256"
+  accessTokenExpireMinutes: "30"
+  refreshTokenExpireDays: "7"
+  cookieSecure: "true"
+  cookieDomain: ""
+
+  # Admin bootstrap user
+  adminEmail: "admin@mzk.cz"
+  adminFirstname: "Admin"
+  adminLastname: "Admin"
+
+  # General
+  timezoneName: "Europe/Prague"
+  logLevel: "info"
+
+  # OIDC (optional)
+  oidcEnabled: "false"
+  oidcDefault: "false"
+  oidcIssuerUrl: ""
+  oidcClientId: ""
+  oidcAppBaseUrl: ""
+
+# -- Secrets (override via --set or external secret)
+secrets:
+  postgresPassword: "replaceMe"
+  secretKey: "replace-with-some-secret-of-length-at-least-32"
+  adminPassword: "replaceMe"
+  oidcClientSecret: ""
+
+# -- Ingress
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+  host: ""
+  tls: []

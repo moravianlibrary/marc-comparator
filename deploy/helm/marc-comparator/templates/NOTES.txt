@@ -1,0 +1,20 @@
+MARC Comparator has been deployed.
+
+Components:
+  - App (FastAPI):  {{ include "marc-comparator.fullname" . }}-app
+  - Worker (Celery): {{ include "marc-comparator.fullname" . }}-worker
+  - Beat (Scheduler): {{ include "marc-comparator.fullname" . }}-beat
+  - Redis:          {{ include "marc-comparator.fullname" . }}-redis
+  - PostgreSQL:     {{ .Values.cnpg.name }} (CNPG)
+{{- if .Values.ollama.enabled }}
+  - Ollama (LLM):   {{ include "marc-comparator.fullname" . }}-ollama
+{{- end }}
+
+{{- if .Values.ingress.enabled }}
+
+Access the application at: https://{{ .Values.ingress.host }}
+{{- else }}
+
+To access the application, run:
+  kubectl port-forward svc/{{ include "marc-comparator.fullname" . }}-app {{ .Values.app.port }}:{{ .Values.app.port }}
+{{- end }}

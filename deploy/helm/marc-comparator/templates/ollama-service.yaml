@@ -1,0 +1,19 @@
+{{- if .Values.ollama.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "marc-comparator.fullname" . }}-ollama
+  labels:
+    {{- include "marc-comparator.labels" . | nindent 4 }}
+    app.kubernetes.io/component: ollama
+spec:
+  type: ClusterIP
+  ports:
+    - port: {{ .Values.ollama.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    {{- include "marc-comparator.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: ollama
+{{- end }}
