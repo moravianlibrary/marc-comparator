@@ -26,10 +26,13 @@ async def lifespan(app):
         )
 
     # Run database migrations
+    from pathlib import Path
+
     from alembic import command as alembic_command
     from alembic.config import Config as AlembicConfig
 
-    alembic_cfg = AlembicConfig("alembic.ini")
+    alembic_ini = Path(__file__).resolve().parent / "alembic.ini"
+    alembic_cfg = AlembicConfig(str(alembic_ini))
     await asyncio.to_thread(alembic_command.upgrade, alembic_cfg, "head")
 
     with get_db_session() as db:

@@ -1,40 +1,36 @@
-# Base image with Python 3.12
+# ── Builder stage ─────────────────────────────────────────────────────────────
+FROM python:3.12-slim AS builder
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git libyaz5 \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY sdk/ /sdk/
+RUN pip install --no-cache-dir /sdk/
+
+COPY app/requirements.app.txt /tmp/requirements.txt
+RUN pip install --no-cache-dir -r /tmp/requirements.txt
+
+# ── Runtime stage ─────────────────────────────────────────────────────────────
 FROM python:3.12-slim
 
-# Set environment variables
 ENV PYTHONUNBUFFERED=1
 
-# Declare build args
 ARG SYSTEM_VERSION
 ARG SYSTEM_COMMIT
-
-# Set build args as environment variables
 ENV SYSTEM_VERSION=${SYSTEM_VERSION}
 ENV SYSTEM_COMMIT=${SYSTEM_COMMIT}
 
-# Set working directory
-WORKDIR /app
-
-# Install:
-# - git - for git Python libraries
-# - libyaz5 - for Z39.50 support
+# libyaz5 is needed at runtime by aleph-nought (Z39.50)
 RUN apt-get update \
-    && apt-get install -y git libyaz5 \
-    && apt-get clean \
+    && apt-get install -y --no-install-recommends libyaz5 \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy SDK code
-COPY sdk/ /sdk/
+COPY --from=builder /usr/local/lib/python3.12/site-packages /usr/local/lib/python3.12/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
 
-# Install SDK and app requirements
-RUN pip install --no-cache-dir /sdk/
-COPY app/requirements.app.txt requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+WORKDIR /app
 
-# Remove SDK code after installation
-RUN rm -rf /sdk/
-
-# Copy application code
 COPY app/access_control/ access_control/
 COPY app/adapters/ adapters/
 COPY app/auth/ auth/
@@ -52,13 +48,14 @@ COPY app/ws/ ws/
 COPY app/app.py app.py
 COPY app/app_lifespan.py app_lifespan.py
 COPY app/config.py config.py
+COPY app/alembic.ini alembic.ini
+COPY app/migrations/ migrations/
 
-# Exclude workers-specific files
-RUN rm authority_linking/tasks.py
-RUN rm catalog_records/tasks.py
-RUN rm comparison/tasks.py
-RUN rm maintenance/tasks.py
-RUN rm validation/tasks.py
+# Exclude worker-specific files
+RUN rm authority_linking/tasks.py \
+    && rm catalog_records/tasks.py \
+    && rm comparison/tasks.py \
+    && rm maintenance/tasks.py \
+    && rm validation/tasks.py
 
-# Command to run FastAPI app
 CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
