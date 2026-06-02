@@ -27,13 +27,9 @@ ADMIN_PASSWORD="AdminPassword"
 ###############################################################################
 print_step "Logging in as admin"
 
-http --form POST "$APP_URL/auth/login" \
-    username="$ADMIN_EMAIL" \
+http --session=demo-admin POST "$APP_URL/auth/login" \
+    email="$ADMIN_EMAIL" \
     password="$ADMIN_PASSWORD"
-
-ADMIN_TOKEN=$(http --form --print=b POST "$APP_URL/auth/login" \
-    username="$ADMIN_EMAIL" \
-    password="$ADMIN_PASSWORD" | jq -r .access_token)
 
 pause
 
@@ -64,9 +60,8 @@ SETTINGS_JSON=$(cat <<'EOF'
 EOF
 )
 
-http POST "$APP_URL/settings/system/catalog" \
+http --session=demo-admin POST "$APP_URL/settings/system/catalog" \
   Content-Type:application/json \
-  "Authorization: Bearer $ADMIN_TOKEN" \
   <<< "$SETTINGS_JSON"
 
 pause
@@ -76,7 +71,7 @@ pause
 ###############################################################################
 print_step "Fetching current Catalog settings"
 
-http GET "$APP_URL/settings/system/catalog" "Authorization: Bearer $ADMIN_TOKEN"
+http --session=demo-admin GET "$APP_URL/settings/system/catalog"
 
 pause
 
@@ -111,17 +106,16 @@ SETTINGS_JSON=$(cat <<'EOF'
 EOF
 )
 
-http POST "$APP_URL/settings/record-tools/authority-linkers" \
+http --session=demo-admin POST "$APP_URL/settings/record-tools/authority-linkers" \
   Content-Type:application/json \
-  "Authorization: Bearer $ADMIN_TOKEN" \
   <<< "$SETTINGS_JSON"
 
 pause
 
 ###############################################################################
-# 6. Verify settings
+# 5. Verify settings
 ###############################################################################
 
-http GET "$APP_URL/settings/record-tools/authority-linkers" "Authorization: Bearer $ADMIN_TOKEN"
+http --session=demo-admin GET "$APP_URL/settings/record-tools/authority-linkers"
 
 echo -e "\n${CYAN}=== Demo completed successfully! ===${NC}\n"

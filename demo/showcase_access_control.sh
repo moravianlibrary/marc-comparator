@@ -3,10 +3,6 @@ set -euo pipefail
 
 APP_URL="http://localhost:8000"
 
-# httpie sessions (cookies are persisted per session)
-TEST_SESSION="demo-test-user"
-ADMIN_SESSION="demo-admin"
-
 # Colors for nicer output
 YELLOW='\033[1;33m'
 CYAN='\033[1;36m'
@@ -52,7 +48,7 @@ pause
 ###############################################################################
 print_step "Logging in as test user"
 
-http --session="$TEST_SESSION" POST "$APP_URL/auth/login" \
+http --session=demo-test POST "$APP_URL/auth/login" \
     email="$TEST_EMAIL" \
     password="$TEST_PASSWORD"
 
@@ -63,9 +59,9 @@ pause
 ###############################################################################
 print_step "Fetching /auth/me for test user"
 
-http --session="$TEST_SESSION" GET "$APP_URL/auth/me"
+http --session=demo-test GET "$APP_URL/auth/me"
 
-TEST_USER_ID=$(http --session="$TEST_SESSION" --print=b GET "$APP_URL/auth/me" \
+TEST_USER_ID=$(http --session=demo-test --print=b GET "$APP_URL/auth/me" \
     | jq -r '.id')
 
 pause
@@ -75,7 +71,7 @@ pause
 ###############################################################################
 print_step "Logging in as admin"
 
-http --session="$ADMIN_SESSION" POST "$APP_URL/auth/login" \
+http --session=demo-admin POST "$APP_URL/auth/login" \
     email="$ADMIN_EMAIL" \
     password="$ADMIN_PASSWORD"
 
@@ -86,7 +82,7 @@ pause
 ###############################################################################
 print_step "Fetching /auth/me for admin"
 
-http --session="$ADMIN_SESSION" GET "$APP_URL/auth/me"
+http --session=demo-admin GET "$APP_URL/auth/me"
 
 pause
 
@@ -95,7 +91,7 @@ pause
 ###############################################################################
 print_step "Fetching all roles"
 
-http --session="$ADMIN_SESSION" GET "$APP_URL/access-control/roles"
+http --session=demo-admin GET "$APP_URL/access-control/roles"
 
 pause
 
@@ -104,11 +100,11 @@ pause
 ###############################################################################
 print_step "Creating new role"
 
-http --session="$ADMIN_SESSION" POST "$APP_URL/access-control/roles" \
+http --session=demo-admin POST "$APP_URL/access-control/roles" \
     name="DemoRole" \
     permissions:='["ReadRecords"]'
 
-ROLE_ID=$(http --session="$ADMIN_SESSION" --print=b GET "$APP_URL/access-control/roles" \
+ROLE_ID=$(http --session=demo-admin --print=b GET "$APP_URL/access-control/roles" \
     | jq -r '.items[-1].id')
 
 pause
@@ -118,7 +114,7 @@ pause
 ###############################################################################
 print_step "Updating role $ROLE_ID"
 
-http --session="$ADMIN_SESSION" PUT "$APP_URL/access-control/roles/$ROLE_ID" \
+http --session=demo-admin PUT "$APP_URL/access-control/roles/$ROLE_ID" \
     name="DemoRoleUpdated" \
     permissions:='["ReadRecords"]'
 
@@ -129,7 +125,7 @@ pause
 ###############################################################################
 print_step "Fetching all users"
 
-http --session="$ADMIN_SESSION" GET "$APP_URL/access-control/users"
+http --session=demo-admin GET "$APP_URL/access-control/users"
 
 pause
 
@@ -138,7 +134,7 @@ pause
 ###############################################################################
 print_step "Fetching users filtered by email (test*)"
 
-http --session="$ADMIN_SESSION" GET "$APP_URL/access-control/users?email=test"
+http --session=demo-admin GET "$APP_URL/access-control/users?email=test"
 
 pause
 
@@ -147,7 +143,7 @@ pause
 ###############################################################################
 print_step "Assigning new role $ROLE_ID to user $TEST_USER_ID"
 
-http --session="$ADMIN_SESSION" PATCH \
+http --session=demo-admin PATCH \
     "$APP_URL/access-control/users/$TEST_USER_ID/assign-role/$ROLE_ID"
 
 pause
@@ -157,7 +153,7 @@ pause
 ###############################################################################
 print_step "Fetching /auth/me for test user"
 
-http --session="$TEST_SESSION" GET "$APP_URL/auth/me"
+http --session=demo-test GET "$APP_URL/auth/me"
 
 pause
 
@@ -166,7 +162,7 @@ pause
 ###############################################################################
 print_step "Unassigning new role $ROLE_ID from user $TEST_USER_ID"
 
-http --session="$ADMIN_SESSION" PATCH \
+http --session=demo-admin PATCH \
     "$APP_URL/access-control/users/$TEST_USER_ID/unassign-role/$ROLE_ID"
 
 pause
@@ -176,7 +172,7 @@ pause
 ###############################################################################
 print_step "Fetching /auth/me for test user"
 
-http --session="$TEST_SESSION" GET "$APP_URL/auth/me"
+http --session=demo-test GET "$APP_URL/auth/me"
 
 pause
 
@@ -185,6 +181,6 @@ pause
 ###############################################################################
 print_step "Deleting role $ROLE_ID"
 
-http --session="$ADMIN_SESSION" DELETE "$APP_URL/access-control/roles/$ROLE_ID"
+http --session=demo-admin DELETE "$APP_URL/access-control/roles/$ROLE_ID"
 
 echo -e "\n${CYAN}=== Demo completed successfully! ===${NC}\n"

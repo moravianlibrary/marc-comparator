@@ -18,6 +18,24 @@ print_step() {
     echo -e "\n${CYAN}=== $1 ===${NC}\n"
 }
 
+wait_for_tasks() {
+    sleep 5
+    while true; do
+        response=$(http --session=demo-admin --print=b POST "$APP_URL/tasks/search-own" \
+            Content-Type:application/json \
+            <<< '{"filters": {"status": ["Pending", "Started"]}}')
+
+        count=$(echo "$response" | jq '.total')
+        echo "Tasks still pending/running: $count. Checking again in 30 seconds..."
+
+        if [ "$count" -eq 0 ]; then
+            break
+        fi
+
+        sleep 30
+    done
+}
+
 # Admin credentials
 ADMIN_EMAIL="admin@mzk.cz"
 ADMIN_PASSWORD="AdminPassword"
@@ -27,57 +45,47 @@ ADMIN_PASSWORD="AdminPassword"
 ###############################################################################
 print_step "Logging in as admin"
 
-http --form POST "$APP_URL/auth/login" \
-    username="$ADMIN_EMAIL" \
+http --session=demo-admin POST "$APP_URL/auth/login" \
+    email="$ADMIN_EMAIL" \
     password="$ADMIN_PASSWORD"
-
-ADMIN_TOKEN=$(http --form --print=b POST "$APP_URL/auth/login" \
-    username="$ADMIN_EMAIL" \
-    password="$ADMIN_PASSWORD" | jq -r .access_token)
 
 pause
 
 ###############################################################################
-# 2. Recreate indexes
+# 2. Refresh analytics
 ###############################################################################
-print_step "Run recreating of indexes"
+print_step "Run analytics refresh"
 
-http POST "$APP_URL/system/recreate-indexes" \
-    "Authorization: Bearer $ADMIN_TOKEN"
+http --session=demo-admin POST "$APP_URL/maintenance/refresh-analytics"
 
-sleep 5
+wait_for_tasks
+echo "Analytics refresh completed."
+echo
 
-ES_TASKS_QUERY_JSON=$(cat <<'EOF'
-{
-  "query": {
-    "bool": {
-      "should": [
-        { "term": { "status": "Pending" } },
-        { "term": { "status": "Started" } }
-      ]
-    }
-  }
-}
-EOF
-)
+pause
 
-while true; do
-    response=$(http POST "$APP_URL/tasks/search-own" \
-        "Authorization: Bearer $ADMIN_TOKEN" \
-        Content-Type:application/json \
-        <<< "$ES_TASKS_QUERY_JSON")
+###############################################################################
+# 3. Rebuild search vectors
+###############################################################################
+print_step "Run search vectors rebuild"
 
-    count=$(echo "$response" | jq '.hits.total.value')
-    echo "Tasks still pending/running: $count. Checking again in 30 seconds..."
+http --session=demo-admin POST "$APP_URL/maintenance/rebuild-search-vectors"
 
-    if [ "$count" -eq 0 ]; then
-        break
-    fi
+wait_for_tasks
+echo "Search vectors rebuild completed."
+echo
 
-    sleep 30
-done
+pause
 
-echo "Recreating of indexes completed."
+###############################################################################
+# 4. Cleanup stale locks
+###############################################################################
+print_step "Run stale locks cleanup"
+
+http --session=demo-admin POST "$APP_URL/maintenance/cleanup-stale-locks"
+
+wait_for_tasks
+echo "Stale locks cleanup completed."
 echo
 
 echo -e "\n${CYAN}=== Demo completed successfully! ===${NC}\n"

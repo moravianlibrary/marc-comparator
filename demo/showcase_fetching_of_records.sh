@@ -27,13 +27,9 @@ ADMIN_PASSWORD="AdminPassword"
 ###############################################################################
 print_step "Logging in as admin"
 
-http --form POST "$APP_URL/auth/login" \
-    username="$ADMIN_EMAIL" \
+http --session=demo-admin POST "$APP_URL/auth/login" \
+    email="$ADMIN_EMAIL" \
     password="$ADMIN_PASSWORD"
-
-ADMIN_TOKEN=$(http --form --print=b POST "$APP_URL/auth/login" \
-    username="$ADMIN_EMAIL" \
-    password="$ADMIN_PASSWORD" | jq -r .access_token)
 
 pause
 
@@ -64,9 +60,8 @@ SETTINGS_JSON=$(cat <<'EOF'
 EOF
 )
 
-http POST "$APP_URL/settings/system/catalog" \
+http --session=demo-admin POST "$APP_URL/settings/system/catalog" \
   Content-Type:application/json \
-  "Authorization: Bearer $ADMIN_TOKEN" \
   <<< "$SETTINGS_JSON"
 
 pause
@@ -76,11 +71,10 @@ pause
 ###############################################################################
 print_step "Fetching 1 catalog record from Aleph"
 
-http POST "$APP_URL/catalog-records/fetch" \
-    "Authorization: Bearer $ADMIN_TOKEN" \
+http --session=demo-admin POST "$APP_URL/catalog-records/fetch" \
     base="MZK01" \
     system_number="001818019"
-  
+
 pause
 
 ###############################################################################
@@ -201,11 +195,10 @@ RECORDS_BATCH_JSON=$(cat <<'EOF'
 EOF
 )
 
-http POST "$APP_URL/catalog-records/fetch-batch" \
+http --session=demo-admin POST "$APP_URL/catalog-records/fetch-batch" \
     Content-Type:application/json \
-    "Authorization: Bearer $ADMIN_TOKEN" \
     <<< "$RECORDS_BATCH_JSON"
-  
+
 pause
 
 ###############################################################################
@@ -218,9 +211,8 @@ SYNC_JSON=$(jq -n \
     --arg from_date "$(date -d '1 days ago' +%Y-%m-%d)" \
     '{base: $base, from_date: $from_date}')
 
-http POST "$APP_URL/catalog-records/sync" \
+http --session=demo-admin POST "$APP_URL/catalog-records/sync" \
     Content-Type:application/json \
-    "Authorization: Bearer $ADMIN_TOKEN" \
     <<< "$SYNC_JSON"
 
 pause
@@ -230,27 +222,12 @@ pause
 ###############################################################################
 print_step "Waiting for all background tasks to complete"
 
-ES_TASKS_QUERY_JSON=$(cat <<'EOF'
-{
-  "query": {
-    "bool": {
-      "should": [
-        { "term": { "status": "Pending" } },
-        { "term": { "status": "Started" } }
-      ]
-    }
-  }
-}
-EOF
-)
-
 while true; do
-    response=$(http POST "$APP_URL/tasks/search-own" \
-        "Authorization: Bearer $ADMIN_TOKEN" \
+    response=$(http --session=demo-admin --print=b POST "$APP_URL/tasks/search-own" \
         Content-Type:application/json \
-        <<< "$ES_TASKS_QUERY_JSON")
+        <<< '{"filters": {"status": ["Pending", "Started"]}}')
 
-    count=$(echo "$response" | jq '.hits.total.value')
+    count=$(echo "$response" | jq '.total')
     echo "Tasks still pending/running: $count. Checking every 30 seconds..."
 
     if [ "$count" -eq 0 ]; then
