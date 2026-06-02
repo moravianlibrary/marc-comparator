@@ -1,6 +1,0 @@
-{
-    "title": "Nastavení úkolů",
-    "no-data-or-schema": "Nastavení nebo schéma nastavení není k dispozici.",
-    "progress-update-interval": "Aktualizovat průběh po každých N zpracovaných záznamech",
-    "indexing-batch-size": "Velikost dávky pro indexování"
-}
