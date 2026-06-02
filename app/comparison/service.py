@@ -13,16 +13,11 @@ async def compare(
     db_session: DatabaseSession,
 ) -> TaskSchema:
     # Ensure comparison settings exist
-    get_settings_part(
-        SettingsScope.Comparison, "comparator", db_session
-    )
+    get_settings_part(SettingsScope.Comparison, "comparator", db_session)
 
     return await enqueue_task(
         Task(
-            name=(
-                "Comparing records "
-                f"against authority records from '{data.target_base}' base"
-            ),
+            name=(f"Comparing records against authority records from '{data.target_base}' base"),
             type=TaskType.CompareRecords,
             created_by=created_by,
             data=data.model_dump(),

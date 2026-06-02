@@ -1,10 +1,9 @@
 from functools import cached_property
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
 from marc_comparator.validators import (
     ValidationResult,
     ValidationTarget,
-    Validator,
     ValidityStatus,
 )
 from sqlalchemy import TIMESTAMP, Column, ForeignKey, Integer, String, func
@@ -22,15 +21,11 @@ class Validation(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
 
-    catalog_record_id = Column(
-        String, ForeignKey("catalog_records.id"), nullable=False
-    )
+    catalog_record_id = Column(String, ForeignKey("catalog_records.id"), nullable=False)
     validator = Column(String, nullable=False)
 
     _result = Column(JSONB, name="result", nullable=False)
-    updated_at = Column(
-        TIMESTAMP, nullable=False, default=func.now(), onupdate=func.now()
-    )
+    updated_at = Column(TIMESTAMP, nullable=False, default=func.now(), onupdate=func.now())
 
     catalog_record: Mapped["CatalogRecord"] = relationship(
         "CatalogRecord",
@@ -47,7 +42,7 @@ class Validation(Base):
         db_session: DatabaseSession,
         catalog_record_id: str,
         validator: str,
-        results: List[ValidationResult],
+        results: list[ValidationResult],
     ) -> None:
         for result in results:
             db_session.add(

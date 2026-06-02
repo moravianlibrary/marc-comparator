@@ -46,9 +46,7 @@ export function RoleFormDialog({ open, onClose, onSubmit, role }: RoleFormDialog
   useEffect(() => {
     if (open) {
       form.reset(
-        role
-          ? { name: role.name, permissions: role.permissions }
-          : { name: "", permissions: [] }
+        role ? { name: role.name, permissions: role.permissions } : { name: "", permissions: [] },
       );
     }
   }, [open, role, form]);
@@ -57,9 +55,7 @@ export function RoleFormDialog({ open, onClose, onSubmit, role }: RoleFormDialog
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>
-            {role ? t("roles.edit") : t("roles.create")}
-          </DialogTitle>
+          <DialogTitle>{role ? t("roles.edit") : t("roles.create")}</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -89,14 +85,10 @@ export function RoleFormDialog({ open, onClose, onSubmit, role }: RoleFormDialog
                           checked={field.value.includes(perm)}
                           disabled={role?.immutable}
                           onCheckedChange={(checked) => {
-                            field.onChange(
-                              togglePermission(field.value, perm, !!checked)
-                            );
+                            field.onChange(togglePermission(field.value, perm, !!checked));
                           }}
                         />
-                        <span className="text-sm">
-                          {t(`permissions.${perm}`)}
-                        </span>
+                        <span className="text-sm">{t(`permissions.${perm}`)}</span>
                       </label>
                     ))}
                   </div>

@@ -72,13 +72,8 @@ const EXPLANATION_ORDER: Record<string, number> = {
 
 export function PlotsView() {
   const { t } = useTranslation("records");
-  const {
-    filters,
-    setFilters,
-    toggleArrayFilter,
-    setScoreRange,
-    clearFilters,
-  } = useRecordFilters();
+  const { filters, setFilters, toggleArrayFilter, setScoreRange, clearFilters } =
+    useRecordFilters();
   const { data: facetsData, isLoading } = useFacets();
   const [hoveredField, setHoveredField] = useState<string | null>(null);
   const [hoveredValue, setHoveredValue] = useState<string | null>(null);
@@ -86,10 +81,7 @@ export function PlotsView() {
   const { isVisible, toggleChart, toggleSection, isSectionVisible } = useSectionVisibility();
   const perValidatorData = usePerValidatorData();
 
-  const previewFacets = usePreviewForValue(
-    hoveredField ?? "",
-    hoveredValue,
-  );
+  const previewFacets = usePreviewForValue(hoveredField ?? "", hoveredValue);
 
   if (isLoading) {
     return (
@@ -144,9 +136,7 @@ export function PlotsView() {
   function getPreviewBuckets(facetField: string): FacetBucket[] | undefined {
     if (hasRecordIdFilter) return undefined;
     if (!previewFacets || facetField === hoveredField) return undefined;
-    const result = previewFacets.facets.find(
-      (f: FacetResult) => f.field === facetField,
-    );
+    const result = previewFacets.facets.find((f: FacetResult) => f.field === facetField);
     return result?.buckets ?? [];
   }
 
@@ -173,18 +163,14 @@ export function PlotsView() {
     };
   }
 
-  const scoreHistogram = facetsData.histograms.find(
-    (h) => h.field === "overall_score",
-  );
+  const scoreHistogram = facetsData.histograms.find((h) => h.field === "overall_score");
 
-  const explanationBuckets = [...getBuckets("field_explanations")].sort(
-    (a, b) => {
-      const orderA = EXPLANATION_ORDER[a.key] ?? Number.MAX_SAFE_INTEGER;
-      const orderB = EXPLANATION_ORDER[b.key] ?? Number.MAX_SAFE_INTEGER;
-      if (orderA !== orderB) return orderA - orderB;
-      return b.count - a.count;
-    },
-  );
+  const explanationBuckets = [...getBuckets("field_explanations")].sort((a, b) => {
+    const orderA = EXPLANATION_ORDER[a.key] ?? Number.MAX_SAFE_INTEGER;
+    const orderB = EXPLANATION_ORDER[b.key] ?? Number.MAX_SAFE_INTEGER;
+    if (orderA !== orderB) return orderA - orderB;
+    return b.count - a.count;
+  });
 
   // Collect all active filters for the summary bar
   const allFacetFields = Object.keys(FACET_TO_URL_PARAM);
@@ -241,7 +227,11 @@ export function PlotsView() {
       field: "comparison_bases",
       label: t("facet-fields.comparison_bases"),
     },
-    { field: "validators", label: t("facet-fields.validators"), formatLabel: (k) => t(`validator-name.${k}`, { defaultValue: k }) },
+    {
+      field: "validators",
+      label: t("facet-fields.validators"),
+      formatLabel: (k) => t(`validator-name.${k}`, { defaultValue: k }),
+    },
   ];
 
   const pillGroups: PillGroup[] = contextFields
@@ -264,7 +254,10 @@ export function PlotsView() {
     });
 
   const hasRecordsContent =
-    (isVisible("record_status") && (getBuckets("is_deleted").length > 0 || getBuckets("review_status").length > 0 || getBuckets("is_processed").length > 0)) ||
+    (isVisible("record_status") &&
+      (getBuckets("is_deleted").length > 0 ||
+        getBuckets("review_status").length > 0 ||
+        getBuckets("is_processed").length > 0)) ||
     (isVisible("type_of_record") && getBuckets("type_of_record").length > 0) ||
     (isVisible("bibliographic_level") && getBuckets("bibliographic_level").length > 0);
 
@@ -282,7 +275,12 @@ export function PlotsView() {
         <p className="text-sm text-muted-foreground">
           {t("plots.total-records", { count: facetsData.total })}
         </p>
-        <SectionConfig isVisible={isVisible} toggleChart={toggleChart} isSectionVisible={isSectionVisible} toggleSection={toggleSection} />
+        <SectionConfig
+          isVisible={isVisible}
+          toggleChart={toggleChart}
+          isSectionVisible={isSectionVisible}
+          toggleSection={toggleSection}
+        />
       </div>
 
       {hasAnyFilter && (

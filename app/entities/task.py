@@ -1,7 +1,7 @@
 from datetime import datetime
 from enum import StrEnum
 
-from pydantic import BaseModel, UUID4
+from pydantic import UUID4, BaseModel
 from sqlalchemy import (
     JSON,
     TIMESTAMP,
@@ -56,6 +56,7 @@ class TaskSeverity(StrEnum):
 
 class TaskSchema(BaseModel):
     """Pydantic response model for Task API endpoints (replaces ES IndexerSchema)."""
+
     task_id: UUID4
     name: str
     type: TaskType
@@ -75,25 +76,19 @@ class TaskSchema(BaseModel):
 
 
 class Task(
-    Base, BaseOperationsMixin, RetrievalOperationsMixin,
+    Base,
+    BaseOperationsMixin,
+    RetrievalOperationsMixin,
 ):
     __tablename__ = "tasks"
 
-    task_id = Column(
-        UUID(as_uuid=True), primary_key=True, default=func.gen_random_uuid()
-    )
+    task_id = Column(UUID(as_uuid=True), primary_key=True, default=func.gen_random_uuid())
     name = Column(String(255), nullable=False)
     type = Column(Enum(TaskType), nullable=False)
-    status = Column(
-        Enum(TaskStatus), nullable=False, default=TaskStatus.Pending
-    )
-    severity = Column(
-        Enum(TaskSeverity), nullable=False, default=TaskSeverity.Info
-    )
+    status = Column(Enum(TaskStatus), nullable=False, default=TaskStatus.Pending)
+    severity = Column(Enum(TaskSeverity), nullable=False, default=TaskSeverity.Info)
 
-    created_by = Column(
-        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False
-    )
+    created_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
     created_at = Column(TIMESTAMP, nullable=False, default=func.now())
     started_at = Column(TIMESTAMP, nullable=True)
     finished_at = Column(TIMESTAMP, nullable=True)

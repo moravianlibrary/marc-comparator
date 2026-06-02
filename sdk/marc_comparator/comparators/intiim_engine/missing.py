@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-from typing import Optional
-
-
 TRACK_MISSING_TAGS = {
     "001",
     "015",
@@ -18,11 +15,10 @@ TRACK_MISSING_TAGS = {
 
 TRACK_MISSING_SUBFIELDS = {
     ("020", "a"),
-   
 }
 
 
-def is_missing_tracked(tag: str, code: Optional[str]) -> bool:
+def is_missing_tracked(tag: str, code: str | None) -> bool:
     if tag in TRACK_MISSING_TAGS:
         return True
     key = (tag, code)

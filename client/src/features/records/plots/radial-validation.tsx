@@ -1,11 +1,7 @@
 import { useMemo, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { RadialBarChart, RadialBar, PolarAngleAxis, Cell } from "recharts";
-import {
-  ChartContainer,
-  ChartTooltip,
-  type ChartConfig,
-} from "@/components/ui/chart";
+import { ChartContainer, ChartTooltip, type ChartConfig } from "@/components/ui/chart";
 import { FacetTooltip } from "./facet-tooltip";
 import { useTranslation } from "react-i18next";
 import type { FacetBucket } from "../types";
@@ -38,14 +34,17 @@ export function RadialValidation({
   onLeave,
 }: RadialValidationProps) {
   const { t } = useTranslation("records");
-  const chartConfig = useMemo<ChartConfig>(() => ({
-    count: { label: t("common:chart.count") },
-    preview: { label: t("common:chart.preview") },
-    Valid: { label: t("validity-status.Valid"), color: "var(--status-success)" },
-    ForReview: { label: t("validity-status.ForReview"), color: "var(--status-warning)" },
-    Invalid: { label: t("validity-status.Invalid"), color: "var(--status-danger)" },
-    AdditionalInfo: { label: t("validity-status.AdditionalInfo"), color: "var(--status-info)" },
-  }), [t]);
+  const chartConfig = useMemo<ChartConfig>(
+    () => ({
+      count: { label: t("common:chart.count") },
+      preview: { label: t("common:chart.preview") },
+      Valid: { label: t("validity-status.Valid"), color: "var(--status-success)" },
+      ForReview: { label: t("validity-status.ForReview"), color: "var(--status-warning)" },
+      Invalid: { label: t("validity-status.Invalid"), color: "var(--status-danger)" },
+      AdditionalInfo: { label: t("validity-status.AdditionalInfo"), color: "var(--status-info)" },
+    }),
+    [t],
+  );
 
   const isShowingPreview = previewData != null;
   const wasShowingPreview = useRef(false);
@@ -53,9 +52,7 @@ export function RadialValidation({
   wasShowingPreview.current = isShowingPreview;
 
   const total = data.reduce((sum, b) => sum + b.count, 0);
-  const previewTotal = isShowingPreview
-    ? previewData.reduce((sum, b) => sum + b.count, 0)
-    : 0;
+  const previewTotal = isShowingPreview ? previewData.reduce((sum, b) => sum + b.count, 0) : 0;
 
   // One entry per status, rendered as concentric rings (innermost first in data)
   const chartData = STATUS_ORDER.map((status) => {
@@ -83,7 +80,11 @@ export function RadialValidation({
   return (
     <div className="flex items-center gap-4">
       <div className="relative flex-shrink-0" style={{ width: 300, height: 300 }}>
-        <ChartContainer config={chartConfig} className="aspect-square [&_.recharts-wrapper]:z-10" style={{ width: 300, height: 300 }}>
+        <ChartContainer
+          config={chartConfig}
+          className="aspect-square [&_.recharts-wrapper]:z-10"
+          style={{ width: 300, height: 300 }}
+        >
           <RadialBarChart
             data={chartData}
             startAngle={-90}
@@ -93,10 +94,7 @@ export function RadialValidation({
             barSize={14}
           >
             <PolarAngleAxis type="number" domain={[0, total || 1]} tick={false} />
-            <ChartTooltip
-              cursor={false}
-              content={<FacetTooltip previewKey="rawPreview" />}
-            />
+            <ChartTooltip cursor={false} content={<FacetTooltip previewKey="rawPreview" />} />
             <RadialBar
               dataKey="count"
               cornerRadius={4}
@@ -129,7 +127,18 @@ export function RadialValidation({
         </ChartContainer>
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
           <div className="flex flex-col items-center">
-            <p className={cn("font-bold tabular-nums", total > 999999 ? "text-xs" : total > 99999 ? "text-sm" : total > 9999 ? "text-lg" : "text-2xl")}>
+            <p
+              className={cn(
+                "font-bold tabular-nums",
+                total > 999999
+                  ? "text-xs"
+                  : total > 99999
+                    ? "text-sm"
+                    : total > 9999
+                      ? "text-lg"
+                      : "text-2xl",
+              )}
+            >
               {total.toLocaleString("cs-CZ")}
             </p>
             <span
@@ -168,9 +177,7 @@ export function RadialValidation({
                 style={{ backgroundColor: STATUS_COLORS[status] }}
               />
               <span className="whitespace-nowrap">{t(`validity-status.${status}`)}</span>
-              <span className="tabular-nums text-foreground">
-                {count.toLocaleString("cs-CZ")}
-              </span>
+              <span className="tabular-nums text-foreground">{count.toLocaleString("cs-CZ")}</span>
               <span
                 className="tabular-nums text-muted-foreground fade-toggle"
                 data-visible={isShowingPreview}

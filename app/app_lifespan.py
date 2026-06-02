@@ -6,10 +6,10 @@ from sqlalchemy import text
 from adapters.database import Base, engine, get_db_session
 from adapters.events import subscribe_events
 from auth.models import RegisterUserRequest
-from entities.marc_sector import MarcRecordIndex, MarcSector  # noqa: F401 — register with ORM
-from entities.result_snapshot import ResultSnapshot  # noqa: F401 — register with ORM
 from auth.service import register_user
 from config import config
+from entities.marc_sector import MarcRecordIndex, MarcSector  # noqa: F401 — register with ORM
+from entities.result_snapshot import ResultSnapshot  # noqa: F401 — register with ORM
 from entities.role import Role
 from entities.settings import Settings
 from entities.user import User
@@ -31,15 +31,18 @@ async def lifespan(app):
     await asyncio.to_thread(Base.metadata.create_all, bind=engine)
 
     with get_db_session() as db:
-        db.execute(text("""
+        db.execute(
+            text("""
             CREATE OR REPLACE FUNCTION catalog_records_search_vector_update() RETURNS trigger AS $$
             BEGIN
                 NEW.search_vector := to_tsvector('simple', COALESCE(NEW.search_text, ''));
                 RETURN NEW;
             END
             $$ LANGUAGE plpgsql;
-        """))
-        db.execute(text("""
+        """)
+        )
+        db.execute(
+            text("""
             DO $$
             BEGIN
                 IF NOT EXISTS (
@@ -53,16 +56,17 @@ async def lifespan(app):
                         EXECUTE FUNCTION catalog_records_search_vector_update();
                 END IF;
             END $$;
-        """))
+        """)
+        )
         # Set STORAGE EXTERNAL on marc_sectors.data to skip TOAST compression
-        db.execute(text(
-            "ALTER TABLE IF EXISTS marc_sectors "
-            "ALTER COLUMN data SET STORAGE EXTERNAL"
-        ))
+        db.execute(
+            text("ALTER TABLE IF EXISTS marc_sectors ALTER COLUMN data SET STORAGE EXTERNAL")
+        )
         db.commit()
 
         # Create analytics denormalized table
         from catalog_records.analytics import init_analytics_table
+
         init_analytics_table(db)
 
     with get_db_session() as db_session:
@@ -70,24 +74,16 @@ async def lifespan(app):
         Role.create_default_roles(db_session)
 
         # Create admin user if not exists
-        admin_user = (
-            db_session.query(User)
-            .filter(User.email == config.auth.admin.email)
-            .first()
-        )
+        admin_user = db_session.query(User).filter(User.email == config.auth.admin.email).first()
 
         if not admin_user:
             register_user(
                 db_session,
-                RegisterUserRequest.model_validate(
-                    config.auth.admin.model_dump()
-                ),
+                RegisterUserRequest.model_validate(config.auth.admin.model_dump()),
             )
 
             admin_user = (
-                db_session.query(User)
-                .filter(User.email == config.auth.admin.email)
-                .first()
+                db_session.query(User).filter(User.email == config.auth.admin.email).first()
             )
 
             admin_role = Role.get_by_name(db_session, "Admin")
@@ -114,4 +110,3 @@ async def lifespan(app):
         await subscriber_task
     except asyncio.CancelledError:
         pass
-

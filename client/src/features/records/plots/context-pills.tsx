@@ -27,9 +27,7 @@ export function ContextPills({
       {buckets.map((bucket) => {
         const isActive = activeValues.includes(bucket.key);
         const hasActiveFilter = activeValues.length > 0;
-        const previewBucket = previewBuckets?.find(
-          (p) => p.key === bucket.key,
-        );
+        const previewBucket = previewBuckets?.find((p) => p.key === bucket.key);
         const previewCount = previewBucket?.count ?? 0;
         const isDisabled = isShowingPreview && !isActive && previewCount === 0;
         const showPreviewCount = isShowingPreview && !isActive;

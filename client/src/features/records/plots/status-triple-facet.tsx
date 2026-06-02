@@ -32,9 +32,7 @@ function SegmentTooltip({ segment }: { segment: HoveredSegment }) {
               style={{ backgroundColor: segment.color }}
             />
             <div className="flex flex-1 justify-between items-center leading-none">
-              <span className="text-muted-foreground">
-                {t("common:chart.count")}
-              </span>
+              <span className="text-muted-foreground">{t("common:chart.count")}</span>
               <span className="font-mono font-medium text-foreground tabular-nums">
                 {segment.count.toLocaleString()}
               </span>
@@ -45,14 +43,11 @@ function SegmentTooltip({ segment }: { segment: HoveredSegment }) {
               <div
                 className="shrink-0 rounded-[2px] w-1"
                 style={{
-                  backgroundColor:
-                    "color-mix(in oklch, var(--muted-foreground) 15%, transparent)",
+                  backgroundColor: "color-mix(in oklch, var(--muted-foreground) 15%, transparent)",
                 }}
               />
               <div className="flex flex-1 justify-between items-center leading-none">
-                <span className="text-muted-foreground">
-                  {t("common:chart.preview")}
-                </span>
+                <span className="text-muted-foreground">{t("common:chart.preview")}</span>
                 <span className="font-mono font-medium text-foreground tabular-nums">
                   {segment.preview.toLocaleString()}
                 </span>
@@ -133,9 +128,7 @@ export function StatusTripleFacet({
           <div key={row.facetField} className="space-y-1">
             <div className="flex items-center justify-between text-sm">
               <span className="font-medium">{row.label}</span>
-              <span className="text-muted-foreground text-xs">
-                {total.toLocaleString("cs-CZ")}
-              </span>
+              <span className="text-muted-foreground text-xs">{total.toLocaleString("cs-CZ")}</span>
             </div>
             <div className="flex h-8 w-full rounded-md overflow-hidden text-xs font-semibold cursor-pointer">
               {row.segments.map((seg) => {

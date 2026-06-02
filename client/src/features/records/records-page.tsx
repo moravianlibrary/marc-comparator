@@ -2,17 +2,9 @@ import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { CircleHelp } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import {
-  TypographyP,
-  TypographyList,
-} from "@/components/ui/typography";
+import { TypographyP, TypographyList } from "@/components/ui/typography";
 import { useHasPermission } from "@/hooks/use-permissions";
 import { Permission } from "@/types/permission";
 import { useRecordFilters } from "./use-record-filters";
@@ -60,9 +52,10 @@ export function RecordsPage() {
   const activeFilterCount = countActiveFilters(filters);
   const totalResults = searchData?.total;
   const records = searchData?.items ?? [];
-  const resolvedIndex = records.length > 0
-    ? (filters.page - 1) * filters.pageSize + Math.min(filters.recordIndex, records.length - 1)
-    : null;
+  const resolvedIndex =
+    records.length > 0
+      ? (filters.page - 1) * filters.pageSize + Math.min(filters.recordIndex, records.length - 1)
+      : null;
 
   return (
     <Tabs
@@ -96,9 +89,7 @@ export function RecordsPage() {
               </span>
             )}
           </TabsTrigger>
-          {canAddRecords && (
-            <TabsTrigger value="addition">{t("tabs.addition")}</TabsTrigger>
-          )}
+          {canAddRecords && <TabsTrigger value="addition">{t("tabs.addition")}</TabsTrigger>}
         </TabsList>
         <Button
           variant="ghost"

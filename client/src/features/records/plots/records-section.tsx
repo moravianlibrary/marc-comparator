@@ -124,38 +124,36 @@ export function RecordsSection({
           </Card>
         )}
 
-        {isVisible("type_of_record") &&
-          getBuckets("type_of_record").length > 0 && (
-            <FacetChart
-              title={t("facet-fields.type_of_record")}
-              facetField="type_of_record"
-              className="md:order-3 md:col-span-2 xl:order-none xl:col-span-1"
-              data={getBuckets("type_of_record")}
-              previewData={getPreviewBuckets("type_of_record")}
-              activeValues={getActiveValues("type_of_record")}
-              formatLabel={(k) => t(`type-of-record.${k}`, { defaultValue: k })}
-              {...makeChartHandlers("type_of_record")}
-            >
-              {(chartProps) => <BarFacet {...chartProps} labelWidth={240} />}
-            </FacetChart>
-          )}
+        {isVisible("type_of_record") && getBuckets("type_of_record").length > 0 && (
+          <FacetChart
+            title={t("facet-fields.type_of_record")}
+            facetField="type_of_record"
+            className="md:order-3 md:col-span-2 xl:order-none xl:col-span-1"
+            data={getBuckets("type_of_record")}
+            previewData={getPreviewBuckets("type_of_record")}
+            activeValues={getActiveValues("type_of_record")}
+            formatLabel={(k) => t(`type-of-record.${k}`, { defaultValue: k })}
+            {...makeChartHandlers("type_of_record")}
+          >
+            {(chartProps) => <BarFacet {...chartProps} labelWidth={240} />}
+          </FacetChart>
+        )}
 
-        {isVisible("bibliographic_level") &&
-          getBuckets("bibliographic_level").length > 0 && (
-            <FacetChart
-              title={t("facet-fields.bibliographic_level")}
-              facetField="bibliographic_level"
-              className="md:order-2 xl:order-none"
-              data={getBuckets("bibliographic_level")}
-              previewData={getPreviewBuckets("bibliographic_level")}
-              activeValues={getActiveValues("bibliographic_level")}
-              formatLabel={(k) => t(`bibliographic-level.${k}`, { defaultValue: k })}
-              contentClassName="flex justify-center"
-              {...makeChartHandlers("bibliographic_level")}
-            >
-              {(chartProps) => <DonutFacet {...chartProps} />}
-            </FacetChart>
-          )}
+        {isVisible("bibliographic_level") && getBuckets("bibliographic_level").length > 0 && (
+          <FacetChart
+            title={t("facet-fields.bibliographic_level")}
+            facetField="bibliographic_level"
+            className="md:order-2 xl:order-none"
+            data={getBuckets("bibliographic_level")}
+            previewData={getPreviewBuckets("bibliographic_level")}
+            activeValues={getActiveValues("bibliographic_level")}
+            formatLabel={(k) => t(`bibliographic-level.${k}`, { defaultValue: k })}
+            contentClassName="flex justify-center"
+            {...makeChartHandlers("bibliographic_level")}
+          >
+            {(chartProps) => <DonutFacet {...chartProps} />}
+          </FacetChart>
+        )}
       </div>
     </section>
   );

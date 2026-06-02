@@ -12,6 +12,7 @@ async def refresh_analytics(task_id: str) -> None:
     async with ManagedTask(task_id=task_id) as ctx:
         ctx.logger.info("Rebuilding analytics table...")
         from catalog_records.analytics import rebuild_all
+
         rebuild_all(ctx.db_session)
         ctx.logger.info("Analytics table rebuilt successfully.")
 
@@ -55,7 +56,7 @@ async def compact_sectors(task_id: str) -> None:
 
             records: dict[str, bytes] = {}
             for idx in indexes:
-                marc_bytes = raw[idx.offset_in_sector:idx.offset_in_sector + idx.record_length]
+                marc_bytes = raw[idx.offset_in_sector : idx.offset_in_sector + idx.record_length]
                 records[idx.system_number] = marc_bytes
 
             if len(records) != sector.record_count:
@@ -78,8 +79,9 @@ async def compact_sectors(task_id: str) -> None:
 
 async def rebuild_search_vectors(task_id: str) -> None:
     """Rebuild search_text for all catalog records from their MARC data."""
-    from adapters.marc_sectors import read_marc
     from marcdantic import MarcRecord
+
+    from adapters.marc_sectors import read_marc
 
     async with ManagedTask(task_id=task_id) as ctx:
         total = ctx.db_session.query(func.count(CatalogRecord.id)).scalar()

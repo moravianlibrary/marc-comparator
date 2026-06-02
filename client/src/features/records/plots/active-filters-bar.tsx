@@ -49,35 +49,20 @@ export function ActiveFiltersBar({
           className="gap-1 cursor-pointer"
           onClick={() => onToggleFilter(af.facetField, af.value)}
         >
-          <span className="text-muted-foreground">{af.label}:</span>{" "}
-          {af.valueLabel}
+          <span className="text-muted-foreground">{af.label}:</span> {af.valueLabel}
           <X className="h-3 w-3" />
         </Badge>
       ))}
       {hasRecordIdFilter && (
-        <Badge
-          variant="secondary"
-          className="gap-1 cursor-pointer"
-          onClick={onClearRecordId}
-        >
-          <span className="text-muted-foreground">
-            {t("plots.record-id")}:
-          </span>{" "}
-          {recordId}
+        <Badge variant="secondary" className="gap-1 cursor-pointer" onClick={onClearRecordId}>
+          <span className="text-muted-foreground">{t("plots.record-id")}:</span> {recordId}
           <X className="h-3 w-3" />
         </Badge>
       )}
       {hasScoreFilter && (
-        <Badge
-          variant="secondary"
-          className="gap-1 cursor-pointer"
-          onClick={onClearScore}
-        >
-          <span className="text-muted-foreground">
-            {t("facet-fields.overall_score")}:
-          </span>{" "}
-          {(scoreMin * 100).toFixed(0)}–
-          {(scoreMax * 100).toFixed(0)}%
+        <Badge variant="secondary" className="gap-1 cursor-pointer" onClick={onClearScore}>
+          <span className="text-muted-foreground">{t("facet-fields.overall_score")}:</span>{" "}
+          {(scoreMin * 100).toFixed(0)}–{(scoreMax * 100).toFixed(0)}%
           <X className="h-3 w-3" />
         </Badge>
       )}

@@ -19,9 +19,7 @@ from .models import ComparisonSettings, ComparisonTaskData
 
 def load_comparator(db_session: DatabaseSession) -> BaseComparator | None:
     """Load settings from DB and initialize comparator. Returns None on failure."""
-    settings = Settings.get(
-        db_session, SettingsScope.Comparison, ComparisonSettings
-    )
+    settings = Settings.get(db_session, SettingsScope.Comparison, ComparisonSettings)
     if not settings:
         return None
     try:
@@ -45,19 +43,12 @@ async def handle_catalog_record_comparison(
     catalog_record: CatalogRecord,
 ) -> None:
     link = next(
-        (
-            al
-            for al in catalog_record.authority_links
-            if al.base == target_base
-        ),
+        (al for al in catalog_record.authority_links if al.base == target_base),
         None,
     )
 
     if link is None:
-        logger.info(
-            f"No authority link found for {catalog_record.id} "
-            f"to target base {target_base}"
-        )
+        logger.info(f"No authority link found for {catalog_record.id} to target base {target_base}")
         return
 
     result = await comparator.run(
@@ -97,9 +88,10 @@ async def compare_records(task_id: str) -> None:
             return
 
         record_ids = [
-            r.id for r in build_filtered_query(
-                ctx.db_session, data.filters
-            ).with_entities(CatalogRecord.id).all()
+            r.id
+            for r in build_filtered_query(ctx.db_session, data.filters)
+            .with_entities(CatalogRecord.id)
+            .all()
         ]
         ctx.total = len(record_ids)
 
@@ -117,21 +109,14 @@ async def compare_records(task_id: str) -> None:
                 handle_batch_progress_snippet(ctx)
 
             except ValueError as e:
-                ctx.logger.warning(
-                    f"Skipping record {catalog_record.id}: {e}"
-                )
+                ctx.logger.warning(f"Skipping record {catalog_record.id}: {e}")
                 handle_batch_progress_snippet(ctx)
 
             except Exception as e:
                 ctx.db_session.rollback()
-                ctx.logger.error(
-                    f"Failed comparing record {catalog_record.id}:\n{e}"
-                )
+                ctx.logger.error(f"Failed comparing record {catalog_record.id}:\n{e}")
                 handle_batch_progress_snippet(ctx)
 
         handle_final_batch_snippet(ctx)
 
-        ctx.logger.info(
-            "Finished comparing of records, "
-            f"total records processed: {ctx.progress}"
-        )
+        ctx.logger.info(f"Finished comparing of records, total records processed: {ctx.progress}")

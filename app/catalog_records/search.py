@@ -16,7 +16,6 @@ from .models import (
     ValidationSummary,
 )
 
-
 SORT_COLUMNS = {
     "id": CatalogRecord.id,
     "base": CatalogRecord.base,
@@ -28,33 +27,24 @@ SORT_COLUMNS = {
 
 def build_filtered_query(db: Session, filters: RecordFilter):
     """Build a filtered SQLAlchemy query for CatalogRecord. Used by task workers."""
-    query = db.query(CatalogRecord).filter(
-        CatalogRecord.source_type == CatalogRecordSource.Main
-    )
+    query = db.query(CatalogRecord).filter(CatalogRecord.source_type == CatalogRecordSource.Main)
     return apply_conditions(query, parse_filters(filters))
 
 
 def search_records(request: SearchRecordsRequest, db: Session) -> SearchRecordsResponse:
-    query = db.query(CatalogRecord).filter(
-        CatalogRecord.source_type == CatalogRecordSource.Main
-    )
+    query = db.query(CatalogRecord).filter(CatalogRecord.source_type == CatalogRecordSource.Main)
     query = apply_conditions(query, parse_filters(request.filters))
 
     total = query.count()
 
     if request.sort_by == "comparison_score":
         avg_score = (
-            func.coalesce(
-                func.avg(Comparison._result["overall_score"].as_float()), 0
-            )
+            func.coalesce(func.avg(Comparison._result["overall_score"].as_float()), 0)
         ).label("avg_score")
         query = (
-            query
-            .outerjoin(Comparison, Comparison.main_record_id == CatalogRecord.id)
+            query.outerjoin(Comparison, Comparison.main_record_id == CatalogRecord.id)
             .group_by(CatalogRecord.id)
-            .order_by(
-                avg_score.desc() if request.sort_order == "desc" else avg_score.asc()
-            )
+            .order_by(avg_score.desc() if request.sort_order == "desc" else avg_score.asc())
         )
     else:
         sort_col = SORT_COLUMNS.get(request.sort_by, CatalogRecord.id)

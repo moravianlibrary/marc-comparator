@@ -7,9 +7,9 @@ from sqlalchemy.orm import Session
 from adapters.lock_server import lock_server_client
 from config import config
 from entities.marc_sector import (
+    SECTOR_SIZE,
     MarcRecordIndex,
     MarcSector,
-    SECTOR_SIZE,
     sysno_to_sector_id,
 )
 
@@ -43,7 +43,7 @@ def read_marc(db: Session, base: str, system_number: str) -> bytes | None:
         return None
 
     raw = _decompressor.decompress(sector.data)
-    result = raw[idx.offset_in_sector:idx.offset_in_sector + idx.record_length]
+    result = raw[idx.offset_in_sector : idx.offset_in_sector + idx.record_length]
 
     try:
         lock_server_client.set(cache_key, result, ex=config.marc_cache_ttl_seconds)
@@ -102,13 +102,15 @@ def write_records_to_sector(
         rec_len = len(marc_bytes)
         idx = db.get(MarcRecordIndex, (base, sysno))
         if idx is None:
-            db.add(MarcRecordIndex(
-                base=base,
-                system_number=sysno,
-                sector_id=sector_id,
-                offset_in_sector=offset,
-                record_length=rec_len,
-            ))
+            db.add(
+                MarcRecordIndex(
+                    base=base,
+                    system_number=sysno,
+                    sector_id=sector_id,
+                    offset_in_sector=offset,
+                    record_length=rec_len,
+                )
+            )
         else:
             idx.sector_id = sector_id
             idx.offset_in_sector = offset
@@ -118,9 +120,7 @@ def write_records_to_sector(
     _invalidate_cache(base, list(records.keys()))
 
 
-def upsert_record_in_sector(
-    db: Session, base: str, system_number: str, marc_bytes: bytes
-) -> None:
+def upsert_record_in_sector(db: Session, base: str, system_number: str, marc_bytes: bytes) -> None:
     """Insert or replace a single record within its sector."""
     sector_id = sysno_to_sector_id(system_number)
     sector = db.get(MarcSector, (base, sector_id))
@@ -137,17 +137,11 @@ def upsert_record_in_sector(
     write_records_to_sector(db, base, sector_id, records)
 
 
-def _parse_blob_with_index(
-    db: Session, base: str, sector_id: int, raw: bytes
-) -> dict[str, bytes]:
+def _parse_blob_with_index(db: Session, base: str, sector_id: int, raw: bytes) -> dict[str, bytes]:
     """Reconstruct {system_number: bytes} from a decompressed blob using the index."""
-    rows = (
-        db.query(MarcRecordIndex)
-        .filter_by(base=base, sector_id=sector_id)
-        .all()
-    )
+    rows = db.query(MarcRecordIndex).filter_by(base=base, sector_id=sector_id).all()
     return {
-        row.system_number: raw[row.offset_in_sector:row.offset_in_sector + row.record_length]
+        row.system_number: raw[row.offset_in_sector : row.offset_in_sector + row.record_length]
         for row in rows
     }
 

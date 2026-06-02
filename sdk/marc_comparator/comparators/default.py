@@ -1,6 +1,6 @@
 import asyncio
 from collections import defaultdict
-from typing import Any, Dict, List, Set, Tuple
+from typing import Any
 
 from marcdantic import MarcRecord
 from pydantic import BaseModel
@@ -15,7 +15,6 @@ from ._base import (
 from .intiim_engine.engine import compare_records
 from .intiim_engine.llm import set_ollama_url
 from .intiim_engine.scoring import score_differences
-
 
 _LABEL_TO_EXPLANATION: dict[str, Explanation] = {
     "IDENTICAL": Explanation.Identical,
@@ -96,12 +95,9 @@ class DefaultComparator(BaseComparator):
             llm_enabled=self.config.llm_enabled,
         )
 
-        scoring = await asyncio.to_thread(
-            score_differences, comparison.get("differences", [])
-        )
+        scoring = await asyncio.to_thread(score_differences, comparison.get("differences", []))
         field_score_caps = {
-            f["tag"]: f.get("cap") or 10.0
-            for f in scoring.get("field_contributions", [])
+            f["tag"]: f.get("cap") or 10.0 for f in scoring.get("field_contributions", [])
         }
         field_scoring = {
             f["tag"]: normalize_score(
@@ -113,7 +109,7 @@ class DefaultComparator(BaseComparator):
             for f in scoring.get("field_contributions", [])
         }
         subfield_scoring = {
-            f"{s['tag']}|{s['code']}|{s["value_main"]}": normalize_score(
+            f"{s['tag']}|{s['code']}|{s['value_main']}": normalize_score(
                 s.get("weight", 0.0),
                 excellent_threshold=self.config.excellent_threshold / 3,
                 moderate_threshold=self.config.moderate_threshold / 3,
@@ -122,17 +118,15 @@ class DefaultComparator(BaseComparator):
             for s in scoring.get("components", [])
         }
 
-        all_comparison_results = comparison.get(
-            "differences", []
-        ) + comparison.get("identical", [])
+        all_comparison_results = comparison.get("differences", []) + comparison.get("identical", [])
 
-        field_results_groupped: Dict[str, List[Any]] = {}
+        field_results_groupped: dict[str, list[Any]] = {}
 
         for field_diff in all_comparison_results:
             tag = field_diff["tag"]
             field_results_groupped.setdefault(tag, []).append(field_diff)
 
-        field_results: List[FieldComparisonResult] = []
+        field_results: list[FieldComparisonResult] = []
 
         for tag, groups in field_results_groupped.items():
             # Diff results on fixed fields
@@ -166,7 +160,7 @@ class DefaultComparator(BaseComparator):
                 [(group["code"], group.get("value_test")) for group in groups],
             )
 
-            subfield_results: List[SubfieldComparisonResult] = []
+            subfield_results: list[SubfieldComparisonResult] = []
             for group, (idxA, idxB) in zip(groups, zip(indexes_A, indexes_B)):
                 subfield_results.append(
                     SubfieldComparisonResult(
@@ -185,16 +179,12 @@ class DefaultComparator(BaseComparator):
                 )
 
             # Group subfield results by field index (idxA / idxB)
-            fields_by_idx: Dict[
-                Tuple[str, int | None, str, int | None],
-                List[SubfieldComparisonResult],
+            fields_by_idx: dict[
+                tuple[str, int | None, str, int | None],
+                list[SubfieldComparisonResult],
             ] = defaultdict(list)
-            for subfield, (idxA, idxB) in zip(
-                subfield_results, zip(indexes_A, indexes_B)
-            ):
-                fields_by_idx[(idxA[0], idxA[1], idxB[0], idxB[1])].append(
-                    subfield
-                )
+            for subfield, (idxA, idxB) in zip(subfield_results, zip(indexes_A, indexes_B)):
+                fields_by_idx[(idxA[0], idxA[1], idxB[0], idxB[1])].append(subfield)
 
             # Build FieldComparisonResult objects
             for (
@@ -210,10 +200,7 @@ class DefaultComparator(BaseComparator):
                         tagB=field_tagB if field_tagA != field_tagB else None,
                         idxA=field_idxA,
                         idxB=field_idxB,
-                        score=(
-                            sum(subfield.score for subfield in subfields)
-                            / len(subfields)
-                        ),
+                        score=(sum(subfield.score for subfield in subfields) / len(subfields)),
                         subfield_results=subfields,
                     )
                 )
@@ -238,8 +225,8 @@ TAG_ALIASES_BIDIRECTIONAL = {
 
 
 def get_field_and_subfield_indexes(
-    record: MarcRecord, tag: str, subfields: List[Tuple[str, str | None]]
-) -> List[Tuple[str, int | None, int | None]]:
+    record: MarcRecord, tag: str, subfields: list[tuple[str, str | None]]
+) -> list[tuple[str, int | None, int | None]]:
     # Try main tag
     variable_fields = record.variable_fields.root.get(tag, [])
     # Fallback to alias
@@ -252,10 +239,8 @@ def get_field_and_subfield_indexes(
         return [(tag, None, None)] * len(subfields)
 
     # Track used subfield indices per field
-    used_subfields: Dict[int, Dict[str, Set[int]]] = {
-        i: {} for i in range(len(variable_fields))
-    }
-    results: List[Tuple[int | None, int | None]] = []
+    used_subfields: dict[int, dict[str, set[int]]] = {i: {} for i in range(len(variable_fields))}
+    results: list[tuple[int | None, int | None]] = []
 
     for code, expected_value in subfields:
         found = False
@@ -306,10 +291,7 @@ def normalize_score(
         return 1.0 - 0.1 * t
 
     if score <= moderate_threshold:
-        t = (
-            (score - excellent_threshold)
-            / (moderate_threshold - excellent_threshold)
-        )
+        t = (score - excellent_threshold) / (moderate_threshold - excellent_threshold)
         return 0.9 - 0.2 * t
 
     t = (score - moderate_threshold) / (cap - moderate_threshold)

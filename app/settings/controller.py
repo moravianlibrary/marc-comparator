@@ -61,39 +61,29 @@ async def set_task_settings(
     return service.set_settings(SettingsScope.Tasks, settings, db_session)
 
 
-@record_tools_settings_router.get(
-    "/authority-linkers", response_model=AuthorityLinkingSettings
-)
+@record_tools_settings_router.get("/authority-linkers", response_model=AuthorityLinkingSettings)
 async def get_authority_linking_settings(
     db_session: DatabaseSessionDep,
 ):
     return service.get_settings(SettingsScope.AuthorityLinking, db_session)
 
 
-@record_tools_settings_router.post(
-    "/authority-linkers", response_model=AuthorityLinkingSettings
-)
+@record_tools_settings_router.post("/authority-linkers", response_model=AuthorityLinkingSettings)
 async def set_authority_linking_settings(
     settings: Annotated[AuthorityLinkingSettings, Body()],
     db_session: DatabaseSessionDep,
 ):
-    return service.set_settings(
-        SettingsScope.AuthorityLinking, settings, db_session
-    )
+    return service.set_settings(SettingsScope.AuthorityLinking, settings, db_session)
 
 
-@record_tools_settings_router.get(
-    "/comparators", response_model=ComparisonSettings
-)
+@record_tools_settings_router.get("/comparators", response_model=ComparisonSettings)
 async def get_comparison_settings(
     db_session: DatabaseSessionDep,
 ):
     return service.get_settings(SettingsScope.Comparison, db_session)
 
 
-@record_tools_settings_router.post(
-    "/comparators", response_model=ComparisonSettings
-)
+@record_tools_settings_router.post("/comparators", response_model=ComparisonSettings)
 async def set_comparison_settings(
     settings: Annotated[ComparisonSettings, Body()],
     db_session: DatabaseSessionDep,
@@ -101,18 +91,14 @@ async def set_comparison_settings(
     return service.set_settings(SettingsScope.Comparison, settings, db_session)
 
 
-@record_tools_settings_router.get(
-    "/validators", response_model=ValidationSettings
-)
+@record_tools_settings_router.get("/validators", response_model=ValidationSettings)
 async def get_validation_settings(
     db_session: DatabaseSessionDep,
 ):
     return service.get_settings(SettingsScope.Validation, db_session)
 
 
-@record_tools_settings_router.post(
-    "/validators", response_model=ValidationSettings
-)
+@record_tools_settings_router.post("/validators", response_model=ValidationSettings)
 async def set_validation_settings(
     settings: Annotated[ValidationSettings, Body()],
     db_session: DatabaseSessionDep,
@@ -120,25 +106,19 @@ async def set_validation_settings(
     return service.set_settings(SettingsScope.Validation, settings, db_session)
 
 
-@record_tools_settings_router.get(
-    "/process-records", response_model=ProcessRecordsSettings
-)
+@record_tools_settings_router.get("/process-records", response_model=ProcessRecordsSettings)
 async def get_process_records_settings(
     db_session: DatabaseSessionDep,
 ):
     return service.get_settings(SettingsScope.ProcessRecords, db_session)
 
 
-@record_tools_settings_router.post(
-    "/process-records", response_model=ProcessRecordsSettings
-)
+@record_tools_settings_router.post("/process-records", response_model=ProcessRecordsSettings)
 async def set_process_records_settings(
     settings: Annotated[ProcessRecordsSettings, Body()],
     db_session: DatabaseSessionDep,
 ):
-    return service.set_settings(
-        SettingsScope.ProcessRecords, settings, db_session
-    )
+    return service.set_settings(SettingsScope.ProcessRecords, settings, db_session)
 
 
 @system_settings_router.get("/maintenance", response_model=MaintenanceSettings)
@@ -155,6 +135,7 @@ async def set_maintenance_settings(
 ):
     saved = service.set_settings(SettingsScope.Maintenance, settings, db_session)
     from maintenance.schedule import sync_redbeat_schedule
+
     sync_redbeat_schedule(settings)
     return saved
 

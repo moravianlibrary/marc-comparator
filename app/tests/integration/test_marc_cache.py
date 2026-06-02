@@ -58,9 +58,7 @@ class TestMarcCache:
         result2 = read_marc(db_session, base, sysno)
         assert result2 == marc_v2
 
-    def test_read_marc_no_record_returns_none_not_cached(
-        self, db_session, marc_cache_client
-    ):
+    def test_read_marc_no_record_returns_none_not_cached(self, db_session, marc_cache_client):
         """None results should not be cached."""
         result = read_marc(db_session, "MZK01", "999999999")
         assert result is None

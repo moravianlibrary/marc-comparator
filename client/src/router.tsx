@@ -7,7 +7,6 @@ import { TasksPage } from "@/features/tasks/tasks-page";
 import { AccessControlPage } from "@/features/access-control/access-control-page";
 import { ServiceUnavailablePage } from "@/features/errors/service-unavailable-page";
 
-
 export const router = createBrowserRouter([
   {
     path: "/login",
@@ -32,9 +31,7 @@ export const router = createBrowserRouter([
       {
         index: true,
         lazy: async () => {
-          const { RecordsPage } = await import(
-            "@/features/records/records-page"
-          );
+          const { RecordsPage } = await import("@/features/records/records-page");
           return { Component: RecordsPage };
         },
       },
@@ -45,9 +42,7 @@ export const router = createBrowserRouter([
       {
         path: "settings",
         lazy: async () => {
-          const { SettingsPage } = await import(
-            "@/features/settings/settings-page"
-          );
+          const { SettingsPage } = await import("@/features/settings/settings-page");
           return { Component: SettingsPage };
         },
       },
@@ -58,9 +53,7 @@ export const router = createBrowserRouter([
       {
         path: "maintenance",
         lazy: async () => {
-          const { MaintenancePage } = await import(
-            "@/features/maintenance/maintenance-page"
-          );
+          const { MaintenancePage } = await import("@/features/maintenance/maintenance-page");
           return { Component: MaintenancePage };
         },
       },

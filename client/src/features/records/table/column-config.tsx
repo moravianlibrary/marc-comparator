@@ -2,11 +2,7 @@ import { useTranslation } from "react-i18next";
 import { Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { Table } from "@tanstack/react-table";
 import type { RecordSummary } from "../types";
 
@@ -38,9 +34,7 @@ export function ColumnConfig({ table, sortedColumnId }: ColumnConfigProps) {
                   <Checkbox
                     checked={column.getIsVisible()}
                     disabled={isSortedColumn}
-                    onCheckedChange={(checked) =>
-                      column.toggleVisibility(!!checked)
-                    }
+                    onCheckedChange={(checked) => column.toggleVisibility(!!checked)}
                   />
                   <span className="text-sm">
                     {typeof column.columnDef.header === "string"

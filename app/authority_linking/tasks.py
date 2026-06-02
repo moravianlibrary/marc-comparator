@@ -2,14 +2,13 @@ import logging
 from collections import defaultdict
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import List, Optional, Tuple
 
-from marc_comparator.authority_linkers import AUTHORITY_LINKER_DISPATCHER
-from marc_comparator.authority_linkers import AuthorityLink as SdkAuthorityLink
 from marc_comparator.authority_linkers import (
+    AUTHORITY_LINKER_DISPATCHER,
     AuthorityLinker,
     BaseAuthorityLinker,
 )
+from marc_comparator.authority_linkers import AuthorityLink as SdkAuthorityLink
 from marcdantic import MarcRecord
 
 from adapters.database import DatabaseSession
@@ -46,12 +45,10 @@ class AuthorityLinkerInstance:
 
 def load_authority_linkers(
     db_session: DatabaseSession,
-    linkers: List[AuthorityLinker],
-) -> List[AuthorityLinkerInstance] | None:
+    linkers: list[AuthorityLinker],
+) -> list[AuthorityLinkerInstance] | None:
     """Load settings from DB and initialize linkers. Returns None on failure."""
-    settings = Settings.get(
-        db_session, SettingsScope.AuthorityLinking, AuthorityLinkingSettings
-    )
+    settings = Settings.get(db_session, SettingsScope.AuthorityLinking, AuthorityLinkingSettings)
     if not settings:
         return None
     result = init_authority_linkers(settings, linkers)
@@ -60,13 +57,13 @@ def load_authority_linkers(
 
 def init_authority_linkers(
     settings: AuthorityLinkingSettings,
-    linkers: List[AuthorityLinker],
-) -> List[AuthorityLinkerInstance]:
+    linkers: list[AuthorityLinker],
+) -> list[AuthorityLinkerInstance]:
     """
     Initialize authority linkers from validated settings.
     Expects settings to be valid; skips linkers with missing class.
     """
-    authority_linkers: List[AuthorityLinkerInstance] = []
+    authority_linkers: list[AuthorityLinkerInstance] = []
     for linker in linkers:
         linker_cls = AUTHORITY_LINKER_DISPATCHER.get(linker)
         if not linker_cls:
@@ -79,32 +76,28 @@ def init_authority_linkers(
         )
 
         linker_instance = (
-            linker_cls(
-                config=linker_cls.config_model.model_validate(linker_config)
-            )
+            linker_cls(config=linker_cls.config_model.model_validate(linker_config))
             if linker_config
             else linker_cls()
         )
 
-        authority_linkers.append(
-            AuthorityLinkerInstance(linker, linker_instance)
-        )
+        authority_linkers.append(AuthorityLinkerInstance(linker, linker_instance))
 
     return authority_linkers
 
 
 async def find_best_link_for_record(
     catalog_record: CatalogRecord,
-    authority_linkers: List[AuthorityLinkerInstance],
+    authority_linkers: list[AuthorityLinkerInstance],
     target_base: str,
     marc_record: MarcRecord,
     logger: logging.Logger,
-) -> Tuple[SdkAuthorityLink | None, AuthorityLinkerInstance | None]:
+) -> tuple[SdkAuthorityLink | None, AuthorityLinkerInstance | None]:
     """
     Run all linkers for a catalog record and return the link with highest
     confidence.
     """
-    candidates: List[Tuple[SdkAuthorityLink, AuthorityLinkerInstance]] = []
+    candidates: list[tuple[SdkAuthorityLink, AuthorityLinkerInstance]] = []
 
     for authority_linker in authority_linkers:
         try:
@@ -126,7 +119,7 @@ async def find_best_link_for_record(
         return None, None
 
     def confidence_key(
-        item: Tuple[SdkAuthorityLink, AuthorityLinkerInstance],
+        item: tuple[SdkAuthorityLink, AuthorityLinkerInstance],
     ) -> float:
         c = item[0].confidence
         return c if c is not None else 0.0
@@ -139,14 +132,12 @@ def get_existing_link(
     db_session: DatabaseSession,
     main_record_id: str,
     base: str,
-) -> Optional[AuthorityLink]:
+) -> AuthorityLink | None:
     """Return the single authority link for this record and base, if any."""
-    return AuthorityLink.find_by_main_record_and_base(
-        db_session, main_record_id, base
-    )
+    return AuthorityLink.find_by_main_record_and_base(db_session, main_record_id, base)
 
 
-def scenario_no_link_no_existing() -> List[LinkActionResult]:
+def scenario_no_link_no_existing() -> list[LinkActionResult]:
     """No link found and no existing links."""
     return [LinkActionResult.NoLinkFound]
 
@@ -154,7 +145,7 @@ def scenario_no_link_no_existing() -> List[LinkActionResult]:
 def scenario_no_link_with_existing(
     db_session: DatabaseSession,
     existing_link: AuthorityLink,
-) -> List[LinkActionResult]:
+) -> list[LinkActionResult]:
     """No link found but an existing link exists; delete it."""
     existing_link.delete(db_session)
     return [LinkActionResult.DeletedLink]
@@ -165,7 +156,7 @@ def scenario_found_link_update(
     found_link: SdkAuthorityLink,
     linker_instance: AuthorityLinkerInstance,
     current_link: AuthorityLink,
-) -> List[LinkActionResult]:
+) -> list[LinkActionResult]:
     """Found link matches existing link; update in place."""
     current_link.confidence = found_link.confidence
     authority_record = current_link.authority_record
@@ -174,8 +165,10 @@ def scenario_found_link_update(
     authority_record.update_search_text_from(found_link.record)
 
     upsert_record_in_sector(
-        db_session, authority_record.base,
-        authority_record.system_number, found_link.record._marc,
+        db_session,
+        authority_record.base,
+        authority_record.system_number,
+        found_link.record._marc,
     )
 
     current_link.save(db_session)
@@ -213,8 +206,10 @@ def _upsert_authority_record_and_link(
     authority_record.update_search_text_from(found_link.record)
     authority_record.save(db_session)
     upsert_record_in_sector(
-        db_session, found_link.base,
-        found_link.system_number, found_link.record._marc,
+        db_session,
+        found_link.base,
+        found_link.system_number,
+        found_link.record._marc,
     )
 
     new_link = AuthorityLink(
@@ -235,7 +230,7 @@ def scenario_found_link_replace(
     linker_instance: AuthorityLinkerInstance,
     existing_link: AuthorityLink,
     target_base: str,
-) -> List[LinkActionResult]:
+) -> list[LinkActionResult]:
     """Found link has different authority than existing; replace."""
     existing_link.delete(db_session)
     _, record_result = _upsert_authority_record_and_link(
@@ -250,7 +245,7 @@ def scenario_found_link_create(
     found_link: SdkAuthorityLink,
     linker_instance: AuthorityLinkerInstance,
     target_base: str,
-) -> List[LinkActionResult]:
+) -> list[LinkActionResult]:
     """Found new link; create it (no existing link for this base)."""
     _, record_result = _upsert_authority_record_and_link(
         db_session, catalog_record, found_link, linker_instance, target_base
@@ -264,14 +259,12 @@ def handle_catalog_record_link_action(
     found_link: SdkAuthorityLink | None,
     linker_instance: AuthorityLinkerInstance | None,
     target_base: str,
-) -> List[LinkActionResult]:
+) -> list[LinkActionResult]:
     """
     Get existing link, determine scenario, and run the appropriate handler.
     At most one link per record+base. Returns LinkActionResult list.
     """
-    existing_link = get_existing_link(
-        db_session, catalog_record.id, target_base
-    )
+    existing_link = get_existing_link(db_session, catalog_record.id, target_base)
 
     if found_link is None and existing_link is None:
         return scenario_no_link_no_existing()
@@ -284,9 +277,7 @@ def handle_catalog_record_link_action(
         and existing_link is not None
         and existing_link.system_number == found_link.system_number
     ):
-        return scenario_found_link_update(
-            db_session, found_link, linker_instance, existing_link
-        )
+        return scenario_found_link_update(db_session, found_link, linker_instance, existing_link)
 
     if (
         found_link is not None
@@ -323,9 +314,10 @@ async def authority_linking(task_id: str) -> None:
         counters: defaultdict[LinkActionResult, int] = defaultdict(int)
 
         record_ids = [
-            r.id for r in build_filtered_query(
-                ctx.db_session, data.filters
-            ).with_entities(CatalogRecord.id).all()
+            r.id
+            for r in build_filtered_query(ctx.db_session, data.filters)
+            .with_entities(CatalogRecord.id)
+            .all()
         ]
         ctx.total = len(record_ids)
 
@@ -360,24 +352,17 @@ async def authority_linking(task_id: str) -> None:
                 handle_batch_progress_snippet(ctx)
 
             except ValueError as e:
-                ctx.logger.warning(
-                    f"Skipping record {catalog_record.id}: {e}"
-                )
+                ctx.logger.warning(f"Skipping record {catalog_record.id}: {e}")
                 handle_batch_progress_snippet(ctx)
 
             except Exception as e:
                 ctx.db_session.rollback()
-                ctx.logger.error(
-                    f"Failed linking record {catalog_record.id}:\n{e}"
-                )
+                ctx.logger.error(f"Failed linking record {catalog_record.id}:\n{e}")
                 handle_batch_progress_snippet(ctx)
 
         handle_final_batch_snippet(ctx)
 
-        ctx.logger.info(
-            "Finished authority linking, "
-            f"total records processed: {ctx.progress}"
-        )
+        ctx.logger.info(f"Finished authority linking, total records processed: {ctx.progress}")
         ctx.logger.info(
             "Summary of link actions: %s",
             {result.value: count for result, count in counters.items()},

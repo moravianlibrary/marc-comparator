@@ -24,23 +24,21 @@ interface Props {
   onSubmit: (data: ComparisonSettings) => void;
 }
 
-export function ComparisonSettingsForm({
-  data,
-  onDirtyChange,
-  onFormRef,
-  onSubmit,
-}: Props) {
+export function ComparisonSettingsForm({ data, onDirtyChange, onFormRef, onSubmit }: Props) {
   const { t } = useTranslation("settings");
 
-  const defaultValues = useMemo<ComparisonSettingsFormValues>(() => ({
-    comparator: data.comparator ?? {
-      ollama_url: "http://localhost:11434",
-      llm_enabled: false,
-      nonstandard_llm_enabled: false,
-      excellent_threshold: 6,
-      moderate_threshold: 12,
-    },
-  }), [data]);
+  const defaultValues = useMemo<ComparisonSettingsFormValues>(
+    () => ({
+      comparator: data.comparator ?? {
+        ollama_url: "http://localhost:11434",
+        llm_enabled: false,
+        nonstandard_llm_enabled: false,
+        excellent_threshold: 6,
+        moderate_threshold: 12,
+      },
+    }),
+    [data],
+  );
 
   const form = useSettingsForm({
     schema: comparisonSettingsSchema,
@@ -56,7 +54,9 @@ export function ComparisonSettingsForm({
         <Card>
           <CardHeader className="flex flex-row items-center gap-2">
             <CardTitle className="text-base">{t("comparator.title")}</CardTitle>
-            <HelpDialog titleKey="comparators.comparator.title"><ComparatorsHelp /></HelpDialog>
+            <HelpDialog titleKey="comparators.comparator.title">
+              <ComparatorsHelp />
+            </HelpDialog>
           </CardHeader>
           <CardContent className="max-w-xl space-y-4">
             <FormField
@@ -65,7 +65,9 @@ export function ComparisonSettingsForm({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>{t("comparator.ollama-url")}</FormLabel>
-                  <FormControl><Input {...field} /></FormControl>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -101,7 +103,11 @@ export function ComparisonSettingsForm({
                 <FormItem>
                   <FormLabel>{t("comparator.excellent-threshold")}</FormLabel>
                   <FormControl>
-                    <Input type="number" {...field} onChange={(e) => field.onChange(Number(e.target.value))} />
+                    <Input
+                      type="number"
+                      {...field}
+                      onChange={(e) => field.onChange(Number(e.target.value))}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -114,7 +120,11 @@ export function ComparisonSettingsForm({
                 <FormItem>
                   <FormLabel>{t("comparator.moderate-threshold")}</FormLabel>
                   <FormControl>
-                    <Input type="number" {...field} onChange={(e) => field.onChange(Number(e.target.value))} />
+                    <Input
+                      type="number"
+                      {...field}
+                      onChange={(e) => field.onChange(Number(e.target.value))}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

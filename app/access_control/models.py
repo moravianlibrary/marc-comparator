@@ -1,5 +1,3 @@
-from typing import List
-
 from pydantic import BaseModel
 
 from common.models import PageRequestParams
@@ -8,7 +6,7 @@ from entities.role import Permission
 
 class EditRole(BaseModel):
     name: str
-    permissions: List[Permission]
+    permissions: list[Permission]
 
 
 class RoleSchema(EditRole):

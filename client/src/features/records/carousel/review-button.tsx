@@ -3,11 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Check, Clock, History, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { useHasPermission } from "@/hooks/use-permissions";
 import { Permission } from "@/types/permission";
@@ -51,7 +47,12 @@ export function ReviewButton({
   function handleSubmit() {
     createReview.mutate(
       { aspect_name: aspectName, note: note || undefined },
-      { onSuccess: () => { setOpen(false); setNote(""); } },
+      {
+        onSuccess: () => {
+          setOpen(false);
+          setNote("");
+        },
+      },
     );
   }
 
@@ -64,11 +65,7 @@ export function ReviewButton({
   const historyButton = hasHistory ? (
     <Popover open={historyOpen} onOpenChange={setHistoryOpen}>
       <PopoverTrigger asChild>
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-7 px-1.5 rounded-l-none border-l-0"
-        >
+        <Button variant="outline" size="sm" className="h-7 px-1.5 rounded-l-none border-l-0">
           <History className="h-3.5 w-3.5" />
         </Button>
       </PopoverTrigger>
@@ -79,16 +76,12 @@ export function ReviewButton({
             {allReviews.map((r) => (
               <div key={r.id} className="border-b pb-2 last:border-b-0 last:pb-0">
                 <div className="flex items-center gap-2 text-xs">
-                  <span className="font-medium">
-                    {r.reviewer_name ?? r.reviewed_by}
-                  </span>
+                  <span className="font-medium">{r.reviewer_name ?? r.reviewed_by}</span>
                   <span className="text-muted-foreground">
                     {new Date(r.reviewed_at).toLocaleString("cs")}
                   </span>
                 </div>
-                {r.note && (
-                  <p className="text-xs text-muted-foreground mt-0.5">{r.note}</p>
-                )}
+                {r.note && <p className="text-xs text-muted-foreground mt-0.5">{r.note}</p>}
               </div>
             ))}
           </div>
@@ -139,18 +132,10 @@ export function ReviewButton({
                 className="text-sm"
               />
               <div className="flex justify-end gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setOpen(false)}
-                >
+                <Button variant="ghost" size="sm" onClick={() => setOpen(false)}>
                   {t("common:cancel")}
                 </Button>
-                <Button
-                  size="sm"
-                  onClick={handleSubmit}
-                  disabled={createReview.isPending}
-                >
+                <Button size="sm" onClick={handleSubmit} disabled={createReview.isPending}>
                   {t("carousel.review.confirm")}
                 </Button>
               </div>
@@ -177,11 +162,7 @@ export function ReviewButton({
               isOutdated ? "badge-review-outdated" : "badge-review-current",
             )}
           >
-            {isOutdated ? (
-              <Clock className="h-3.5 w-3.5" />
-            ) : (
-              <Check className="h-3.5 w-3.5" />
-            )}
+            {isOutdated ? <Clock className="h-3.5 w-3.5" /> : <Check className="h-3.5 w-3.5" />}
             {isOutdated
               ? t("carousel.review.outdated")
               : t("carousel.review.reviewed-by", {
@@ -192,9 +173,7 @@ export function ReviewButton({
         <PopoverContent className="w-72">
           <div className="space-y-3">
             {currentReview.note && (
-              <p className="text-sm text-muted-foreground">
-                {currentReview.note}
-              </p>
+              <p className="text-sm text-muted-foreground">{currentReview.note}</p>
             )}
             <p className="text-xs text-muted-foreground">
               {new Date(currentReview.reviewed_at).toLocaleString("cs")}

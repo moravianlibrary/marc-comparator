@@ -2,11 +2,7 @@ import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { Task } from "@/types/task";
 
 interface TaskProgressProps {
@@ -36,9 +32,7 @@ export function TaskProgress({ runningTasks }: TaskProgressProps) {
           {taskLabel(task, t)}
         </span>
         <Progress value={percent} className="w-24 h-2" />
-        {percent != null && (
-          <span className="text-xs text-muted-foreground">{percent}%</span>
-        )}
+        {percent != null && <span className="text-xs text-muted-foreground">{percent}%</span>}
       </div>
     );
   }
@@ -63,9 +57,7 @@ export function TaskProgress({ runningTasks }: TaskProgressProps) {
               >
                 <div className="flex items-center justify-between text-sm">
                   <span className="truncate">{taskLabel(task, t)}</span>
-                  {percent != null && (
-                    <span className="text-muted-foreground">{percent}%</span>
-                  )}
+                  {percent != null && <span className="text-muted-foreground">{percent}%</span>}
                 </div>
                 <Progress value={percent} className="h-2" />
               </div>

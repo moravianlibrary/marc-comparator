@@ -3,12 +3,7 @@ import { Fragment } from "react";
 import { useSystemInfo } from "@/hooks/use-system-info";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 interface Props {
   open: boolean;
@@ -56,7 +51,9 @@ export function SystemInfoDialog({ open, onClose }: Props) {
             <dd className="flex gap-1 flex-wrap">
               {info.configured_bases.length > 0
                 ? info.configured_bases.map((base) => (
-                    <Badge key={base} variant="outline">{base}</Badge>
+                    <Badge key={base} variant="outline">
+                      {base}
+                    </Badge>
                   ))
                 : "-"}
             </dd>
@@ -65,7 +62,9 @@ export function SystemInfoDialog({ open, onClose }: Props) {
             <dd className="flex gap-1 flex-wrap">
               {info.authority_bases.length > 0
                 ? info.authority_bases.map((base) => (
-                    <Badge key={base} variant="outline">{base}</Badge>
+                    <Badge key={base} variant="outline">
+                      {base}
+                    </Badge>
                   ))
                 : "-"}
             </dd>
@@ -74,7 +73,9 @@ export function SystemInfoDialog({ open, onClose }: Props) {
             <dd className="flex gap-1 flex-wrap">
               {info.enabled_authority_linkers.length > 0
                 ? info.enabled_authority_linkers.map((l) => (
-                    <Badge key={l.name} variant="outline">{t(`records:linker-name.${l.name}`, l.name)}</Badge>
+                    <Badge key={l.name} variant="outline">
+                      {t(`records:linker-name.${l.name}`, l.name)}
+                    </Badge>
                   ))
                 : "-"}
             </dd>
@@ -83,7 +84,9 @@ export function SystemInfoDialog({ open, onClose }: Props) {
             <dd className="flex gap-1 flex-wrap">
               {info.enabled_validators.length > 0
                 ? info.enabled_validators.map((v) => (
-                    <Badge key={v} variant="outline">{t(`records:validator-name.${v}`, v)}</Badge>
+                    <Badge key={v} variant="outline">
+                      {t(`records:validator-name.${v}`, v)}
+                    </Badge>
                   ))
                 : "-"}
             </dd>

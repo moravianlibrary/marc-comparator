@@ -1,3 +1,5 @@
+import hashlib
+import json
 from collections import defaultdict
 
 from aleph_nought import RecordStatus
@@ -22,15 +24,12 @@ from catalog_records.models import (
     RecordFilter,
     SyncRecordsData,
 )
-import hashlib
-import json
-
 from catalog_records.search import build_filtered_query
 from comparison.tasks import handle_catalog_record_comparison, load_comparator
 from config import config
+from entities.catalog_record import CatalogRecord
 from entities.record_review import RecordReview
 from entities.result_snapshot import ResultSnapshot
-from entities.catalog_record import CatalogRecord
 from entities.settings import Settings, SettingsScope
 from validation.tasks import handle_catalog_record_validation, load_validators
 
@@ -39,9 +38,7 @@ class AlephError(Exception):
     pass
 
 
-def _compute_result_hashes(
-    db_session, record_id: str
-) -> dict[str, tuple[str, list[dict]]]:
+def _compute_result_hashes(db_session, record_id: str) -> dict[str, tuple[str, list[dict]]]:
     """Compute per-aspect content hashes from current comparisons and validations.
 
     Returns {aspect_name: (hex_hash, [result_dicts])} so we can snapshot old data
@@ -52,18 +49,10 @@ def _compute_result_hashes(
 
     hashes: dict[str, tuple[str, list[dict]]] = {}
 
-    comparisons = (
-        db_session.query(Comparison)
-        .filter_by(main_record_id=record_id)
-        .all()
-    )
+    comparisons = db_session.query(Comparison).filter_by(main_record_id=record_id).all()
     _hash_grouped_results(comparisons, "comparator", hashes)
 
-    validations = (
-        db_session.query(Validation)
-        .filter_by(catalog_record_id=record_id)
-        .all()
-    )
+    validations = db_session.query(Validation).filter_by(catalog_record_id=record_id).all()
     _hash_grouped_results(validations, "validator", hashes)
 
     return hashes
@@ -92,9 +81,7 @@ def _handle_result_changes(
         new_hash = new_entry[0] if new_entry else None
 
         if new_hash != old_hash:
-            version = ResultSnapshot.next_version(
-                db_session, record_id, aspect_name
-            )
+            version = ResultSnapshot.next_version(db_session, record_id, aspect_name)
             snapshot = ResultSnapshot(
                 record_id=record_id,
                 aspect_name=aspect_name,
@@ -126,7 +113,8 @@ def save_record_metadata(
         catalog_record.latest_sync = config.timestamp
     else:
         catalog_record = CatalogRecord(
-            base=base, system_number=system_number,
+            base=base,
+            system_number=system_number,
         )
 
     catalog_record.type_of_record = record.leader_selector.type_of_record
@@ -171,9 +159,7 @@ async def fetch_record_task(task_id: str) -> None:
         record = client.OAI.get_record(system_number)
 
         if record is None:
-            ctx.logger.error(
-                f"Record with system number '{system_number}' not found"
-            )
+            ctx.logger.error(f"Record with system number '{system_number}' not found")
             return
 
         save_record_snippet(ctx, base, system_number, record)
@@ -211,22 +197,17 @@ async def fetch_batch_of_records_task(task_id: str) -> None:
 
                 except Exception as e:
                     ctx.db_session.rollback()
-                    ctx.logger.error(
-                        f"Failed processing record {system_number}:\n{e}"
-                    )
+                    ctx.logger.error(f"Failed processing record {system_number}:\n{e}")
                     handle_batch_progress_snippet(ctx)
 
         handle_final_batch_snippet(ctx)
 
         ctx.logger.info(
-            "Finished fetching batch of records, "
-            f"total records processed: {ctx.progress}"
+            f"Finished fetching batch of records, total records processed: {ctx.progress}"
         )
 
 
-async def records_sync_task(
-    task_id: str, lock_key: str, lock_blocking_timeout: int
-):
+async def records_sync_task(task_id: str, lock_key: str, lock_blocking_timeout: int):
     from adapters.marc_sectors import SectorBuffer
 
     async with ManagedTask(
@@ -237,19 +218,12 @@ async def records_sync_task(
         data = SyncRecordsData.model_validate(ctx.task.data)
 
         base = data.base
-        from_date = (
-            data.from_date.strftime("%Y-%m-%dT%H:%M:%SZ")
-            if data.from_date
-            else None
-        )
+        from_date = data.from_date.strftime("%Y-%m-%dT%H:%M:%SZ") if data.from_date else None
 
         if from_date is None:
             ctx.logger.info(f"Starting catalog sync for base '{base}'")
         else:
-            ctx.logger.info(
-                f"Starting catalog sync for base '{base}' "
-                f"from date '{from_date}'"
-            )
+            ctx.logger.info(f"Starting catalog sync for base '{base}' from date '{from_date}'")
 
         client = AlephClientRegistry.get(base)
         if not client.OAI.is_available():
@@ -259,14 +233,10 @@ async def records_sync_task(
         buffer = SectorBuffer(ctx.db_session)
         ctx.before_commit = buffer.flush_all
 
-        for base, system_number, status, record in client.OAI.list_records(
-            from_date, None
-        ):
+        for base, system_number, status, record in client.OAI.list_records(from_date, None):
             try:
                 if status == RecordStatus.Failed:
-                    ctx.logger.error(
-                        f"Failed fetching record {base}-{system_number}."
-                    )
+                    ctx.logger.error(f"Failed fetching record {base}-{system_number}.")
                     continue
 
                 catalog_record = (
@@ -281,14 +251,10 @@ async def records_sync_task(
                 elif status == RecordStatus.Deleted and catalog_record:
                     catalog_record.latest_sync = config.timestamp
                     catalog_record.deleted = True
-                    ctx.logger.info(
-                        f"Marking record {base}-{system_number} as deleted."
-                    )
+                    ctx.logger.info(f"Marking record {base}-{system_number} as deleted.")
 
                 elif not record:
-                    ctx.logger.error(
-                        f"Record {base}-{system_number} has no MARC data."
-                    )
+                    ctx.logger.error(f"Record {base}-{system_number} has no MARC data.")
 
                 else:
                     from adapters.marc_sectors import read_marc
@@ -299,24 +265,18 @@ async def records_sync_task(
 
                     if old_marc is not None and old_marc != record._marc:
                         cr.processed_at = None
-                        RecordReview.outdate_current(
-                            ctx.db_session, cr.id
-                        )
+                        RecordReview.outdate_current(ctx.db_session, cr.id)
 
                 handle_batch_progress_snippet(ctx)
 
             except Exception as e:
                 ctx.db_session.rollback()
-                ctx.logger.error(
-                    f"Failed processing record {system_number}:\n{e}"
-                )
+                ctx.logger.error(f"Failed processing record {system_number}:\n{e}")
                 handle_batch_progress_snippet(ctx)
 
         handle_final_batch_snippet(ctx)
 
-        ctx.logger.info(
-            f"Finished catalog sync, total records processed: {ctx.progress}"
-        )
+        ctx.logger.info(f"Finished catalog sync, total records processed: {ctx.progress}")
 
 
 async def process_records(task_id: str) -> None:
@@ -338,9 +298,7 @@ async def process_records(task_id: str) -> None:
         filters = RecordFilter.model_validate(ctx.task.data)
         ctx.logger.info("Starting processing of catalog records")
 
-        authority_linkers = load_authority_linkers(
-            ctx.db_session, settings.authority_linkers
-        )
+        authority_linkers = load_authority_linkers(ctx.db_session, settings.authority_linkers)
         if not authority_linkers:
             ctx.logger.error("Authority linkers could not be initialized")
             return
@@ -350,9 +308,7 @@ async def process_records(task_id: str) -> None:
             ctx.logger.error("Comparator could not be initialized")
             return
 
-        validator_instances = load_validators(
-            ctx.db_session, settings.validators, ctx.logger
-        )
+        validator_instances = load_validators(ctx.db_session, settings.validators, ctx.logger)
         if not validator_instances:
             ctx.logger.error("Validators could not be initialized")
             return
@@ -371,30 +327,24 @@ async def process_records(task_id: str) -> None:
         for i in range(0, len(record_ids), batch_size):
             batch_ids = record_ids[i : i + batch_size]
             records = (
-                ctx.db_session.query(CatalogRecord)
-                .filter(CatalogRecord.id.in_(batch_ids))
-                .all()
+                ctx.db_session.query(CatalogRecord).filter(CatalogRecord.id.in_(batch_ids)).all()
             )
             for catalog_record in records:
                 try:
                     # Capture result hashes before reprocessing
-                    old_hashes = _compute_result_hashes(
-                        ctx.db_session, catalog_record.id
-                    )
+                    old_hashes = _compute_result_hashes(ctx.db_session, catalog_record.id)
 
                     marc_record = catalog_record.get_record(ctx.db_session)
 
                     for target_base in settings.target_bases:
                         if target_base == catalog_record.base:
                             continue
-                        found_link, linker_instance = (
-                            await find_best_link_for_record(
-                                catalog_record,
-                                authority_linkers,
-                                target_base,
-                                marc_record,
-                                ctx.logger,
-                            )
+                        found_link, linker_instance = await find_best_link_for_record(
+                            catalog_record,
+                            authority_linkers,
+                            target_base,
+                            marc_record,
+                            ctx.logger,
                         )
                         results = handle_catalog_record_link_action(
                             ctx.db_session,
@@ -424,9 +374,7 @@ async def process_records(task_id: str) -> None:
                             validator_instance,
                         )
 
-                    _handle_result_changes(
-                        ctx.db_session, catalog_record.id, old_hashes
-                    )
+                    _handle_result_changes(ctx.db_session, catalog_record.id, old_hashes)
 
                     catalog_record.processed_at = config.timestamp
                     catalog_record.save(ctx.db_session)
@@ -434,23 +382,16 @@ async def process_records(task_id: str) -> None:
                     handle_batch_progress_snippet(ctx)
 
                 except ValueError as e:
-                    ctx.logger.warning(
-                        f"Skipping record {catalog_record.id}: {e}"
-                    )
+                    ctx.logger.warning(f"Skipping record {catalog_record.id}: {e}")
                     handle_batch_progress_snippet(ctx)
 
                 except Exception as e:
                     ctx.db_session.rollback()
-                    ctx.logger.error(
-                        f"Failed processing record {catalog_record.id}:\n{e}"
-                    )
+                    ctx.logger.error(f"Failed processing record {catalog_record.id}:\n{e}")
                     handle_batch_progress_snippet(ctx)
 
         handle_final_batch_snippet(ctx)
-        ctx.logger.info(
-            "Finished processing records, "
-            f"total records processed: {ctx.progress}"
-        )
+        ctx.logger.info(f"Finished processing records, total records processed: {ctx.progress}")
         ctx.logger.info(
             "Summary of link actions: %s",
             {k.value: v for k, v in counters.items()},

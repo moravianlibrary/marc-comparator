@@ -2,12 +2,7 @@ import { useState, type ReactNode } from "react";
 import { HelpCircle } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface HelpDialogProps {
@@ -37,9 +32,7 @@ export function HelpDialog({ titleKey, children }: HelpDialogProps) {
             <DialogTitle>{t(titleKey)}</DialogTitle>
           </DialogHeader>
           <ScrollArea className="max-h-[60vh]">
-            <div className="pr-4">
-              {children}
-            </div>
+            <div className="pr-4">{children}</div>
           </ScrollArea>
         </DialogContent>
       </Dialog>

@@ -3,16 +3,14 @@ from httpx import AsyncClient
 
 from adapters.database import DatabaseSession
 from auth.models import TokenData
+from entities.role import Role
 from entities.task import Task, TaskStatus, TaskType
 from entities.user import User
-from entities.role import Role
 from tests.conftest import FAKE_USER_ID, assert_response
 
 
 @pytest.fixture
-def task_with_traceback(
-    db_session: DatabaseSession, user: TokenData
-) -> Task:
+def task_with_traceback(db_session: DatabaseSession, user: TokenData) -> Task:
     task = Task(
         name="Task with traceback",
         type=TaskType.FetchRecord,
@@ -84,9 +82,7 @@ class TestTracebackLines:
         client: AsyncClient,
         task_with_traceback: Task,
     ):
-        response = await client.get(
-            f"/tasks/{task_with_traceback.task_id}/traceback"
-        )
+        response = await client.get(f"/tasks/{task_with_traceback.task_id}/traceback")
         assert response.status_code == 200
         lines = response.text.split("\n")
         assert len(lines) == 5  # "line0" through "line4"
@@ -115,9 +111,7 @@ class TestTracebackLines:
         client: AsyncClient,
         pending_task: Task,
     ):
-        response = await client.get(
-            f"/tasks/{pending_task.task_id}/traceback"
-        )
+        response = await client.get(f"/tasks/{pending_task.task_id}/traceback")
         assert response.status_code == 200
         assert response.text == ""
 
@@ -139,13 +133,9 @@ class TestTracebackLines:
 
         try:
             assert_response(
-                await client.get(
-                    f"/tasks/{task_with_traceback.task_id}/traceback"
-                ),
+                await client.get(f"/tasks/{task_with_traceback.task_id}/traceback"),
                 403,
-                {
-                    "detail": "You do not have permission to access this task."
-                },
+                {"detail": "You do not have permission to access this task."},
             )
         finally:
             # Restore admin user override
@@ -163,9 +153,7 @@ class TestRevokeTask:
         client: AsyncClient,
         pending_task: Task,
     ):
-        response = await client.patch(
-            f"/tasks/{pending_task.task_id}/revoke"
-        )
+        response = await client.patch(f"/tasks/{pending_task.task_id}/revoke")
         assert response.status_code == 200
         body = response.json()
         assert body["status"] == "Revoked"
@@ -180,9 +168,7 @@ class TestRevokeTask:
         completed_task: Task,
     ):
         assert_response(
-            await client.patch(
-                f"/tasks/{completed_task.task_id}/revoke"
-            ),
+            await client.patch(f"/tasks/{completed_task.task_id}/revoke"),
             400,
             {"detail": "Task with status 'Success' cannot be revoked."},
         )
@@ -206,13 +192,9 @@ class TestRevokeTask:
 
         try:
             assert_response(
-                await client.patch(
-                    f"/tasks/{pending_task.task_id}/revoke"
-                ),
+                await client.patch(f"/tasks/{pending_task.task_id}/revoke"),
                 403,
-                {
-                    "detail": "You do not have permission to revoke this task."
-                },
+                {"detail": "You do not have permission to revoke this task."},
             )
         finally:
             admin_token = TokenData(user_id=FAKE_USER_ID)

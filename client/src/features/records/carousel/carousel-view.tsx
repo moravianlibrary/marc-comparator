@@ -47,7 +47,11 @@ function parseViewKey(key: string): ViewOption {
   if (key.startsWith("comp:")) {
     const rest = key.slice(5);
     const sepIdx = rest.indexOf(":");
-    return { kind: "comparison", comparator: rest.slice(0, sepIdx), otherRecordId: rest.slice(sepIdx + 1) };
+    return {
+      kind: "comparison",
+      comparator: rest.slice(0, sepIdx),
+      otherRecordId: rest.slice(sepIdx + 1),
+    };
   }
   if (key.startsWith("val:")) {
     return { kind: "validation", validatorName: key.slice(4) };
@@ -78,8 +82,11 @@ function isViewAvailable(
         (al) => buildAuthorityKey(al.base, al.authority_record_id) === key,
       );
     case "comparison":
-      return !!comparisons && comparisons.some(
-        (c) => c.comparator === opt.comparator && c.other_record_id === opt.otherRecordId,
+      return (
+        !!comparisons &&
+        comparisons.some(
+          (c) => c.comparator === opt.comparator && c.other_record_id === opt.otherRecordId,
+        )
       );
     case "validation":
       return !!validations && validations.some((v) => v.validator === opt.validatorName);
@@ -156,7 +163,10 @@ function RecordDetail({
     if (record.id === prevRecordId.current) return;
     if (comparisonsFetching || validationsFetching) return;
     prevRecordId.current = record.id;
-    if (selectedView !== "marc" && !isViewAvailable(selectedView, record, comparisons, validations)) {
+    if (
+      selectedView !== "marc" &&
+      !isViewAvailable(selectedView, record, comparisons, validations)
+    ) {
       const opt = parseViewKey(selectedView);
       // Authority view: find a link to the same base on the new record
       if (opt.kind === "authority") {
@@ -176,7 +186,15 @@ function RecordDetail({
       }
       setSelectedView("marc");
     }
-  }, [record, comparisons, validations, selectedView, comparisonsFetching, validationsFetching, setSelectedView]);
+  }, [
+    record,
+    comparisons,
+    validations,
+    selectedView,
+    comparisonsFetching,
+    validationsFetching,
+    setSelectedView,
+  ]);
 
   const authorityOptions = record.authority_links.map((al) => ({
     key: buildAuthorityKey(al.base, al.authority_record_id),
@@ -198,9 +216,12 @@ function RecordDetail({
   let comparisonAnnotations = undefined;
   let validationAnnotations = undefined;
 
-  const matchedComparison = viewOpt.kind === "comparison" && comparisons
-    ? comparisons.find((c) => c.comparator === viewOpt.comparator && c.other_record_id === viewOpt.otherRecordId)
-    : undefined;
+  const matchedComparison =
+    viewOpt.kind === "comparison" && comparisons
+      ? comparisons.find(
+          (c) => c.comparator === viewOpt.comparator && c.other_record_id === viewOpt.otherRecordId,
+        )
+      : undefined;
   if (matchedComparison) {
     annotationType = "comparison";
     comparisonAnnotations = matchedComparison.result.field_results ?? undefined;
@@ -299,15 +320,13 @@ function RecordDetail({
             base={base}
             systemNumber={systemNumber}
             aspectName={viewOpt.comparator}
-            currentReview={reviews?.current.find(
-              (r) => r.aspect_name === viewOpt.comparator,
-            )}
-            history={reviews?.history.filter(
-              (r) => r.aspect_name === viewOpt.comparator,
-            ) ?? []}
+            currentReview={reviews?.current.find((r) => r.aspect_name === viewOpt.comparator)}
+            history={reviews?.history.filter((r) => r.aspect_name === viewOpt.comparator) ?? []}
             reviewNotNeeded={
               comparisons?.find(
-                (c) => c.comparator === viewOpt.comparator && c.other_record_id === viewOpt.otherRecordId,
+                (c) =>
+                  c.comparator === viewOpt.comparator &&
+                  c.other_record_id === viewOpt.otherRecordId,
               )?.result.match_quality === "Excellent"
             }
           />
@@ -317,17 +336,11 @@ function RecordDetail({
             base={base}
             systemNumber={systemNumber}
             aspectName={viewOpt.validatorName}
-            currentReview={reviews?.current.find(
-              (r) => r.aspect_name === viewOpt.validatorName,
-            )}
-            history={reviews?.history.filter(
-              (r) => r.aspect_name === viewOpt.validatorName,
-            ) ?? []}
-            reviewNotNeeded={
-              validations
-                ?.filter((v) => v.validator === viewOpt.validatorName)
-                .every((v) => v.result.status === "Valid" || v.result.status === "AdditionalInfo")
-            }
+            currentReview={reviews?.current.find((r) => r.aspect_name === viewOpt.validatorName)}
+            history={reviews?.history.filter((r) => r.aspect_name === viewOpt.validatorName) ?? []}
+            reviewNotNeeded={validations
+              ?.filter((v) => v.validator === viewOpt.validatorName)
+              .every((v) => v.result.status === "Valid" || v.result.status === "AdditionalInfo")}
           />
         )}
       </div>
@@ -374,9 +387,7 @@ export function CarouselView() {
   const { data: searchData } = useQuery<SearchRecordsResponse>({
     queryKey: ["catalog-records", "search", payload],
     queryFn: () =>
-      apiClient
-        .post<SearchRecordsResponse>("/catalog-records/search", payload)
-        .then((r) => r.data),
+      apiClient.post<SearchRecordsResponse>("/catalog-records/search", payload).then((r) => r.data),
   });
 
   const records = searchData?.items ?? [];
@@ -425,15 +436,19 @@ export function CarouselView() {
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [canGoPrev, canGoNext, recordIndex, records.length, filters.page, filters.pageSize, total, setFilters]);
-
+  }, [
+    canGoPrev,
+    canGoNext,
+    recordIndex,
+    records.length,
+    filters.page,
+    filters.pageSize,
+    total,
+    setFilters,
+  ]);
 
   if (records.length === 0) {
-    return (
-      <p className="py-8 text-center text-muted-foreground">
-        {t("carousel.no-record")}
-      </p>
-    );
+    return <p className="py-8 text-center text-muted-foreground">{t("carousel.no-record")}</p>;
   }
 
   // Single record — no carousel chrome

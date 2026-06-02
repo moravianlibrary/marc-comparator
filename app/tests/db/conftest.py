@@ -31,9 +31,7 @@ async def db_session(db_engine, mocker) -> DatabaseSession:
 
 @pytest_asyncio.fixture(scope="function")
 async def client():
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://testserver"
-    ) as c:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as c:
         yield c
 
 

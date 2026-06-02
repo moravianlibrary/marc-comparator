@@ -2,7 +2,6 @@ import asyncio
 import csv
 import json
 from pathlib import Path
-from typing import List
 
 import typer
 from marcdantic import MarcRecord
@@ -28,19 +27,13 @@ def _print_marc_record(record: MarcRecord):
             ind1 = field.ind1 or "-"
             ind2 = field.ind2 or "-"
             subfields_str = " ".join(
-                f"|{code} {value}"
-                for code, values in field.subfields.items()
-                for value in values
+                f"|{code} {value}" for code, values in field.subfields.items() for value in values
             )
             typer.echo(f"  {tag} {ind1}{ind2}  {subfields_str}")
 
 
 @app.command()
-def print(
-    mrc_file_paths: List[Path] = typer.Argument(
-        ..., help="Paths to MARC record files"
-    )
-):
+def print(mrc_file_paths: list[Path] = typer.Argument(..., help="Paths to MARC record files")):
     """
     Print the paths of the provided MARC record files.
     """
@@ -66,11 +59,7 @@ def print(
 
 
 @app.command()
-def to_json(
-    mrc_file_paths: List[Path] = typer.Argument(
-        ..., help="Paths to MARC record files"
-    )
-):
+def to_json(mrc_file_paths: list[Path] = typer.Argument(..., help="Paths to MARC record files")):
     """
     Convert MARC binary (.mrc) files to JSON format.
     """
@@ -92,11 +81,7 @@ def to_json(
 
         json_path = path.with_suffix(".json")
         with json_path.open("w", encoding="utf-8") as f:
-            f.write(
-                record.model_dump_json(
-                    indent=2, exclude_unset=True, exclude_none=True
-                )
-            )
+            f.write(record.model_dump_json(indent=2, exclude_unset=True, exclude_none=True))
 
 
 def init_validator(validator: Validator, config_path: Path | None):
@@ -119,17 +104,13 @@ def init_validator(validator: Validator, config_path: Path | None):
         config_data = json.dumps(data[str(validator)])
 
     validator_cls = VALIDATOR_DISPATCHER[validator]
-    return validator_cls(
-        validator_cls.config_model.model_validate_json(config_data)
-    )
+    return validator_cls(validator_cls.config_model.model_validate_json(config_data))
 
 
 @app.command()
 def validate(
-    mrc_file_paths: List[Path] = typer.Argument(
-        ..., help="Paths to MARC record files"
-    ),
-    validators: List[Validator] = typer.Option(
+    mrc_file_paths: list[Path] = typer.Argument(..., help="Paths to MARC record files"),
+    validators: list[Validator] = typer.Option(
         VALIDATOR_DISPATCHER.keys(),
         "--validator",
         "-v",
@@ -150,10 +131,7 @@ def validate(
 ):
     report_data = []
 
-    validators_inst = [
-        (validator, init_validator(validator, config))
-        for validator in validators
-    ]
+    validators_inst = [(validator, init_validator(validator, config)) for validator in validators]
 
     for path in mrc_file_paths:
         for validator, validator_inst in validators_inst:
@@ -165,11 +143,7 @@ def validate(
                     "path": path,
                     "validator": validator,
                     "tag": result.target.tag,
-                    "codes": (
-                        ",".join(result.target.codes)
-                        if result.target.codes
-                        else None
-                    ),
+                    "codes": (",".join(result.target.codes) if result.target.codes else None),
                     "status": result.status.value,
                     "reason": result.reason,
                 }
@@ -194,18 +168,10 @@ def validate(
 
 @app.command()
 def link(
-    linker: AuthorityLinker = typer.Argument(
-        ..., help="Authority linker to use"
-    ),
-    base: str = typer.Argument(
-        ..., help="Source catalog base or dataset identifier"
-    ),
-    system_number: str = typer.Argument(
-        ..., help="System number of the record"
-    ),
-    mrc_file_path: Path = typer.Argument(
-        ..., help="Paths to MARC record files"
-    ),
+    linker: AuthorityLinker = typer.Argument(..., help="Authority linker to use"),
+    base: str = typer.Argument(..., help="Source catalog base or dataset identifier"),
+    system_number: str = typer.Argument(..., help="System number of the record"),
+    mrc_file_path: Path = typer.Argument(..., help="Paths to MARC record files"),
     target_base: str = typer.Argument(..., help="Target authority base"),
     linker_config: Path | None = typer.Option(
         None, help="Path to authority linker configuration file"
@@ -215,9 +181,7 @@ def link(
 
     if linker_cls.config_model is not None and linker_config is not None:
         if not linker_config.exists():
-            typer.echo(
-                f"Config file does not exist: {linker_config}", err=True
-            )
+            typer.echo(f"Config file does not exist: {linker_config}", err=True)
             typer.exit(1)
 
         if not linker_config.is_file():
@@ -237,9 +201,7 @@ def link(
     with mrc_file_path.open("rb") as f:
         record = MarcRecord.from_mrc(f.read())
 
-    link = asyncio.run(
-        linker_inst.run(base, system_number, record, target_base)
-    )
+    link = asyncio.run(linker_inst.run(base, system_number, record, target_base))
 
     if link is not None:
         typer.echo("Authority link found:")
@@ -255,9 +217,7 @@ def link(
 @app.command()
 def compare(
     comparator: Comparator = typer.Argument(..., help="Comparator to use"),
-    config: Path = typer.Argument(
-        ..., help="Path to comparator configuration file"
-    ),
+    config: Path = typer.Argument(..., help="Path to comparator configuration file"),
     mrc_a: Path = typer.Argument(..., help="Paths to MARC record files"),
     mrc_b: Path = typer.Argument(..., help="Paths to MARC record files"),
 ):
@@ -278,9 +238,7 @@ def compare(
     with config.open("r", encoding="utf-8") as f:
         config_data = f.read()
 
-    comparator_inst = comparator_cls(
-        comparator_cls.config_model.model_validate_json(config_data)
-    )
+    comparator_inst = comparator_cls(comparator_cls.config_model.model_validate_json(config_data))
 
     with mrc_a.open("rb") as f:
         record_a = MarcRecord.from_mrc(f.read())
@@ -312,9 +270,7 @@ def compare(
             subfield_strs.append(f"IdxB: {subfield_comparison.idxB}")
 
             if subfield_comparison.explanation:
-                subfield_strs.append(
-                    f"Explanation: {subfield_comparison.explanation}"
-                )
+                subfield_strs.append(f"Explanation: {subfield_comparison.explanation}")
 
             subfield_strs.append(f"Score: {subfield_comparison.score:.4f}")
             typer.echo("  " + ", ".join(subfield_strs))

@@ -24,12 +24,7 @@ export function useFacetPreview(targetField: string) {
   const recordFilter = buildRecordFilter();
 
   return useQuery<FacetsPreviewResponse>({
-    queryKey: [
-      "catalog-records",
-      "facets-preview",
-      targetField,
-      recordFilter,
-    ],
+    queryKey: ["catalog-records", "facets-preview", targetField, recordFilter],
     queryFn: () =>
       apiClient
         .post<FacetsPreviewResponse>("/catalog-records/facets-preview", {
@@ -49,12 +44,7 @@ export function usePrefetchFacetPreview() {
   return (targetField: string) => {
     const recordFilter = buildRecordFilter();
     queryClient.prefetchQuery({
-      queryKey: [
-        "catalog-records",
-        "facets-preview",
-        targetField,
-        recordFilter,
-      ],
+      queryKey: ["catalog-records", "facets-preview", targetField, recordFilter],
       queryFn: () =>
         apiClient
           .post<FacetsPreviewResponse>("/catalog-records/facets-preview", {
@@ -75,12 +65,7 @@ export function usePreviewForValue(
   const recordFilter = buildRecordFilter();
 
   const { data } = useQuery({
-    queryKey: [
-      "catalog-records",
-      "facets-preview",
-      targetField,
-      recordFilter,
-    ] as const,
+    queryKey: ["catalog-records", "facets-preview", targetField, recordFilter] as const,
     queryFn: skipToken,
   });
 
@@ -101,21 +86,18 @@ export function usePreviewForValue(
  * Eagerly fetches the validators preview and returns per-validator
  * validation_statuses breakdowns. Shares cache with prefetchFacetPreview.
  */
-export function usePerValidatorData(): {
-  validator: string;
-  statuses: FacetBucket[];
-  reasons: FacetBucket[];
-}[] | undefined {
+export function usePerValidatorData():
+  | {
+      validator: string;
+      statuses: FacetBucket[];
+      reasons: FacetBucket[];
+    }[]
+  | undefined {
   const { buildRecordFilter } = useRecordFilters();
   const recordFilter = buildRecordFilter();
 
   const { data } = useQuery<FacetsPreviewResponse>({
-    queryKey: [
-      "catalog-records",
-      "facets-preview",
-      "validators",
-      recordFilter,
-    ],
+    queryKey: ["catalog-records", "facets-preview", "validators", recordFilter],
     queryFn: () =>
       apiClient
         .post<FacetsPreviewResponse>("/catalog-records/facets-preview", {
@@ -131,9 +113,7 @@ export function usePerValidatorData(): {
 
   return data.previews.map((p) => ({
     validator: p.target_value,
-    statuses:
-      p.facets.find((f) => f.field === "validation_statuses")?.buckets ?? [],
-    reasons:
-      p.facets.find((f) => f.field === "validation_reasons")?.buckets ?? [],
+    statuses: p.facets.find((f) => f.field === "validation_statuses")?.buckets ?? [],
+    reasons: p.facets.find((f) => f.field === "validation_reasons")?.buckets ?? [],
   }));
 }

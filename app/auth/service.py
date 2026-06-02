@@ -1,5 +1,5 @@
 import logging
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Annotated
 from uuid import UUID, uuid4
 
@@ -35,14 +35,12 @@ def authenticate_user(email: str, password: str, db: Session) -> User | None:
     return user
 
 
-def create_access_token(
-    email: str, user_id: UUID, expires_delta: timedelta
-) -> str:
+def create_access_token(email: str, user_id: UUID, expires_delta: timedelta) -> str:
     encode = {
         "sub": email,
         "id": str(user_id),
         "type": "access",
-        "exp": datetime.now(timezone.utc) + expires_delta,
+        "exp": datetime.now(UTC) + expires_delta,
     }
     return jwt.encode(encode, config.auth.secret_key, algorithm=config.auth.algorithm)
 
@@ -51,16 +49,14 @@ def create_refresh_token(user_id: UUID, expires_delta: timedelta) -> str:
     encode = {
         "id": str(user_id),
         "type": "refresh",
-        "exp": datetime.now(timezone.utc) + expires_delta,
+        "exp": datetime.now(UTC) + expires_delta,
     }
     return jwt.encode(encode, config.auth.secret_key, algorithm=config.auth.algorithm)
 
 
 def verify_access_token(token: str) -> TokenData:
     try:
-        payload = jwt.decode(
-            token, config.auth.secret_key, algorithms=[config.auth.algorithm]
-        )
+        payload = jwt.decode(token, config.auth.secret_key, algorithms=[config.auth.algorithm])
         if payload.get("type") != "access":
             raise AuthenticationError("Invalid token type")
         user_id = payload.get("id")
@@ -75,9 +71,7 @@ def verify_access_token(token: str) -> TokenData:
 def verify_refresh_token(token: str) -> str:
     """Returns user_id from refresh token."""
     try:
-        payload = jwt.decode(
-            token, config.auth.secret_key, algorithms=[config.auth.algorithm]
-        )
+        payload = jwt.decode(token, config.auth.secret_key, algorithms=[config.auth.algorithm])
         if payload.get("type") != "refresh":
             raise AuthenticationError("Invalid token type")
         user_id = payload.get("id")
@@ -98,9 +92,7 @@ def get_current_user(request: Request) -> TokenData:
 CurrentUser = Annotated[TokenData, Depends(get_current_user)]
 
 
-def register_user(
-    db: Session, register_user_request: RegisterUserRequest
-) -> None:
+def register_user(db: Session, register_user_request: RegisterUserRequest) -> None:
     try:
         create_user_model = User(
             id=uuid4(),
@@ -115,10 +107,7 @@ def register_user(
         db.commit()
     except Exception as e:
         db.rollback()
-        logging.error(
-            f"Failed to register user: {register_user_request.email}. "
-            f"Error: {str(e)}"
-        )
+        logging.error(f"Failed to register user: {register_user_request.email}. Error: {str(e)}")
         raise RegistrationError()
 
 

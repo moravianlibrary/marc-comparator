@@ -1,9 +1,8 @@
 import asyncio
 import json
 from pathlib import Path
-from typing import Any, Dict, Optional, Set, Tuple
+from typing import Any
 
-import pytest
 import pytest_asyncio
 from httpx import Response
 from marcdantic import MarcRecord
@@ -13,9 +12,7 @@ from sqlalchemy.orm import sessionmaker
 from testcontainers.postgres import PostgresContainer
 from testcontainers.redis import RedisContainer
 
-from adapters.database import Base, DatabaseSession, db_session_generator
-from app import app
-from config import config
+from adapters.database import Base, DatabaseSession
 
 POSTGRES_IMAGE = "postgres:17"
 REDIS_IMAGE = "redis:8.0"
@@ -79,6 +76,7 @@ async def redis_container():
 @pytest_asyncio.fixture(scope="session")
 async def db_engine(postgres_container):
     # Import entities so SQLAlchemy registers them
+    from catalog_records.analytics import init_analytics_table
     from entities.authority_link import AuthorityLink  # noqa: F401
     from entities.catalog_record import CatalogRecord  # noqa: F401
     from entities.comparison import Comparison  # noqa: F401
@@ -86,8 +84,6 @@ async def db_engine(postgres_container):
     from entities.record_review import RecordReview  # noqa: F401
     from entities.result_snapshot import ResultSnapshot  # noqa: F401
     from entities.validation import Validation  # noqa: F401
-
-    from catalog_records.analytics import init_analytics_table
 
     engine = create_engine(postgres_container.get_connection_url())
     await asyncio.to_thread(Base.metadata.create_all, engine)
@@ -132,16 +128,14 @@ def truncate_all_tables(db_session: DatabaseSession):
     """TRUNCATE all tables after a test to get clean state."""
     db_session.rollback()
     for table in ALL_TABLES:
-        db_session.execute(
-            text(f"TRUNCATE TABLE {table} RESTART IDENTITY CASCADE")
-        )
+        db_session.execute(text(f"TRUNCATE TABLE {table} RESTART IDENTITY CASCADE"))
     db_session.commit()
 
 
 # --------------------------------------------------------------------------
 # Helpers: test data loading
 # --------------------------------------------------------------------------
-def load_test_json(filename: str) -> Dict[str, Any]:
+def load_test_json(filename: str) -> dict[str, Any]:
     path = TEST_DATA_DIR / filename
     with path.open("r", encoding="utf-8") as f:
         return json.load(f)
@@ -182,12 +176,11 @@ def create_catalog_record(
 def assert_response(
     response: Response,
     expected_status: int,
-    expected_body: Optional[Dict[str, Any]] = None,
-    exclude_field_paths: Set[Tuple[str, ...]] = frozenset(),
+    expected_body: dict[str, Any] | None = None,
+    exclude_field_paths: set[tuple[str, ...]] = frozenset(),
 ):
     assert response.status_code == expected_status, (
-        f"Expected status {expected_status}, "
-        f"got {response.status_code} and body: {response.text}"
+        f"Expected status {expected_status}, got {response.status_code} and body: {response.text}"
     )
 
     try:
@@ -201,9 +194,7 @@ def assert_response(
 
     assert actual_body is not None, "Expected response body, but got none"
 
-    def filter_excluded(
-        d: Dict[str, Any], path: Tuple[str, ...] = ()
-    ) -> Dict[str, Any]:
+    def filter_excluded(d: dict[str, Any], path: tuple[str, ...] = ()) -> dict[str, Any]:
         if not isinstance(d, dict):
             return d
         return {
@@ -215,6 +206,6 @@ def assert_response(
     actual_filtered = filter_excluded(actual_body)
     expected_filtered = filter_excluded(expected_body)
 
-    assert (
-        actual_filtered == expected_filtered
-    ), f"Expected body {expected_filtered}, got {actual_filtered}"
+    assert actual_filtered == expected_filtered, (
+        f"Expected body {expected_filtered}, got {actual_filtered}"
+    )

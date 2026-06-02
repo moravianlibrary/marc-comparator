@@ -1,11 +1,5 @@
 import { useTranslation } from "react-i18next";
-import {
-  Trash2,
-  BarChart3,
-  Unlock,
-  HardDrive,
-  Search,
-} from "lucide-react";
+import { Trash2, BarChart3, Unlock, HardDrive, Search } from "lucide-react";
 import { MaintenanceActionCard } from "./maintenance-action-card";
 
 export function MaintenancePage() {

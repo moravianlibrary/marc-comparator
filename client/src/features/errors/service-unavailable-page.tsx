@@ -6,9 +6,7 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 
-const emails = (import.meta.env.VITE_ADMIN_EMAILS || "")
-  .split(",")
-  .filter(Boolean);
+const emails = (import.meta.env.VITE_ADMIN_EMAILS || "").split(",").filter(Boolean);
 
 export function ServiceUnavailablePage() {
   const { t } = useTranslation("errors");
@@ -35,12 +33,8 @@ export function ServiceUnavailablePage() {
   return (
     <div className="flex min-h-screen items-center justify-center">
       <div className="mx-auto max-w-md space-y-6 text-center">
-        <h1 className="text-2xl font-semibold">
-          {t("service-unavailable.title")}
-        </h1>
-        <p className="text-muted-foreground">
-          {t("service-unavailable.message")}
-        </p>
+        <h1 className="text-2xl font-semibold">{t("service-unavailable.title")}</h1>
+        <p className="text-muted-foreground">{t("service-unavailable.message")}</p>
 
         {emails.length > 0 && (
           <div className="space-y-2">
@@ -49,11 +43,7 @@ export function ServiceUnavailablePage() {
             </p>
             <div className="flex flex-col items-center gap-1">
               {emails.map((email) => (
-                <a
-                  key={email}
-                  href={`mailto:${email}`}
-                  className="text-sm text-primary underline"
-                >
+                <a key={email} href={`mailto:${email}`} className="text-sm text-primary underline">
                   {email}
                 </a>
               ))}

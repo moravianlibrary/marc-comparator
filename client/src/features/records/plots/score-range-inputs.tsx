@@ -7,11 +7,7 @@ interface ScoreRangeInputsProps {
   onChange: (from: number, to: number) => void;
 }
 
-export function ScoreRangeInputs({
-  scoreMin,
-  scoreMax,
-  onChange,
-}: ScoreRangeInputsProps) {
+export function ScoreRangeInputs({ scoreMin, scoreMax, onChange }: ScoreRangeInputsProps) {
   const minRef = useRef<HTMLInputElement>(null);
   const maxRef = useRef<HTMLInputElement>(null);
 

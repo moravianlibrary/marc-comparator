@@ -125,9 +125,7 @@ async def fetch_batch_of_records(
     current_user: CurrentUser,
     db_session: DatabaseSessionDep,
 ):
-    return await service.fetch_batch_of_records(
-        data, current_user.user_id, db_session
-    )
+    return await service.fetch_batch_of_records(data, current_user.user_id, db_session)
 
 
 @router.post(
@@ -167,9 +165,7 @@ async def create_review(
     current_user: CurrentUser,
     db_session: DatabaseSessionDep,
 ):
-    return service.create_review(
-        base, system_number, data, current_user.user_id, db_session
-    )
+    return service.create_review(base, system_number, data, current_user.user_id, db_session)
 
 
 @router.delete(
@@ -200,6 +196,4 @@ async def process_records(
     current_user: CurrentUser,
     db_session: DatabaseSessionDep,
 ):
-    return await service.process_records(
-        filters, current_user.user_id, db_session
-    )
+    return await service.process_records(filters, current_user.user_id, db_session)

@@ -35,9 +35,7 @@ export function ApiErrorListener() {
             >
               {t("api-error.copy")}
             </button>
-            <p className="text-xs text-muted-foreground">
-              {t("api-error.contact-instructions")}
-            </p>
+            <p className="text-xs text-muted-foreground">{t("api-error.contact-instructions")}</p>
           </div>
         ),
       });

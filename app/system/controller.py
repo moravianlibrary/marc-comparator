@@ -1,5 +1,3 @@
-from typing import List
-
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 
@@ -30,6 +28,6 @@ async def get_system_info(
     return await service.get_system_info(db_session)
 
 
-@router.get("/locks", response_model=List[str])
+@router.get("/locks", response_model=list[str])
 async def get_locks(_: CurrentUser):
     return service.get_locks()

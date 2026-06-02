@@ -10,26 +10,25 @@ export function TypographyH3({ children, className }: { children: ReactNode; cla
 }
 
 export function TypographyP({ children, className }: { children: ReactNode; className?: string }) {
-  return (
-    <p className={cn("leading-7 [&:not(:first-child)]:mt-3", className)}>
-      {children}
-    </p>
-  );
+  return <p className={cn("leading-7 [&:not(:first-child)]:mt-3", className)}>{children}</p>;
 }
 
-export function TypographyList({ children, className }: { children: ReactNode; className?: string }) {
-  return (
-    <ul className={cn("my-3 ml-6 list-disc [&>li]:mt-1", className)}>
-      {children}
-    </ul>
-  );
+export function TypographyList({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return <ul className={cn("my-3 ml-6 list-disc [&>li]:mt-1", className)}>{children}</ul>;
 }
 
-export function TypographyMuted({ children, className }: { children: ReactNode; className?: string }) {
-  return (
-    <p className={cn("text-sm text-muted-foreground", className)}>
-      {children}
-    </p>
-  );
+export function TypographyMuted({
+  children,
+  className,
+}: {
+  children: ReactNode;
+  className?: string;
+}) {
+  return <p className={cn("text-sm text-muted-foreground", className)}>{children}</p>;
 }
-

@@ -1,4 +1,12 @@
-from sqlalchemy import Column, ForeignKeyConstraint, Index, Integer, LargeBinary, SmallInteger, String
+from sqlalchemy import (
+    Column,
+    ForeignKeyConstraint,
+    Index,
+    Integer,
+    LargeBinary,
+    SmallInteger,
+    String,
+)
 
 from adapters.database import Base
 

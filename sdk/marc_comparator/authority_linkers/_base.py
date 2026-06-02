@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import List
 
 from marcdantic import MarcRecord
 from pydantic import BaseModel
@@ -42,7 +41,7 @@ class BaseAuthorityLinker(ABC):
 
     @classmethod
     @abstractmethod
-    async def get_target_bases(cls, config: BaseModel) -> List[str]:
+    async def get_target_bases(cls, config: BaseModel) -> list[str]:
         """
         Returns a list of authority bases that this linker can target.
 

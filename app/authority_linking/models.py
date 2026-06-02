@@ -1,5 +1,3 @@
-from typing import List
-
 from marc_comparator.authority_linkers import AuthorityLinker
 from marc_comparator.authority_linkers.knihovny_cz_linker import (
     KnihovnyCZLinkerConfig,
@@ -17,6 +15,6 @@ class AuthorityLinkingSettings(SettingsSchema):
 
 
 class AuthorityLinkingTaskData(BaseModel):
-    linkers: List[AuthorityLinker] = Field(..., min_length=1)
+    linkers: list[AuthorityLinker] = Field(..., min_length=1)
     target_base: str
     filters: RecordFilter = RecordFilter()

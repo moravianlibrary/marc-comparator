@@ -52,9 +52,7 @@ export function TasksPage() {
   const { data, isLoading } = useQuery<{ items: Task[]; total: number }>({
     queryKey: ["tasks", "list", searchEndpoint, page],
     queryFn: () =>
-      apiClient
-        .post(searchEndpoint, { page, page_size: pageSize })
-        .then((r) => r.data),
+      apiClient.post(searchEndpoint, { page, page_size: pageSize }).then((r) => r.data),
   });
 
   const { data: usersData } = useQuery<{ items: User[] }>({
@@ -86,15 +84,15 @@ export function TasksPage() {
   const tasks = data?.items ?? [];
   const total = data?.total ?? 0;
   const totalPages = Math.ceil(total / pageSize);
-  const selectedTask = selectedTaskId
-    ? tasks.find((t) => t.task_id === selectedTaskId)
-    : undefined;
+  const selectedTask = selectedTaskId ? tasks.find((t) => t.task_id === selectedTaskId) : undefined;
 
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-semibold">{t("title")}</h1>
 
-      <div className={`grid gap-4 ${selectedTaskId ? "grid-cols-1 xl:grid-cols-[1fr_1fr]" : "grid-cols-1"}`}>
+      <div
+        className={`grid gap-4 ${selectedTaskId ? "grid-cols-1 xl:grid-cols-[1fr_1fr]" : "grid-cols-1"}`}
+      >
         <div className="space-y-4">
           {isLoading ? (
             <SkeletonTable rows={5} columns={5} />
@@ -138,7 +136,11 @@ export function TasksPage() {
         </div>
         {selectedTaskId && (
           <div className="xl:sticky xl:top-20 xl:self-start">
-            <TaskDetail taskId={selectedTaskId} isRunning={selectedTask?.status === "Started" || selectedTask?.status === "Pending"} progress={selectedTask?.progress} />
+            <TaskDetail
+              taskId={selectedTaskId}
+              isRunning={selectedTask?.status === "Started" || selectedTask?.status === "Pending"}
+              progress={selectedTask?.progress}
+            />
           </div>
         )}
       </div>

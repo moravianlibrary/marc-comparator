@@ -1,11 +1,6 @@
 import { type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import {
@@ -34,9 +29,7 @@ function SubSection({
 }) {
   return (
     <div className="mt-3">
-      <TypographyMuted className="font-medium text-foreground">
-        {title}
-      </TypographyMuted>
+      <TypographyMuted className="font-medium text-foreground">{title}</TypographyMuted>
       <TypographyP>{description}</TypographyP>
       {tips && tips.length > 0 && (
         <TypographyList>
@@ -111,7 +104,8 @@ export function HelpDialog({ open, onClose }: Props) {
             description={t("help.records.detail.description")}
             tips={tList("help.records.detail.tips")}
           />
-          {hasPermission({ any: [Permission.AddRecords, Permission.SyncRecordsFromCatalog] }) !== false && (
+          {hasPermission({ any: [Permission.AddRecords, Permission.SyncRecordsFromCatalog] }) !==
+            false && (
             <SubSection
               title={t("help.records.addition.title")}
               description={t("help.records.addition.description")}
@@ -206,9 +200,7 @@ export function HelpDialog({ open, onClose }: Props) {
     },
   ];
 
-  const visible = sections.filter(
-    (s) => !s.permission || hasPermission(s.permission) !== false,
-  );
+  const visible = sections.filter((s) => !s.permission || hasPermission(s.permission) !== false);
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>

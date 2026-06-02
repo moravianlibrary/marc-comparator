@@ -62,12 +62,9 @@ export function SettingsPage() {
     submit: () => void;
     reset: () => void;
   } | null>(null);
-  const setFormRef = useCallback(
-    (ref: { submit: () => void; reset: () => void }) => {
-      formRef.current = ref;
-    },
-    []
-  );
+  const setFormRef = useCallback((ref: { submit: () => void; reset: () => void }) => {
+    formRef.current = ref;
+  }, []);
 
   const endpoint = SETTINGS_ENDPOINTS[activeScope];
 
@@ -93,7 +90,7 @@ export function SettingsPage() {
         setActiveScope(newScope);
       }
     },
-    [isDirty]
+    [isDirty],
   );
 
   const handleDiscardAndSwitch = useCallback(() => {
@@ -189,9 +186,7 @@ export function SettingsPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>{t("unsaved-warning")}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t("unsaved-warning")}
-            </AlertDialogDescription>
+            <AlertDialogDescription>{t("unsaved-warning")}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>{t("common:cancel")}</AlertDialogCancel>

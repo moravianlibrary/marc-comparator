@@ -11,10 +11,7 @@ import { MainBanner } from "./main-banner";
 
 export function AppLayout() {
   const { t } = useTranslation("common");
-  const {
-    isLoading: isHealthLoading,
-    isError: isHealthError,
-  } = useQuery({
+  const { isLoading: isHealthLoading, isError: isHealthError } = useQuery({
     queryKey: ["health"],
     queryFn: () => apiClient.get("/system/health"),
     retry: 1,
@@ -29,13 +26,11 @@ export function AppLayout() {
     if (isHealthError) {
       setRedirecting(true);
       const redirect = window.location.pathname + window.location.search;
-      window.location.href =
-        "/service-unavailable?redirect=" + encodeURIComponent(redirect);
+      window.location.href = "/service-unavailable?redirect=" + encodeURIComponent(redirect);
     } else if (!isHealthLoading && !isMeLoading && (isMeError || !me)) {
       setRedirecting(true);
       const currentPath = window.location.pathname;
-      window.location.href =
-        "/login?redirect=" + encodeURIComponent(currentPath);
+      window.location.href = "/login?redirect=" + encodeURIComponent(currentPath);
     }
   }, [isHealthError, isHealthLoading, isMeLoading, isMeError, me]);
 

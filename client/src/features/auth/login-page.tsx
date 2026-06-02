@@ -12,11 +12,7 @@ import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
-import {
-  Collapsible,
-  CollapsibleContent,
-  CollapsibleTrigger,
-} from "@/components/ui/collapsible";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
   Form,
   FormControl,
@@ -54,11 +50,7 @@ export function LoginPage() {
   }
 
   const oidcButton = oidc?.enabled && (
-    <Button
-      variant={isOidcDefault ? "default" : "outline"}
-      className="w-full"
-      asChild
-    >
+    <Button variant={isOidcDefault ? "default" : "outline"} className="w-full" asChild>
       <a href={`/api/auth/oidc/login?redirect=${encodeURIComponent(redirectTo)}`}>
         {t("login.oidc-button")}
       </a>
@@ -138,12 +130,12 @@ export function LoginPage() {
                 <CollapsibleTrigger asChild>
                   <Button variant="ghost" className="w-full text-muted-foreground">
                     {t("login.email-login")}
-                    <ChevronDown className={`ml-2 h-4 w-4 transition-transform ${emailFormOpen ? "rotate-180" : ""}`} />
+                    <ChevronDown
+                      className={`ml-2 h-4 w-4 transition-transform ${emailFormOpen ? "rotate-180" : ""}`}
+                    />
                   </Button>
                 </CollapsibleTrigger>
-                <CollapsibleContent className="mt-4">
-                  {emailForm}
-                </CollapsibleContent>
+                <CollapsibleContent className="mt-4">{emailForm}</CollapsibleContent>
               </Collapsible>
             </>
           ) : (
@@ -163,9 +155,7 @@ export function LoginPage() {
               {t("login.sign-up-link")}
             </Link>
           </p>
-          <p className="mt-6 text-center text-xs text-muted-foreground">
-            {t("about-app")}
-          </p>
+          <p className="mt-6 text-center text-xs text-muted-foreground">{t("about-app")}</p>
         </CardContent>
       </Card>
     </div>

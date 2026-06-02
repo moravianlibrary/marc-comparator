@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Dict, Optional
+from typing import Any
 
 from ..llm import ask_same_written_differently
 from ..normalizers import norm_generic, normalize_by_role
@@ -12,12 +12,13 @@ def _strip_punct_space(s: str) -> str:
         return ""
     return "".join(ch for ch in s if ch.isalnum()).lower()
 
+
 def _heuristic_nonstandard(
     a: str,
     b: str,
     role: str,
-    na: Optional[str] = None,
-    nb: Optional[str] = None,
+    na: str | None = None,
+    nb: str | None = None,
 ) -> bool:
     if not a or not b or a == b:
         return False
@@ -37,7 +38,8 @@ def _heuristic_nonstandard(
 
     return False
 
-def run(a: str, b: str, role: str, context: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
+
+def run(a: str, b: str, role: str, context: dict[str, Any] | None = None) -> dict[str, Any] | None:
     na = normalize_by_role(role, a)
     nb = normalize_by_role(role, b)
     if role in PART_SENSITIVE_ROLES and differs_only_by_part_tokens(na, nb):
@@ -47,7 +49,7 @@ def run(a: str, b: str, role: str, context: Optional[Dict[str, Any]] = None) -> 
         return {
             "label": "NON_STANDARDIZED",
             "confidence": 0.8,
-            "details": {"reason": "heuristic_match"}
+            "details": {"reason": "heuristic_match"},
         }
 
     allow_llm = bool((context or {}).get("allow_llm", True))
@@ -59,7 +61,7 @@ def run(a: str, b: str, role: str, context: Optional[Dict[str, Any]] = None) -> 
             return {
                 "label": "NON_STANDARDIZED",
                 "confidence": 0.7,
-                "details": {"reason": "llm_same_written_differently", "llm_raw": review.get("raw")}
+                "details": {"reason": "llm_same_written_differently", "llm_raw": review.get("raw")},
             }
 
     return None

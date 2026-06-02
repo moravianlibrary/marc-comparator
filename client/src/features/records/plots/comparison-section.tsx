@@ -52,103 +52,96 @@ export function ComparisonSection({
         {t("plots.sections.comparison")}
       </h3>
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {isVisible("match_quality") &&
-          getBuckets("match_qualities").length > 0 && (
-            <FacetChart
-              title={t("facet-fields.match_qualities")}
-              facetField="match_qualities"
-              data={getBuckets("match_qualities")}
-              previewData={getPreviewBuckets("match_qualities")}
-              activeValues={getActiveValues("match_qualities")}
-              {...makeChartHandlers("match_qualities")}
-            >
-              {(chartProps) => <RadialQuality {...chartProps} />}
-            </FacetChart>
-          )}
+        {isVisible("match_quality") && getBuckets("match_qualities").length > 0 && (
+          <FacetChart
+            title={t("facet-fields.match_qualities")}
+            facetField="match_qualities"
+            data={getBuckets("match_qualities")}
+            previewData={getPreviewBuckets("match_qualities")}
+            activeValues={getActiveValues("match_qualities")}
+            {...makeChartHandlers("match_qualities")}
+          >
+            {(chartProps) => <RadialQuality {...chartProps} />}
+          </FacetChart>
+        )}
 
-        {isVisible("overall_score") &&
-          scoreHistogramBuckets.length > 0 && (
-            <FacetChart
-              title={t("facet-fields.overall_score")}
-              facetField="overall_score"
-              data={[]}
-              activeValues={[]}
-              onToggle={() => {}}
-              onHover={() => {}}
-              onLeave={() => {}}
-              headerRight={
-                <ScoreRangeInputs
-                  scoreMin={scoreMin}
-                  scoreMax={scoreMax}
-                  onChange={onScoreRangeChange}
-                />
-              }
-            >
-              {() => (
-                <HistogramFacet
-                  data={scoreHistogramBuckets}
-                  previewData={getPreviewHistogramBuckets("overall_score")}
-                />
-              )}
-            </FacetChart>
-          )}
+        {isVisible("overall_score") && scoreHistogramBuckets.length > 0 && (
+          <FacetChart
+            title={t("facet-fields.overall_score")}
+            facetField="overall_score"
+            data={[]}
+            activeValues={[]}
+            onToggle={() => {}}
+            onHover={() => {}}
+            onLeave={() => {}}
+            headerRight={
+              <ScoreRangeInputs
+                scoreMin={scoreMin}
+                scoreMax={scoreMax}
+                onChange={onScoreRangeChange}
+              />
+            }
+          >
+            {() => (
+              <HistogramFacet
+                data={scoreHistogramBuckets}
+                previewData={getPreviewHistogramBuckets("overall_score")}
+              />
+            )}
+          </FacetChart>
+        )}
 
-        {isVisible("field_explanations") &&
-          explanationBuckets.length > 0 && (
-            <FacetChart
-              title={t("facet-fields.field_explanations")}
-              facetField="field_explanations"
-              className="md:col-span-2 xl:col-span-1"
-              data={visibleExplanations}
-              previewData={getPreviewBuckets("field_explanations")}
-              activeValues={getActiveValues("field_explanations")}
-              {...makeChartHandlers("field_explanations")}
-            >
-              {(chartProps) => {
-                const rawByTranslated = new Map(
-                  chartProps.data.map((b) => [t(`field-explanation.${b.key}`, b.key), b.key]),
-                );
-                const translatedData = chartProps.data.map((b) => ({
-                  ...b,
-                  key: t(`field-explanation.${b.key}`, b.key),
-                }));
-                const translatedPreview = chartProps.previewData?.map((b) => ({
-                  ...b,
-                  key: t(`field-explanation.${b.key}`, b.key),
-                }));
-                return (
-                  <div>
-                    <BarFacet
-                      data={translatedData}
-                      previewData={translatedPreview}
-                      activeValues={chartProps.activeValues.map(
-                        (v) => t(`field-explanation.${v}`, v),
-                      )}
-                      onToggle={(translated) =>
-                        chartProps.onToggle(rawByTranslated.get(translated) ?? translated)
-                      }
-                      onHover={(translated) =>
-                        chartProps.onHover(rawByTranslated.get(translated) ?? translated)
-                      }
-                      onLeave={chartProps.onLeave}
-                    />
-                    {explanationBuckets.length > 10 && (
-                      <button
-                        className="text-xs text-muted-foreground hover:text-foreground mt-2"
-                        onClick={() =>
-                          setShowAllExplanations(!showAllExplanations)
-                        }
-                      >
-                        {showAllExplanations
-                          ? t("plots.show-less")
-                          : t("plots.show-all")}
-                      </button>
+        {isVisible("field_explanations") && explanationBuckets.length > 0 && (
+          <FacetChart
+            title={t("facet-fields.field_explanations")}
+            facetField="field_explanations"
+            className="md:col-span-2 xl:col-span-1"
+            data={visibleExplanations}
+            previewData={getPreviewBuckets("field_explanations")}
+            activeValues={getActiveValues("field_explanations")}
+            {...makeChartHandlers("field_explanations")}
+          >
+            {(chartProps) => {
+              const rawByTranslated = new Map(
+                chartProps.data.map((b) => [t(`field-explanation.${b.key}`, b.key), b.key]),
+              );
+              const translatedData = chartProps.data.map((b) => ({
+                ...b,
+                key: t(`field-explanation.${b.key}`, b.key),
+              }));
+              const translatedPreview = chartProps.previewData?.map((b) => ({
+                ...b,
+                key: t(`field-explanation.${b.key}`, b.key),
+              }));
+              return (
+                <div>
+                  <BarFacet
+                    data={translatedData}
+                    previewData={translatedPreview}
+                    activeValues={chartProps.activeValues.map((v) =>
+                      t(`field-explanation.${v}`, v),
                     )}
-                  </div>
-                );
-              }}
-            </FacetChart>
-          )}
+                    onToggle={(translated) =>
+                      chartProps.onToggle(rawByTranslated.get(translated) ?? translated)
+                    }
+                    onHover={(translated) =>
+                      chartProps.onHover(rawByTranslated.get(translated) ?? translated)
+                    }
+                    onLeave={chartProps.onLeave}
+                  />
+                  {explanationBuckets.length > 10 && (
+                    <button
+                      className="text-xs text-muted-foreground hover:text-foreground mt-2"
+                      onClick={() => setShowAllExplanations(!showAllExplanations)}
+                    >
+                      {showAllExplanations ? t("plots.show-less") : t("plots.show-all")}
+                    </button>
+                  )}
+                </div>
+              );
+            }}
+          </FacetChart>
+        )}
       </div>
     </section>
   );

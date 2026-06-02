@@ -56,7 +56,16 @@ class TestEventSerialization:
         assert parsed.type == "lock_released"
 
     def test_discriminated_union_via_type_field(self):
-        raw = json.dumps({"type": "task_status", "task_id": "x", "name": "Test", "status": "Started", "severity": "Info", "created_by": "u"})
+        raw = json.dumps(
+            {
+                "type": "task_status",
+                "task_id": "x",
+                "name": "Test",
+                "status": "Started",
+                "severity": "Info",
+                "created_by": "u",
+            }
+        )
         parsed = parse_event(raw)
         assert isinstance(parsed, TaskStatusEvent)
 

@@ -1,12 +1,12 @@
 import logging
-from typing import Callable, ContextManager, List, Optional
+from collections.abc import Callable
+from contextlib import AbstractContextManager as ContextManager
 
-from celery import Celery
+from celery import Celery, shared_task
 from celery import Task as CeleryTask
-from celery import shared_task
 from sqlalchemy.orm import Session
 
-from adapters.database import Base, DatabaseSession, get_db_session
+from adapters.database import DatabaseSession, get_db_session
 from adapters.events import TaskProgressEvent, TaskStatusEvent, publish_event
 from adapters.lock_server import one_at_a_time_lock
 from config import config
@@ -59,9 +59,7 @@ class TaskHandler(logging.Handler):
 
     FLUSH_INTERVAL = 10
 
-    def __init__(
-        self, db: Session, task: Task, managed_task: "ManagedTask", level=logging.DEBUG
-    ):
+    def __init__(self, db: Session, task: Task, managed_task: "ManagedTask", level=logging.DEBUG):
         super().__init__(level)
         self.db_session = db
         self.task = task
@@ -127,14 +125,14 @@ class ManagedTask:
     def __init__(
         self,
         task_id: str,
-        lock_key: Optional[str] = None,
+        lock_key: str | None = None,
         lock_blocking_timeout: int = 0,
     ):
         self.task_id = task_id
 
         self.lock_key = lock_key
         self.lock_blocking_timeout = lock_blocking_timeout
-        self.lock: Optional[ContextManager] = None
+        self.lock: ContextManager | None = None
         self._lock_obj = None
 
         self.logger: logging.Logger | None = None
@@ -160,15 +158,15 @@ class ManagedTask:
         self.task.save(self.db_session)
 
     def update_progress(self) -> None:
-        self.task.progress = (
-            self.progress / self._total if self._total else None
-        )
+        self.task.progress = self.progress / self._total if self._total else None
         self.save_task()
-        publish_event(TaskProgressEvent(
-            task_id=str(self.task.task_id),
-            progress=self.task.progress,
-            created_by=str(self.task.created_by),
-        ))
+        publish_event(
+            TaskProgressEvent(
+                task_id=str(self.task.task_id),
+                progress=self.task.progress,
+                created_by=str(self.task.created_by),
+            )
+        )
 
     async def __aenter__(self) -> "ManagedTask":
         # --- DB session ---
@@ -187,10 +185,7 @@ class ManagedTask:
 
             # --- Load task settings ---
             self.task_settings: TaskSettings = (
-                Settings.get(
-                    self.db_session, SettingsScope.Tasks, TaskSettings
-                )
-                or TaskSettings()
+                Settings.get(self.db_session, SettingsScope.Tasks, TaskSettings) or TaskSettings()
             )
 
             # --- Initialize Aleph client registry from config ---
@@ -207,25 +202,23 @@ class ManagedTask:
             self.task.status = TaskStatus.Started
             self.task.started_at = config.timestamp
             self.save_task()
-            publish_event(TaskStatusEvent(
-                task_id=str(self.task.task_id),
-                task_type=self.task.type.value,
-                name=self.task.name,
-                status=self.task.status.value,
-                severity=self.task.severity.value,
-                created_by=str(self.task.created_by),
-            ))
+            publish_event(
+                TaskStatusEvent(
+                    task_id=str(self.task.task_id),
+                    task_type=self.task.type.value,
+                    name=self.task.name,
+                    status=self.task.status.value,
+                    severity=self.task.severity.value,
+                    created_by=str(self.task.created_by),
+                )
+            )
 
             # --- Acquire lock if needed ---
             if self.lock_key:
-                self.lock = one_at_a_time_lock(
-                    self.lock_key, self.lock_blocking_timeout
-                )
+                self.lock = one_at_a_time_lock(self.lock_key, self.lock_blocking_timeout)
                 lock_obj = self.lock.__enter__()
                 if not lock_obj:
-                    raise ValueError(
-                        f"Task lock '{self.lock_key}' is already acquired"
-                    )
+                    raise ValueError(f"Task lock '{self.lock_key}' is already acquired")
                 self._lock_obj = lock_obj
 
             return self
@@ -242,29 +235,32 @@ class ManagedTask:
                 self.logger.info("Task completed successfully")
             else:
                 self.task.status = TaskStatus.Failure
-                self.logger.error(
-                    f"Task failed with exception: {exc_value}", exc_info=True
-                )
+                self.logger.error(f"Task failed with exception: {exc_value}", exc_info=True)
             self.task.finished_at = config.timestamp
             self.save_task()
-            publish_event(TaskProgressEvent(
-                task_id=str(self.task.task_id),
-                progress=self.task.progress,
-                created_by=str(self.task.created_by),
-            ))
-            publish_event(TaskStatusEvent(
-                task_id=str(self.task.task_id),
-                task_type=self.task.type.value,
-                name=self.task.name,
-                status=self.task.status.value,
-                severity=self.task.severity.value,
-                created_by=str(self.task.created_by),
-            ))
+            publish_event(
+                TaskProgressEvent(
+                    task_id=str(self.task.task_id),
+                    progress=self.task.progress,
+                    created_by=str(self.task.created_by),
+                )
+            )
+            publish_event(
+                TaskStatusEvent(
+                    task_id=str(self.task.task_id),
+                    task_type=self.task.type.value,
+                    name=self.task.name,
+                    status=self.task.status.value,
+                    severity=self.task.severity.value,
+                    created_by=str(self.task.created_by),
+                )
+            )
 
             # Rebuild analytics after successful data-changing tasks
             if exc_type is None and self.task.type in ANALYTICS_REBUILD_TASK_TYPES:
                 try:
                     from catalog_records.analytics import rebuild_all
+
                     rebuild_all(self.db_session)
                 except Exception as e:
                     logging.warning(f"Analytics rebuild failed: {e}")
@@ -305,6 +301,7 @@ def _rebuild_analytics(ctx: ManagedTask) -> None:
     """Rebuild analytics table and facet cube. Swallows errors to avoid killing the task."""
     try:
         from catalog_records.analytics import rebuild_all
+
         rebuild_all(ctx.db_session)
     except Exception as e:
         ctx.logger.warning(f"Mid-task analytics rebuild failed: {e}")
@@ -346,16 +343,12 @@ def fetch_batch_of_records_task(self: CeleryTask) -> None:
 
 
 @shared_task(bind=True, name="catalog_sync_task")
-def records_sync_task(
-    self: CeleryTask, lock_key: str, lock_blocking_timeout: int
-):
+def records_sync_task(self: CeleryTask, lock_key: str, lock_blocking_timeout: int):
     from asgiref.sync import async_to_sync
 
     from catalog_records.tasks import records_sync_task
 
-    return async_to_sync(records_sync_task)(
-        str(self.request.id), lock_key, lock_blocking_timeout
-    )
+    return async_to_sync(records_sync_task)(str(self.request.id), lock_key, lock_blocking_timeout)
 
 
 @shared_task(name="validate_records", bind=True)
@@ -528,26 +521,24 @@ async def revoke_task(task: Task, db_session: DatabaseSession) -> TaskSchema:
     Revokes a task if it is in a revocable state.
     """
     if task.status not in {TaskStatus.Started, TaskStatus.Pending}:
-        raise ValueError(
-            f"Task with status '{task.status}' cannot be revoked."
-        )
+        raise ValueError(f"Task with status '{task.status}' cannot be revoked.")
 
-    tasks_client.control.revoke(
-        str(task.task_id), terminate=True, signal="SIGTERM"
-    )
+    tasks_client.control.revoke(str(task.task_id), terminate=True, signal="SIGTERM")
 
     task.status = TaskStatus.Revoked
     task.finished_at = config.timestamp
 
     task.save(db_session)
 
-    publish_event(TaskStatusEvent(
-        task_id=str(task.task_id),
-        task_type=task.type.value,
-        name=task.name,
-        status=task.status.value,
-        severity=task.severity.value,
-        created_by=str(task.created_by),
-    ))
+    publish_event(
+        TaskStatusEvent(
+            task_id=str(task.task_id),
+            task_type=task.type.value,
+            name=task.name,
+            status=task.status.value,
+            severity=task.severity.value,
+            created_by=str(task.created_by),
+        )
+    )
 
     return TaskSchema.model_validate(task, from_attributes=True)

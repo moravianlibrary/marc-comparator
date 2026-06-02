@@ -1,5 +1,4 @@
 import re
-from typing import Dict, List
 
 import httpx
 from lxml import etree
@@ -19,7 +18,7 @@ class KnihovnyCZBaseMapping(BaseModel):
 class KnihovnyCZLinkerConfig(BaseModel):
     api_url: str = "https://www.knihovny.cz/api/v1"
 
-    mappings: List[KnihovnyCZBaseMapping] = [
+    mappings: list[KnihovnyCZBaseMapping] = [
         KnihovnyCZBaseMapping(
             base="MZK01",
             id_template="mzk.MZK01-{system_number}",
@@ -50,22 +49,16 @@ class KnihovnyCZLinker(BaseAuthorityLinker):
         self.config = config
         self.client = httpx.AsyncClient(timeout=10)
 
-        self._base_to_id_mapper: Dict[str, str] = {
+        self._base_to_id_mapper: dict[str, str] = {
             mapping.base: mapping.id_template for mapping in config.mappings
         }
-        self._id_to_base_patterns: Dict[str, str] = {
+        self._id_to_base_patterns: dict[str, str] = {
             mapping.pattern: mapping.base for mapping in config.mappings
         }
 
     @classmethod
-    async def get_target_bases(
-        cls, config: KnihovnyCZLinkerConfig
-    ) -> List[str]:
-        return [
-            mapping.base
-            for mapping in config.mappings
-            if mapping.is_target
-        ]
+    async def get_target_bases(cls, config: KnihovnyCZLinkerConfig) -> list[str]:
+        return [mapping.base for mapping in config.mappings if mapping.is_target]
 
     async def _get_dedup_ids(self, id: str):
         response = await self.client.get(
@@ -127,15 +120,11 @@ class KnihovnyCZLinker(BaseAuthorityLinker):
             return None
 
         target_record = await self._get_record(
-            self._base_to_id_mapper[target_base].format(
-                system_number=target_system_number
-            )
+            self._base_to_id_mapper[target_base].format(system_number=target_system_number)
         )
 
         if not target_record:
-            raise ValueError(
-                f"Record not found for system number: {target_system_number}"
-            )
+            raise ValueError(f"Record not found for system number: {target_system_number}")
 
         return AuthorityLink(
             base=target_base,

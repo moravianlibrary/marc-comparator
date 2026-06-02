@@ -1,11 +1,7 @@
 import { useMemo, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { PieChart, Pie, Cell } from "recharts";
-import {
-  ChartContainer,
-  ChartTooltip,
-  type ChartConfig,
-} from "@/components/ui/chart";
+import { ChartContainer, ChartTooltip, type ChartConfig } from "@/components/ui/chart";
 import { FacetTooltip } from "./facet-tooltip";
 import { useTranslation } from "react-i18next";
 import type { FacetBucket } from "../types";
@@ -36,13 +32,16 @@ export function RadialQuality({
   onLeave,
 }: RadialQualityProps) {
   const { t } = useTranslation("records");
-  const chartConfig = useMemo<ChartConfig>(() => ({
-    count: { label: t("common:chart.count") },
-    preview: { label: t("common:chart.preview") },
-    Excellent: { label: t("match-quality.Excellent"), color: "var(--status-success)" },
-    Moderate: { label: t("match-quality.Moderate"), color: "var(--status-warning)" },
-    Poor: { label: t("match-quality.Poor"), color: "var(--status-danger)" },
-  }), [t]);
+  const chartConfig = useMemo<ChartConfig>(
+    () => ({
+      count: { label: t("common:chart.count") },
+      preview: { label: t("common:chart.preview") },
+      Excellent: { label: t("match-quality.Excellent"), color: "var(--status-success)" },
+      Moderate: { label: t("match-quality.Moderate"), color: "var(--status-warning)" },
+      Poor: { label: t("match-quality.Poor"), color: "var(--status-danger)" },
+    }),
+    [t],
+  );
 
   const isShowingPreview = previewData != null;
   const wasShowingPreview = useRef(false);
@@ -50,9 +49,7 @@ export function RadialQuality({
   wasShowingPreview.current = isShowingPreview;
 
   const total = data.reduce((sum, b) => sum + b.count, 0);
-  const previewTotal = isShowingPreview
-    ? previewData.reduce((sum, b) => sum + b.count, 0)
-    : 0;
+  const previewTotal = isShowingPreview ? previewData.reduce((sum, b) => sum + b.count, 0) : 0;
 
   const mainSegments = QUALITY_ORDER.map((quality) => {
     const bucket = data.find((b) => b.key === quality);
@@ -78,14 +75,19 @@ export function RadialQuality({
   return (
     <div className="flex flex-col items-center">
       <div className="relative w-full" style={{ height: 160 }}>
-        <ChartContainer config={chartConfig} className="w-full [&_.recharts-wrapper]:z-10 [&_.recharts-pie]:transition-opacity [&_.recharts-pie]:duration-300" style={{ height: 320 }}>
+        <ChartContainer
+          config={chartConfig}
+          className="w-full [&_.recharts-wrapper]:z-10 [&_.recharts-pie]:transition-opacity [&_.recharts-pie]:duration-300"
+          style={{ height: 320 }}
+        >
           <PieChart>
-            <ChartTooltip
-              cursor={false}
-              content={<FacetTooltip />}
-            />
+            <ChartTooltip cursor={false} content={<FacetTooltip />} />
             <Pie
-              data={isShowingPreview ? previewSegments : previewSegments.map((s) => ({ ...s, count: 0 }))}
+              data={
+                isShowingPreview
+                  ? previewSegments
+                  : previewSegments.map((s) => ({ ...s, count: 0 }))
+              }
               dataKey="count"
               nameKey="name"
               startAngle={180}
@@ -125,16 +127,24 @@ export function RadialQuality({
               onMouseLeave={onLeave}
             >
               {mainSegments.map((entry) => (
-                <Cell
-                  key={entry.key}
-                  fill={entry.fill}
-                />
+                <Cell key={entry.key} fill={entry.fill} />
               ))}
             </Pie>
           </PieChart>
         </ChartContainer>
         <div className="absolute bottom-0 left-0 right-0 flex flex-col items-center pointer-events-none">
-          <p className={cn("font-bold tabular-nums", total > 999999 ? "text-xs" : total > 99999 ? "text-sm" : total > 9999 ? "text-lg" : "text-2xl")}>
+          <p
+            className={cn(
+              "font-bold tabular-nums",
+              total > 999999
+                ? "text-xs"
+                : total > 99999
+                  ? "text-sm"
+                  : total > 9999
+                    ? "text-lg"
+                    : "text-2xl",
+            )}
+          >
             {total.toLocaleString("cs-CZ")}
           </p>
           <span
@@ -149,11 +159,13 @@ export function RadialQuality({
         {QUALITY_ORDER.toReversed().map((quality) => {
           const segment = mainSegments.find((s) => s.key === quality)!;
           const pct = total > 0 ? Math.round((segment.count / total) * 100) : 0;
-          const previewPct = isShowingPreview && previewTotal > 0
-            ? Math.round((segment.preview / previewTotal) * 100)
-            : 0;
+          const previewPct =
+            isShowingPreview && previewTotal > 0
+              ? Math.round((segment.preview / previewTotal) * 100)
+              : 0;
           const isActive = activeValues.includes(quality);
-          const isDisabled = !isActive && (segment.count === 0 || (isShowingPreview && segment.preview === 0));
+          const isDisabled =
+            !isActive && (segment.count === 0 || (isShowingPreview && segment.preview === 0));
           return (
             <button
               key={quality}

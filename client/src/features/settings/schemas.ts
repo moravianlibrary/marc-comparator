@@ -43,9 +43,7 @@ export const authorityLinkingSettingsSchema = z.object({
   "knihovny-cz": knihovnyCZLinkerConfigSchema.nullable(),
 });
 
-export type AuthorityLinkingSettingsFormValues = z.infer<
-  typeof authorityLinkingSettingsSchema
->;
+export type AuthorityLinkingSettingsFormValues = z.infer<typeof authorityLinkingSettingsSchema>;
 
 export const comparatorConfigSchema = z.object({
   ollama_url: z.url(),
@@ -59,9 +57,7 @@ export const comparisonSettingsSchema = z.object({
   comparator: comparatorConfigSchema.nullable(),
 });
 
-export type ComparisonSettingsFormValues = z.infer<
-  typeof comparisonSettingsSchema
->;
+export type ComparisonSettingsFormValues = z.infer<typeof comparisonSettingsSchema>;
 
 export const krameriusLinksConfigSchema = z.object({
   url_to_pid_pattern: z.string().min(1),
@@ -77,9 +73,7 @@ export const validationSettingsSchema = z.object({
   "kramerius-links": krameriusLinksConfigSchema.nullable(),
 });
 
-export type ValidationSettingsFormValues = z.infer<
-  typeof validationSettingsSchema
->;
+export type ValidationSettingsFormValues = z.infer<typeof validationSettingsSchema>;
 
 export const processRecordsSettingsSchema = z.object({
   target_bases: z.array(z.string().min(1)).min(1),
@@ -87,9 +81,7 @@ export const processRecordsSettingsSchema = z.object({
   validators: z.array(z.enum(["kramerius-links"])).min(1),
 });
 
-export type ProcessRecordsSettingsFormValues = z.infer<
-  typeof processRecordsSettingsSchema
->;
+export type ProcessRecordsSettingsFormValues = z.infer<typeof processRecordsSettingsSchema>;
 
 export const periodicTaskConfigSchema = z.object({
   enabled: z.boolean(),

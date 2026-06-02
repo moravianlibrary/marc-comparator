@@ -1,5 +1,3 @@
-from typing import List
-
 import pytest
 from httpx import AsyncClient
 from marc_comparator.validators import (
@@ -25,7 +23,6 @@ from tests.conftest import (
 )
 from validation.models import ValidationSettings, ValidationTaskData
 
-
 # --- Fixtures ---
 
 
@@ -45,7 +42,9 @@ def catalog_record(
     db_session: DatabaseSession,
 ) -> CatalogRecord:
     return create_catalog_record(
-        db_session, "MZK01", "000999002",
+        db_session,
+        "MZK01",
+        "000999002",
         load_test_record("MZK01-001217709.mrc"),
     )
 
@@ -65,7 +64,7 @@ def task(db_session: DatabaseSession, user: TokenData) -> Task:
 @pytest.fixture(scope="function")
 def mock_validator_result(mocker: MockerFixture) -> MockerFixture:
     class MockValidator(BaseValidator):
-        async def run(self, record) -> List[ValidationResult]:
+        async def run(self, record) -> list[ValidationResult]:
             return [
                 ValidationResult(
                     target=ValidationTarget(tag="001"),

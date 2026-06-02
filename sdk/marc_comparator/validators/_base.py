@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 from enum import StrEnum
-from typing import Dict, List
 
 from marcdantic import MarcRecord
 from pydantic import BaseModel
@@ -15,7 +14,7 @@ class ValidityStatus(StrEnum):
 
 class ValidationTarget(BaseModel):
     tag: str
-    codes: List[str] | None = None
+    codes: list[str] | None = None
     field_index: int | None = None
 
 
@@ -34,7 +33,7 @@ class ValidationResult(BaseModel):
     status: ValidityStatus
 
     reason: str | None = None
-    params: Dict[str, str] | None = None
+    params: dict[str, str] | None = None
 
 
 class BaseValidator(ABC):
@@ -43,7 +42,7 @@ class BaseValidator(ABC):
     config_model: type[BaseModel] | None = None
 
     @abstractmethod
-    async def run(self, record: MarcRecord) -> List[ValidationResult]:
+    async def run(self, record: MarcRecord) -> list[ValidationResult]:
         """
         Validate a MARC record and return a list of validation results.
         """

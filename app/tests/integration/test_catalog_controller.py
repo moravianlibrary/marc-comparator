@@ -11,7 +11,6 @@ from tests.conftest import (
     assert_response,
     create_catalog_record,
     load_test_record,
-    FAKE_USER_ID,
 )
 
 
@@ -160,10 +159,16 @@ class TestTasks:
         client.OAI.is_available.return_value = True
         client.OAI.list_records.return_value = [
             ListRecordResponse(
-                "TEST", "000000123", RecordStatus.Active, test_record_1,
+                "TEST",
+                "000000123",
+                RecordStatus.Active,
+                test_record_1,
             ),
             ListRecordResponse(
-                "TEST", "456", RecordStatus.Active, test_record_2,
+                "TEST",
+                "456",
+                RecordStatus.Active,
+                test_record_2,
             ),
             ListRecordResponse("TEST", "789", RecordStatus.Deleted, None),
             ListRecordResponse("TEST", "000", RecordStatus.Active, None),
@@ -202,9 +207,7 @@ class TestTasks:
         test_record = load_test_record("MZK01-001217709.mrc")
 
         # Pre-create the record
-        existing = create_catalog_record(
-            db_session, "TEST", "000000123", test_record
-        )
+        existing = create_catalog_record(db_session, "TEST", "000000123", test_record)
         assert existing.deleted is False
 
         client = aleph_client_registry.get("TEST")
@@ -248,9 +251,7 @@ class TestTasks:
 
         await records_sync_task(str(fake_task.task_id), "catalog_sync_TEST", 1)
 
-        client.OAI.list_records.assert_called_once_with(
-            "2024-01-15T10:00:00Z", None
-        )
+        client.OAI.list_records.assert_called_once_with("2024-01-15T10:00:00Z", None)
 
     @pytest.mark.asyncio
     async def test_sync_records_oai_unavailable(
@@ -341,9 +342,7 @@ class TestTasks:
         await fetch_batch_of_records_task(str(fake_task.task_id))
 
         assert CatalogRecord.find(db_session, "TEST-111") is not None
-        assert CatalogRecord.find_by_base_and_system_number(
-            db_session, "TEST", "222"
-        ) is None
+        assert CatalogRecord.find_by_base_and_system_number(db_session, "TEST", "222") is None
 
     @pytest.mark.asyncio
     async def test_fetch_batch_oai_unavailable(
@@ -423,9 +422,7 @@ class TestCatalogEndpoints:
     ):
         """Deleted records should return 404."""
         test_record = load_test_record("MZK01-001217709.mrc")
-        create_catalog_record(
-            db_session, "TEST", "000000123", test_record, deleted=True
-        )
+        create_catalog_record(db_session, "TEST", "000000123", test_record, deleted=True)
 
         assert_response(
             await client.get("/catalog-records/TEST/000000123/marc"),
@@ -502,13 +499,9 @@ class TestCatalogEndpoints:
 
             # Now try to sync — should get 409 conflict
             assert_response(
-                await client.post(
-                    "/catalog-records/sync", json={"base": "TEST"}
-                ),
+                await client.post("/catalog-records/sync", json={"base": "TEST"}),
                 409,
-                {
-                    "detail": "Sync task is already running for base TEST."
-                },
+                {"detail": "Sync task is already running for base TEST."},
             )
 
     @pytest.mark.asyncio
@@ -537,9 +530,7 @@ def sample_records(db_session: DatabaseSession):
 
     r1 = create_catalog_record(db_session, "MZK01", "001217709", test_record_1)
     r2 = create_catalog_record(db_session, "MZK01", "001217729", test_record_2)
-    r3 = create_catalog_record(
-        db_session, "TEST", "000000001", test_record_1, deleted=True
-    )
+    r3 = create_catalog_record(db_session, "TEST", "000000001", test_record_1, deleted=True)
 
     return [r1, r2, r3]
 
@@ -585,9 +576,7 @@ class TestCatalogSearch:
         assert data["items"][0]["base"] == "TEST"
 
     @pytest.mark.asyncio
-    async def test_search_pagination(
-        self, db_session, user, client: AsyncClient, sample_records
-    ):
+    async def test_search_pagination(self, db_session, user, client: AsyncClient, sample_records):
         response = await client.post(
             "/catalog-records/search",
             json={"page": 1, "page_size": 2},
@@ -599,9 +588,7 @@ class TestCatalogSearch:
         assert data["total"] == 3
 
     @pytest.mark.asyncio
-    async def test_search_sort_desc(
-        self, db_session, user, client: AsyncClient, sample_records
-    ):
+    async def test_search_sort_desc(self, db_session, user, client: AsyncClient, sample_records):
         response = await client.post(
             "/catalog-records/search",
             json={"sort_by": "system_number", "sort_order": "desc"},
@@ -611,9 +598,7 @@ class TestCatalogSearch:
         assert ids == sorted(ids, reverse=True)
 
     @pytest.mark.asyncio
-    async def test_search_empty_result(
-        self, db_session, user, client: AsyncClient, sample_records
-    ):
+    async def test_search_empty_result(self, db_session, user, client: AsyncClient, sample_records):
         response = await client.post(
             "/catalog-records/search",
             json={"filters": {"bases": ["NONEXISTENT"]}},
@@ -623,9 +608,7 @@ class TestCatalogSearch:
         assert data["items"] == []
 
     @pytest.mark.asyncio
-    async def test_search_requires_auth(
-        self, db_session, client: AsyncClient, sample_records
-    ):
+    async def test_search_requires_auth(self, db_session, client: AsyncClient, sample_records):
         # No user fixture -> no auth override
         response = await client.post("/catalog-records/search", json={})
         assert response.status_code == 401

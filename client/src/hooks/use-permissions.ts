@@ -20,7 +20,7 @@ export function useHasPermission() {
       }
       return false;
     },
-    [me, isLoading]
+    [me, isLoading],
   );
 
   return { isLoading, hasPermission, me };

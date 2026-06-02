@@ -6,7 +6,13 @@ const STORAGE_KEY = "plots:hiddenCharts";
 
 /** All chart IDs that can be toggled, grouped by section. */
 export const SECTION_GROUPS = {
-  context: ["base", "validators", "authority_link_linkers", "authority_link_bases", "comparison_bases"],
+  context: [
+    "base",
+    "validators",
+    "authority_link_linkers",
+    "authority_link_bases",
+    "comparison_bases",
+  ],
   records: ["record_status", "type_of_record", "bibliographic_level"],
   comparison: ["match_quality", "overall_score", "field_explanations"],
   validation: ["validation_status", "validation_reasons"],
@@ -19,9 +25,7 @@ const ALL_CHART_IDS: ChartId[] = Object.values(SECTION_GROUPS).flat() as ChartId
 export function useSectionVisibility() {
   const [params, setParams] = useQueryStates(
     {
-      hiddenCharts: parseAsString.withDefault(
-        localStorage.getItem(STORAGE_KEY) ?? "",
-      ),
+      hiddenCharts: parseAsString.withDefault(localStorage.getItem(STORAGE_KEY) ?? ""),
     },
     { history: "replace", shallow: true },
   );
@@ -36,10 +40,7 @@ export function useSectionVisibility() {
     localStorage.setItem(STORAGE_KEY, params.hiddenCharts);
   }, [params.hiddenCharts]);
 
-  const isVisible = useCallback(
-    (chartId: ChartId) => !hiddenSet.has(chartId),
-    [hiddenSet],
-  );
+  const isVisible = useCallback((chartId: ChartId) => !hiddenSet.has(chartId), [hiddenSet]);
 
   const toggleChart = useCallback(
     (chartId: ChartId) => {

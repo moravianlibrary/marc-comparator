@@ -25,7 +25,9 @@ export function useWsEvents() {
       const data = raw as TaskStatusMessage;
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
 
-      const taskName = data.task_type ? tRef.current(`type.${data.task_type}`, { defaultValue: data.task_type }) : data.task_type;
+      const taskName = data.task_type
+        ? tRef.current(`type.${data.task_type}`, { defaultValue: data.task_type })
+        : data.task_type;
       if (data.status === "Started") {
         toast.info(tRef.current("toast.started", { name: taskName }));
         addNotification({
@@ -60,18 +62,15 @@ export function useWsEvents() {
 
     const unsubProgress = wsClient.on("task_progress", (raw) => {
       const data = raw as { task_id: string; progress: number | null };
-      queryClient.setQueriesData<{ items: Task[] }>(
-        { queryKey: ["tasks", "running"] },
-        (old) => {
-          if (!old) return old;
-          return {
-            ...old,
-            items: old.items.map((t) =>
-              t.task_id === data.task_id ? { ...t, progress: data.progress } : t,
-            ),
-          };
-        },
-      );
+      queryClient.setQueriesData<{ items: Task[] }>({ queryKey: ["tasks", "running"] }, (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          items: old.items.map((t) =>
+            t.task_id === data.task_id ? { ...t, progress: data.progress } : t,
+          ),
+        };
+      });
     });
 
     const unsubLock = wsClient.on("lock_acquired", () => {

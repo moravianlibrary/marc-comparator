@@ -59,10 +59,7 @@ export function MenuPanel() {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start">
           {visibleItems.map((item) => (
-            <DropdownMenuItem
-              key={item.path}
-              onClick={() => navigate(item.path)}
-            >
+            <DropdownMenuItem key={item.path} onClick={() => navigate(item.path)}>
               <item.icon className="mr-2 h-4 w-4" />
               {t(item.labelKey)}
             </DropdownMenuItem>

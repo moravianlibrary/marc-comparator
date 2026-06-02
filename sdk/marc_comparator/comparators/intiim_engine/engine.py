@@ -1,14 +1,14 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
+from .checks.registry import CHECKS
 from .config import FIELD_ROLE, IGNORE_TAG_PATTERNS
 from .llm import BackendLiteral
-from .pairer import pair_values
-from .checks.registry import CHECKS
-from .normalizers import normalize_by_role
 from .missing import is_missing_tracked
+from .normalizers import normalize_by_role
+from .pairer import pair_values
 
 OCCURRENCE_TAGS = {"336", "337", "338"}
 
@@ -29,15 +29,16 @@ LABEL_ORDER = {
     "MISSING": 5,
 }
 
-def _gather_occurrences(rec: Dict[str, Any], tag: str) -> List[Dict[str, str]]:
-    occs: List[Dict[str, str]] = []
+
+def _gather_occurrences(rec: dict[str, Any], tag: str) -> list[dict[str, str]]:
+    occs: list[dict[str, str]] = []
     for f in rec.get("fields", []):
         if not isinstance(f, dict) or tag not in f:
             continue
         payload = f[tag]
         if isinstance(payload, str):
             continue
-        occ: Dict[str, str] = {}
+        occ: dict[str, str] = {}
         for sf in payload.get("subfields", []):
             k, v = next(iter(sf.items()))
             occ[str(k)] = str(v)
@@ -45,25 +46,29 @@ def _gather_occurrences(rec: Dict[str, Any], tag: str) -> List[Dict[str, str]]:
             occs.append(occ)
     return occs
 
-def _udc_key_by_a(occ: Dict[str, str]) -> tuple[str, str]:
+
+def _udc_key_by_a(occ: dict[str, str]) -> tuple[str, str]:
     a = occ.get("a", "")
     na = normalize_by_role("udc", a)
     return ("a", na)
 
-def _compare_udc_tag(main_rec: Dict[str, Any], test_rec: Dict[str, Any], role_for) -> List[Dict[str, Any]]:
-    diffs: List[Dict[str, Any]] = []
+
+def _compare_udc_tag(
+    main_rec: dict[str, Any], test_rec: dict[str, Any], role_for
+) -> list[dict[str, Any]]:
+    diffs: list[dict[str, Any]] = []
     A = _gather_occurrences(main_rec, "080")
     B = _gather_occurrences(test_rec, "080")
 
-    idxA: Dict[tuple[str,str], List[Dict[str,str]]] = {}
+    idxA: dict[tuple[str, str], list[dict[str, str]]] = {}
     for occ in A:
         idxA.setdefault(_udc_key_by_a(occ), []).append(occ)
 
-    idxB: Dict[tuple[str,str], List[Dict[str,str]]] = {}
+    idxB: dict[tuple[str, str], list[dict[str, str]]] = {}
     for occ in B:
         idxB.setdefault(_udc_key_by_a(occ), []).append(occ)
 
-    visitedB: set[tuple[tuple[str,str], int]] = set()
+    visitedB: set[tuple[tuple[str, str], int]] = set()
 
     for key, listA in idxA.items():
         listB = idxB.get(key, [])
@@ -79,22 +84,40 @@ def _compare_udc_tag(main_rec: Dict[str, Any], test_rec: Dict[str, Any], role_fo
             elif a_occ and not b_occ:
                 if not (is_missing_tracked("080", None) or is_missing_tracked("080", "a")):
                     continue
-                diffs.append({
-                    "tag": "080", "code": None, "role": "udc_occurrence",
-                    "value_main": a_occ, "value_test": None,
-                    "label": "MISSING", "confidence": 0.9,
-                    "details": {"reason": "missing_occurrence_in_test", "missing_tracked": True}
-                })
+                diffs.append(
+                    {
+                        "tag": "080",
+                        "code": None,
+                        "role": "udc_occurrence",
+                        "value_main": a_occ,
+                        "value_test": None,
+                        "label": "MISSING",
+                        "confidence": 0.9,
+                        "details": {
+                            "reason": "missing_occurrence_in_test",
+                            "missing_tracked": True,
+                        },
+                    }
+                )
 
             elif b_occ and not a_occ:
                 if not (is_missing_tracked("080", None) or is_missing_tracked("080", "a")):
                     continue
-                diffs.append({
-                    "tag": "080", "code": None, "role": "udc_occurrence",
-                    "value_main": None, "value_test": b_occ,
-                    "label": "MISSING", "confidence": 0.9,
-                    "details": {"reason": "missing_occurrence_in_main", "missing_tracked": True}
-                })
+                diffs.append(
+                    {
+                        "tag": "080",
+                        "code": None,
+                        "role": "udc_occurrence",
+                        "value_main": None,
+                        "value_test": b_occ,
+                        "label": "MISSING",
+                        "confidence": 0.9,
+                        "details": {
+                            "reason": "missing_occurrence_in_main",
+                            "missing_tracked": True,
+                        },
+                    }
+                )
 
     for key, listB in idxB.items():
         for k, occ in enumerate(listB):
@@ -102,12 +125,18 @@ def _compare_udc_tag(main_rec: Dict[str, Any], test_rec: Dict[str, Any], role_fo
                 continue
             if not (is_missing_tracked("080", None) or is_missing_tracked("080", "a")):
                 continue
-            diffs.append({
-                "tag": "080", "code": None, "role": "udc_occurrence",
-                "value_main": None, "value_test": occ,
-                "label": "MISSING", "confidence": 0.9,
-                "details": {"reason": "missing_occurrence_in_main", "missing_tracked": True}
-            })
+            diffs.append(
+                {
+                    "tag": "080",
+                    "code": None,
+                    "role": "udc_occurrence",
+                    "value_main": None,
+                    "value_test": occ,
+                    "label": "MISSING",
+                    "confidence": 0.9,
+                    "details": {"reason": "missing_occurrence_in_main", "missing_tracked": True},
+                }
+            )
 
     return diffs
 
@@ -118,6 +147,7 @@ def _tag_to_int(tag: str) -> int:
     except Exception:
         return 9999
 
+
 def _code_rank(code) -> int:
     if code is None:
         return -1
@@ -125,7 +155,6 @@ def _code_rank(code) -> int:
         return ord(str(code)[0])
     except Exception:
         return 1000
-
 
 
 def _diff_sort_key(d: dict):
@@ -138,31 +167,38 @@ def _diff_sort_key(d: dict):
     )
 
 
-def _heading_key(tag: str, occ: Dict[str, str], role_for) -> tuple[str, str]:
+def _heading_key(tag: str, occ: dict[str, str], role_for) -> tuple[str, str]:
     aid = occ.get("7")
     src = occ.get("2", "")
-    a   = occ.get("a", "")
+    a = occ.get("a", "")
     if aid:
         return ("7", aid)
-    na  = normalize_by_role(role_for(tag, "a"), a)
-    n2  = normalize_by_role(role_for(tag, "2"), src)
+    na = normalize_by_role(role_for(tag, "a"), a)
+    n2 = normalize_by_role(role_for(tag, "2"), src)
     return ("a2", f"{na}|{n2}")
 
-def _compare_heading_tag(tag: str, main_rec: Dict[str, Any], test_rec: Dict[str, Any], role_for,
-                         label_extra="ADDITION", label_missing="MISSING") -> List[Dict[str, Any]]:
-    diffs: List[Dict[str, Any]] = []
+
+def _compare_heading_tag(
+    tag: str,
+    main_rec: dict[str, Any],
+    test_rec: dict[str, Any],
+    role_for,
+    label_extra="ADDITION",
+    label_missing="MISSING",
+) -> list[dict[str, Any]]:
+    diffs: list[dict[str, Any]] = []
     A = _gather_occurrences(main_rec, tag)
     B = _gather_occurrences(test_rec, tag)
 
-    idxA: Dict[tuple[str,str], List[Dict[str,str]]] = {}
+    idxA: dict[tuple[str, str], list[dict[str, str]]] = {}
     for occ in A:
         idxA.setdefault(_heading_key(tag, occ, role_for), []).append(occ)
 
-    idxB: Dict[tuple[str,str], List[Dict[str,str]]] = {}
+    idxB: dict[tuple[str, str], list[dict[str, str]]] = {}
     for occ in B:
         idxB.setdefault(_heading_key(tag, occ, role_for), []).append(occ)
 
-    visitedB: set[tuple[tuple[str,str], int]] = set()
+    visitedB: set[tuple[tuple[str, str], int]] = set()
 
     for key, listA in idxA.items():
         listB = idxB.get(key, [])
@@ -172,80 +208,121 @@ def _compare_heading_tag(tag: str, main_rec: Dict[str, Any], test_rec: Dict[str,
             if b_occ is not None:
                 visitedB.add((key, k))
             if a_occ and b_occ:
-                a_a, b_a = a_occ.get("a",""), b_occ.get("a","")
-                a_2, b_2 = a_occ.get("2",""), b_occ.get("2","")
-                a_7, b_7 = a_occ.get("7",""), b_occ.get("7","")
+                a_a, b_a = a_occ.get("a", ""), b_occ.get("a", "")
+                a_2, b_2 = a_occ.get("2", ""), b_occ.get("2", "")
+                a_7, b_7 = a_occ.get("7", ""), b_occ.get("7", "")
 
-                na_a = normalize_by_role(role_for(tag,"a"), a_a)
-                nb_a = normalize_by_role(role_for(tag,"a"), b_a)
-                na_2 = normalize_by_role(role_for(tag,"2"), a_2)
-                nb_2 = normalize_by_role(role_for(tag,"2"), b_2)
+                na_a = normalize_by_role(role_for(tag, "a"), a_a)
+                nb_a = normalize_by_role(role_for(tag, "a"), b_a)
+                na_2 = normalize_by_role(role_for(tag, "2"), a_2)
+                nb_2 = normalize_by_role(role_for(tag, "2"), b_2)
 
                 if (a_7 and a_7 == b_7) or (na_2 == nb_2 and na_a == nb_a):
                     continue
                 if (a_7 and a_7 == b_7) or (na_2 == nb_2):
-                    diffs.append({
-                        "tag": tag, "code": None, "role": "heading_occurrence",
-                        "value_main": a_occ, "value_test": b_occ,
-                        "label": "NON_STANDARDIZED", "confidence": 0.8,
-                        "details": {"reason": "same_authority_or_source_different_label"}
-                    })
+                    diffs.append(
+                        {
+                            "tag": tag,
+                            "code": None,
+                            "role": "heading_occurrence",
+                            "value_main": a_occ,
+                            "value_test": b_occ,
+                            "label": "NON_STANDARDIZED",
+                            "confidence": 0.8,
+                            "details": {"reason": "same_authority_or_source_different_label"},
+                        }
+                    )
                 else:
-                    diffs.append({
-                        "tag": tag, "code": None, "role": "heading_occurrence",
-                        "value_main": a_occ, "value_test": b_occ,
-                        "label": "INCORRECT", "confidence": 0.8,
-                        "details": {"reason": "different_heading_and_source"}
-                    })
+                    diffs.append(
+                        {
+                            "tag": tag,
+                            "code": None,
+                            "role": "heading_occurrence",
+                            "value_main": a_occ,
+                            "value_test": b_occ,
+                            "label": "INCORRECT",
+                            "confidence": 0.8,
+                            "details": {"reason": "different_heading_and_source"},
+                        }
+                    )
             elif a_occ and not b_occ:
                 if not (is_missing_tracked(tag, None) or is_missing_tracked(tag, "a")):
                     continue
-                diffs.append({
-                    "tag": tag, "code": None, "role": "heading_occurrence",
-                    "value_main": a_occ, "value_test": None,
-                    "label": "MISSING",
-                    "confidence": 0.9,
-                    "details": {"reason": "missing_heading_in_test", "missing_tracked": True}
-                })
-            elif b_occ and not a_occ:
-                if is_missing_tracked(tag, None) or is_missing_tracked(tag, "a"):
-                    diffs.append({
-                        "tag": tag, "code": None, "role": "heading_occurrence",
-                        "value_main": None, "value_test": b_occ,
+                diffs.append(
+                    {
+                        "tag": tag,
+                        "code": None,
+                        "role": "heading_occurrence",
+                        "value_main": a_occ,
+                        "value_test": None,
                         "label": "MISSING",
                         "confidence": 0.9,
-                        "details": {"reason": "missing_heading_in_main", "missing_tracked": True}
-                    })
+                        "details": {"reason": "missing_heading_in_test", "missing_tracked": True},
+                    }
+                )
+            elif b_occ and not a_occ:
+                if is_missing_tracked(tag, None) or is_missing_tracked(tag, "a"):
+                    diffs.append(
+                        {
+                            "tag": tag,
+                            "code": None,
+                            "role": "heading_occurrence",
+                            "value_main": None,
+                            "value_test": b_occ,
+                            "label": "MISSING",
+                            "confidence": 0.9,
+                            "details": {
+                                "reason": "missing_heading_in_main",
+                                "missing_tracked": True,
+                            },
+                        }
+                    )
                 elif label_extra:
-                    diffs.append({
-                        "tag": tag, "code": None, "role": "heading_occurrence",
-                        "value_main": None, "value_test": b_occ,
-                        "label": label_extra,
-                        "confidence": 0.8,
-                        "details": {"reason": "extra_heading_in_test"}
-                    })
+                    diffs.append(
+                        {
+                            "tag": tag,
+                            "code": None,
+                            "role": "heading_occurrence",
+                            "value_main": None,
+                            "value_test": b_occ,
+                            "label": label_extra,
+                            "confidence": 0.8,
+                            "details": {"reason": "extra_heading_in_test"},
+                        }
+                    )
 
     for key, listB in idxB.items():
         for k, occ in enumerate(listB):
             if (key, k) in visitedB:
                 continue
             if is_missing_tracked(tag, None) or is_missing_tracked(tag, "a"):
-                diffs.append({
-                    "tag": tag, "code": None, "role": "heading_occurrence",
-                    "value_main": None, "value_test": occ,
-                    "label": "MISSING",
-                    "confidence": 0.9,
-                    "details": {"reason": "missing_heading_in_main", "missing_tracked": True}
-                })
+                diffs.append(
+                    {
+                        "tag": tag,
+                        "code": None,
+                        "role": "heading_occurrence",
+                        "value_main": None,
+                        "value_test": occ,
+                        "label": "MISSING",
+                        "confidence": 0.9,
+                        "details": {"reason": "missing_heading_in_main", "missing_tracked": True},
+                    }
+                )
             elif label_extra:
-                diffs.append({
-                    "tag": tag, "code": None, "role": "heading_occurrence",
-                    "value_main": None, "value_test": occ,
-                    "label": label_extra,
-                    "confidence": 0.8,
-                    "details": {"reason": "extra_heading_in_test"}
-                })
+                diffs.append(
+                    {
+                        "tag": tag,
+                        "code": None,
+                        "role": "heading_occurrence",
+                        "value_main": None,
+                        "value_test": occ,
+                        "label": label_extra,
+                        "confidence": 0.8,
+                        "details": {"reason": "extra_heading_in_test"},
+                    }
+                )
     return diffs
+
 
 def _normalize_subfields_struct(sfs_raw):
     pairs = []
@@ -296,7 +373,7 @@ def _normalize_subfields_struct(sfs_raw):
     return pairs
 
 
-def iter_fields(marc_json: Dict[str, Any]):
+def iter_fields(marc_json: dict[str, Any]):
     for f in marc_json.get("fields", []):
         if not isinstance(f, dict):
             continue
@@ -314,7 +391,7 @@ def iter_fields(marc_json: Dict[str, Any]):
             yield (tag, ind1, ind2, code, val)
 
 
-def _record_key(rec: Dict[str, Any]) -> Optional[str]:
+def _record_key(rec: dict[str, Any]) -> str | None:
     for f in rec.get("fields", []):
         if isinstance(f, dict) and "001" in f:
             return f["001"]
@@ -327,10 +404,7 @@ def _match_tag_pattern(tag: str, pattern: str) -> bool:
         return False
     tag = str(tag or "").upper()
     if len(pattern) == len(tag) == 3:
-        return all(
-            (pc == "X" or pc == tc)
-            for tc, pc in zip(tag, pattern)
-        )
+        return all((pc == "X" or pc == tc) for tc, pc in zip(tag, pattern))
     return tag == pattern
 
 
@@ -342,20 +416,20 @@ def _canonical_tag(tag: str) -> str:
     return CANONICAL_TAG_MAP.get(str(tag), str(tag))
 
 
-def _role_for(tag: str, code: Optional[str]) -> str:
+def _role_for(tag: str, code: str | None) -> str:
     return FIELD_ROLE.get((tag, code), "generic")
 
 
-def _build_map(rec: Dict[str, Any]):
+def _build_map(rec: dict[str, Any]):
 
-    mp: Dict[str, Dict[Optional[str], List[str]]] = {}
+    mp: dict[str, dict[str | None, list[str]]] = {}
     for tag, _i1, _i2, code, val in iter_fields(rec):
         tag = _canonical_tag(tag)
         mp.setdefault(tag, {}).setdefault(code, []).append(val)
     return mp
 
 
-def _classify(a: str, b: str, role: str, context: Optional[Dict[str, Any]] = None):
+def _classify(a: str, b: str, role: str, context: dict[str, Any] | None = None):
     for check in CHECKS:
         res = check(a, b, role, context)
         if res is not None:
@@ -363,8 +437,7 @@ def _classify(a: str, b: str, role: str, context: Optional[Dict[str, Any]] = Non
     return {"label": "INCORRECT", "confidence": 0.8, "details": {}}
 
 
-
-def _occ_key(tag: str, occ: Dict[str, str], role_for) -> Tuple[str, str]:
+def _occ_key(tag: str, occ: dict[str, str], role_for) -> tuple[str, str]:
     b, a, two = occ.get("b"), occ.get("a"), occ.get("2", "")
     if b:
         nb = normalize_by_role(role_for(tag, "b"), b)
@@ -377,20 +450,20 @@ def _occ_key(tag: str, occ: Dict[str, str], role_for) -> Tuple[str, str]:
     return ("z", json.dumps(occ, ensure_ascii=False))
 
 
-def _compare_occurrence_tag(tag: str, main_rec: Dict[str, Any], test_rec: Dict[str, Any], role_for):
-    diffs: List[Dict[str, Any]] = []
+def _compare_occurrence_tag(tag: str, main_rec: dict[str, Any], test_rec: dict[str, Any], role_for):
+    diffs: list[dict[str, Any]] = []
     A = _gather_occurrences(main_rec, tag)
     B = _gather_occurrences(test_rec, tag)
 
-    idxA: Dict[Tuple[str, str], List[Dict[str, str]]] = {}
+    idxA: dict[tuple[str, str], list[dict[str, str]]] = {}
     for occ in A:
         idxA.setdefault(_occ_key(tag, occ, role_for), []).append(occ)
 
-    idxB: Dict[Tuple[str, str], List[Dict[str, str]]] = {}
+    idxB: dict[tuple[str, str], list[dict[str, str]]] = {}
     for occ in B:
         idxB.setdefault(_occ_key(tag, occ, role_for), []).append(occ)
 
-    visitedB: set[Tuple[Tuple[str, str], int]] = set()
+    visitedB: set[tuple[tuple[str, str], int]] = set()
 
     for key, listA in idxA.items():
         listB = idxB.get(key, [])
@@ -413,30 +486,54 @@ def _compare_occurrence_tag(tag: str, main_rec: Dict[str, Any], test_rec: Dict[s
                 nb_2 = normalize_by_role(role_for(tag, "2"), b_2)
 
                 if na_b == nb_b and na_2 == nb_2 and na_a != nb_a:
-                    diffs.append({
-                        "tag": tag, "code": None, "role": "rda_content_occurrence",
-                        "value_main": a_occ, "value_test": b_occ,
-                        "label": "NON_STANDARDIZED", "confidence": 0.8,
-                        "details": {"reason": "same_code_same_source_different_term"}
-                    })
+                    diffs.append(
+                        {
+                            "tag": tag,
+                            "code": None,
+                            "role": "rda_content_occurrence",
+                            "value_main": a_occ,
+                            "value_test": b_occ,
+                            "label": "NON_STANDARDIZED",
+                            "confidence": 0.8,
+                            "details": {"reason": "same_code_same_source_different_term"},
+                        }
+                    )
             elif a_occ is not None and b_occ is None:
                 if not (is_missing_tracked(tag, None) or is_missing_tracked(tag, "a")):
                     continue
-                diffs.append({
-                    "tag": tag, "code": None, "role": "rda_content_occurrence",
-                    "value_main": a_occ, "value_test": None,
-                    "label": "MISSING", "confidence": 0.9,
-                    "details": {"reason": "missing_occurrence_in_test", "missing_tracked": True}
-                })
+                diffs.append(
+                    {
+                        "tag": tag,
+                        "code": None,
+                        "role": "rda_content_occurrence",
+                        "value_main": a_occ,
+                        "value_test": None,
+                        "label": "MISSING",
+                        "confidence": 0.9,
+                        "details": {
+                            "reason": "missing_occurrence_in_test",
+                            "missing_tracked": True,
+                        },
+                    }
+                )
             elif a_occ is None and b_occ is not None:
                 if not (is_missing_tracked(tag, None) or is_missing_tracked(tag, "a")):
                     continue
-                diffs.append({
-                    "tag": tag, "code": None, "role": "rda_content_occurrence",
-                    "value_main": None, "value_test": b_occ,
-                    "label": "MISSING", "confidence": 0.9,
-                    "details": {"reason": "missing_occurrence_in_main", "missing_tracked": True}
-                })
+                diffs.append(
+                    {
+                        "tag": tag,
+                        "code": None,
+                        "role": "rda_content_occurrence",
+                        "value_main": None,
+                        "value_test": b_occ,
+                        "label": "MISSING",
+                        "confidence": 0.9,
+                        "details": {
+                            "reason": "missing_occurrence_in_main",
+                            "missing_tracked": True,
+                        },
+                    }
+                )
 
     for key, listB in idxB.items():
         for k, occ in enumerate(listB):
@@ -444,26 +541,32 @@ def _compare_occurrence_tag(tag: str, main_rec: Dict[str, Any], test_rec: Dict[s
                 continue
             if not (is_missing_tracked(tag, None) or is_missing_tracked(tag, "a")):
                 continue
-            diffs.append({
-                "tag": tag, "code": None, "role": "rda_content_occurrence",
-                "value_main": None, "value_test": occ,
-                "label": "MISSING", "confidence": 0.9,
-                "details": {"reason": "missing_occurrence_in_main", "missing_tracked": True}
-            })
+            diffs.append(
+                {
+                    "tag": tag,
+                    "code": None,
+                    "role": "rda_content_occurrence",
+                    "value_main": None,
+                    "value_test": occ,
+                    "label": "MISSING",
+                    "confidence": 0.9,
+                    "details": {"reason": "missing_occurrence_in_main", "missing_tracked": True},
+                }
+            )
 
     return diffs
 
 
 def compare_records(
-    main_rec: Dict[str, Any],
-    test_rec: Dict[str, Any],
+    main_rec: dict[str, Any],
+    test_rec: dict[str, Any],
     *,
     include_identical: bool = False,
     nonstandard_llm: bool = False,
-    llm_backend: Optional[BackendLiteral] = None,
+    llm_backend: BackendLiteral | None = None,
     llm_enabled: bool = True,
-) -> Dict[str, Any]:
-    result: Dict[str, Any] = {
+) -> dict[str, Any]:
+    result: dict[str, Any] = {
         "main_key": _record_key(main_rec),
         "test_key": _record_key(test_rec),
         "differences": [],
@@ -488,15 +591,17 @@ def compare_records(
 
     present_headings = usable_tags & HEADING_TAGS
     for tag in sorted(present_headings):
-        result["differences"].extend(_compare_heading_tag(tag, main_rec, test_rec, _role_for, label_extra=None))
+        result["differences"].extend(
+            _compare_heading_tag(tag, main_rec, test_rec, _role_for, label_extra=None)
+        )
 
     skip = UDC_TAGS | OCCURRENCE_TAGS | HEADING_TAGS
-    all_tags = sorted(usable_tags - skip)   
+    all_tags = sorted(usable_tags - skip)
 
     total_compared = 0
     llm_allowed = bool(llm_enabled)
     use_nonstandard_llm = bool(nonstandard_llm) and llm_allowed
-    classify_context: Dict[str, Any] = {
+    classify_context: dict[str, Any] = {
         "nonstandard_llm": use_nonstandard_llm,
         "allow_llm": llm_allowed,
     }
@@ -520,37 +625,59 @@ def compare_records(
                     total_compared += 1
                     res = _classify(str(va), str(vb), role, classify_context)
                     if res["label"] != "IDENTICAL":
-                        result["differences"].append({
-                            "tag": tag, "code": code, "role": role,
-                            "value_main": va, "value_test": vb,
-                            **res
-                        })
+                        result["differences"].append(
+                            {
+                                "tag": tag,
+                                "code": code,
+                                "role": role,
+                                "value_main": va,
+                                "value_test": vb,
+                                **res,
+                            }
+                        )
                     elif include_identical:
-                        result["identical"].append({
-                            "tag": tag, "code": code, "role": role,
-                            "value_main": va, "value_test": vb,
-                            **res
-                        })
+                        result["identical"].append(
+                            {
+                                "tag": tag,
+                                "code": code,
+                                "role": role,
+                                "value_main": va,
+                                "value_test": vb,
+                                **res,
+                            }
+                        )
 
                 elif va is not None and vb is None:
                     if not is_missing_tracked(tag, code):
                         continue
-                    result["differences"].append({
-                        "tag": tag, "code": code, "role": role,
-                        "value_main": va, "value_test": None,
-                        "label": "MISSING", "confidence": 0.9,
-                        "details": {"reason": "missing_in_test", "missing_tracked": True}
-                    })
+                    result["differences"].append(
+                        {
+                            "tag": tag,
+                            "code": code,
+                            "role": role,
+                            "value_main": va,
+                            "value_test": None,
+                            "label": "MISSING",
+                            "confidence": 0.9,
+                            "details": {"reason": "missing_in_test", "missing_tracked": True},
+                        }
+                    )
 
                 elif va is None and vb is not None:
                     if not is_missing_tracked(tag, code):
                         continue
-                    result["differences"].append({
-                        "tag": tag, "code": code, "role": role,
-                        "value_main": None, "value_test": vb,
-                        "label": "MISSING", "confidence": 0.9,
-                        "details": {"reason": "missing_in_main", "missing_tracked": True}
-                    })
+                    result["differences"].append(
+                        {
+                            "tag": tag,
+                            "code": code,
+                            "role": role,
+                            "value_main": None,
+                            "value_test": vb,
+                            "label": "MISSING",
+                            "confidence": 0.9,
+                            "details": {"reason": "missing_in_main", "missing_tracked": True},
+                        }
+                    )
 
     result["differences"].sort(key=_diff_sort_key)
     if include_identical and "identical" in result:

@@ -57,9 +57,7 @@ export function FacetChart({
         <div className="flex items-center justify-between gap-2">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
             {title}
-            {hasActive && (
-              <span className="inline-block h-2 w-2 rounded-full bg-primary" />
-            )}
+            {hasActive && <span className="inline-block h-2 w-2 rounded-full bg-primary" />}
           </CardTitle>
           {headerRight}
         </div>

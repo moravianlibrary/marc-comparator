@@ -36,10 +36,7 @@ function getAllDependencies(permission: Permission): Permission[] {
   return Array.from(new Set([...direct, ...indirect]));
 }
 
-function removeDependents(
-  selected: Permission[],
-  removed: Permission
-): Permission[] {
+function removeDependents(selected: Permission[], removed: Permission): Permission[] {
   const dependents = Object.entries(PermissionDependencies)
     .filter(([, deps]) => deps.includes(removed))
     .map(([perm]) => perm as Permission);
@@ -56,7 +53,7 @@ function removeDependents(
 export function togglePermission(
   current: Permission[],
   permission: Permission,
-  checked: boolean
+  checked: boolean,
 ): Permission[] {
   if (checked) {
     const deps = getAllDependencies(permission);
@@ -65,7 +62,4 @@ export function togglePermission(
   return removeDependents(current, permission);
 }
 
-export type PermissionGuard =
-  | Permission
-  | { any: Permission[] }
-  | { all: Permission[] };
+export type PermissionGuard = Permission | { any: Permission[] } | { all: Permission[] };

@@ -34,9 +34,7 @@ def test_users(db_session: DatabaseSession):
 
 class TestAccessControlEndpoints:
     @pytest.mark.asyncio
-    async def test_get_roles(
-        self, db_session, user, client: AsyncClient, test_users
-    ):
+    async def test_get_roles(self, db_session, user, client: AsyncClient, test_users):
         assert_response(
             await client.get("/access-control/roles"),
             200,
@@ -75,9 +73,7 @@ class TestAccessControlEndpoints:
         )
 
     @pytest.mark.asyncio
-    async def test_create_role(
-        self, db_session: DatabaseSession, user, client: AsyncClient
-    ):
+    async def test_create_role(self, db_session: DatabaseSession, user, client: AsyncClient):
         Role.create_default_roles(db_session)
 
         new_role_data = {
@@ -98,9 +94,7 @@ class TestAccessControlEndpoints:
         )
 
     @pytest.mark.asyncio
-    async def test_update_role(
-        self, db_session, user, client: AsyncClient
-    ):
+    async def test_update_role(self, db_session, user, client: AsyncClient):
         Role.create_default_roles(db_session)
 
         update_role_data = {
@@ -121,9 +115,7 @@ class TestAccessControlEndpoints:
         )
 
     @pytest.mark.asyncio
-    async def test_update_immutable_role_fails(
-        self, db_session, user, client: AsyncClient
-    ):
+    async def test_update_immutable_role_fails(self, db_session, user, client: AsyncClient):
         Role.create_default_roles(db_session)
 
         assert_response(
@@ -139,9 +131,7 @@ class TestAccessControlEndpoints:
         )
 
     @pytest.mark.asyncio
-    async def test_update_protected_role_fails(
-        self, db_session, user, client: AsyncClient
-    ):
+    async def test_update_protected_role_fails(self, db_session, user, client: AsyncClient):
         Role.create_default_roles(db_session)
 
         assert_response(
@@ -157,9 +147,7 @@ class TestAccessControlEndpoints:
         )
 
     @pytest.mark.asyncio
-    async def test_delete_role(
-        self, db_session: DatabaseSession, user, client: AsyncClient
-    ):
+    async def test_delete_role(self, db_session: DatabaseSession, user, client: AsyncClient):
         Role.create_default_roles(db_session)
 
         new_role = Role(name="DeletableRole", permissions=[])
@@ -178,9 +166,7 @@ class TestAccessControlEndpoints:
         )
 
     @pytest.mark.asyncio
-    async def test_delete_immutable_role_fails(
-        self, db_session, user, client: AsyncClient
-    ):
+    async def test_delete_immutable_role_fails(self, db_session, user, client: AsyncClient):
         Role.create_default_roles(db_session)
 
         assert_response(
@@ -190,9 +176,7 @@ class TestAccessControlEndpoints:
         )
 
     @pytest.mark.asyncio
-    async def test_delete_protected_role_fails(
-        self, db_session, user, client: AsyncClient
-    ):
+    async def test_delete_protected_role_fails(self, db_session, user, client: AsyncClient):
         Role.create_default_roles(db_session)
 
         assert_response(
@@ -202,9 +186,7 @@ class TestAccessControlEndpoints:
         )
 
     @pytest.mark.asyncio
-    async def test_get_users(
-        self, db_session, user, client: AsyncClient, test_users
-    ):
+    async def test_get_users(self, db_session, user, client: AsyncClient, test_users):
         user1, user2 = test_users
         assert_response(
             await client.get("/access-control/users"),
@@ -247,9 +229,7 @@ class TestAccessControlEndpoints:
     ):
         user1, _ = test_users
         assert_response(
-            await client.get(
-                "/access-control/users", params={"email": "user1"}
-            ),
+            await client.get("/access-control/users", params={"email": "user1"}),
             200,
             {
                 "items": [
@@ -268,14 +248,10 @@ class TestAccessControlEndpoints:
         )
 
     @pytest.mark.asyncio
-    async def test_assign_role_to_user(
-        self, db_session, user, client: AsyncClient, test_users
-    ):
+    async def test_assign_role_to_user(self, db_session, user, client: AsyncClient, test_users):
         user1, _ = test_users
         assert_response(
-            await client.patch(
-                f"/access-control/users/{user1.id}/assign-role/1"
-            ),
+            await client.patch(f"/access-control/users/{user1.id}/assign-role/1"),
             200,
             {
                 "id": str(user1.id),
@@ -290,15 +266,11 @@ class TestAccessControlEndpoints:
         )
 
     @pytest.mark.asyncio
-    async def test_unassign_role_from_user(
-        self, db_session, user, client: AsyncClient, test_users
-    ):
+    async def test_unassign_role_from_user(self, db_session, user, client: AsyncClient, test_users):
         user1, _ = test_users
         # user1 has Guest role assigned; unassign it
         assert_response(
-            await client.patch(
-                f"/access-control/users/{user1.id}/unassign-role/2"
-            ),
+            await client.patch(f"/access-control/users/{user1.id}/unassign-role/2"),
             200,
             {
                 "id": str(user1.id),
@@ -317,9 +289,7 @@ class TestAccessControlEndpoints:
         _, user2 = test_users
         # user2 has no roles; unassigning Admin should be a no-op
         assert_response(
-            await client.patch(
-                f"/access-control/users/{user2.id}/unassign-role/1"
-            ),
+            await client.patch(f"/access-control/users/{user2.id}/unassign-role/1"),
             200,
             {
                 "id": str(user2.id),
@@ -331,9 +301,7 @@ class TestAccessControlEndpoints:
         )
 
     @pytest.mark.asyncio
-    async def test_get_roles_pagination(
-        self, db_session, user, client: AsyncClient
-    ):
+    async def test_get_roles_pagination(self, db_session, user, client: AsyncClient):
         Role.create_default_roles(db_session)
 
         # page_size=1 should return only the first role
@@ -392,9 +360,7 @@ class TestAccessControlEndpoints:
         )
 
     @pytest.mark.asyncio
-    async def test_get_roles_empty_page(
-        self, db_session, user, client: AsyncClient
-    ):
+    async def test_get_roles_empty_page(self, db_session, user, client: AsyncClient):
         Role.create_default_roles(db_session)
 
         # page 100 should return empty items
@@ -408,9 +374,7 @@ class TestAccessControlEndpoints:
         )
 
     @pytest.mark.asyncio
-    async def test_get_users_pagination(
-        self, db_session, user, client: AsyncClient, test_users
-    ):
+    async def test_get_users_pagination(self, db_session, user, client: AsyncClient, test_users):
         # 3 users total (admin + user1 + user2), page_size=1
         assert_response(
             await client.get(
@@ -436,9 +400,7 @@ class TestAccessControlEndpoints:
         )
 
     @pytest.mark.asyncio
-    async def test_create_role_with_all_permissions(
-        self, db_session, user, client: AsyncClient
-    ):
+    async def test_create_role_with_all_permissions(self, db_session, user, client: AsyncClient):
         Role.create_default_roles(db_session)
 
         all_permissions = [
@@ -471,9 +433,7 @@ class TestAccessControlEndpoints:
         )
 
     @pytest.mark.asyncio
-    async def test_update_role_permissions_only(
-        self, db_session, user, client: AsyncClient
-    ):
+    async def test_update_role_permissions_only(self, db_session, user, client: AsyncClient):
         """Updating a protected role's permissions (without renaming) should succeed."""
         Role.create_default_roles(db_session)
 

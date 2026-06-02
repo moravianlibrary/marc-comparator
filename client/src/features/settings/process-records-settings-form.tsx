@@ -23,12 +23,7 @@ interface Props {
   onSubmit: (data: ProcessRecordsSettings) => void;
 }
 
-export function ProcessRecordsSettingsForm({
-  data,
-  onDirtyChange,
-  onFormRef,
-  onSubmit,
-}: Props) {
+export function ProcessRecordsSettingsForm({ data, onDirtyChange, onFormRef, onSubmit }: Props) {
   const { t } = useTranslation("settings");
 
   const { data: systemInfo } = useSystemInfo();
@@ -42,9 +37,7 @@ export function ProcessRecordsSettingsForm({
   });
 
   const linkerTargetBases = [
-    ...new Set(
-      systemInfo?.enabled_authority_linkers.flatMap((l) => l.target_bases) ?? [],
-    ),
+    ...new Set(systemInfo?.enabled_authority_linkers.flatMap((l) => l.target_bases) ?? []),
   ];
 
   return (
@@ -53,7 +46,9 @@ export function ProcessRecordsSettingsForm({
         <Card>
           <CardHeader className="flex flex-row items-center gap-2">
             <CardTitle className="text-base">{t("types.process-records")}</CardTitle>
-            <HelpDialog titleKey="types.process-records"><ProcessRecordsHelp /></HelpDialog>
+            <HelpDialog titleKey="types.process-records">
+              <ProcessRecordsHelp />
+            </HelpDialog>
           </CardHeader>
           <CardContent className="max-w-md space-y-4">
             <FormField

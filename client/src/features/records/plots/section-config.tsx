@@ -2,15 +2,8 @@ import { useTranslation } from "react-i18next";
 import { Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
-import {
-  SECTION_GROUPS,
-  type ChartId,
-} from "./use-section-visibility";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { SECTION_GROUPS, type ChartId } from "./use-section-visibility";
 
 interface SectionConfigProps {
   isVisible: (chartId: ChartId) => boolean;
@@ -34,7 +27,12 @@ const CHART_LABEL_KEYS: Record<ChartId, string> = {
   validation_reasons: "facet-fields.validation_reasons",
 };
 
-export function SectionConfig({ isVisible, toggleChart, isSectionVisible, toggleSection }: SectionConfigProps) {
+export function SectionConfig({
+  isVisible,
+  toggleChart,
+  isSectionVisible,
+  toggleSection,
+}: SectionConfigProps) {
   const { t } = useTranslation("records");
 
   return (
@@ -47,40 +45,40 @@ export function SectionConfig({ isVisible, toggleChart, isSectionVisible, toggle
       </PopoverTrigger>
       <PopoverContent className="w-[300px]" align="end">
         <div className="space-y-3">
-          {(Object.entries(SECTION_GROUPS) as [keyof typeof SECTION_GROUPS, readonly ChartId[]][]).map(
-            ([section, chartIds]) => (
-              <div key={section}>
-                {section === "context" ? (
-                  <label className="flex items-center gap-2">
-                    <Checkbox
-                      checked={isSectionVisible("context")}
-                      onCheckedChange={() => toggleSection("context")}
-                    />
-                    <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                      {t(`plots.sections.${section}`)}
-                    </span>
-                  </label>
-                ) : (
-                  <>
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
-                      {t(`plots.sections.${section}`)}
-                    </p>
-                    <div className="space-y-1">
-                      {chartIds.map((chartId) => (
-                        <label key={chartId} className="flex items-center gap-2">
-                          <Checkbox
-                            checked={isVisible(chartId)}
-                            onCheckedChange={() => toggleChart(chartId)}
-                          />
-                          <span className="text-sm">{t(CHART_LABEL_KEYS[chartId])}</span>
-                        </label>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
-            ),
-          )}
+          {(
+            Object.entries(SECTION_GROUPS) as [keyof typeof SECTION_GROUPS, readonly ChartId[]][]
+          ).map(([section, chartIds]) => (
+            <div key={section}>
+              {section === "context" ? (
+                <label className="flex items-center gap-2">
+                  <Checkbox
+                    checked={isSectionVisible("context")}
+                    onCheckedChange={() => toggleSection("context")}
+                  />
+                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                    {t(`plots.sections.${section}`)}
+                  </span>
+                </label>
+              ) : (
+                <>
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
+                    {t(`plots.sections.${section}`)}
+                  </p>
+                  <div className="space-y-1">
+                    {chartIds.map((chartId) => (
+                      <label key={chartId} className="flex items-center gap-2">
+                        <Checkbox
+                          checked={isVisible(chartId)}
+                          onCheckedChange={() => toggleChart(chartId)}
+                        />
+                        <span className="text-sm">{t(CHART_LABEL_KEYS[chartId])}</span>
+                      </label>
+                    ))}
+                  </div>
+                </>
+              )}
+            </div>
+          ))}
         </div>
       </PopoverContent>
     </Popover>

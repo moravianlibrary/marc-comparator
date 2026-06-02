@@ -30,9 +30,7 @@ export function createColumns(
       size: 300,
       enableSorting: false,
       cell: ({ row }) => (
-        <span className="block max-w-[300px] truncate">
-          {row.original.title ?? "-"}
-        </span>
+        <span className="block max-w-[300px] truncate">{row.original.title ?? "-"}</span>
       ),
     },
     {
@@ -43,11 +41,7 @@ export function createColumns(
       cell: ({ row }) => {
         const authors = row.original.authors;
         if (authors.length === 0) return "-";
-        return (
-          <span className="block max-w-[200px] truncate">
-            {authors.join(", ")}
-          </span>
-        );
+        return <span className="block max-w-[200px] truncate">{authors.join(", ")}</span>;
       },
     },
     {
@@ -58,11 +52,7 @@ export function createColumns(
       cell: ({ row }) => (
         <div className="flex flex-wrap gap-1">
           {row.original.state.map((s) => (
-            <Badge
-              key={s}
-              variant="outline"
-              className={cn("text-xs", STATE_COLORS[s])}
-            >
+            <Badge key={s} variant="outline" className={cn("text-xs", STATE_COLORS[s])}>
               {t(`records:state.${s}`)}
             </Badge>
           ))}
@@ -89,7 +79,14 @@ export function createColumns(
                   key={`${al.linker}-${al.base}`}
                   variant="outline"
                   className={cn("text-xs", onNavigate && "cursor-pointer hover:bg-accent")}
-                  onClick={onNavigate ? (e) => { e.stopPropagation(); onNavigate(row.index, viewKey); } : undefined}
+                  onClick={
+                    onNavigate
+                      ? (e) => {
+                          e.stopPropagation();
+                          onNavigate(row.index, viewKey);
+                        }
+                      : undefined
+                  }
                 >
                   {al.base}
                 </Badge>
@@ -120,7 +117,14 @@ export function createColumns(
                     COMPARISON_BADGE_CLASS[c.match_quality],
                     onNavigate && "cursor-pointer hover:bg-accent",
                   )}
-                  onClick={onNavigate ? (e) => { e.stopPropagation(); onNavigate(row.index, viewKey); } : undefined}
+                  onClick={
+                    onNavigate
+                      ? (e) => {
+                          e.stopPropagation();
+                          onNavigate(row.index, viewKey);
+                        }
+                      : undefined
+                  }
                 >
                   {c.base}: {(c.overall_score * 100).toFixed(0)}%
                 </Badge>
@@ -151,9 +155,17 @@ export function createColumns(
                     VALIDATION_BADGE_CLASS[g.status],
                     onNavigate && "cursor-pointer hover:bg-accent",
                   )}
-                  onClick={onNavigate ? (e) => { e.stopPropagation(); onNavigate(row.index, viewKey); } : undefined}
+                  onClick={
+                    onNavigate
+                      ? (e) => {
+                          e.stopPropagation();
+                          onNavigate(row.index, viewKey);
+                        }
+                      : undefined
+                  }
                 >
-                  {t(`records:validator-name.${g.validator}`)} [{g.target_tag}]: {t(`records:validity-status.${g.status}`)}
+                  {t(`records:validator-name.${g.validator}`)} [{g.target_tag}]:{" "}
+                  {t(`records:validity-status.${g.status}`)}
                   {g.count > 1 && (
                     <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-muted-foreground/20 px-1 text-[10px] font-medium">
                       {g.count}
@@ -172,9 +184,7 @@ export function createColumns(
       size: 160,
       enableSorting: SORTABLE_COLUMNS.has("latest_sync"),
       cell: ({ row }) =>
-        row.original.latest_sync
-          ? new Date(row.original.latest_sync).toLocaleString("cs-CZ")
-          : "-",
+        row.original.latest_sync ? new Date(row.original.latest_sync).toLocaleString("cs-CZ") : "-",
     },
   ];
 }

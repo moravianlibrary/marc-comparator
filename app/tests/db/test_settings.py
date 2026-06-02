@@ -5,8 +5,8 @@ from adapters.database import DatabaseSession
 from entities.settings import Settings, SettingsScope
 from tests.conftest import assert_response, load_test_json
 
-
 # ---- Test data helpers ----
+
 
 def _catalog_settings_data():
     return {
@@ -40,9 +40,7 @@ def _process_records_settings_data():
 
 class TestTasksSettingsEndpoints:
     @pytest.mark.asyncio
-    async def test_get_settings_not_found(
-        self, db_session, user, client: AsyncClient
-    ):
+    async def test_get_settings_not_found(self, db_session, user, client: AsyncClient):
         assert_response(
             await client.get("/settings/record-tools/authority-linkers"),
             404,
@@ -50,9 +48,7 @@ class TestTasksSettingsEndpoints:
         )
 
     @pytest.mark.asyncio
-    async def test_get_settings(
-        self, db_session: DatabaseSession, user, client: AsyncClient
-    ):
+    async def test_get_settings(self, db_session: DatabaseSession, user, client: AsyncClient):
         from authority_linking.models import AuthorityLinkingSettings
 
         test_settings = load_test_json("authority_linking_settings.json")
@@ -71,15 +67,11 @@ class TestTasksSettingsEndpoints:
         )
 
     @pytest.mark.asyncio
-    async def test_set_settings(
-        self, db_session, user, client: AsyncClient
-    ):
+    async def test_set_settings(self, db_session, user, client: AsyncClient):
         test_settings = load_test_json("authority_linking_settings.json")
 
         assert_response(
-            await client.post(
-                "/settings/record-tools/authority-linkers", json=test_settings
-            ),
+            await client.post("/settings/record-tools/authority-linkers", json=test_settings),
             200,
             test_settings,
         )
@@ -87,9 +79,7 @@ class TestTasksSettingsEndpoints:
 
 class TestComparisonSettingsEndpoints:
     @pytest.mark.asyncio
-    async def test_get_comparison_settings_not_found(
-        self, db_session, user, client: AsyncClient
-    ):
+    async def test_get_comparison_settings_not_found(self, db_session, user, client: AsyncClient):
         assert_response(
             await client.get("/settings/record-tools/comparators"),
             404,
@@ -97,14 +87,10 @@ class TestComparisonSettingsEndpoints:
         )
 
     @pytest.mark.asyncio
-    async def test_set_and_get_comparison_settings(
-        self, db_session, user, client: AsyncClient
-    ):
+    async def test_set_and_get_comparison_settings(self, db_session, user, client: AsyncClient):
         test_settings = load_test_json("comparison_settings.json")
 
-        set_response = await client.post(
-            "/settings/record-tools/comparators", json=test_settings
-        )
+        set_response = await client.post("/settings/record-tools/comparators", json=test_settings)
         assert set_response.status_code == 200
         saved = set_response.json()
 
@@ -118,9 +104,7 @@ class TestComparisonSettingsEndpoints:
 
 class TestValidationSettingsEndpoints:
     @pytest.mark.asyncio
-    async def test_get_validation_settings_not_found(
-        self, db_session, user, client: AsyncClient
-    ):
+    async def test_get_validation_settings_not_found(self, db_session, user, client: AsyncClient):
         assert_response(
             await client.get("/settings/record-tools/validators"),
             404,
@@ -128,14 +112,10 @@ class TestValidationSettingsEndpoints:
         )
 
     @pytest.mark.asyncio
-    async def test_set_and_get_validation_settings(
-        self, db_session, user, client: AsyncClient
-    ):
+    async def test_set_and_get_validation_settings(self, db_session, user, client: AsyncClient):
         test_settings = load_test_json("validation_settings.json")
 
-        set_response = await client.post(
-            "/settings/record-tools/validators", json=test_settings
-        )
+        set_response = await client.post("/settings/record-tools/validators", json=test_settings)
         assert set_response.status_code == 200
         saved = set_response.json()
 
@@ -148,9 +128,7 @@ class TestValidationSettingsEndpoints:
 
 class TestCatalogSettingsEndpoints:
     @pytest.mark.asyncio
-    async def test_get_catalog_settings_not_found(
-        self, db_session, user, client: AsyncClient
-    ):
+    async def test_get_catalog_settings_not_found(self, db_session, user, client: AsyncClient):
         assert_response(
             await client.get("/settings/system/catalog"),
             404,
@@ -158,14 +136,10 @@ class TestCatalogSettingsEndpoints:
         )
 
     @pytest.mark.asyncio
-    async def test_set_and_get_catalog_settings(
-        self, db_session, user, client: AsyncClient
-    ):
+    async def test_set_and_get_catalog_settings(self, db_session, user, client: AsyncClient):
         data = _catalog_settings_data()
 
-        set_response = await client.post(
-            "/settings/system/catalog", json=data
-        )
+        set_response = await client.post("/settings/system/catalog", json=data)
         assert set_response.status_code == 200
         saved = set_response.json()
 
@@ -179,9 +153,7 @@ class TestCatalogSettingsEndpoints:
 
 class TestTaskSettingsEndpoints:
     @pytest.mark.asyncio
-    async def test_get_task_settings_not_found(
-        self, db_session, user, client: AsyncClient
-    ):
+    async def test_get_task_settings_not_found(self, db_session, user, client: AsyncClient):
         assert_response(
             await client.get("/settings/system/tasks"),
             404,
@@ -189,9 +161,7 @@ class TestTaskSettingsEndpoints:
         )
 
     @pytest.mark.asyncio
-    async def test_set_and_get_task_settings(
-        self, db_session, user, client: AsyncClient
-    ):
+    async def test_set_and_get_task_settings(self, db_session, user, client: AsyncClient):
         data = _task_settings_data()
 
         assert_response(
@@ -225,9 +195,7 @@ class TestProcessRecordsSettingsEndpoints:
         data = _process_records_settings_data()
 
         assert_response(
-            await client.post(
-                "/settings/record-tools/process-records", json=data
-            ),
+            await client.post("/settings/record-tools/process-records", json=data),
             200,
             data,
         )
@@ -241,9 +209,7 @@ class TestProcessRecordsSettingsEndpoints:
 
 class TestSettingsUpdate:
     @pytest.mark.asyncio
-    async def test_update_existing_settings(
-        self, db_session, user, client: AsyncClient
-    ):
+    async def test_update_existing_settings(self, db_session, user, client: AsyncClient):
         """Setting settings twice should update, not create a duplicate."""
         data_v1 = _task_settings_data()
         data_v2 = {
@@ -311,9 +277,7 @@ class TestSettingsService:
         )
 
         # "kramerius-links" is the alias for "kramerius_links"
-        result = get_settings_part(
-            SettingsScope.Validation, "kramerius-links", db_session
-        )
+        result = get_settings_part(SettingsScope.Validation, "kramerius-links", db_session)
         assert result is not None
 
     def test_get_settings_scope_not_found_raises(self, db_session, user):

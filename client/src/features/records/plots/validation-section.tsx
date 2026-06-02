@@ -112,8 +112,8 @@ export function ValidationSection({
                       <BarFacet
                         data={translatedData}
                         previewData={translatedPreview}
-                        activeValues={chartProps.activeValues.map(
-                          (v) => t(`validation-reason.${stripPrefix(v)}`, stripPrefix(v)),
+                        activeValues={chartProps.activeValues.map((v) =>
+                          t(`validation-reason.${stripPrefix(v)}`, stripPrefix(v)),
                         )}
                         onToggle={(translated) =>
                           chartProps.onToggle(rawByTranslated.get(translated) ?? translated)

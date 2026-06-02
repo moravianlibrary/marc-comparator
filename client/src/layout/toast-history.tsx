@@ -4,13 +4,7 @@ import { Bell } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetTrigger,
-} from "@/components/ui/sheet";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
 export interface NotificationEntry {
@@ -47,10 +41,10 @@ export function addNotification(entry: Omit<NotificationEntry, "id" | "read">) {
     );
     if (duplicate) return;
   }
-  notifications = [
-    { ...entry, id: crypto.randomUUID(), read: false },
-    ...notifications,
-  ].slice(0, 100);
+  notifications = [{ ...entry, id: crypto.randomUUID(), read: false }, ...notifications].slice(
+    0,
+    100,
+  );
   emitChange();
 }
 
@@ -68,13 +62,17 @@ export function useNotificationStore() {
 export function ToastHistory() {
   const { t } = useTranslation();
   const navigate = useNavigate();
-  const { notifications, unreadCount, markAllRead } =
-    useNotificationStore();
+  const { notifications, unreadCount, markAllRead } = useNotificationStore();
 
   return (
     <Sheet onOpenChange={(open) => open && markAllRead()}>
       <SheetTrigger asChild>
-        <Button variant="ghost" size="icon" className="relative" title={t("common:toast-history.title")}>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="relative"
+          title={t("common:toast-history.title")}
+        >
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
             <Badge
@@ -109,9 +107,7 @@ export function ToastHistory() {
                       {new Date(n.timestamp).toLocaleTimeString("cs-CZ")}
                     </span>
                   </div>
-                  {n.description && (
-                    <p className="text-muted-foreground">{n.description}</p>
-                  )}
+                  {n.description && <p className="text-muted-foreground">{n.description}</p>}
                 </div>
               ))}
             </div>

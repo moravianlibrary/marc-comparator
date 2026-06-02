@@ -1,6 +1,5 @@
 import logging
 from dataclasses import dataclass, field
-from typing import List, Set
 
 from fastapi import WebSocket
 
@@ -20,12 +19,12 @@ logger = logging.getLogger(__name__)
 class Connection:
     websocket: WebSocket
     user_id: str
-    permissions: Set[Permission] = field(default_factory=set)
+    permissions: set[Permission] = field(default_factory=set)
 
 
 class ConnectionManager:
     def __init__(self):
-        self.connections: List[Connection] = []
+        self.connections: list[Connection] = []
 
     def connect(self, connection: Connection) -> None:
         self.connections.append(connection)
@@ -36,13 +35,12 @@ class ConnectionManager:
         except ValueError:
             pass
 
-    def _get_recipients(self, event: Event) -> List[Connection]:
+    def _get_recipients(self, event: Event) -> list[Connection]:
         if isinstance(event, (TaskStatusEvent, TaskProgressEvent)):
             return [
                 conn
                 for conn in self.connections
-                if conn.user_id == event.created_by
-                or Permission.ManageAllTasks in conn.permissions
+                if conn.user_id == event.created_by or Permission.ManageAllTasks in conn.permissions
             ]
 
         if isinstance(event, (LockAcquiredEvent, LockReleasedEvent)):
@@ -53,7 +51,7 @@ class ConnectionManager:
     async def broadcast(self, event: Event) -> None:
         recipients = self._get_recipients(event)
         data = event.model_dump_json()
-        dead: List[Connection] = []
+        dead: list[Connection] = []
 
         for conn in recipients:
             try:

@@ -29,9 +29,7 @@ async def get_roles(
 
 
 @roles_router.post("", response_model=RoleSchema)
-async def create_role(
-    role: Annotated[EditRole, Body(...)], db_session: DatabaseSessionDep
-):
+async def create_role(role: Annotated[EditRole, Body(...)], db_session: DatabaseSessionDep):
     return service.create_role(role, db_session)
 
 
@@ -60,9 +58,7 @@ async def get_users(
     return service.get_users(params, db_session)
 
 
-@users_router.patch(
-    "/{user_id}/assign-role/{role_id}", response_model=UserSchema
-)
+@users_router.patch("/{user_id}/assign-role/{role_id}", response_model=UserSchema)
 async def assign_role_to_user(
     user_id: str,
     role_id: int,
@@ -71,9 +67,7 @@ async def assign_role_to_user(
     return service.assign_role_to_user(user_id, role_id, db_session)
 
 
-@users_router.patch(
-    "/{user_id}/unassign-role/{role_id}", response_model=UserSchema
-)
+@users_router.patch("/{user_id}/unassign-role/{role_id}", response_model=UserSchema)
 async def unassign_role_from_user(
     user_id: str,
     role_id: int,

@@ -1,5 +1,5 @@
 from enum import StrEnum
-from typing import TYPE_CHECKING, List
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, Column, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB
@@ -31,7 +31,11 @@ class Permission(StrEnum):
 PERMISSION_DEPENDENCIES: dict[Permission, list[Permission]] = {
     Permission.ReadRecords: [],
     Permission.AddRecords: [Permission.ReadRecords],
-    Permission.SyncRecordsFromCatalog: [Permission.ReadRecords, Permission.AddRecords, Permission.ManageTasks],
+    Permission.SyncRecordsFromCatalog: [
+        Permission.ReadRecords,
+        Permission.AddRecords,
+        Permission.ManageTasks,
+    ],
     Permission.ReviewRecords: [Permission.ReadRecords],
     Permission.ManageReviews: [Permission.ReviewRecords],
     Permission.ProcessRecords: [Permission.ReadRecords],
@@ -65,7 +69,7 @@ class Role(Base, BaseOperationsMixin, RetrievalOperationsMixin):
     immutable = Column(Boolean, default=False, nullable=False)
     protected = Column(Boolean, default=False, nullable=False)
 
-    users: Mapped[List["User"]] = relationship(
+    users: Mapped[list["User"]] = relationship(
         "User",
         secondary="user_roles",
         back_populates="roles",
@@ -73,11 +77,11 @@ class Role(Base, BaseOperationsMixin, RetrievalOperationsMixin):
     )
 
     @property
-    def permissions(self) -> List[Permission]:
+    def permissions(self) -> list[Permission]:
         return [Permission(p) for p in self._permissions]
 
     @permissions.setter
-    def permissions(self, value: List[Permission]):
+    def permissions(self, value: list[Permission]):
         self._permissions = [p.value for p in value]
 
     @classmethod
@@ -104,12 +108,7 @@ class Role(Base, BaseOperationsMixin, RetrievalOperationsMixin):
         ]
 
         for role_data in default_roles:
-            if (
-                db_session.query(cls)
-                .filter(cls.name == role_data["name"])
-                .count()
-                > 0
-            ):
+            if db_session.query(cls).filter(cls.name == role_data["name"]).count() > 0:
                 continue
 
             role = cls(

@@ -1,7 +1,6 @@
 import logging
 import threading
 from contextlib import contextmanager
-from typing import List
 
 from redis import Redis
 from redis.lock import Lock
@@ -10,9 +9,7 @@ from config import config
 
 logger = logging.getLogger(__name__)
 
-lock_server_client = Redis(
-    host=config.broker.host, port=config.broker.port, db=config.broker.db
-)
+lock_server_client = Redis(host=config.broker.host, port=config.broker.port, db=config.broker.db)
 
 ACTIVE_LOCKS_KEY = "active_locks"
 
@@ -52,9 +49,7 @@ def one_at_a_time_lock(
     """
     lock = Lock(lock_server_client, name=lock_name, timeout=timeout)
 
-    acquired = lock.acquire(
-        blocking=blocking, blocking_timeout=blocking_timeout
-    )
+    acquired = lock.acquire(blocking=blocking, blocking_timeout=blocking_timeout)
     if acquired:
         lock_server_client.sadd(ACTIVE_LOCKS_KEY, lock_name)
         _publish_lock_acquired(lock_name)
@@ -93,7 +88,7 @@ def _renewal_watchdog(
             return
 
 
-def get_active_locks() -> List[str]:
+def get_active_locks() -> list[str]:
     """Return the list of currently held locks, cleaning up stale entries."""
     members = lock_server_client.smembers(ACTIVE_LOCKS_KEY)
     active = []
@@ -115,6 +110,7 @@ def get_active_locks() -> List[str]:
 def _publish_lock_acquired(lock_name: str) -> None:
     try:
         from adapters.events import LockAcquiredEvent, publish_event
+
         publish_event(LockAcquiredEvent(lock_name=lock_name))
     except Exception:
         logger.warning("Failed to publish lock acquired event", exc_info=True)
@@ -123,6 +119,7 @@ def _publish_lock_acquired(lock_name: str) -> None:
 def _publish_lock_released(lock_name: str) -> None:
     try:
         from adapters.events import LockReleasedEvent, publish_event
+
         publish_event(LockReleasedEvent(lock_name=lock_name))
     except Exception:
         logger.warning("Failed to publish lock released event", exc_info=True)

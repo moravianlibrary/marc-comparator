@@ -24,25 +24,23 @@ interface Props {
   onSubmit: (data: ValidationSettings) => void;
 }
 
-export function ValidationSettingsForm({
-  data,
-  onDirtyChange,
-  onFormRef,
-  onSubmit,
-}: Props) {
+export function ValidationSettingsForm({ data, onDirtyChange, onFormRef, onSubmit }: Props) {
   const { t } = useTranslation("settings");
 
-  const defaultValues = useMemo<ValidationSettingsFormValues>(() => ({
-    "kramerius-links": data["kramerius-links"] ?? {
-      url_to_pid_pattern: "",
-      url_to_pid_wrong_path_pattern: "",
-      url_to_pid_fallback_pattern: "",
-      link_text_pattern: "",
-      kramerius_host: "",
-      kramerius_client_url: "",
-      solr_cloud: true,
-    },
-  }), [data]);
+  const defaultValues = useMemo<ValidationSettingsFormValues>(
+    () => ({
+      "kramerius-links": data["kramerius-links"] ?? {
+        url_to_pid_pattern: "",
+        url_to_pid_wrong_path_pattern: "",
+        url_to_pid_fallback_pattern: "",
+        link_text_pattern: "",
+        kramerius_host: "",
+        kramerius_client_url: "",
+        solr_cloud: true,
+      },
+    }),
+    [data],
+  );
 
   const form = useSettingsForm({
     schema: validationSettingsSchema,
@@ -58,7 +56,9 @@ export function ValidationSettingsForm({
         <Card>
           <CardHeader className="flex flex-row items-center gap-2">
             <CardTitle className="text-base">{t("validators.kramerius-links.title")}</CardTitle>
-            <HelpDialog titleKey="validators.kramerius-links.title"><ValidatorsHelp /></HelpDialog>
+            <HelpDialog titleKey="validators.kramerius-links.title">
+              <ValidatorsHelp />
+            </HelpDialog>
           </CardHeader>
           <CardContent className="max-w-xl space-y-4">
             <FormField
@@ -67,7 +67,9 @@ export function ValidationSettingsForm({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>{t("validators.kramerius-links.url-to-pid-pattern")}</FormLabel>
-                  <FormControl><Input {...field} /></FormControl>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -77,8 +79,12 @@ export function ValidationSettingsForm({
               name="kramerius-links.url_to_pid_wrong_path_pattern"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("validators.kramerius-links.url-to-pid-wrong-path-pattern")}</FormLabel>
-                  <FormControl><Input {...field} /></FormControl>
+                  <FormLabel>
+                    {t("validators.kramerius-links.url-to-pid-wrong-path-pattern")}
+                  </FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -88,8 +94,12 @@ export function ValidationSettingsForm({
               name="kramerius-links.url_to_pid_fallback_pattern"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("validators.kramerius-links.url-to-pid-fallback-pattern")}</FormLabel>
-                  <FormControl><Input {...field} /></FormControl>
+                  <FormLabel>
+                    {t("validators.kramerius-links.url-to-pid-fallback-pattern")}
+                  </FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -100,7 +110,9 @@ export function ValidationSettingsForm({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>{t("validators.kramerius-links.link-text-pattern")}</FormLabel>
-                  <FormControl><Input {...field} /></FormControl>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -111,7 +123,9 @@ export function ValidationSettingsForm({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>{t("validators.kramerius-links.kramerius-host")}</FormLabel>
-                  <FormControl><Input {...field} /></FormControl>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -122,7 +136,12 @@ export function ValidationSettingsForm({
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>{t("validators.kramerius-links.kramerius-client-url")}</FormLabel>
-                  <FormControl><Input {...field} placeholder="https://www.digitalniknihovna.cz/mzk/uuid/{pid}" /></FormControl>
+                  <FormControl>
+                    <Input
+                      {...field}
+                      placeholder="https://www.digitalniknihovna.cz/mzk/uuid/{pid}"
+                    />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}

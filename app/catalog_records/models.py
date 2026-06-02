@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Dict, List, Literal
+from typing import Literal
 
 from aleph_nought import AlephOAIConfig
 from marc_comparator.authority_linkers import AuthorityLinker
@@ -11,7 +11,7 @@ from entities.settings import SettingsSchema
 
 
 class CatalogSettings(SettingsSchema):
-    clients: List[AlephOAIConfig] = [
+    clients: list[AlephOAIConfig] = [
         AlephOAIConfig(
             base="MZK01",
             host="https://aleph.mzk.cz",
@@ -21,7 +21,7 @@ class CatalogSettings(SettingsSchema):
             oai_identifier_template="oai:aleph.mzk.cz:{base}-{doc_number}",
         )
     ]
-    kramerius_client_urls: Dict[str, str] = {}
+    kramerius_client_urls: dict[str, str] = {}
 
 
 class FetchRecordData(BaseModel):
@@ -31,11 +31,11 @@ class FetchRecordData(BaseModel):
 
 class FetchBaseRecordsData(BaseModel):
     base: str
-    system_numbers: List[str]
+    system_numbers: list[str]
 
 
 class FetchBatchOfRecordsData(BaseModel):
-    per_base: List[FetchBaseRecordsData]
+    per_base: list[FetchBaseRecordsData]
 
 
 class SyncRecordsData(BaseModel):
@@ -97,22 +97,20 @@ class RecordReviewsResponse(BaseModel):
 
 
 class ProcessRecordsSettings(SettingsSchema):
-    target_bases: List[str] = Field(
-        default=["MZK01"], min_length=1
-    )
-    authority_linkers: List[AuthorityLinker] = Field(
+    target_bases: list[str] = Field(default=["MZK01"], min_length=1)
+    authority_linkers: list[AuthorityLinker] = Field(
         default=[AuthorityLinker.KnihovnyCz], min_length=1
     )
-    validators: List[Validator] = Field(
-        default=[Validator.KrameriusLinks], min_length=1
-    )
+    validators: list[Validator] = Field(default=[Validator.KrameriusLinks], min_length=1)
 
 
 class SearchRecordsRequest(BaseModel):
     filters: RecordFilter = RecordFilter()
     page: int = Field(default=1, ge=1)
     page_size: int = Field(default=25, ge=1, le=100)
-    sort_by: Literal["id", "base", "system_number", "latest_sync", "updated_at", "comparison_score"] = "id"
+    sort_by: Literal[
+        "id", "base", "system_number", "latest_sync", "updated_at", "comparison_score"
+    ] = "id"
     sort_order: Literal["asc", "desc"] = "asc"
 
 
@@ -198,6 +196,7 @@ class FacetsPreviewRequest(BaseModel):
 
 class FacetsPreviewEntry(BaseModel):
     """Facet distributions for all OTHER fields when target_field == target_value."""
+
     target_value: str
     facets: list[FacetResult]
     histograms: list[HistogramResult]

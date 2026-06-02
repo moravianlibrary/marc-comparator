@@ -48,8 +48,7 @@ export function RolesSection() {
   const roles = rolesData?.items ?? [];
 
   const createMutation = useMutation({
-    mutationFn: (data: RoleFormValues) =>
-      apiClient.post("/access-control/roles", data),
+    mutationFn: (data: RoleFormValues) => apiClient.post("/access-control/roles", data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["access-control", "roles"] });
       setDialogOpen(false);
@@ -67,8 +66,7 @@ export function RolesSection() {
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: number) =>
-      apiClient.delete(`/access-control/roles/${id}`),
+    mutationFn: (id: number) => apiClient.delete(`/access-control/roles/${id}`),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["access-control", "roles"] });
       setDeletingRole(null);

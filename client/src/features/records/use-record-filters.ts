@@ -25,9 +25,7 @@ export function useRecordFilters() {
     {
       tab: parseAsStringLiteral(tabValues).withDefault("plots"),
       page: parseAsInteger.withDefault(1),
-      pageSize: parseAsInteger.withDefault(
-        Number(localStorage.getItem("records:pageSize")) || 25,
-      ),
+      pageSize: parseAsInteger.withDefault(Number(localStorage.getItem("records:pageSize")) || 25),
       sortBy: parseAsStringLiteral(sortByValues).withDefault("latest_sync"),
       sortOrder: parseAsStringLiteral(sortOrderValues).withDefault("desc"),
       search: parseAsString.withDefault(""),
@@ -121,31 +119,23 @@ export function useRecordFilters() {
     if (filters.search) f.text_query = filters.search;
     if (filters.bases.length) f.bases = filters.bases;
     if (filters.typeOfRecord.length) f.type_of_record = filters.typeOfRecord;
-    if (filters.bibliographicLevel.length)
-      f.bibliographic_level = filters.bibliographicLevel;
+    if (filters.bibliographicLevel.length) f.bibliographic_level = filters.bibliographicLevel;
     if (filters.deleted === "true") f.deleted = true;
     if (filters.deleted === "false") f.deleted = false;
     if (filters.processed === "true") f.processed = true;
     if (filters.processed === "false") f.processed = false;
-    if (filters.reviewStatuses.length)
-      f.review_statuses = filters.reviewStatuses;
+    if (filters.reviewStatuses.length) f.review_statuses = filters.reviewStatuses;
     if (filters.authorityLinkLinkers.length)
       f.authority_link_linkers = filters.authorityLinkLinkers;
-    if (filters.authorityLinkBases.length)
-      f.authority_link_bases = filters.authorityLinkBases;
-    if (filters.comparisonBases.length)
-      f.comparison_bases = filters.comparisonBases;
-    if (filters.matchQualities.length)
-      f.match_qualities = filters.matchQualities;
-    if (filters.fieldExplanations.length)
-      f.field_explanations = filters.fieldExplanations;
+    if (filters.authorityLinkBases.length) f.authority_link_bases = filters.authorityLinkBases;
+    if (filters.comparisonBases.length) f.comparison_bases = filters.comparisonBases;
+    if (filters.matchQualities.length) f.match_qualities = filters.matchQualities;
+    if (filters.fieldExplanations.length) f.field_explanations = filters.fieldExplanations;
     if (filters.validators.length) f.validators = filters.validators;
-    if (filters.validationStatuses.length)
-      f.validation_statuses = filters.validationStatuses;
+    if (filters.validationStatuses.length) f.validation_statuses = filters.validationStatuses;
     if (filters.validationTargetTags.length)
       f.validation_target_tags = filters.validationTargetTags;
-    if (filters.validationReasons.length)
-      f.validation_reasons = filters.validationReasons;
+    if (filters.validationReasons.length) f.validation_reasons = filters.validationReasons;
     if (filters.scoreMin > 0) f.score_min = filters.scoreMin;
     if (filters.scoreMax < 1) f.score_max = filters.scoreMax;
     if (filters.recordId) f.record_ids = [filters.recordId];

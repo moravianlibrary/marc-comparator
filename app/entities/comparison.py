@@ -1,5 +1,5 @@
 from functools import cached_property
-from typing import TYPE_CHECKING, List, Optional
+from typing import TYPE_CHECKING, Optional
 
 from marc_comparator.comparators import (
     FieldComparisonResult,
@@ -21,19 +21,13 @@ if TYPE_CHECKING:
 class Comparison(Base, BaseOperationsMixin):
     __tablename__ = "comparisons"
 
-    main_record_id = Column(
-        String, ForeignKey("catalog_records.id"), primary_key=True
-    )
+    main_record_id = Column(String, ForeignKey("catalog_records.id"), primary_key=True)
     comparator = Column(String, nullable=False, primary_key=True)
     base = Column(String, nullable=False, primary_key=True)
-    other_record_id = Column(
-        String, ForeignKey("catalog_records.id"), nullable=False
-    )
+    other_record_id = Column(String, ForeignKey("catalog_records.id"), nullable=False)
 
     _result = Column("result", JSONB, nullable=False)
-    updated_at = Column(
-        TIMESTAMP, nullable=False, default=func.now(), onupdate=func.now()
-    )
+    updated_at = Column(TIMESTAMP, nullable=False, default=func.now(), onupdate=func.now())
 
     main_record: Mapped["CatalogRecord"] = relationship(
         "CatalogRecord",
@@ -103,5 +97,5 @@ class Comparison(Base, BaseOperationsMixin):
         return self.record_result.summary
 
     @property
-    def field_results(self) -> List[FieldComparisonResult] | None:
+    def field_results(self) -> list[FieldComparisonResult] | None:
         return self.record_result.field_results

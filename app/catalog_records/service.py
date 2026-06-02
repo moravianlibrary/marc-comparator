@@ -25,12 +25,8 @@ from .models import (
 )
 
 
-def get_marc_record(
-    base: str, system_number: str, db_session: DatabaseSession
-) -> MarcRecord:
-    catalog_record = CatalogRecord.find_by_base_and_system_number(
-        db_session, base, system_number
-    )
+def get_marc_record(base: str, system_number: str, db_session: DatabaseSession) -> MarcRecord:
+    catalog_record = CatalogRecord.find_by_base_and_system_number(db_session, base, system_number)
 
     if not catalog_record or catalog_record.deleted:
         raise CatalogRecordNotFoundException(base, system_number)
@@ -41,15 +37,9 @@ def get_marc_record(
         raise CatalogRecordNotFoundException(base, system_number)
 
 
-def get_comparisons(
-    base: str, system_number: str, db_session: DatabaseSession
-) -> list[dict]:
+def get_comparisons(base: str, system_number: str, db_session: DatabaseSession) -> list[dict]:
     record_id = CatalogRecord.generate_id(base, system_number)
-    comparisons = (
-        db_session.query(Comparison)
-        .filter_by(main_record_id=record_id)
-        .all()
-    )
+    comparisons = db_session.query(Comparison).filter_by(main_record_id=record_id).all()
     return [
         {
             "comparator": c.comparator,
@@ -61,15 +51,9 @@ def get_comparisons(
     ]
 
 
-def get_validations(
-    base: str, system_number: str, db_session: DatabaseSession
-) -> list[dict]:
+def get_validations(base: str, system_number: str, db_session: DatabaseSession) -> list[dict]:
     record_id = CatalogRecord.generate_id(base, system_number)
-    validations = (
-        db_session.query(Validation)
-        .filter_by(catalog_record_id=record_id)
-        .all()
-    )
+    validations = db_session.query(Validation).filter_by(catalog_record_id=record_id).all()
     return [
         {
             "id": v.id,
@@ -102,10 +86,7 @@ async def fetch_batch_of_records(
 
     return await enqueue_task(
         Task(
-            name=(
-                f"Fetching batch of {count_records} catalog records "
-                f"from {count_bases} bases"
-            ),
+            name=(f"Fetching batch of {count_records} catalog records from {count_bases} bases"),
             type=TaskType.FetchBatchOfRecords,
             created_by=created_by,
             data=data.model_dump(),
@@ -120,9 +101,7 @@ async def sync_records(
     # Try to acquire lock to prevent concurrent sync for the same base
     lock_key = f"catalog_sync_{data.base}"
     lock_blocking_timeout = 1
-    with one_at_a_time_lock(
-        lock_key, blocking_timeout=lock_blocking_timeout
-    ) as lock:
+    with one_at_a_time_lock(lock_key, blocking_timeout=lock_blocking_timeout) as lock:
         if not lock:
             raise SyncTaskAlreadyRunningException(data.base)
 
@@ -145,10 +124,7 @@ def _review_to_response(review: RecordReview) -> ReviewResponse:
         aspect_name=review.aspect_name,
         note=review.note,
         reviewed_by=str(review.reviewed_by),
-        reviewer_name=(
-            f"{reviewer.first_name} {reviewer.last_name}"
-            if reviewer else None
-        ),
+        reviewer_name=(f"{reviewer.first_name} {reviewer.last_name}" if reviewer else None),
         reviewed_at=review.reviewed_at,
         status=review.status,
     )
@@ -195,6 +171,7 @@ def create_review(
 
     # Update analytics for this record
     from catalog_records.analytics import upsert_records
+
     upsert_records(db_session, [record_id])
 
     return _review_to_response(review)
@@ -221,6 +198,7 @@ def delete_review(
 
     # Update analytics for this record
     from catalog_records.analytics import upsert_records
+
     upsert_records(db_session, [record_id])
 
     return {"ok": True}

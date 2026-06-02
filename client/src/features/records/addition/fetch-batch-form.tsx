@@ -9,13 +9,7 @@ import apiClient from "@/lib/api-client";
 import { useConfiguredBases } from "@/hooks/use-system-info";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
   Form,
   FormControl,
@@ -73,12 +67,8 @@ export function FetchBatchForm() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">
-          {t("addition.fetch-batch.title")}
-        </CardTitle>
-        <CardDescription>
-          {t("addition.fetch-batch.description")}
-        </CardDescription>
+        <CardTitle className="text-base">{t("addition.fetch-batch.title")}</CardTitle>
+        <CardDescription>{t("addition.fetch-batch.description")}</CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
@@ -115,15 +105,9 @@ export function FetchBatchForm() {
               name="system_numbers_text"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>
-                    {t("addition.fetch-batch.system-numbers")}
-                  </FormLabel>
+                  <FormLabel>{t("addition.fetch-batch.system-numbers")}</FormLabel>
                   <FormControl>
-                    <Textarea
-                      {...field}
-                      rows={8}
-                      className="font-mono text-sm"
-                    />
+                    <Textarea {...field} rows={8} className="font-mono text-sm" />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

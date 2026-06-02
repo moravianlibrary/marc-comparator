@@ -23,6 +23,4 @@ async def link_records_to_authorities(
     current_user: CurrentUser,
     db_session: DatabaseSessionDep,
 ):
-    return await service.authority_linking(
-        data, current_user.user_id, db_session
-    )
+    return await service.authority_linking(data, current_user.user_id, db_session)

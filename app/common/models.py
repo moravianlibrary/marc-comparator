@@ -1,4 +1,4 @@
-from typing import Generic, List, TypeVar
+from typing import TypeVar
 
 from pydantic import BaseModel
 
@@ -11,6 +11,6 @@ class PageRequestParams(BaseModel):
 Item = TypeVar("Item", bound=BaseModel)
 
 
-class Page(BaseModel, Generic[Item]):
-    items: List[Item]
+class Page[Item: BaseModel](BaseModel):
+    items: list[Item]
     num_found: int

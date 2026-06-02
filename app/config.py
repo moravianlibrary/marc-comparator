@@ -1,6 +1,5 @@
 # pragma: exclude file
 from datetime import datetime, tzinfo
-from typing import List
 
 import pytz
 from pydantic import EmailStr, Field
@@ -10,10 +9,10 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class CorsConfig(BaseSettings):
     model_config = SettingsConfigDict(env_prefix="CORS_")
 
-    allow_origins: List[str] = Field(default=["http://localhost:5173", "http://localhost:8080"])
+    allow_origins: list[str] = Field(default=["http://localhost:5173", "http://localhost:8080"])
     allow_credentials: bool = Field(default=True)
-    allow_methods: List[str] = Field(default=["*"])
-    allow_headers: List[str] = Field(default=["*"])
+    allow_methods: list[str] = Field(default=["*"])
+    allow_headers: list[str] = Field(default=["*"])
 
 
 class PostgresConfig(BaseSettings):
@@ -33,8 +32,7 @@ class PostgresConfig(BaseSettings):
     @property
     def url(self) -> str:
         return (
-            f"postgresql://{self.user}:{self.password}"
-            f"@{self.host}:{self.port}/{self.database_name}"
+            f"postgresql://{self.user}:{self.password}@{self.host}:{self.port}/{self.database_name}"
         )
 
 
@@ -98,9 +96,7 @@ class OIDCConfig(BaseSettings):
 
 
 class AppConfig(BaseSettings):
-    model_config = SettingsConfigDict(
-        env_file=".env", env_file_encoding="utf-8", extra="ignore"
-    )
+    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     app_host: str = Field(default="127.0.0.1")
     app_port: int = Field(default=8000)

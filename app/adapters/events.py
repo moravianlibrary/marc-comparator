@@ -1,5 +1,5 @@
 import logging
-from typing import Annotated, Literal, Union
+from typing import Annotated, Literal
 
 import redis.asyncio as aioredis
 from pydantic import BaseModel, Field, TypeAdapter
@@ -39,7 +39,7 @@ class LockReleasedEvent(BaseModel):
 
 
 Event = Annotated[
-    Union[TaskStatusEvent, TaskProgressEvent, LockAcquiredEvent, LockReleasedEvent],
+    TaskStatusEvent | TaskProgressEvent | LockAcquiredEvent | LockReleasedEvent,
     Field(discriminator="type"),
 ]
 

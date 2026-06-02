@@ -1,4 +1,4 @@
-from sqlalchemy import and_, bindparam, func, or_, String, text
+from sqlalchemy import String, and_, bindparam, func, or_, text
 
 from entities.authority_link import AuthorityLink
 from entities.catalog_record import CatalogRecord
@@ -35,9 +35,7 @@ def _compile_one(query, c: FilterCondition):
 
         case FilterField.TextQuery:
             return query.filter(
-                CatalogRecord.search_vector.op("@@")(
-                    func.plainto_tsquery("simple", c.value)
-                )
+                CatalogRecord.search_vector.op("@@")(func.plainto_tsquery("simple", c.value))
             )
 
         case FilterField.Bases:
@@ -79,7 +77,11 @@ def _compile_one(query, c: FilterCondition):
                     clauses.append(and_(~review_not_needed, has_current))
             return query.filter(or_(*clauses))
 
-        case FilterField.AuthorityLinkLinkers | FilterField.AuthorityLinkBases | FilterField.Validators:
+        case (
+            FilterField.AuthorityLinkLinkers
+            | FilterField.AuthorityLinkBases
+            | FilterField.Validators
+        ):
             relationship, column = RELATIONSHIP_FILTERS[c.field]
             for val in c.value:
                 query = query.filter(relationship.any(column == val))
@@ -87,9 +89,7 @@ def _compile_one(query, c: FilterCondition):
 
         case FilterField.ComparisonBases:
             for val in c.value:
-                query = query.filter(
-                    CatalogRecord.comparisons.any(Comparison.base == val)
-                )
+                query = query.filter(CatalogRecord.comparisons.any(Comparison.base == val))
             return query
 
         case FilterField.MatchQualities:
@@ -113,17 +113,13 @@ def _compile_one(query, c: FilterCondition):
                 conditions = [Validation._result["status"].as_string() == status]
                 if validator:
                     conditions.append(Validation.validator == validator)
-                query = query.filter(
-                    CatalogRecord.validations.any(and_(*conditions))
-                )
+                query = query.filter(CatalogRecord.validations.any(and_(*conditions)))
             return query
 
         case FilterField.ValidationTargetTags:
             tag_col = Validation._result["target"]["tag"].as_string()
             for val in c.value:
-                query = query.filter(
-                    CatalogRecord.validations.any(tag_col == val)
-                )
+                query = query.filter(CatalogRecord.validations.any(tag_col == val))
             return query
 
         case FilterField.ValidationReasons:
@@ -132,9 +128,7 @@ def _compile_one(query, c: FilterCondition):
                 conditions = [Validation._result["reason"].as_string() == reason]
                 if validator:
                     conditions.append(Validation.validator == validator)
-                query = query.filter(
-                    CatalogRecord.validations.any(and_(*conditions))
-                )
+                query = query.filter(CatalogRecord.validations.any(and_(*conditions)))
             return query
 
         case FilterField.ScoreMin:
@@ -156,9 +150,7 @@ def _compile_one(query, c: FilterCondition):
                         "  WHERE c_fe.main_record_id = catalog_records.id"
                         f"  AND elem.val->>'explanation' = :{param_name}"
                         ")"
-                    ).bindparams(
-                        bindparam(param_name, value=val, type_=String)
-                    )
+                    ).bindparams(bindparam(param_name, value=val, type_=String))
                 )
             return query
 

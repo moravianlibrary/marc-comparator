@@ -41,7 +41,9 @@ export function MaintenanceSettingsForm({ data, onDirtyChange, onFormRef, onSubm
         <Card>
           <CardHeader className="flex flex-row items-center gap-2">
             <CardTitle className="text-base">{t("types.maintenance")}</CardTitle>
-            <HelpDialog titleKey="types.maintenance"><MaintenanceHelp /></HelpDialog>
+            <HelpDialog titleKey="types.maintenance">
+              <MaintenanceHelp />
+            </HelpDialog>
           </CardHeader>
           <CardContent className="max-w-md space-y-6">
             <div className="space-y-4">
@@ -68,7 +70,11 @@ export function MaintenanceSettingsForm({ data, onDirtyChange, onFormRef, onSubm
                     <FormLabel>{t("maintenance.interval-hours")}</FormLabel>
                     <FormDescription>{t("maintenance.interval-hours-description")}</FormDescription>
                     <FormControl>
-                      <Input type="number" {...field} onChange={(e) => field.onChange(Number(e.target.value))} />
+                      <Input
+                        type="number"
+                        {...field}
+                        onChange={(e) => field.onChange(Number(e.target.value))}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -83,7 +89,11 @@ export function MaintenanceSettingsForm({ data, onDirtyChange, onFormRef, onSubm
                     <FormLabel>{t("maintenance.max-age-days")}</FormLabel>
                     <FormDescription>{t("maintenance.max-age-days-description")}</FormDescription>
                     <FormControl>
-                      <Input type="number" {...field} onChange={(e) => field.onChange(Number(e.target.value))} />
+                      <Input
+                        type="number"
+                        {...field}
+                        onChange={(e) => field.onChange(Number(e.target.value))}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -115,7 +125,11 @@ export function MaintenanceSettingsForm({ data, onDirtyChange, onFormRef, onSubm
                     <FormLabel>{t("maintenance.interval-hours")}</FormLabel>
                     <FormDescription>{t("maintenance.interval-hours-description")}</FormDescription>
                     <FormControl>
-                      <Input type="number" {...field} onChange={(e) => field.onChange(Number(e.target.value))} />
+                      <Input
+                        type="number"
+                        {...field}
+                        onChange={(e) => field.onChange(Number(e.target.value))}
+                      />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

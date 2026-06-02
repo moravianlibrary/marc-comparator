@@ -46,10 +46,7 @@ export function SignupPage() {
       toast.success(t("signup.success"));
       navigate("/login", { replace: true });
     } catch (error) {
-      const detail =
-        error instanceof AxiosError
-          ? error.response?.data?.detail
-          : undefined;
+      const detail = error instanceof AxiosError ? error.response?.data?.detail : undefined;
       form.setError("root", {
         message: detail ?? t("common:error"),
       });
@@ -138,11 +135,7 @@ export function SignupPage() {
                   </FormItem>
                 )}
               />
-              <Button
-                type="submit"
-                className="w-full"
-                disabled={signUp.isPending}
-              >
+              <Button type="submit" className="w-full" disabled={signUp.isPending}>
                 {t("signup.form.submit")}
               </Button>
             </form>

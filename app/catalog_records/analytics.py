@@ -207,7 +207,8 @@ def upsert_records(db: Session, record_ids: list[str]) -> None:
     Use after review create/delete or single-record changes."""
     if not record_ids:
         return
-    db.execute(text(f"""
+    db.execute(
+        text(f"""
         INSERT INTO {TABLE} {_ANALYTICS_SELECT}
             AND cr.id = ANY(:ids)
             {_ANALYTICS_GROUP_BY}
@@ -234,17 +235,21 @@ def upsert_records(db: Session, record_ids: list[str]) -> None:
             latest_transaction = EXCLUDED.latest_transaction,
             processed_at = EXCLUDED.processed_at,
             updated_at = EXCLUDED.updated_at
-    """), {"ids": record_ids})
+    """),
+        {"ids": record_ids},
+    )
     db.commit()
 
 
 def rebuild_all(db: Session) -> None:
     """Full rebuild of the analytics table and facet cube."""
     db.execute(text(f"TRUNCATE {TABLE}"))
-    db.execute(text(f"""
+    db.execute(
+        text(f"""
         INSERT INTO {TABLE} {_ANALYTICS_SELECT}
             {_ANALYTICS_GROUP_BY}
-    """))
+    """)
+    )
     db.commit()
     rebuild_cube(db)
 
@@ -339,7 +344,7 @@ def _build_cube_hist_sql_for_target(target: str) -> str:
     t_expr, t_from, t_group = _target_sql(target)
     t_lit = f"'{target}'"
 
-    hist_from = f", unnest(overall_scores) AS _h(val)"
+    hist_from = ", unnest(overall_scores) AS _h(val)"
     t_where = f" WHERE {target} IS NOT NULL" if target in _SCALAR_FACETS else ""
 
     return (

@@ -47,7 +47,9 @@ export function CatalogSettingsForm({ data, onDirtyChange, onFormRef, onSubmit }
         <Card>
           <CardHeader className="flex flex-row items-center gap-2">
             <CardTitle className="text-base">{t("catalog.clients")}</CardTitle>
-            <HelpDialog titleKey="types.catalog"><CatalogHelp /></HelpDialog>
+            <HelpDialog titleKey="types.catalog">
+              <CatalogHelp />
+            </HelpDialog>
           </CardHeader>
           <CardContent className="space-y-4">
             {fields.map((field, index) => (
@@ -73,7 +75,9 @@ export function CatalogSettingsForm({ data, onDirtyChange, onFormRef, onSubmit }
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>{t("catalog.base")}</FormLabel>
-                        <FormControl><Input {...field} /></FormControl>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -84,7 +88,9 @@ export function CatalogSettingsForm({ data, onDirtyChange, onFormRef, onSubmit }
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>{t("catalog.host")}</FormLabel>
-                        <FormControl><Input {...field} /></FormControl>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -95,7 +101,9 @@ export function CatalogSettingsForm({ data, onDirtyChange, onFormRef, onSubmit }
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>{t("catalog.endpoint")}</FormLabel>
-                        <FormControl><Input {...field} /></FormControl>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -107,7 +115,11 @@ export function CatalogSettingsForm({ data, onDirtyChange, onFormRef, onSubmit }
                       <FormItem>
                         <FormLabel>{t("catalog.timeout")}</FormLabel>
                         <FormControl>
-                          <Input type="number" {...field} onChange={(e) => field.onChange(Number(e.target.value))} />
+                          <Input
+                            type="number"
+                            {...field}
+                            onChange={(e) => field.onChange(Number(e.target.value))}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -120,7 +132,11 @@ export function CatalogSettingsForm({ data, onDirtyChange, onFormRef, onSubmit }
                       <FormItem>
                         <FormLabel>{t("catalog.total-retry")}</FormLabel>
                         <FormControl>
-                          <Input type="number" {...field} onChange={(e) => field.onChange(Number(e.target.value))} />
+                          <Input
+                            type="number"
+                            {...field}
+                            onChange={(e) => field.onChange(Number(e.target.value))}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -133,7 +149,11 @@ export function CatalogSettingsForm({ data, onDirtyChange, onFormRef, onSubmit }
                       <FormItem>
                         <FormLabel>{t("catalog.retry-backoff-factor")}</FormLabel>
                         <FormControl>
-                          <Input type="number" {...field} onChange={(e) => field.onChange(Number(e.target.value))} />
+                          <Input
+                            type="number"
+                            {...field}
+                            onChange={(e) => field.onChange(Number(e.target.value))}
+                          />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
@@ -145,7 +165,9 @@ export function CatalogSettingsForm({ data, onDirtyChange, onFormRef, onSubmit }
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>{t("catalog.system-number-pattern")}</FormLabel>
-                        <FormControl><Input {...field} /></FormControl>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -156,7 +178,9 @@ export function CatalogSettingsForm({ data, onDirtyChange, onFormRef, onSubmit }
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>{t("catalog.oai-identifier-template")}</FormLabel>
-                        <FormControl><Input {...field} /></FormControl>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}

@@ -1,5 +1,5 @@
 from enum import StrEnum
-from typing import Literal, Type
+from typing import Literal
 
 from pydantic import BaseModel, ValidationError
 from sqlalchemy import TIMESTAMP, Column, Enum, func
@@ -60,7 +60,7 @@ class Settings(Base, BaseOperationsMixin):
         cls,
         db_session: DatabaseSession,
         scope: SettingsScope,
-        model: Type[SettingsSchema],
+        model: type[SettingsSchema],
     ) -> SettingsSchema | None:
         """
         Retrieve and validate the settings for the given scope.
@@ -97,7 +97,7 @@ class Settings(Base, BaseOperationsMixin):
         db_session: DatabaseSession,
         scope: SettingsScope,
         data: BaseModel,
-        model: Type[SettingsSchema],
+        model: type[SettingsSchema],
     ) -> SettingsSchema:
         """
         Insert or update settings for the given scope.

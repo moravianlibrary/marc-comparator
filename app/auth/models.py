@@ -1,4 +1,3 @@
-from typing import List
 from uuid import UUID
 
 from pydantic import BaseModel, EmailStr, Field
@@ -28,8 +27,8 @@ class UserSchema(BaseModel):
     email: str
     first_name: str
     last_name: str
-    roles: List[RoleSummary]
+    roles: list[RoleSummary]
 
 
 class MeSchema(UserSchema):
-    permissions: List[Permission]
+    permissions: list[Permission]

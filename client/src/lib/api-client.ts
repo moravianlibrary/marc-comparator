@@ -32,7 +32,7 @@ function dispatchApiError(status: number, url: string, message: string) {
         message,
         timestamp: new Date().toISOString(),
       },
-    })
+    }),
   );
 }
 
@@ -72,8 +72,7 @@ apiClient.interceptors.response.use(
         processQueue(refreshError);
         const currentPath = window.location.pathname;
         if (currentPath !== "/login" && currentPath !== "/signup") {
-          window.location.href =
-            "/login?redirect=" + encodeURIComponent(currentPath);
+          window.location.href = "/login?redirect=" + encodeURIComponent(currentPath);
         }
         return Promise.reject(refreshError);
       } finally {
@@ -84,8 +83,7 @@ apiClient.interceptors.response.use(
     if (error.response?.status === 401) {
       const currentPath = window.location.pathname;
       if (currentPath !== "/login" && currentPath !== "/signup") {
-        window.location.href =
-          "/login?redirect=" + encodeURIComponent(currentPath);
+        window.location.href = "/login?redirect=" + encodeURIComponent(currentPath);
       }
       return Promise.reject(error);
     }
@@ -99,8 +97,7 @@ apiClient.interceptors.response.use(
         const healthy = await isBackendHealthy();
         if (!healthy) {
           const redirect = window.location.pathname + window.location.search;
-          window.location.href =
-            "/service-unavailable?redirect=" + encodeURIComponent(redirect);
+          window.location.href = "/service-unavailable?redirect=" + encodeURIComponent(redirect);
           return Promise.reject(error);
         }
       }
@@ -109,15 +106,13 @@ apiClient.interceptors.response.use(
       // Skip 409 Conflict — these are business logic errors handled by the caller
       if (status !== 409) {
         const message =
-          error.response?.data?.detail ||
-          error.response?.statusText ||
-          "Unknown error";
+          error.response?.data?.detail || error.response?.statusText || "Unknown error";
         dispatchApiError(status, url, message);
       }
     }
 
     return Promise.reject(error);
-  }
+  },
 );
 
 export default apiClient;

@@ -13,9 +13,7 @@ async def authority_linking(
     db_session: DatabaseSession,
 ) -> TaskSchema:
     for linker in data.linkers:
-        get_settings_part(
-            SettingsScope.AuthorityLinking, linker.value, db_session
-        )
+        get_settings_part(SettingsScope.AuthorityLinking, linker.value, db_session)
 
     return await enqueue_task(
         Task(

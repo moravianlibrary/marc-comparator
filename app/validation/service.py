@@ -14,9 +14,7 @@ async def validate(
 ) -> TaskSchema:
     # Ensure settings exist
     for validator in data.validators:
-        get_settings_part(
-            SettingsScope.Validation, validator.value, db_session
-        )
+        get_settings_part(SettingsScope.Validation, validator.value, db_session)
 
     return await enqueue_task(
         Task(

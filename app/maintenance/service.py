@@ -3,9 +3,7 @@ from adapters.tasks import enqueue_task
 from entities.task import Task, TaskSchema, TaskType
 
 
-async def refresh_analytics(
-    created_by: str, db_session: DatabaseSession
-) -> TaskSchema:
+async def refresh_analytics(created_by: str, db_session: DatabaseSession) -> TaskSchema:
     return await enqueue_task(
         Task(
             name="Refreshing analytics",
@@ -16,9 +14,7 @@ async def refresh_analytics(
     )
 
 
-async def cleanup_stale_locks(
-    created_by: str, db_session: DatabaseSession
-) -> TaskSchema:
+async def cleanup_stale_locks(created_by: str, db_session: DatabaseSession) -> TaskSchema:
     return await enqueue_task(
         Task(
             name="Cleaning up stale locks",
@@ -29,9 +25,7 @@ async def cleanup_stale_locks(
     )
 
 
-async def compact_sectors(
-    created_by: str, db_session: DatabaseSession
-) -> TaskSchema:
+async def compact_sectors(created_by: str, db_session: DatabaseSession) -> TaskSchema:
     return await enqueue_task(
         Task(
             name="Compacting MARC sectors",
@@ -42,9 +36,7 @@ async def compact_sectors(
     )
 
 
-async def rebuild_search_vectors(
-    created_by: str, db_session: DatabaseSession
-) -> TaskSchema:
+async def rebuild_search_vectors(created_by: str, db_session: DatabaseSession) -> TaskSchema:
     return await enqueue_task(
         Task(
             name="Rebuilding search vectors",

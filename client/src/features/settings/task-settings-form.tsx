@@ -40,7 +40,9 @@ export function TaskSettingsForm({ data, onDirtyChange, onFormRef, onSubmit }: P
         <Card>
           <CardHeader className="flex flex-row items-center gap-2">
             <CardTitle className="text-base">{t("types.tasks")}</CardTitle>
-            <HelpDialog titleKey="types.tasks"><TasksHelp /></HelpDialog>
+            <HelpDialog titleKey="types.tasks">
+              <TasksHelp />
+            </HelpDialog>
           </CardHeader>
           <CardContent className="max-w-md space-y-4">
             <FormField
@@ -49,9 +51,15 @@ export function TaskSettingsForm({ data, onDirtyChange, onFormRef, onSubmit }: P
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>{t("tasks-settings.progress-update-interval")}</FormLabel>
-                  <FormDescription>{t("tasks-settings.progress-update-interval-description")}</FormDescription>
+                  <FormDescription>
+                    {t("tasks-settings.progress-update-interval-description")}
+                  </FormDescription>
                   <FormControl>
-                    <Input type="number" {...field} onChange={(e) => field.onChange(Number(e.target.value))} />
+                    <Input
+                      type="number"
+                      {...field}
+                      onChange={(e) => field.onChange(Number(e.target.value))}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -63,9 +71,15 @@ export function TaskSettingsForm({ data, onDirtyChange, onFormRef, onSubmit }: P
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>{t("tasks-settings.commit-interval")}</FormLabel>
-                  <FormDescription>{t("tasks-settings.commit-interval-description")}</FormDescription>
+                  <FormDescription>
+                    {t("tasks-settings.commit-interval-description")}
+                  </FormDescription>
                   <FormControl>
-                    <Input type="number" {...field} onChange={(e) => field.onChange(Number(e.target.value))} />
+                    <Input
+                      type="number"
+                      {...field}
+                      onChange={(e) => field.onChange(Number(e.target.value))}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -77,9 +91,15 @@ export function TaskSettingsForm({ data, onDirtyChange, onFormRef, onSubmit }: P
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>{t("tasks-settings.analytics-rebuild-interval")}</FormLabel>
-                  <FormDescription>{t("tasks-settings.analytics-rebuild-interval-description")}</FormDescription>
+                  <FormDescription>
+                    {t("tasks-settings.analytics-rebuild-interval-description")}
+                  </FormDescription>
                   <FormControl>
-                    <Input type="number" {...field} onChange={(e) => field.onChange(Number(e.target.value))} />
+                    <Input
+                      type="number"
+                      {...field}
+                      onChange={(e) => field.onChange(Number(e.target.value))}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>

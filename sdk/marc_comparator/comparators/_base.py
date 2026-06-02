@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 from enum import StrEnum
-from typing import List
 
 from marcdantic import MarcRecord
 from pydantic import BaseModel
@@ -102,7 +101,7 @@ class FieldComparisonResult(BaseModel):
     score: float
     explanation: Explanation | None = None
     details: str | None = None
-    subfield_results: List[SubfieldComparisonResult] | None = None
+    subfield_results: list[SubfieldComparisonResult] | None = None
 
 
 class RecordComparisonResult(BaseModel):
@@ -121,7 +120,7 @@ class RecordComparisonResult(BaseModel):
 
     overall_score: float
     summary: str | None = None
-    field_results: List[FieldComparisonResult] | None = None
+    field_results: list[FieldComparisonResult] | None = None
 
 
 class BaseComparator(ABC):

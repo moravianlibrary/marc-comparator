@@ -1,5 +1,3 @@
-from typing import List
-
 from marc_comparator.validators import KrameriusLinksValidatorConfig, Validator
 from pydantic import BaseModel, Field
 
@@ -14,5 +12,5 @@ class ValidationSettings(SettingsSchema):
 
 
 class ValidationTaskData(BaseModel):
-    validators: List[Validator] = Field(..., min_length=1)
+    validators: list[Validator] = Field(..., min_length=1)
     filters: RecordFilter = RecordFilter()

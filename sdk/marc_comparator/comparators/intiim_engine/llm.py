@@ -1,17 +1,19 @@
 # marc_diff/llm.py
 from __future__ import annotations
-from typing import Optional, Literal, Dict, Tuple
 
 import hashlib
 import logging
 import os
-import requests
 import threading
+from typing import Literal
+
+import requests
 
 logger = logging.getLogger(__name__)
 
 try:
     from llama_cpp import Llama
+
     _LLAMA_CPP_IMPORT_ERROR = None
 except ImportError as exc:
     Llama = None
@@ -25,10 +27,12 @@ OLLAMA_URL = os.getenv("OLLAMA_URL", "http://localhost:11434")
 OLLAMA_MODEL = os.getenv("OLLAMA_MODEL", "qwen2.5vl:7b")
 OLLAMA_TIMEOUT = int(os.getenv("OLLAMA_TIMEOUT", "20"))
 
+
 def set_ollama_url(url: str):
     """Programmatically update the module-level OLLAMA_URL."""
     global OLLAMA_URL
     OLLAMA_URL = url
+
 
 LLM_LLAMA_MODEL = (
     os.getenv("LLM_LLAMA_MODEL")
@@ -45,31 +49,27 @@ LLM_REPETITION_PENALTY = float(os.getenv("LLM_REPETITION_PENALTY", "1.0"))
 LLM_DO_SAMPLE_ENV = os.getenv("LLM_DO_SAMPLE")
 LLM_SEED = int(os.getenv("LLM_SEED", "0"))
 
-DEFAULT_STOPS = (
-    os.getenv("LLM_STOPS", "").split("|")
-    if os.getenv("LLM_STOPS")
-    else []
-)
+DEFAULT_STOPS = os.getenv("LLM_STOPS", "").split("|") if os.getenv("LLM_STOPS") else []
 
 LLM_LLAMA_CONTEXT = int(os.getenv("LLM_LLAMA_CONTEXT", "4096"))
 LLM_LLAMA_THREADS = int(os.getenv("LLM_LLAMA_THREADS", "0"))
 LLM_LLAMA_BATCH = int(os.getenv("LLM_LLAMA_BATCH", "512"))
-LLM_LLAMA_GPU_LAYERS = int(os.getenv("LLM_LLAMA_N_GPU_LAYERS", os.getenv("LLM_LLAMA_GPU_LAYERS", "-1")))
+LLM_LLAMA_GPU_LAYERS = int(
+    os.getenv("LLM_LLAMA_N_GPU_LAYERS", os.getenv("LLM_LLAMA_GPU_LAYERS", "-1"))
+)
 LLM_LLAMA_ROPE_SCALE = float(os.getenv("LLM_LLAMA_ROPE_SCALE", "1.0"))
-LLM_LLAMA_ROPE_BASE  = float(os.getenv("LLM_LLAMA_ROPE_BASE", "0.0"))
+LLM_LLAMA_ROPE_BASE = float(os.getenv("LLM_LLAMA_ROPE_BASE", "0.0"))
 
 _BACKEND_ENV_RAW = (os.getenv("LLM_BACKEND") or os.getenv("LLM_PROVIDER") or "").strip()
 
 BackendLiteral = Literal["ollama", "llama_cpp"]
 
-_CACHE: Dict[str, str] = {}
+_CACHE: dict[str, str] = {}
 _LLAMA_MODEL = None
 _LLAMA_LOCK = threading.Lock()
 
 
-
-
-def _normalize_backend(value: Optional[str]) -> BackendLiteral:
+def _normalize_backend(value: str | None) -> BackendLiteral:
     candidate = (value or "").strip().lower()
     if not candidate and _BACKEND_ENV_RAW:
         candidate = _BACKEND_ENV_RAW.strip().lower()
@@ -109,7 +109,7 @@ def _ensure_llama_available() -> None:
         )
 
 
-def _resolve_backend(value: Optional[BackendLiteral]) -> str:
+def _resolve_backend(value: BackendLiteral | None) -> str:
     backend = _normalize_backend(value)
     if backend == "llama_cpp":
         _ensure_llama_available()
@@ -117,7 +117,6 @@ def _resolve_backend(value: Optional[BackendLiteral]) -> str:
     if backend == "ollama":
         return "ollama"
     raise ValueError(f"Unsupported LLM backend '{value}'. Expected 'ollama' or 'llama_cpp'.")
-
 
 
 def _load_llama_model():
@@ -135,11 +134,11 @@ def _load_llama_model():
         if not model_path.endswith(".gguf"):
             raise RuntimeError(f"Expected a .gguf file, got: {model_path}")
 
-        kwargs: Dict[str, object] = {
+        kwargs: dict[str, object] = {
             "model_path": model_path,
             "n_ctx": LLM_LLAMA_CONTEXT,
             "n_batch": LLM_LLAMA_BATCH,
-            "n_gpu_layers": LLM_LLAMA_GPU_LAYERS, 
+            "n_gpu_layers": LLM_LLAMA_GPU_LAYERS,
             "verbose": False,
             "seed": LLM_SEED,
         }
@@ -155,14 +154,14 @@ def _load_llama_model():
         return _LLAMA_MODEL
 
 
-def _sampling_params() -> Tuple[bool, float, float]:
+def _sampling_params() -> tuple[bool, float, float]:
     """
     Decide deterministic vs sampling based on env/temperature.
     Returns: (do_sample, temperature, top_p)
     """
     do_sample_env = (LLM_DO_SAMPLE_ENV or "").strip().lower()
     if do_sample_env in {"true", "false"}:
-        do_sample = (do_sample_env == "true")
+        do_sample = do_sample_env == "true"
     else:
         do_sample = LLM_TEMPERATURE > 0.0
 
@@ -202,6 +201,7 @@ def _llama_generate(prompt: str) -> str:
     )
     return (out.get("choices") or [{}])[0].get("text", "") or ""
 
+
 def _ollama_generate(prompt: str) -> str:
     r = requests.post(
         f"{OLLAMA_URL}/api/generate",
@@ -217,7 +217,7 @@ def _cache_key(prompt: str, backend: str) -> str:
     return f"{salt}:{hashlib.sha256(prompt.encode('utf-8')).hexdigest()}"
 
 
-def generate_text(prompt: str, *, backend: Optional[BackendLiteral] = None) -> str:
+def generate_text(prompt: str, *, backend: BackendLiteral | None = None) -> str:
     resolved = _resolve_backend(backend)
     allow_fallback = backend is None
     key = _cache_key(prompt, resolved)
@@ -230,7 +230,9 @@ def generate_text(prompt: str, *, backend: Optional[BackendLiteral] = None) -> s
         else:
             txt = _llama_generate(prompt)
     except Exception:
-        logger.warning("LLM generation failed on %s backend, attempting fallback", resolved, exc_info=True)
+        logger.warning(
+            "LLM generation failed on %s backend, attempting fallback", resolved, exc_info=True
+        )
         if resolved == "ollama" and allow_fallback and _has_llama():
             resolved = "llama_cpp"
             key = _cache_key(prompt, resolved)
@@ -254,7 +256,7 @@ def ollama_generate(prompt: str) -> str:
     return generate_text(prompt, backend="ollama")
 
 
-def load_llm(*, backend: Optional[BackendLiteral] = None) -> None:
+def load_llm(*, backend: BackendLiteral | None = None) -> None:
     resolved = _resolve_backend(backend)
     allow_fallback = backend is None
     if resolved == "llama_cpp":
@@ -266,7 +268,7 @@ def load_llm(*, backend: Optional[BackendLiteral] = None) -> None:
                 requests.get(f"{OLLAMA_URL}/api/tags", timeout=OLLAMA_TIMEOUT).raise_for_status()
             else:
                 raise
-    else: 
+    else:
         try:
             requests.get(f"{OLLAMA_URL}/api/tags", timeout=OLLAMA_TIMEOUT).raise_for_status()
         except Exception:
@@ -277,7 +279,7 @@ def load_llm(*, backend: Optional[BackendLiteral] = None) -> None:
                 raise
 
 
-def llm_health(*, backend: Optional[BackendLiteral] = None) -> dict:
+def llm_health(*, backend: BackendLiteral | None = None) -> dict:
     resolved = _resolve_backend(backend)
     allow_fallback = backend is None
     fallback_used = False
@@ -293,7 +295,9 @@ def llm_health(*, backend: Optional[BackendLiteral] = None) -> dict:
                 "default_backend": LLM_BACKEND_DEFAULT,
                 "ollama_url": OLLAMA_URL,
                 "requested_model": OLLAMA_MODEL,
-                "models": [m.get("name") for m in data.get("models", [])] if isinstance(data, dict) else [],
+                "models": [m.get("name") for m in data.get("models", [])]
+                if isinstance(data, dict)
+                else [],
             }
         except Exception:
             logger.warning("Ollama health check failed in llm_health", exc_info=True)
@@ -362,15 +366,20 @@ ROLE_HINTS = {
     ),
 }
 
+
 def _hint_for(role: str) -> str:
     return ROLE_HINTS.get(role, ROLE_HINTS["generic"])
 
-def _render_context(tag: str, code: str|None, fieldA: Optional[str], fieldB: Optional[str], a: str, b: str) -> str:
+
+def _render_context(
+    tag: str, code: str | None, fieldA: str | None, fieldB: str | None, a: str, b: str
+) -> str:
     fa = fieldA or f"{tag} ${code or '?'} {a}"
     fb = fieldB or f"{tag} ${code or '?'} {b}"
     return f"Full field (Record A): {fa}\nFull field (Record B): {fb}\nSubfield values compared: A='{a}' vs B='{b}'."
 
-def _parse_yes_no_response(txt: str) -> Optional[bool]:
+
+def _parse_yes_no_response(txt: str) -> bool | None:
     up = (txt or "").strip().upper()
     if not up:
         return None
@@ -388,9 +397,18 @@ def _parse_yes_no_response(txt: str) -> Optional[bool]:
         return False
     return None
 
-def _ask_yes_no(role: str, tag: str, code: str|None, a: str, b: str,
-                label: str, fieldA: Optional[str], fieldB: Optional[str],
-                backend: Optional[BackendLiteral]) -> Optional[bool]:
+
+def _ask_yes_no(
+    role: str,
+    tag: str,
+    code: str | None,
+    a: str,
+    b: str,
+    label: str,
+    fieldA: str | None,
+    fieldB: str | None,
+    backend: BackendLiteral | None,
+) -> bool | None:
     ctx = _render_context(tag, code, fieldA, fieldB, a, b)
     prompt = (
         "You are a MARC21 record QA assistant.\n"
@@ -406,9 +424,17 @@ def _ask_yes_no(role: str, tag: str, code: str|None, a: str, b: str,
         logger.warning("LLM yes/no query failed for label=%s, role=%s", label, role, exc_info=True)
         return None
 
-def _ask_best(role: str, tag: str, code: str|None, a: str, b: str,
-              fieldA: Optional[str], fieldB: Optional[str],
-              backend: Optional[BackendLiteral]) -> tuple[Optional[str], str]:
+
+def _ask_best(
+    role: str,
+    tag: str,
+    code: str | None,
+    a: str,
+    b: str,
+    fieldA: str | None,
+    fieldB: str | None,
+    backend: BackendLiteral | None,
+) -> tuple[str | None, str]:
     ctx = _render_context(tag, code, fieldA, fieldB, a, b)
     prompt = (
         "You are a MARC21 record QA assistant.\n"
@@ -419,7 +445,7 @@ def _ask_best(role: str, tag: str, code: str|None, a: str, b: str,
     )
     try:
         raw = generate_text(prompt, backend=backend).strip().upper()
-        for k in ["IDENTICAL","TYPO","INCOMPLETE","NON_STANDARDIZED","INCORRECT"]:
+        for k in ["IDENTICAL", "TYPO", "INCOMPLETE", "NON_STANDARDIZED", "INCORRECT"]:
             if k in raw:
                 return k, raw
         return None, raw
@@ -427,11 +453,21 @@ def _ask_best(role: str, tag: str, code: str|None, a: str, b: str,
         logger.warning("LLM best-label query failed for role=%s", role, exc_info=True)
         return None, ""
 
-CATEGORY = Literal["IDENTICAL","TYPO","INCOMPLETE","NON_STANDARDIZED","INCORRECT"]
 
-def ask_same_written_differently(a: str, b: str, role: str, tag: str, code: str|None,
-                                 fieldA: Optional[str] = None, fieldB: Optional[str] = None,
-                                 *, backend: Optional[BackendLiteral] = None) -> dict:
+CATEGORY = Literal["IDENTICAL", "TYPO", "INCOMPLETE", "NON_STANDARDIZED", "INCORRECT"]
+
+
+def ask_same_written_differently(
+    a: str,
+    b: str,
+    role: str,
+    tag: str,
+    code: str | None,
+    fieldA: str | None = None,
+    fieldB: str | None = None,
+    *,
+    backend: BackendLiteral | None = None,
+) -> dict:
     ctx = _render_context(tag, code, fieldA, fieldB, a, b)
     prompt = (
         "You are a MARC21 record QA assistant.\n"
@@ -447,9 +483,19 @@ def ask_same_written_differently(a: str, b: str, role: str, tag: str, code: str|
         return {"answer": None, "raw": ""}
     return {"answer": _parse_yes_no_response(raw), "raw": raw}
 
-def verify_label(a: str, b: str, role: str, label: CATEGORY, tag: str, code: str|None,
-                 fieldA: Optional[str] = None, fieldB: Optional[str] = None,
-                 *, backend: Optional[BackendLiteral] = None) -> dict:
+
+def verify_label(
+    a: str,
+    b: str,
+    role: str,
+    label: CATEGORY,
+    tag: str,
+    code: str | None,
+    fieldA: str | None = None,
+    fieldB: str | None = None,
+    *,
+    backend: BackendLiteral | None = None,
+) -> dict:
     agreed = _ask_yes_no(role, tag, code, a, b, label, fieldA, fieldB, backend)
     suggested, raw = (None, "")
     if agreed is False or agreed is None:

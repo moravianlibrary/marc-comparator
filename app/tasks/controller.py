@@ -12,6 +12,7 @@ from . import service
 from .models import SearchTasksRequest, SearchTasksResponse, TracebackLinesRequestParams
 from .search import search_tasks
 
+
 class DeleteTasksRequest(BaseModel):
     max_age_days: int | None = None
 
@@ -55,9 +56,7 @@ async def get_traceback_lines(
     current_user: CurrentUser,
     db_session: DatabaseSessionDep,
 ):
-    return service.get_traceback_lines(
-        task_id, params, current_user.user_id, db_session
-    )
+    return service.get_traceback_lines(task_id, params, current_user.user_id, db_session)
 
 
 @router.patch(
@@ -83,6 +82,4 @@ async def delete_tasks(
     db_session: DatabaseSessionDep,
     request: Annotated[DeleteTasksRequest, Body()] = DeleteTasksRequest(),
 ):
-    return await service.delete_tasks(
-        current_user.user_id, db_session, request.max_age_days
-    )
+    return await service.delete_tasks(current_user.user_id, db_session, request.max_age_days)

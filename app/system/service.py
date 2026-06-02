@@ -1,16 +1,15 @@
 import os
 import time
-from typing import List
 
 from marc_comparator.authority_linkers import (
     AUTHORITY_LINKER_DISPATCHER,
     AuthorityLinker,
 )
-
 from sqlalchemy import text
 
 from adapters.database import DatabaseSession
-from adapters.lock_server import get_active_locks, lock_server_client as redis_client
+from adapters.lock_server import get_active_locks
+from adapters.lock_server import lock_server_client as redis_client
 from authority_linking.models import AuthorityLinkingSettings
 from catalog_records.models import CatalogSettings
 from entities.settings import Settings, SettingsScope
@@ -30,14 +29,12 @@ def get_settings(scope: SettingsScope, db_session: DatabaseSession):
     return settings
 
 
-def get_configured_bases(db_session: DatabaseSession) -> List[str]:
+def get_configured_bases(db_session: DatabaseSession) -> list[str]:
     settings: CatalogSettings = get_settings(SettingsScope.Catalog, db_session)
     return [client.base for client in settings.clients] if settings else []
 
 
-def _get_enabled_tools(
-    db_session: DatabaseSession, scope: SettingsScope
-) -> List[str]:
+def _get_enabled_tools(db_session: DatabaseSession, scope: SettingsScope) -> list[str]:
     settings = get_settings(scope, db_session)
     if not settings:
         return []
@@ -51,10 +48,8 @@ def _get_enabled_tools(
 
 async def get_enabled_authority_linkers(
     db_session: DatabaseSession,
-) -> List[AuthorityLinkerInfo]:
-    settings: AuthorityLinkingSettings = get_settings(
-        SettingsScope.AuthorityLinking, db_session
-    )
+) -> list[AuthorityLinkerInfo]:
+    settings: AuthorityLinkingSettings = get_settings(SettingsScope.AuthorityLinking, db_session)
 
     if not settings:
         return []
@@ -77,7 +72,7 @@ async def get_enabled_authority_linkers(
     return linkers
 
 
-def get_enabled_validators(db_session: DatabaseSession) -> List[str]:
+def get_enabled_validators(db_session: DatabaseSession) -> list[str]:
     return _get_enabled_tools(db_session, SettingsScope.Validation)
 
 
@@ -100,9 +95,7 @@ async def get_system_info(db_session: DatabaseSession) -> SystemInfo:
             default_url = cfg.kramerius_client_url
 
     # Get per-base overrides from catalog settings
-    catalog_settings: CatalogSettings = get_settings(
-        SettingsScope.Catalog, db_session
-    )
+    catalog_settings: CatalogSettings = get_settings(SettingsScope.Catalog, db_session)
     if catalog_settings:
         per_base = catalog_settings.kramerius_client_urls
         for client in catalog_settings.clients:
@@ -111,9 +104,7 @@ async def get_system_info(db_session: DatabaseSession) -> SystemInfo:
                 kramerius_client_urls[client.base] = url
 
     enabled_linkers = await get_enabled_authority_linkers(db_session)
-    authority_bases = sorted(
-        {base for linker in enabled_linkers for base in linker.target_bases}
-    )
+    authority_bases = sorted({base for linker in enabled_linkers for base in linker.target_bases})
 
     return SystemInfo(
         system_version=os.getenv("SYSTEM_VERSION", "dev"),
@@ -151,5 +142,5 @@ def check_health(db_session: DatabaseSession) -> HealthStatus:
     )
 
 
-def get_locks() -> List[str]:
+def get_locks() -> list[str]:
     return get_active_locks()

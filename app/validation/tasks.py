@@ -1,6 +1,5 @@
 import logging
 from dataclasses import dataclass
-from typing import List
 
 from marc_comparator.validators import (
     VALIDATOR_DISPATCHER,
@@ -30,13 +29,11 @@ class ValidatorInstance:
 
 def load_validators(
     db_session: DatabaseSession,
-    validators: List[Validator],
+    validators: list[Validator],
     logger: logging.Logger,
-) -> List[ValidatorInstance] | None:
+) -> list[ValidatorInstance] | None:
     """Load settings from DB and initialize validators. Returns None on failure."""
-    settings = Settings.get(
-        db_session, SettingsScope.Validation, ValidationSettings
-    )
+    settings = Settings.get(db_session, SettingsScope.Validation, ValidationSettings)
     if not settings:
         return None
     result = init_validators(settings, validators, logger)
@@ -45,10 +42,10 @@ def load_validators(
 
 def init_validators(
     settings: ValidationSettings,
-    validators: List[Validator],
+    validators: list[Validator],
     logger: logging.Logger,
-) -> List[ValidatorInstance]:
-    validator_instances: List[ValidatorInstance] = []
+) -> list[ValidatorInstance]:
+    validator_instances: list[ValidatorInstance] = []
 
     for validator in validators:
         validator_cls = VALIDATOR_DISPATCHER.get(validator)
@@ -64,14 +61,10 @@ def init_validators(
         )
 
         validator_instance = (
-            validator_cls(validator_config)
-            if validator_config
-            else validator_cls()
+            validator_cls(validator_config) if validator_config else validator_cls()
         )
 
-        validator_instances.append(
-            ValidatorInstance(type=validator, instance=validator_instance)
-        )
+        validator_instances.append(ValidatorInstance(type=validator, instance=validator_instance))
 
     return validator_instances
 
@@ -81,9 +74,7 @@ async def handle_catalog_record_validation(
     catalog_record: CatalogRecord,
     validator_instance: ValidatorInstance,
 ) -> None:
-    results = await validator_instance.instance.run(
-        catalog_record.get_record(db_session)
-    )
+    results = await validator_instance.instance.run(catalog_record.get_record(db_session))
 
     Validation.delete_by_record_and_validator(
         db_session,
@@ -103,17 +94,16 @@ async def validate_records(task_id: str) -> None:
     async with ManagedTask(task_id=task_id) as ctx:
         data = ValidationTaskData.model_validate(ctx.task.data)
 
-        validator_instances = load_validators(
-            ctx.db_session, data.validators, ctx.logger
-        )
+        validator_instances = load_validators(ctx.db_session, data.validators, ctx.logger)
         if not validator_instances:
             ctx.logger.error("Validators could not be initialized")
             return
 
         record_ids = [
-            r.id for r in build_filtered_query(
-                ctx.db_session, data.filters
-            ).with_entities(CatalogRecord.id).all()
+            r.id
+            for r in build_filtered_query(ctx.db_session, data.filters)
+            .with_entities(CatalogRecord.id)
+            .all()
         ]
         ctx.total = len(record_ids) * len(validator_instances)
 
@@ -146,7 +136,4 @@ async def validate_records(task_id: str) -> None:
 
         handle_final_batch_snippet(ctx)
 
-        ctx.logger.info(
-            "Finished validating records, "
-            f"total records processed: {ctx.progress}"
-        )
+        ctx.logger.info(f"Finished validating records, total records processed: {ctx.progress}")

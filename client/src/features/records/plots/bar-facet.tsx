@@ -35,9 +35,7 @@ function LabelTooltip({ item, config }: { item: HoveredLabel; config: ChartConfi
               style={{ backgroundColor: "var(--chart-1)" }}
             />
             <div className="flex flex-1 justify-between items-center leading-none">
-              <span className="text-muted-foreground">
-                {config.count?.label}
-              </span>
+              <span className="text-muted-foreground">{config.count?.label}</span>
               <span className="font-mono font-medium text-foreground tabular-nums">
                 {item.count.toLocaleString()}
               </span>
@@ -48,14 +46,11 @@ function LabelTooltip({ item, config }: { item: HoveredLabel; config: ChartConfi
               <div
                 className="shrink-0 rounded-[2px] w-1"
                 style={{
-                  backgroundColor:
-                    "color-mix(in oklch, var(--muted-foreground) 15%, transparent)",
+                  backgroundColor: "color-mix(in oklch, var(--muted-foreground) 15%, transparent)",
                 }}
               />
               <div className="flex flex-1 justify-between items-center leading-none">
-                <span className="text-muted-foreground">
-                  {config.preview?.label}
-                </span>
+                <span className="text-muted-foreground">{config.preview?.label}</span>
                 <span className="font-mono font-medium text-foreground tabular-nums">
                   {item.preview.toLocaleString()}
                 </span>
@@ -95,10 +90,13 @@ export function BarFacet({
   labelIndicators,
 }: BarFacetProps) {
   const { t } = useTranslation();
-  const chartConfig = useMemo<ChartConfig>(() => ({
-    count: { label: t("common:chart.count"), color: "var(--chart-1)" },
-    preview: { label: t("common:chart.preview") },
-  }), [t]);
+  const chartConfig = useMemo<ChartConfig>(
+    () => ({
+      count: { label: t("common:chart.count"), color: "var(--chart-1)" },
+      preview: { label: t("common:chart.preview") },
+    }),
+    [t],
+  );
 
   const containerRef = useRef<HTMLDivElement>(null);
   const [containerWidth, setContainerWidth] = useState(0);
@@ -153,101 +151,101 @@ export function BarFacet({
 
   return (
     <div ref={containerRef}>
-    <ChartContainer
-      config={chartConfig}
-      className="w-full"
-      style={{ height: Math.max(120, data.length * 36) }}
-    >
-      <BarChart
-        data={chartData}
-        layout="vertical"
-        margin={{ right: 48 }}
+      <ChartContainer
+        config={chartConfig}
+        className="w-full"
+        style={{ height: Math.max(120, data.length * 36) }}
       >
-        <YAxis
-          dataKey="name"
-          type="category"
-          tickLine={false}
-          tickMargin={8}
-          axisLine={false}
-          width={resolvedLabelWidth}
-          tick={({ x, y, payload, width: tickWidth }: any) => {
-            const entry = chartData.find((d) => d.name === payload.value);
-            const key = entry?.key ?? payload.value;
-            const disabled = isShowingPreview && entry?.preview === 0;
-            const w = tickWidth ?? resolvedLabelWidth;
-            return (
-              <foreignObject x={x - w} y={y - 18} width={w} height={36} focusable="false">
-                <div
-                  ref={(el) => { if (el) labelRefs.current.set(key, el); }}
-                  style={{ cursor: disabled ? "default" : "pointer" }}
-                  className="flex items-center justify-end h-full text-xs text-foreground leading-tight pr-2 outline-none"
-                  onClick={(e) => { e.stopPropagation(); if (!disabled) onToggle(key); }}
-                  onMouseEnter={() => { if (!disabled && entry) handleLabelEnter(key, entry); }}
-                  onMouseLeave={handleLabelLeave}
-                >
-                  {labelIndicators?.[key] && (
-                    <span
-                      className="inline-block h-2 w-2 rounded-full flex-shrink-0 mr-1.5"
-                      style={{ backgroundColor: labelIndicators[key] }}
-                    />
-                  )}
-                  <span className="text-right line-clamp-2">{payload.value}</span>
-                </div>
-              </foreignObject>
-            );
-          }}
-        />
-        <XAxis dataKey="count" type="number" hide />
-        <ChartTooltip
-          cursor={false}
-          content={<ChartTooltipContent indicator="line" />}
-        />
-        {isShowingPreview && (
-          <Bar
-            dataKey="preview"
-            fill="color-mix(in oklch, var(--muted-foreground) 15%, transparent)"
-            radius={4}
-            isAnimationActive={false}
-          >
-            <LabelList
+        <BarChart data={chartData} layout="vertical" margin={{ right: 48 }}>
+          <YAxis
+            dataKey="name"
+            type="category"
+            tickLine={false}
+            tickMargin={8}
+            axisLine={false}
+            width={resolvedLabelWidth}
+            tick={({ x, y, payload, width: tickWidth }: any) => {
+              const entry = chartData.find((d) => d.name === payload.value);
+              const key = entry?.key ?? payload.value;
+              const disabled = isShowingPreview && entry?.preview === 0;
+              const w = tickWidth ?? resolvedLabelWidth;
+              return (
+                <foreignObject x={x - w} y={y - 18} width={w} height={36} focusable="false">
+                  <div
+                    ref={(el) => {
+                      if (el) labelRefs.current.set(key, el);
+                    }}
+                    style={{ cursor: disabled ? "default" : "pointer" }}
+                    className="flex items-center justify-end h-full text-xs text-foreground leading-tight pr-2 outline-none"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (!disabled) onToggle(key);
+                    }}
+                    onMouseEnter={() => {
+                      if (!disabled && entry) handleLabelEnter(key, entry);
+                    }}
+                    onMouseLeave={handleLabelLeave}
+                  >
+                    {labelIndicators?.[key] && (
+                      <span
+                        className="inline-block h-2 w-2 rounded-full flex-shrink-0 mr-1.5"
+                        style={{ backgroundColor: labelIndicators[key] }}
+                      />
+                    )}
+                    <span className="text-right line-clamp-2">{payload.value}</span>
+                  </div>
+                </foreignObject>
+              );
+            }}
+          />
+          <XAxis dataKey="count" type="number" hide />
+          <ChartTooltip cursor={false} content={<ChartTooltipContent indicator="line" />} />
+          {isShowingPreview && (
+            <Bar
               dataKey="preview"
+              fill="color-mix(in oklch, var(--muted-foreground) 15%, transparent)"
+              radius={4}
+              isAnimationActive={false}
+            >
+              <LabelList
+                dataKey="preview"
+                position="right"
+                offset={8}
+                className="fill-muted-foreground"
+                fontSize={12}
+              />
+            </Bar>
+          )}
+          <Bar
+            dataKey="count"
+            fill="var(--color-count)"
+            radius={4}
+            onClick={(entry) => {
+              if (isShowingPreview && entry.preview === 0) return;
+              onToggle(entry.key);
+            }}
+            onMouseEnter={(_, index) => onHover(chartData[index].key)}
+            onMouseLeave={onLeave}
+          >
+            {chartData.map((entry) => (
+              <Cell
+                key={entry.key}
+                fill="var(--color-count)"
+                cursor={isShowingPreview && entry.preview === 0 ? "default" : "pointer"}
+                opacity={isShowingPreview && entry.preview === 0 ? 0.3 : 1}
+              />
+            ))}
+            <LabelList
+              dataKey="count"
               position="right"
               offset={8}
-              className="fill-muted-foreground"
+              className="fill-foreground"
               fontSize={12}
             />
           </Bar>
-        )}
-        <Bar
-          dataKey="count"
-          fill="var(--color-count)"
-          radius={4}
-          onClick={(entry) => {
-            if (isShowingPreview && entry.preview === 0) return;
-            onToggle(entry.key);
-          }}
-          onMouseEnter={(_, index) => onHover(chartData[index].key)}
-          onMouseLeave={onLeave}
-        >
-          {chartData.map((entry) => (
-            <Cell
-              key={entry.key}
-              fill="var(--color-count)"
-              cursor={isShowingPreview && entry.preview === 0 ? "default" : "pointer"}
-              opacity={isShowingPreview && entry.preview === 0 ? 0.3 : 1}
-            />
-          ))}
-          <LabelList
-            dataKey="count"
-            position="right"
-            offset={8}
-            className="fill-foreground"
-            fontSize={12}
-          />
-        </Bar>
-      </BarChart>
-    </ChartContainer>
-    {hoveredLabel && <LabelTooltip item={hoveredLabel} config={chartConfig} />}
+        </BarChart>
+      </ChartContainer>
+      {hoveredLabel && <LabelTooltip item={hoveredLabel} config={chartConfig} />}
     </div>
   );
 }

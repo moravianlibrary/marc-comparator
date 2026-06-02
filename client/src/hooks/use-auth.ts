@@ -42,7 +42,9 @@ export function useOidcEnabled() {
   return useQuery<{ enabled: boolean; default: boolean }>({
     queryKey: ["auth", "oidc", "enabled"],
     queryFn: () =>
-      apiClient.get<{ enabled: boolean; default: boolean }>("/auth/oidc/enabled").then((r) => r.data),
+      apiClient
+        .get<{ enabled: boolean; default: boolean }>("/auth/oidc/enabled")
+        .then((r) => r.data),
     staleTime: Infinity,
   });
 }

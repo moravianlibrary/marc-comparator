@@ -50,8 +50,7 @@ export function FetchSingleForm() {
   }, [configuredBases, form]);
 
   const mutation = useMutation({
-    mutationFn: (data: FormValues) =>
-      apiClient.post("/catalog-records/fetch", data),
+    mutationFn: (data: FormValues) => apiClient.post("/catalog-records/fetch", data),
     onSuccess: () => form.reset({ base: configuredBases[0] ?? "", system_number: "" }),
     onError: () => toast.error(t("common:error")),
   });
@@ -59,9 +58,7 @@ export function FetchSingleForm() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">
-          {t("addition.fetch-single.title")}
-        </CardTitle>
+        <CardTitle className="text-base">{t("addition.fetch-single.title")}</CardTitle>
       </CardHeader>
       <CardContent>
         <Form {...form}>
@@ -98,9 +95,7 @@ export function FetchSingleForm() {
               name="system_number"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>
-                    {t("addition.fetch-single.system-number")}
-                  </FormLabel>
+                  <FormLabel>{t("addition.fetch-single.system-number")}</FormLabel>
                   <FormControl>
                     <Input {...field} className="w-48" />
                   </FormControl>

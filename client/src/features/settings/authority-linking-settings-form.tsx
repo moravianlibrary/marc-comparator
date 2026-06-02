@@ -27,20 +27,18 @@ interface Props {
   onSubmit: (data: AuthorityLinkingSettings) => void;
 }
 
-export function AuthorityLinkingSettingsForm({
-  data,
-  onDirtyChange,
-  onFormRef,
-  onSubmit,
-}: Props) {
+export function AuthorityLinkingSettingsForm({ data, onDirtyChange, onFormRef, onSubmit }: Props) {
   const { t } = useTranslation("settings");
 
-  const defaultValues = useMemo<AuthorityLinkingSettingsFormValues>(() => ({
-    "knihovny-cz": data["knihovny-cz"] ?? {
-      api_url: "https://www.knihovny.cz/api/v1",
-      mappings: [{ base: "", id_template: "", pattern: "", is_target: false }],
-    },
-  }), [data]);
+  const defaultValues = useMemo<AuthorityLinkingSettingsFormValues>(
+    () => ({
+      "knihovny-cz": data["knihovny-cz"] ?? {
+        api_url: "https://www.knihovny.cz/api/v1",
+        mappings: [{ base: "", id_template: "", pattern: "", is_target: false }],
+      },
+    }),
+    [data],
+  );
 
   const form = useSettingsForm({
     schema: authorityLinkingSettingsSchema,
@@ -60,10 +58,10 @@ export function AuthorityLinkingSettingsForm({
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <Card>
           <CardHeader className="flex flex-row items-center gap-2">
-            <CardTitle className="text-base">
-              {t("authority-linkers.knihovny-cz.title")}
-            </CardTitle>
-            <HelpDialog titleKey="authority-linkers.knihovny-cz.title"><AuthorityLinkersHelp /></HelpDialog>
+            <CardTitle className="text-base">{t("authority-linkers.knihovny-cz.title")}</CardTitle>
+            <HelpDialog titleKey="authority-linkers.knihovny-cz.title">
+              <AuthorityLinkersHelp />
+            </HelpDialog>
           </CardHeader>
           <CardContent className="space-y-4">
             <FormField
@@ -72,7 +70,9 @@ export function AuthorityLinkingSettingsForm({
               render={({ field }) => (
                 <FormItem className="max-w-md">
                   <FormLabel>{t("authority-linkers.knihovny-cz.api-url")}</FormLabel>
-                  <FormControl><Input {...field} /></FormControl>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
@@ -87,8 +87,12 @@ export function AuthorityLinkingSettingsForm({
                     name={`knihovny-cz.mappings.${index}.base`}
                     render={({ field }) => (
                       <FormItem className="flex-1">
-                        <FormLabel className="text-xs">{t("authority-linkers.knihovny-cz.mapping-base")}</FormLabel>
-                        <FormControl><Input {...field} /></FormControl>
+                        <FormLabel className="text-xs">
+                          {t("authority-linkers.knihovny-cz.mapping-base")}
+                        </FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -98,8 +102,12 @@ export function AuthorityLinkingSettingsForm({
                     name={`knihovny-cz.mappings.${index}.id_template`}
                     render={({ field }) => (
                       <FormItem className="flex-1">
-                        <FormLabel className="text-xs">{t("authority-linkers.knihovny-cz.mapping-id-template")}</FormLabel>
-                        <FormControl><Input {...field} /></FormControl>
+                        <FormLabel className="text-xs">
+                          {t("authority-linkers.knihovny-cz.mapping-id-template")}
+                        </FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -109,8 +117,12 @@ export function AuthorityLinkingSettingsForm({
                     name={`knihovny-cz.mappings.${index}.pattern`}
                     render={({ field }) => (
                       <FormItem className="flex-1">
-                        <FormLabel className="text-xs">{t("authority-linkers.knihovny-cz.mapping-pattern")}</FormLabel>
-                        <FormControl><Input {...field} /></FormControl>
+                        <FormLabel className="text-xs">
+                          {t("authority-linkers.knihovny-cz.mapping-pattern")}
+                        </FormLabel>
+                        <FormControl>
+                          <Input {...field} />
+                        </FormControl>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -120,7 +132,9 @@ export function AuthorityLinkingSettingsForm({
                     name={`knihovny-cz.mappings.${index}.is_target`}
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel className="text-xs">{t("authority-linkers.knihovny-cz.mapping-is-target")}</FormLabel>
+                        <FormLabel className="text-xs">
+                          {t("authority-linkers.knihovny-cz.mapping-is-target")}
+                        </FormLabel>
                         <FormControl>
                           <div className="flex h-9 items-center">
                             <Switch checked={field.value} onCheckedChange={field.onChange} />

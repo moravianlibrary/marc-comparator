@@ -21,11 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Table,
   TableBody,
@@ -79,16 +75,14 @@ export function TableView() {
     [filters.sortBy, filters.sortOrder],
   );
 
-  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(
-    () => {
-      try {
-        const stored = localStorage.getItem("table:columnVisibility");
-        return stored ? JSON.parse(stored) : {};
-      } catch {
-        return {};
-      }
-    },
-  );
+  const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(() => {
+    try {
+      const stored = localStorage.getItem("table:columnVisibility");
+      return stored ? JSON.parse(stored) : {};
+    } catch {
+      return {};
+    }
+  });
 
   useEffect(() => {
     localStorage.setItem("table:columnVisibility", JSON.stringify(columnVisibility));
@@ -152,9 +146,7 @@ export function TableView() {
             className="gap-1 cursor-pointer shrink-0"
             onClick={() => setFilters({ recordId: "", recordIndex: 0 })}
           >
-            <span className="text-muted-foreground">
-              {t("records:plots.record-id")}:
-            </span>{" "}
+            <span className="text-muted-foreground">{t("records:plots.record-id")}:</span>{" "}
             {filters.recordId}
             <X className="h-3 w-3" />
           </Badge>
@@ -177,11 +169,15 @@ export function TableView() {
                 <div className="space-y-2 text-sm">
                   <div>
                     <p className="font-medium">{t("records:table.search-help.exact-match")}</p>
-                    <p className="text-muted-foreground">{t("records:table.search-help.exact-match-desc")}</p>
+                    <p className="text-muted-foreground">
+                      {t("records:table.search-help.exact-match-desc")}
+                    </p>
                   </div>
                   <div>
                     <p className="font-medium">{t("records:table.search-help.text-search")}</p>
-                    <p className="text-muted-foreground">{t("records:table.search-help.text-search-desc")}</p>
+                    <p className="text-muted-foreground">
+                      {t("records:table.search-help.text-search-desc")}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -193,9 +189,15 @@ export function TableView() {
 
         {(canProcess || canRunPartial) && (
           <div className="flex items-center gap-2">
-            <span className="text-xs text-muted-foreground whitespace-nowrap">{t("records:table.bulk-actions")}</span>
-            {canProcess && <RecordTaskActions filters={buildRecordFilter()} totalCount={data?.total} />}
-            {canRunPartial && <AdvancedTaskActions filters={buildRecordFilter()} totalCount={data?.total} />}
+            <span className="text-xs text-muted-foreground whitespace-nowrap">
+              {t("records:table.bulk-actions")}
+            </span>
+            {canProcess && (
+              <RecordTaskActions filters={buildRecordFilter()} totalCount={data?.total} />
+            )}
+            {canRunPartial && (
+              <AdvancedTaskActions filters={buildRecordFilter()} totalCount={data?.total} />
+            )}
           </div>
         )}
 
@@ -220,10 +222,7 @@ export function TableView() {
                       <div className="flex items-center gap-1">
                         {header.isPlaceholder
                           ? null
-                          : flexRender(
-                              header.column.columnDef.header,
-                              header.getContext(),
-                            )}
+                          : flexRender(header.column.columnDef.header, header.getContext())}
                         {sorted === "asc" && " \u2191"}
                         {sorted === "desc" && " \u2193"}
                         {canSort && !sorted && (
@@ -258,10 +257,7 @@ export function TableView() {
                 >
                   {row.getVisibleCells().map((cell) => (
                     <TableCell key={cell.id}>
-                      {flexRender(
-                        cell.column.columnDef.cell,
-                        cell.getContext(),
-                      )}
+                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
                   ))}
                 </TableRow>

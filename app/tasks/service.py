@@ -19,10 +19,7 @@ def get_traceback_lines(
     task = Task.get(db_session, task_id)
     user = User.get(db_session, user_id)
 
-    if (
-        Permission.ManageAllTasks not in user.permissions
-        and str(task.created_by) != user_id
-    ):
+    if Permission.ManageAllTasks not in user.permissions and str(task.created_by) != user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to access this task.",
@@ -32,21 +29,14 @@ def get_traceback_lines(
     start = params.start_line or 0
     end = params.end_line or len(lines)
 
-    return PlainTextResponse(
-        "\n".join(lines[start:end]), media_type="text/plain"
-    )
+    return PlainTextResponse("\n".join(lines[start:end]), media_type="text/plain")
 
 
-async def revoke_task(
-    task_id: str, user_id: str, db_session: DatabaseSession
-) -> TaskSchema:
+async def revoke_task(task_id: str, user_id: str, db_session: DatabaseSession) -> TaskSchema:
     task = Task.get(db_session, task_id)
     user = User.get(db_session, user_id)
 
-    if (
-        Permission.ManageAllTasks not in user.permissions
-        and str(task.created_by) != user_id
-    ):
+    if Permission.ManageAllTasks not in user.permissions and str(task.created_by) != user_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="You do not have permission to revoke this task.",

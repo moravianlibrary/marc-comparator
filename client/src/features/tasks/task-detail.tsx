@@ -19,10 +19,7 @@ export function TaskDetail({ taskId, isRunning, progress }: TaskDetailProps) {
 
   const { data: traceback, isLoading } = useQuery<string>({
     queryKey: ["tasks", taskId, "traceback"],
-    queryFn: () =>
-      apiClient
-        .get<string>(`/tasks/${taskId}/traceback`)
-        .then((r) => r.data),
+    queryFn: () => apiClient.get<string>(`/tasks/${taskId}/traceback`).then((r) => r.data),
     refetchInterval: isRunning ? 5000 : false,
   });
 
@@ -35,9 +32,7 @@ export function TaskDetail({ taskId, isRunning, progress }: TaskDetailProps) {
         {(percent != null || isRunning) && (
           <div className="flex items-center gap-2">
             <Progress value={percent} className="h-2" />
-            {percent != null && (
-              <span className="text-xs text-muted-foreground">{percent}%</span>
-            )}
+            {percent != null && <span className="text-xs text-muted-foreground">{percent}%</span>}
           </div>
         )}
       </CardHeader>
@@ -51,9 +46,7 @@ export function TaskDetail({ taskId, isRunning, progress }: TaskDetailProps) {
             </pre>
           </ScrollArea>
         ) : (
-          <p className="text-sm text-muted-foreground">
-            {t("detail.no-traceback")}
-          </p>
+          <p className="text-sm text-muted-foreground">{t("detail.no-traceback")}</p>
         )}
       </CardContent>
     </Card>

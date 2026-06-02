@@ -1,7 +1,6 @@
 import asyncio
 import re
 from dataclasses import dataclass
-from typing import Dict, List
 
 from kramerius import KrameriusClient, KrameriusConfig, KrameriusField, Model
 from marcdantic import MarcRecord
@@ -24,9 +23,7 @@ class KrameriusLinksValidatorConfig(BaseModel):
     url_to_pid_wrong_path_pattern: str = (
         r"https?://(?:www\.)?digitalniknihovna\.cz/mzk/[^/]+/(?P<pid>uuid:[0-9a-fA-F-]+)(?:\?.*)?"
     )
-    url_to_pid_fallback_pattern: str = (
-        r"https?://[^/]+/.*?(?P<pid>uuid:[0-9a-fA-F-]+)(?:\?.*)?"
-    )
+    url_to_pid_fallback_pattern: str = r"https?://[^/]+/.*?(?P<pid>uuid:[0-9a-fA-F-]+)(?:\?.*)?"
     link_text_pattern: str = r"Digitalizovaný dokument"
 
     kramerius_host: str = "https://api.kramerius.mzk.cz/search"
@@ -91,12 +88,8 @@ class KrameriusLinksValidator(BaseValidator):
         self.config = config
 
         self.url_to_pid_regex = re.compile(config.url_to_pid_pattern)
-        self.url_to_pid_wrong_path_regex = re.compile(
-            config.url_to_pid_wrong_path_pattern
-        )
-        self.url_to_pid_fallback_regex = re.compile(
-            config.url_to_pid_fallback_pattern
-        )
+        self.url_to_pid_wrong_path_regex = re.compile(config.url_to_pid_wrong_path_pattern)
+        self.url_to_pid_fallback_regex = re.compile(config.url_to_pid_fallback_pattern)
         self.link_text_regex = re.compile(config.link_text_pattern)
 
         self.client = KrameriusClient(
@@ -108,9 +101,9 @@ class KrameriusLinksValidator(BaseValidator):
         )
 
     async def find_kramerius_links(
-        self, record: MarcRecord, current_kramerius_pids: List[str]
-    ) -> List[FoundKrameriusLink]:
-        links: Dict[str, FoundKrameriusLink] = {}
+        self, record: MarcRecord, current_kramerius_pids: list[str]
+    ) -> list[FoundKrameriusLink]:
+        links: dict[str, FoundKrameriusLink] = {}
 
         raw_fields = [
             (
@@ -123,9 +116,7 @@ class KrameriusLinksValidator(BaseValidator):
         ]
 
         field_query_parts = [
-            (field, value)
-            for field, values in raw_fields
-            for value in (values or [])
+            (field, value) for field, values in raw_fields for value in (values or [])
         ]
 
         for i in range(0, len(field_query_parts), MAX_QUERY_PARTS):
@@ -151,13 +142,13 @@ class KrameriusLinksValidator(BaseValidator):
                 root_model = Model(doc.model_path.split("/")[-1])
                 has_wrong_model = root_model not in VALID_TOP_LEVEL_MODELS
 
-                links[root_pid] = FoundKrameriusLink(
-                    root_pid, root_model, has_wrong_model
-                )
+                links[root_pid] = FoundKrameriusLink(root_pid, root_model, has_wrong_model)
 
         for pid in current_kramerius_pids:
             docs = list(
-                await asyncio.to_thread(self.client.Search.search, F(KrameriusField.Pid, pid), fl=FL),
+                await asyncio.to_thread(
+                    self.client.Search.search, F(KrameriusField.Pid, pid), fl=FL
+                ),
             )
             if not docs:
                 continue
@@ -176,18 +167,16 @@ class KrameriusLinksValidator(BaseValidator):
             root_model = Model(doc.model_path.split("/")[-1])
             has_wrong_model = root_model not in VALID_TOP_LEVEL_MODELS
 
-            links[root_pid] = FoundKrameriusLink(
-                root_pid, root_model, has_wrong_model
-            )
+            links[root_pid] = FoundKrameriusLink(root_pid, root_model, has_wrong_model)
 
         return list(links.values())
 
-    async def run(self, record: MarcRecord) -> List[ValidationResult]:
-        current_kramerius_pids: List[str] = []
-        pid_field_index: Dict[str, int] = {}
+    async def run(self, record: MarcRecord) -> list[ValidationResult]:
+        current_kramerius_pids: list[str] = []
+        pid_field_index: dict[str, int] = {}
         # PIDs extracted from URLs with wrong path or wrong server
-        url_issue_pids: Dict[str, dict] = {}
-        results: List[ValidationResult] = []
+        url_issue_pids: dict[str, dict] = {}
+        results: list[ValidationResult] = []
 
         def add_result(
             status: ValidityStatus = ValidityStatus.Invalid,
@@ -208,17 +197,9 @@ class KrameriusLinksValidator(BaseValidator):
                 )
             )
 
-        for field_idx, vf in enumerate(
-            record.variable_fields.query_fields('.["856"][]?')
-        ):
-            if not any(
-                self.link_text_regex.match(v)
-                for v in vf.subfields.get("y", [])
-            ):
-                if not any(
-                    self.url_to_pid_regex.match(v)
-                    for v in vf.subfields.get("u", [])
-                ):
+        for field_idx, vf in enumerate(record.variable_fields.query_fields('.["856"][]?')):
+            if not any(self.link_text_regex.match(v) for v in vf.subfields.get("y", [])):
+                if not any(self.url_to_pid_regex.match(v) for v in vf.subfields.get("u", [])):
                     continue
 
                 add_result(
@@ -272,9 +253,7 @@ class KrameriusLinksValidator(BaseValidator):
                     field_index=field_idx,
                 )
 
-        found_kramerius_links = await self.find_kramerius_links(
-            record, current_kramerius_pids
-        )
+        found_kramerius_links = await self.find_kramerius_links(record, current_kramerius_pids)
 
         if not current_kramerius_pids and not found_kramerius_links:
             if not results:

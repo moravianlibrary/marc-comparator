@@ -1,5 +1,4 @@
 from enum import StrEnum
-from typing import Type
 
 from ._base import (
     BaseComparator,
@@ -16,7 +15,7 @@ class Comparator(StrEnum):
     Default = "default"
 
 
-COMPARATOR_DISPATCHER: dict[Comparator, Type[BaseComparator]] = {
+COMPARATOR_DISPATCHER: dict[Comparator, type[BaseComparator]] = {
     Comparator.Default: DefaultComparator,
 }
 

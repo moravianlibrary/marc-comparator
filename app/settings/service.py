@@ -10,9 +10,7 @@ from settings.exceptions import (
 from .models import SETTINGS_MODEL_DISPATCHER
 
 
-def get_settings(
-    scope: SettingsScope, db_session: DatabaseSession
-) -> SettingsSchema:
+def get_settings(scope: SettingsScope, db_session: DatabaseSession) -> SettingsSchema:
     settings_cls = SETTINGS_MODEL_DISPATCHER.get(scope)
 
     settings = Settings.get(db_session, scope, settings_cls)

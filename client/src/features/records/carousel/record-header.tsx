@@ -63,7 +63,9 @@ export function RecordHeader({ record, onSelectView }: RecordHeaderProps) {
         )}
         {record.bibliographic_level && (
           <Badge variant="outline" className="text-xs">
-            {t(`bibliographic-level.${record.bibliographic_level}`, { defaultValue: record.bibliographic_level })}
+            {t(`bibliographic-level.${record.bibliographic_level}`, {
+              defaultValue: record.bibliographic_level,
+            })}
           </Badge>
         )}
         {record.state.map((s) => (
@@ -120,7 +122,8 @@ export function RecordHeader({ record, onSelectView }: RecordHeaderProps) {
               )}
               onClick={onSelectView ? () => onSelectView(viewKey) : undefined}
             >
-              {t(`validator-name.${g.validator}`)} [{g.target_tag}]: {t(`validity-status.${g.status}`)}
+              {t(`validator-name.${g.validator}`)} [{g.target_tag}]:{" "}
+              {t(`validity-status.${g.status}`)}
               {g.count > 1 && (
                 <span className="ml-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-muted-foreground/20 px-1 text-[10px] font-medium">
                   {g.count}
@@ -134,8 +137,7 @@ export function RecordHeader({ record, onSelectView }: RecordHeaderProps) {
       <div className="flex gap-4 text-xs text-muted-foreground">
         {record.latest_sync && (
           <span>
-            {t("table.columns.latest-sync")}:{" "}
-            {new Date(record.latest_sync).toLocaleString("cs-CZ")}
+            {t("table.columns.latest-sync")}: {new Date(record.latest_sync).toLocaleString("cs-CZ")}
           </span>
         )}
       </div>

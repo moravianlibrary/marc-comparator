@@ -1,9 +1,11 @@
 from __future__ import annotations
-from typing import Callable, Optional, Dict, Any, List
+
+from collections.abc import Callable
+from typing import Any
 
 from . import identical, incomplete, nonstandard, typo
 
-CHECKS: List[Callable[[str, str, str, Optional[Dict[str, Any]]], Optional[Dict[str, Any]]]] = [
+CHECKS: list[Callable[[str, str, str, dict[str, Any] | None], dict[str, Any] | None]] = [
     identical.run,
     typo.run,
     incomplete.run,

@@ -1,5 +1,4 @@
 from enum import StrEnum
-from typing import Type
 
 from ._base import (
     BaseValidator,
@@ -17,7 +16,7 @@ class Validator(StrEnum):
     KrameriusLinks = "kramerius-links"
 
 
-VALIDATOR_DISPATCHER: dict[Validator, Type[BaseValidator]] = {
+VALIDATOR_DISPATCHER: dict[Validator, type[BaseValidator]] = {
     Validator.KrameriusLinks: KrameriusLinksValidator,
 }
 

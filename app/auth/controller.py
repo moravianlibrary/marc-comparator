@@ -36,21 +36,21 @@ def _set_auth_cookies(response: Response, access_token: str, refresh_token: str)
 
 
 def _clear_auth_cookies(response: Response):
-    response.delete_cookie("access_token", path="/", domain=config.auth.cookie_domain, samesite="lax")
-    response.delete_cookie("refresh_token", path="/api/auth", domain=config.auth.cookie_domain, samesite="lax")
+    response.delete_cookie(
+        "access_token", path="/", domain=config.auth.cookie_domain, samesite="lax"
+    )
+    response.delete_cookie(
+        "refresh_token", path="/api/auth", domain=config.auth.cookie_domain, samesite="lax"
+    )
 
 
 @router.post("/sign-up", status_code=status.HTTP_201_CREATED)
-async def register_user(
-    db: DatabaseSessionDep, register_user_request: RegisterUserRequest
-):
+async def register_user(db: DatabaseSessionDep, register_user_request: RegisterUserRequest):
     service.register_user(db, register_user_request)
 
 
 @router.post("/login")
-async def login(
-    data: LoginRequest, response: Response, db: DatabaseSessionDep
-):
+async def login(data: LoginRequest, response: Response, db: DatabaseSessionDep):
     user = service.authenticate_user(data.email, data.password, db)
     if not user:
         raise service.AuthenticationError()
@@ -78,9 +78,7 @@ async def refresh(
         raise service.AuthenticationError("No refresh token")
 
     user_id = service.verify_refresh_token(refresh_token)
-    user = service.get_current_user_data(
-        service.TokenData(user_id=user_id), db
-    )
+    user = service.get_current_user_data(service.TokenData(user_id=user_id), db)
 
     new_access = service.create_access_token(
         user.email,
@@ -102,7 +100,5 @@ async def logout(response: Response):
 
 
 @router.get("/me", response_model=MeSchema)
-async def get_current_user(
-    current_user: service.CurrentUser, db: DatabaseSessionDep
-):
+async def get_current_user(current_user: service.CurrentUser, db: DatabaseSessionDep):
     return service.get_current_user_data(current_user, db)

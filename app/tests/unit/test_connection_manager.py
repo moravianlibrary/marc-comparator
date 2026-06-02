@@ -75,9 +75,7 @@ class TestConnectionManager:
         manager.connect(owner)
         manager.connect(other)
 
-        event = TaskProgressEvent(
-            task_id="t1", progress=0.5, created_by="user-1"
-        )
+        event = TaskProgressEvent(task_id="t1", progress=0.5, created_by="user-1")
         await manager.broadcast(event)
 
         owner.websocket.send_text.assert_called_once()

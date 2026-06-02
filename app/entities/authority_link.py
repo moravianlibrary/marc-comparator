@@ -13,9 +13,7 @@ if TYPE_CHECKING:
 class AuthorityLink(Base, BaseOperationsMixin):
     __tablename__ = "authority_links"
 
-    main_record_id = Column(
-        String, ForeignKey("catalog_records.id"), primary_key=True
-    )
+    main_record_id = Column(String, ForeignKey("catalog_records.id"), primary_key=True)
     linker = Column(String, nullable=False, primary_key=True)
     base = Column(String, nullable=False, primary_key=True)
 
@@ -26,9 +24,7 @@ class AuthorityLink(Base, BaseOperationsMixin):
     )
 
     confidence = Column(Float, nullable=True)
-    updated_at = Column(
-        TIMESTAMP, nullable=False, default=func.now(), onupdate=func.now()
-    )
+    updated_at = Column(TIMESTAMP, nullable=False, default=func.now(), onupdate=func.now())
 
     main_record: Mapped["CatalogRecord"] = relationship(
         "CatalogRecord",
@@ -69,8 +65,4 @@ class AuthorityLink(Base, BaseOperationsMixin):
         base: str,
     ) -> Optional["AuthorityLink"]:
         """Return the single authority link for this record and base, if any."""
-        return (
-            db_session.query(cls)
-            .filter_by(main_record_id=main_record_id, base=base)
-            .first()
-        )
+        return db_session.query(cls).filter_by(main_record_id=main_record_id, base=base).first()

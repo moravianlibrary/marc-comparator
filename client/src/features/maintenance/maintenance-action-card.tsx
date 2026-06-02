@@ -30,9 +30,8 @@ export function MaintenanceActionCard({
 
   const mutation = useMutation({
     mutationFn: async () => {
-      const body = showMaxAge && maxAgeDays
-        ? { max_age_days: parseInt(maxAgeDays, 10) }
-        : undefined;
+      const body =
+        showMaxAge && maxAgeDays ? { max_age_days: parseInt(maxAgeDays, 10) } : undefined;
       const { data } = await apiClient.post(endpoint, body);
       return data;
     },
@@ -69,11 +68,7 @@ export function MaintenanceActionCard({
               />
             </div>
           )}
-          <Button
-            onClick={() => mutation.mutate()}
-            disabled={mutation.isPending}
-            size="sm"
-          >
+          <Button onClick={() => mutation.mutate()} disabled={mutation.isPending} size="sm">
             {mutation.isPending ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />

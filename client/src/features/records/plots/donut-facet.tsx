@@ -1,11 +1,7 @@
 import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import { PieChart, Pie, Cell } from "recharts";
-import {
-  ChartContainer,
-  ChartTooltip,
-  type ChartConfig,
-} from "@/components/ui/chart";
+import { ChartContainer, ChartTooltip, type ChartConfig } from "@/components/ui/chart";
 import { FacetTooltip } from "./facet-tooltip";
 import { cn } from "@/lib/utils";
 import type { FacetBucket } from "../types";
@@ -38,9 +34,12 @@ export function DonutFacet({
   formatLabel,
 }: DonutFacetProps) {
   const { t } = useTranslation();
-  const chartConfig = useMemo<ChartConfig>(() => ({
-    count: { label: t("common:chart.count") },
-  }), [t]);
+  const chartConfig = useMemo<ChartConfig>(
+    () => ({
+      count: { label: t("common:chart.count") },
+    }),
+    [t],
+  );
 
   const isShowingPreview = previewData != null;
 
@@ -58,18 +57,13 @@ export function DonutFacet({
   });
 
   const total = chartData.reduce((sum, d) => sum + d.count, 0);
-  const previewTotal = isShowingPreview
-    ? previewData.reduce((sum, b) => sum + b.count, 0)
-    : 0;
+  const previewTotal = isShowingPreview ? previewData.reduce((sum, b) => sum + b.count, 0) : 0;
 
   // Scale preview values relative to previewTotal so shadow tracks fill proportionally
   const previewChartData = isShowingPreview
     ? data.map((bucket, index) => {
         const previewCount = previewData.find((p) => p.key === bucket.key)?.count ?? 0;
-        const scaledValue =
-          previewTotal > 0
-            ? (previewCount / previewTotal) * total
-            : previewCount;
+        const scaledValue = previewTotal > 0 ? (previewCount / previewTotal) * total : previewCount;
         return {
           key: bucket.key,
           name: fmt(bucket.key),
@@ -80,18 +74,17 @@ export function DonutFacet({
     : [];
 
   const dominant =
-    chartData.length > 0
-      ? chartData.reduce((a, b) => (a.count >= b.count ? a : b))
-      : null;
-  const dominantPercent =
-    dominant && total > 0
-      ? Math.round((dominant.count / total) * 100)
-      : 0;
+    chartData.length > 0 ? chartData.reduce((a, b) => (a.count >= b.count ? a : b)) : null;
+  const dominantPercent = dominant && total > 0 ? Math.round((dominant.count / total) * 100) : 0;
 
   return (
     <div className="flex items-center gap-4">
       <div className="relative flex-shrink-0">
-        <ChartContainer config={chartConfig} className="aspect-square" style={{ width: 240, height: 240 }}>
+        <ChartContainer
+          config={chartConfig}
+          className="aspect-square"
+          style={{ width: 240, height: 240 }}
+        >
           <PieChart>
             {/* Preview data as faded background */}
             {isShowingPreview && (
@@ -131,7 +124,8 @@ export function DonutFacet({
               onMouseLeave={onLeave}
             >
               {chartData.map((entry) => {
-                const isDisabledSegment = isShowingPreview && !activeValues.includes(entry.key) && entry.preview === 0;
+                const isDisabledSegment =
+                  isShowingPreview && !activeValues.includes(entry.key) && entry.preview === 0;
                 return (
                   <Cell
                     key={entry.key}
@@ -148,10 +142,7 @@ export function DonutFacet({
                 );
               })}
             </Pie>
-            <ChartTooltip
-              cursor={false}
-              content={<FacetTooltip />}
-            />
+            <ChartTooltip cursor={false} content={<FacetTooltip />} />
             {dominant && (
               <text
                 x="50%"

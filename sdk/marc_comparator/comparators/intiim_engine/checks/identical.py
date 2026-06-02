@@ -1,8 +1,11 @@
 from __future__ import annotations
-from typing import Optional, Dict, Any
+
+from typing import Any
+
 from ..normalizers import normalize_by_role
 
-def run(a: str, b: str, role: str, context: Optional[Dict[str, Any]] = None) -> Optional[Dict[str, Any]]:
+
+def run(a: str, b: str, role: str, context: dict[str, Any] | None = None) -> dict[str, Any] | None:
     na, nb = normalize_by_role(role, a), normalize_by_role(role, b)
     if na == nb:
         return {"label": "IDENTICAL", "confidence": 1.0, "details": {"norm_a": na, "norm_b": nb}}

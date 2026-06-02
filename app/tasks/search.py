@@ -4,7 +4,6 @@ from entities.task import Task
 
 from .models import SearchTasksRequest, SearchTasksResponse, TaskFilter, TaskSummary
 
-
 SORT_COLUMNS = {
     "created_at": Task.created_at,
     "started_at": Task.started_at,

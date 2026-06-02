@@ -31,14 +31,9 @@ export function FacetTooltip({
       <div className="font-medium">{name}</div>
       <div className="grid gap-1.5">
         <div className="flex w-full items-stretch gap-2">
-          <div
-            className="shrink-0 rounded-[2px] w-1"
-            style={{ backgroundColor: color }}
-          />
+          <div className="shrink-0 rounded-[2px] w-1" style={{ backgroundColor: color }} />
           <div className="flex flex-1 justify-between items-center leading-none">
-            <span className="text-muted-foreground">
-              {t("common:chart.count")}
-            </span>
+            <span className="text-muted-foreground">{t("common:chart.count")}</span>
             <span className="font-mono font-medium text-foreground tabular-nums">
               {typeof count === "number" ? count.toLocaleString() : count}
             </span>
@@ -49,14 +44,11 @@ export function FacetTooltip({
             <div
               className="shrink-0 rounded-[2px] w-1"
               style={{
-                backgroundColor:
-                  "color-mix(in oklch, var(--muted-foreground) 15%, transparent)",
+                backgroundColor: "color-mix(in oklch, var(--muted-foreground) 15%, transparent)",
               }}
             />
             <div className="flex flex-1 justify-between items-center leading-none">
-              <span className="text-muted-foreground">
-                {t("common:chart.preview")}
-              </span>
+              <span className="text-muted-foreground">{t("common:chart.preview")}</span>
               <span className="font-mono font-medium text-foreground tabular-nums">
                 {preview.toLocaleString()}
               </span>

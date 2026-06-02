@@ -9,9 +9,7 @@ export function useRecordReviews(base: string, systemNumber: string) {
     queryKey: ["catalog-records", "reviews", base, systemNumber],
     queryFn: () =>
       apiClient
-        .get<RecordReviewsResponse>(
-          `/catalog-records/${base}/${systemNumber}/reviews`,
-        )
+        .get<RecordReviewsResponse>(`/catalog-records/${base}/${systemNumber}/reviews`)
         .then((r) => r.data),
   });
 }
@@ -38,10 +36,9 @@ export function useDeleteReview(base: string, systemNumber: string) {
   const { t } = useTranslation("records");
   return useMutation({
     mutationFn: (aspectName: string) =>
-      apiClient.delete(
-        `/catalog-records/${base}/${systemNumber}/review`,
-        { params: { aspect_name: aspectName } },
-      ),
+      apiClient.delete(`/catalog-records/${base}/${systemNumber}/review`, {
+        params: { aspect_name: aspectName },
+      }),
     onSuccess: () => {
       toast.success(t("carousel.review.deleted"));
       queryClient.invalidateQueries({

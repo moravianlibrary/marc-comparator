@@ -1,6 +1,5 @@
-from datetime import datetime
 from enum import StrEnum
-from typing import TYPE_CHECKING, List, Optional
+from typing import Optional
 
 from marc_comparator.comparators import MatchQuality
 from marc_comparator.validators import ValidityStatus
@@ -47,7 +46,9 @@ class CatalogRecordState(StrEnum):
 
 
 class CatalogRecord(
-    Base, BaseOperationsMixin, RetrievalOperationsMixin,
+    Base,
+    BaseOperationsMixin,
+    RetrievalOperationsMixin,
 ):
     __tablename__ = "catalog_records"
 
@@ -61,9 +62,7 @@ class CatalogRecord(
     deleted = Column(Boolean, nullable=False, default=False)
     processed_at = Column(TIMESTAMP, nullable=True)
 
-    source_type = Column(
-        String, nullable=False, default=CatalogRecordSource.Main
-    )
+    source_type = Column(String, nullable=False, default=CatalogRecordSource.Main)
     source_name = Column(String, nullable=True)
 
     updated_at = Column(
@@ -79,25 +78,25 @@ class CatalogRecord(
     search_text = Column(String, nullable=True)
     search_vector = Column(TSVECTOR)
 
-    authority_links: Mapped[List[AuthorityLink]] = relationship(
+    authority_links: Mapped[list[AuthorityLink]] = relationship(
         "AuthorityLink",
         foreign_keys=[AuthorityLink.main_record_id],
         back_populates="main_record",
         lazy="select",
     )
-    comparisons: Mapped[List[Comparison]] = relationship(
+    comparisons: Mapped[list[Comparison]] = relationship(
         "Comparison",
         foreign_keys=[Comparison.main_record_id],
         back_populates="main_record",
         lazy="select",
     )
-    validations: Mapped[List[Validation]] = relationship(
+    validations: Mapped[list[Validation]] = relationship(
         "Validation",
         foreign_keys=[Validation.catalog_record_id],
         back_populates="catalog_record",
         lazy="select",
     )
-    reviews: Mapped[List[RecordReview]] = relationship(
+    reviews: Mapped[list[RecordReview]] = relationship(
         "RecordReview",
         foreign_keys=[RecordReview.record_id],
         back_populates="catalog_record",
@@ -149,7 +148,7 @@ class CatalogRecord(
         self._bibliographic_level = value
 
     @property
-    def state(self) -> List[CatalogRecordState]:
+    def state(self) -> list[CatalogRecordState]:
         states = []
 
         if not self.deleted:
@@ -164,12 +163,13 @@ class CatalogRecord(
 
         current_reviews = {r.aspect_name for r in self.reviews if r.status == ReviewStatus.Current}
         # Aspects that need review: non-excellent comparators + validators with issues
-        aspects_needing_review = (
-            {c.comparator for c in self.comparisons
-             if c.match_quality != MatchQuality.Excellent}
-            | {v.validator for v in self.validations
-               if v.status not in (ValidityStatus.Valid, ValidityStatus.AdditionalInfo)}
-        )
+        aspects_needing_review = {
+            c.comparator for c in self.comparisons if c.match_quality != MatchQuality.Excellent
+        } | {
+            v.validator
+            for v in self.validations
+            if v.status not in (ValidityStatus.Valid, ValidityStatus.AdditionalInfo)
+        }
         if not aspects_needing_review:
             states.append(CatalogRecordState.ReviewNotNeeded)
         elif current_reviews >= aspects_needing_review:
@@ -185,9 +185,7 @@ class CatalogRecord(
         """Update title, authors, and search_text from a parsed MARC record."""
         title_vals = record.variable_fields.query_subfield_values(TitleJq)
         subtitle_vals = record.variable_fields.query_subfield_values(SubtitleJq)
-        author_vals = record.variable_fields.query_subfield_values(
-            '.["100"]?[]?.subfields.a[]?'
-        )
+        author_vals = record.variable_fields.query_subfield_values('.["100"]?[]?.subfields.a[]?')
 
         self.title = title_vals[0] if title_vals else None
         self.authors = author_vals or []
@@ -208,6 +206,4 @@ def set_id_before_insert(
     target: CatalogRecord,
 ):
     if not target.id:
-        target.id = CatalogRecord.generate_id(
-            target.base, target.system_number
-        )
+        target.id = CatalogRecord.generate_id(target.base, target.system_number)

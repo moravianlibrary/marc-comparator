@@ -67,8 +67,7 @@ export const AuthorityLinker = {
   KnihovnyCz: "knihovny-cz",
 } as const;
 
-export type AuthorityLinker =
-  (typeof AuthorityLinker)[keyof typeof AuthorityLinker];
+export type AuthorityLinker = (typeof AuthorityLinker)[keyof typeof AuthorityLinker];
 
 export const Validator = {
   KrameriusLinks: "kramerius-links",

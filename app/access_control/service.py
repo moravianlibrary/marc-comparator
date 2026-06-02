@@ -13,9 +13,7 @@ from .exceptions import (
 from .models import RoleSchema, UsersRequestParams
 
 
-def get_roles(
-    params: PageRequestParams, db_session: DatabaseSession
-) -> Page[RoleSchema]:
+def get_roles(params: PageRequestParams, db_session: DatabaseSession) -> Page[RoleSchema]:
     return Page[RoleSchema](
         items=[
             RoleSchema.model_validate(role, from_attributes=True)
@@ -36,9 +34,7 @@ def create_role(role: RoleSchema, db_session: DatabaseSession) -> Role:
     return db_role.save(db_session)
 
 
-def update_role(
-    role_id: int, role: RoleSchema, db_session: DatabaseSession
-) -> Role:
+def update_role(role_id: int, role: RoleSchema, db_session: DatabaseSession) -> Role:
     db_role = Role.get(db_session, role_id)
 
     if db_role.immutable:
@@ -64,18 +60,14 @@ def delete_role(role_id: int, db_session: DatabaseSession) -> Role:
     return db_role.delete(db_session)
 
 
-def get_users(
-    params: UsersRequestParams, db_session: DatabaseSession
-) -> Page[UserSchema]:
+def get_users(params: UsersRequestParams, db_session: DatabaseSession) -> Page[UserSchema]:
     query_base = db_session.query(User)
     if params.email:
         query_base = query_base.filter(User.email.ilike(f"{params.email}%"))
 
     return Page[UserSchema](
         items=[
-            UserSchema.model_validate(u, from_attributes=True).model_dump(
-                mode="json"
-            )
+            UserSchema.model_validate(u, from_attributes=True).model_dump(mode="json")
             for u in query_base.offset((params.page - 1) * params.page_size)
             .limit(params.page_size)
             .all()
@@ -84,9 +76,7 @@ def get_users(
     )
 
 
-def assign_role_to_user(
-    user_id: str, role_id: int, db_session: DatabaseSession
-) -> User:
+def assign_role_to_user(user_id: str, role_id: int, db_session: DatabaseSession) -> User:
     user = User.get(db_session, user_id)
     role = Role.get(db_session, role_id)
 
@@ -95,9 +85,7 @@ def assign_role_to_user(
     return user.save(db_session)
 
 
-def unassign_role_from_user(
-    user_id: str, role_id: int, db_session: DatabaseSession
-) -> User:
+def unassign_role_from_user(user_id: str, role_id: int, db_session: DatabaseSession) -> User:
     user = User.get(db_session, user_id)
     role = Role.get(db_session, role_id)
 

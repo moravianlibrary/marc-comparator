@@ -53,6 +53,4 @@ async def delete_tasks(
     db_session: DatabaseSessionDep,
     max_age_days: int | None = None,
 ):
-    return await tasks_service.delete_tasks(
-        current_user.user_id, db_session, max_age_days
-    )
+    return await tasks_service.delete_tasks(current_user.user_id, db_session, max_age_days)

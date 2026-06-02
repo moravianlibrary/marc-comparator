@@ -3,12 +3,20 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 
 // Varying bar widths for visual interest
-const BAR_WIDTHS = ["w-[85%]", "w-[60%]", "w-[75%]", "w-[45%]", "w-[90%]", "w-[55%]", "w-[70%]", "w-[40%]"];
+const BAR_WIDTHS = [
+  "w-[85%]",
+  "w-[60%]",
+  "w-[75%]",
+  "w-[45%]",
+  "w-[90%]",
+  "w-[55%]",
+  "w-[70%]",
+  "w-[40%]",
+];
 
 // Varying histogram bar heights (out of 200px container)
 const HISTOGRAM_HEIGHTS = [
-  20, 45, 80, 120, 160, 180, 190, 175, 155, 130,
-  100, 75, 55, 40, 30, 50, 70, 90, 60, 35,
+  20, 45, 80, 120, 160, 180, 190, 175, 155, 130, 100, 75, 55, 40, 30, 50, 70, 90, 60, 35,
 ];
 
 interface SkeletonBarChartProps {
@@ -78,11 +86,7 @@ export function SkeletonHistogram({ className }: SkeletonHistogramProps) {
       <CardContent>
         <div className="flex items-end gap-[2px] h-[200px]">
           {HISTOGRAM_HEIGHTS.map((height, i) => (
-            <Skeleton
-              key={i}
-              className="flex-1"
-              style={{ height: `${height}px` }}
-            />
+            <Skeleton key={i} className="flex-1" style={{ height: `${height}px` }} />
           ))}
         </div>
       </CardContent>
@@ -128,10 +132,7 @@ export function SkeletonRadialChart({ className, size = 180 }: SkeletonRadialCha
       <CardContent>
         <div className="flex items-center gap-6 justify-center">
           {/* Radial circle */}
-          <Skeleton
-            className="rounded-full flex-none"
-            style={{ width: size, height: size }}
-          />
+          <Skeleton className="rounded-full flex-none" style={{ width: size, height: size }} />
           {/* Legend */}
           <div className="space-y-2">
             {Array.from({ length: 4 }).map((_, i) => (

@@ -22,10 +22,7 @@ export function FontSizeControl() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuRadioGroup
-          value={size}
-          onValueChange={(v) => setSize(v as FontSizeKey)}
-        >
+        <DropdownMenuRadioGroup value={size} onValueChange={(v) => setSize(v as FontSizeKey)}>
           {FONT_SIZE_OPTIONS.map((key) => (
             <DropdownMenuRadioItem key={key} value={key}>
               {t(`font-size.${key}`)}

@@ -3,7 +3,6 @@ import pytest_asyncio
 from aleph_nought import AlephClient
 from celery import Celery
 from httpx import ASGITransport, AsyncClient
-from pytest_mock import MockerFixture
 from redis import Redis
 from sqlalchemy.orm import sessionmaker
 
@@ -14,7 +13,6 @@ from app import app
 from auth.models import TokenData
 from auth.service import get_current_user
 from config import config
-from entities.catalog_record import CatalogRecord
 from entities.role import Role
 from entities.task import Task, TaskType
 from entities.user import User
@@ -46,9 +44,7 @@ async def db_session(db_engine, mocker) -> DatabaseSession:
 # --------------------------------------------------------------------------
 @pytest_asyncio.fixture(scope="function")
 async def client():
-    async with AsyncClient(
-        transport=ASGITransport(app=app), base_url="http://testserver"
-    ) as c:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://testserver") as c:
         yield c
 
 

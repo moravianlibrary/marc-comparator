@@ -1,14 +1,17 @@
 from __future__ import annotations
-from typing import List, Tuple, Optional, Set
-from .normalizers import normalize_by_role
-from .token_metrics import similarity, jaccard
 
-def pair_values(vals_a: List[str], vals_b: List[str], role: str) -> List[Tuple[Optional[int], Optional[int]]]:
+from .normalizers import normalize_by_role
+from .token_metrics import jaccard, similarity
+
+
+def pair_values(
+    vals_a: list[str], vals_b: list[str], role: str
+) -> list[tuple[int | None, int | None]]:
     # Pre-compute all pairwise scores
     norms_a = [normalize_by_role(role, str(va)) for va in vals_a]
     norms_b = [normalize_by_role(role, str(vb)) for vb in vals_b]
 
-    candidates: List[Tuple[float, int, int]] = []
+    candidates: list[tuple[float, int, int]] = []
     for i, na in enumerate(norms_a):
         for j, nb in enumerate(norms_b):
             score = (similarity(na, nb) + 100.0 * jaccard(na, nb)) / 2.0
@@ -17,9 +20,9 @@ def pair_values(vals_a: List[str], vals_b: List[str], role: str) -> List[Tuple[O
     # Sort descending by score so best matches are assigned first
     candidates.sort(key=lambda x: -x[0])
 
-    used_a: Set[int] = set()
-    used_b: Set[int] = set()
-    pairs: List[Tuple[Optional[int], Optional[int]]] = []
+    used_a: set[int] = set()
+    used_b: set[int] = set()
+    pairs: list[tuple[int | None, int | None]] = []
 
     for _score, i, j in candidates:
         if i in used_a or j in used_b:

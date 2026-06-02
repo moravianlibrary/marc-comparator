@@ -1,9 +1,5 @@
 import { BarChart, Bar, XAxis, YAxis, Rectangle } from "recharts";
-import {
-  ChartContainer,
-  ChartTooltip,
-  type ChartConfig,
-} from "@/components/ui/chart";
+import { ChartContainer, ChartTooltip, type ChartConfig } from "@/components/ui/chart";
 import { FacetTooltip } from "./facet-tooltip";
 import type { HistogramBucket } from "../types";
 
@@ -87,9 +83,7 @@ export function HistogramFacet({ data, previewData }: HistogramFacetProps) {
           dataKey="preview"
           stackId="score"
           radius={isShowingPreview ? [0, 0, 0, 0] : [4, 4, 0, 0]}
-          shape={(props: any) => (
-            <Rectangle {...props} fill={getScoreColor(props.payload.min)} />
-          )}
+          shape={(props: any) => <Rectangle {...props} fill={getScoreColor(props.payload.min)} />}
         />
         <Bar
           dataKey="remainder"

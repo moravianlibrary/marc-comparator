@@ -68,9 +68,7 @@ class TestRebuildAll:
 
         rebuild_all(db_session)
 
-        rows = db_session.execute(
-            text("SELECT id FROM catalog_records_analytics")
-        ).fetchall()
+        rows = db_session.execute(text("SELECT id FROM catalog_records_analytics")).fetchall()
         assert len(rows) == 1
 
 

@@ -1,4 +1,3 @@
-from typing import List
 from uuid import uuid4
 
 from sqlalchemy import Column, ForeignKey, Integer, String
@@ -20,7 +19,7 @@ class User(Base, BaseOperationsMixin, RetrievalOperationsMixin):
     last_name = Column(String, nullable=False)
     password_hash = Column(String, nullable=False)
 
-    roles: Mapped[List[Role]] = relationship(
+    roles: Mapped[list[Role]] = relationship(
         "Role",
         secondary="user_roles",
         back_populates="users",
@@ -28,7 +27,7 @@ class User(Base, BaseOperationsMixin, RetrievalOperationsMixin):
     )
 
     @property
-    def permissions(self) -> List[Permission]:
+    def permissions(self) -> list[Permission]:
         perms = set()
         for role in self.roles:
             perms.update([p.value for p in role.permissions])
@@ -49,7 +48,5 @@ class User(Base, BaseOperationsMixin, RetrievalOperationsMixin):
 class UserRole(Base):
     __tablename__ = "user_roles"
 
-    user_id = Column(
-        UUID(as_uuid=True), ForeignKey("users.id"), primary_key=True
-    )
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), primary_key=True)
     role_id = Column(Integer, ForeignKey("roles.id"), primary_key=True)

@@ -76,7 +76,9 @@ def catalog_record(
     db_session: DatabaseSession,
 ) -> CatalogRecord:
     return create_catalog_record(
-        db_session, "MZK01", "001217709",
+        db_session,
+        "MZK01",
+        "001217709",
         load_test_record("MZK01-001217709.mrc"),
     )
 
@@ -86,9 +88,7 @@ def authority_linking_settings(db_session: DatabaseSession) -> Settings:
     return Settings.save(
         db_session,
         SettingsScope.AuthorityLinking,
-        AuthorityLinkingSettings.model_validate(
-            load_test_json("authority_linking_settings.json")
-        ),
+        AuthorityLinkingSettings.model_validate(load_test_json("authority_linking_settings.json")),
         AuthorityLinkingSettings,
     )
 
@@ -109,7 +109,9 @@ def task(db_session: DatabaseSession, user: TokenData) -> Task:
 @pytest.fixture(scope="function")
 def authority_catalog_record(db_session: DatabaseSession) -> CatalogRecord:
     return create_catalog_record(
-        db_session, "SKC", "001217729",
+        db_session,
+        "SKC",
+        "001217729",
         load_test_record("MZK01-001217729.mrc"),
     )
 
@@ -135,9 +137,7 @@ def mock_linker_with_link(mocker: MockerFixture) -> MockerFixture:
             return ["SKC"]
 
         async def run(self, base, system_number, record, target_base):
-            return AuthorityLink(
-                base=target_base, system_number="001217729", record=record
-            )
+            return AuthorityLink(base=target_base, system_number="001217729", record=record)
 
     return mocker.patch(
         "authority_linking.tasks.AUTHORITY_LINKER_DISPATCHER",
@@ -187,10 +187,7 @@ class TestAuthorityLinkingTask:
         await authority_linking(task.task_id)
 
         assert (
-            CatalogRecord.find_by_base_and_system_number(
-                db_session, "SKC", "001217729"
-            )
-            is not None
+            CatalogRecord.find_by_base_and_system_number(db_session, "SKC", "001217729") is not None
         )
 
     @pytest.mark.asyncio

@@ -1,6 +1,7 @@
+from unittest.mock import AsyncMock, patch
+
 import pytest
 from httpx import AsyncClient
-from unittest.mock import AsyncMock, patch
 
 from adapters.database import DatabaseSession
 from entities.settings import Settings, SettingsScope
@@ -172,9 +173,7 @@ class TestSystemServiceUnit:
         assert result == []
 
     @pytest.mark.asyncio
-    async def test_get_enabled_authority_linkers_no_settings(
-        self, db_session, user
-    ):
+    async def test_get_enabled_authority_linkers_no_settings(self, db_session, user):
         from system.service import get_enabled_authority_linkers
 
         result = await get_enabled_authority_linkers(db_session)
@@ -196,16 +195,10 @@ class TestSystemServiceUnit:
         )
 
         # Patch the linker's get_target_bases to avoid actual HTTP calls
-        with patch(
-            "system.service.AUTHORITY_LINKER_DISPATCHER"
-        ) as mock_dispatcher:
+        with patch("system.service.AUTHORITY_LINKER_DISPATCHER") as mock_dispatcher:
             mock_linker_cls = AsyncMock()
-            mock_linker_cls.get_target_bases = AsyncMock(
-                return_value=["MZK01", "MZK03"]
-            )
-            mock_linker_cls.config_model.model_validate.return_value = (
-                object()
-            )
+            mock_linker_cls.get_target_bases = AsyncMock(return_value=["MZK01", "MZK03"])
+            mock_linker_cls.config_model.model_validate.return_value = object()
             mock_dispatcher.get.return_value = mock_linker_cls
 
             result = await get_enabled_authority_linkers(db_session)
@@ -213,11 +206,9 @@ class TestSystemServiceUnit:
             assert result[0].name == "knihovny-cz"
             assert result[0].target_bases == ["MZK01", "MZK03"]
 
-    def test_get_enabled_validators_with_settings(
-        self, db_session: DatabaseSession, user
-    ):
-        from validation.models import ValidationSettings
+    def test_get_enabled_validators_with_settings(self, db_session: DatabaseSession, user):
         from system.service import get_enabled_validators
+        from validation.models import ValidationSettings
 
         test_settings = load_test_json("validation_settings.json")
         Settings.save(

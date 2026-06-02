@@ -37,69 +37,66 @@ export function MainBanner() {
         })
         .then((r) => r.data),
     enabled: canManageTasks === true,
-    refetchInterval: (query) => query.state.data?.items?.some((task) => task.status === "Started") ? 5000 : false,
+    refetchInterval: (query) =>
+      query.state.data?.items?.some((task) => task.status === "Started") ? 5000 : false,
   });
 
   const runningTasks = tasksData?.items ?? [];
 
   return (
     <>
-    <header className="border-b bg-background px-6 py-2 flex items-center gap-4">
-      <Button
-        variant="ghost"
-        className="font-semibold text-lg p-0 h-auto hover:bg-transparent gap-2"
-        onClick={() => navigate("/")}
-      >
-        <img
-          src="/marcomparator-only-logo-transparent.png"
-          alt=""
-          className="h-8 dark:hidden"
-        />
-        <img
-          src="/marcomparator-only-logo-dark-transparent.png"
-          alt=""
-          className="h-8 hidden dark:block"
-        />
-        {t("common:app-name")}
-      </Button>
+      <header className="border-b bg-background px-6 py-2 flex items-center gap-4">
+        <Button
+          variant="ghost"
+          className="font-semibold text-lg p-0 h-auto hover:bg-transparent gap-2"
+          onClick={() => navigate("/")}
+        >
+          <img src="/marcomparator-only-logo-transparent.png" alt="" className="h-8 dark:hidden" />
+          <img
+            src="/marcomparator-only-logo-dark-transparent.png"
+            alt=""
+            className="h-8 hidden dark:block"
+          />
+          {t("common:app-name")}
+        </Button>
 
-      <MenuPanel />
+        <MenuPanel />
 
-      <Button
-        variant="ghost"
-        size="sm"
-        className="gap-1.5 text-muted-foreground"
-        onClick={() => setShowHelp(true)}
-      >
-        <CircleHelp className="h-4 w-4" />
-        {t("common:menu.help")}
-      </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          className="gap-1.5 text-muted-foreground"
+          onClick={() => setShowHelp(true)}
+        >
+          <CircleHelp className="h-4 w-4" />
+          {t("common:menu.help")}
+        </Button>
 
-      <div className="flex-1" />
+        <div className="flex-1" />
 
-      <TaskProgress runningTasks={runningTasks} />
-      <ToastHistory />
+        <TaskProgress runningTasks={runningTasks} />
+        <ToastHistory />
 
-      <FontSizeControl />
-      <ThemeToggle />
+        <FontSizeControl />
+        <ThemeToggle />
 
-      {me && (
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">
-            {me.first_name} {me.last_name}
-          </span>
-          <Button
-            variant="ghost"
-            size="icon"
-            title={t("common:user-menu.logout")}
-            onClick={() => logout.mutate()}
-          >
-            <LogOut className="h-4 w-4" />
-          </Button>
-        </div>
-      )}
-    </header>
-    <HelpDialog open={showHelp} onClose={() => setShowHelp(false)} />
+        {me && (
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">
+              {me.first_name} {me.last_name}
+            </span>
+            <Button
+              variant="ghost"
+              size="icon"
+              title={t("common:user-menu.logout")}
+              onClick={() => logout.mutate()}
+            >
+              <LogOut className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
+      </header>
+      <HelpDialog open={showHelp} onClose={() => setShowHelp(false)} />
     </>
   );
 }

@@ -28,7 +28,14 @@ const statusVariantMap: Record<string, "default" | "secondary" | "destructive" |
   Revoked: "outline",
 };
 
-export function TaskTable({ tasks, selectedTaskId, showCreatedBy, userNames, onSelectTask, onRevoke }: TaskTableProps) {
+export function TaskTable({
+  tasks,
+  selectedTaskId,
+  showCreatedBy,
+  userNames,
+  onSelectTask,
+  onRevoke,
+}: TaskTableProps) {
   const { t } = useTranslation("tasks");
 
   return (
@@ -50,7 +57,9 @@ export function TaskTable({ tasks, selectedTaskId, showCreatedBy, userNames, onS
             className={`cursor-pointer ${selectedTaskId === task.task_id ? "bg-muted" : ""}`}
             onClick={() => onSelectTask(task.task_id)}
           >
-            <TableCell className="font-medium">{t(`type.${task.type}`, { defaultValue: task.type })}</TableCell>
+            <TableCell className="font-medium">
+              {t(`type.${task.type}`, { defaultValue: task.type })}
+            </TableCell>
             <TableCell>
               <Badge variant={statusVariantMap[task.status] ?? "outline"}>
                 {t(`status.${task.status}`)}
@@ -64,7 +73,9 @@ export function TaskTable({ tasks, selectedTaskId, showCreatedBy, userNames, onS
                   ? "..."
                   : "-"}
             </TableCell>
-            {showCreatedBy && <TableCell>{userNames?.get(task.created_by) ?? task.created_by}</TableCell>}
+            {showCreatedBy && (
+              <TableCell>{userNames?.get(task.created_by) ?? task.created_by}</TableCell>
+            )}
             <TableCell>
               {task.status === "Started" && (
                 <Button

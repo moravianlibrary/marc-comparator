@@ -35,10 +35,7 @@ export function SkeletonMarcTable({
         return (
           <div
             key={rowIdx}
-            className={cn(
-              "flex border-b last:border-b-0",
-              striped && "bg-muted/50",
-            )}
+            className={cn("flex border-b last:border-b-0", striped && "bg-muted/50")}
           >
             {/* Tag + indicators column (120px) */}
             <div className="flex w-[120px] flex-none items-start gap-2 px-3 py-1.5">
