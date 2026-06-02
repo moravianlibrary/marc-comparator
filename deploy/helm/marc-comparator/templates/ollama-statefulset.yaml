@@ -22,6 +22,7 @@ spec:
       containers:
         - name: ollama
           image: "{{ .Values.ollama.image.repository }}:{{ .Values.ollama.image.tag }}"
+          command: ["/bin/sh", "/entrypoint/entrypoint.sh"]
           ports:
             - name: http
               containerPort: {{ .Values.ollama.port }}
@@ -29,6 +30,8 @@ spec:
           env:
             - name: OLLAMA_MODELS
               value: /models
+            - name: MODELS
+              value: {{ .Values.ollama.models | quote }}
           livenessProbe:
             httpGet:
               path: /
@@ -44,8 +47,15 @@ spec:
           volumeMounts:
             - name: models
               mountPath: /models
+            - name: entrypoint
+              mountPath: /entrypoint
           resources:
             {{- toYaml .Values.ollama.resources | nindent 12 }}
+      volumes:
+        - name: entrypoint
+          configMap:
+            name: {{ include "marc-comparator.fullname" . }}-ollama-entrypoint
+            defaultMode: 0755
   volumeClaimTemplates:
     - metadata:
         name: models
