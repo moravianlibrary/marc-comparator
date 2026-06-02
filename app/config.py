@@ -92,7 +92,7 @@ class OIDCConfig(BaseSettings):
 
     @property
     def redirect_uri(self) -> str:
-        return f"{self.app_base_url}/auth/oidc/callback"
+        return f"{self.app_base_url}/api/auth/oidc/callback"
 
 
 class AppConfig(BaseSettings):

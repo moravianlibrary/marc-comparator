@@ -8,6 +8,7 @@ from fastapi.responses import RedirectResponse
 
 from adapters.database import DatabaseSession, get_db_session
 from config import config
+from entities.role import Role
 from entities.user import User
 
 from . import service
@@ -92,9 +93,11 @@ async def oidc_callback(code: str, state: str = "/"):
                 email=email,
                 password_hash="",  # No password for OIDC users
             )
+            guest_role = Role.get_by_name(db_session, "Guest")
+            user.roles.append(guest_role)
             user.save(db_session)
             db_session.commit()
-            logger.info(f"OIDC: provisioned new user {email}")
+            logger.info(f"OIDC: provisioned new user {email} with Guest role")
         user_id = user.id
     finally:
         db_session.close()

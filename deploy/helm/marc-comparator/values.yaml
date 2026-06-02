@@ -126,7 +126,8 @@ config:
   timezoneName: "Europe/Prague"
   logLevel: "info"
 
-  # OIDC (optional)
+  # OIDC (optional) — oidcAppBaseUrl is the public-facing URL (e.g. https://example.com)
+  # OIDC callback is at {oidcAppBaseUrl}/api/auth/oidc/callback
   oidcEnabled: "false"
   oidcDefault: "false"
   oidcIssuerUrl: ""

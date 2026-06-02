@@ -119,7 +119,7 @@ export function LoginPage() {
         <CardHeader className="text-center">
           <AppLogo />
           <CardTitle>{t("login.title")}</CardTitle>
-          <CardDescription>{t("login.subtitle")}</CardDescription>
+          {!isOidcDefault && <CardDescription>{t("login.subtitle")}</CardDescription>}
         </CardHeader>
         <CardContent>
           {isOidcDefault ? (
@@ -135,7 +135,12 @@ export function LoginPage() {
                     />
                   </Button>
                 </CollapsibleTrigger>
-                <CollapsibleContent className="mt-4">{emailForm}</CollapsibleContent>
+                <CollapsibleContent className="mt-4">
+                  <p className="mb-4 text-center text-sm text-muted-foreground">
+                    {t("login.subtitle")}
+                  </p>
+                  {emailForm}
+                </CollapsibleContent>
               </Collapsible>
             </>
           ) : (
