@@ -8,8 +8,11 @@ import { addNotification } from "@/layout/toast-history";
 interface TaskStatusMessage {
   task_id: string;
   task_type?: string;
-  status: "Started" | "Success" | "Failure";
+  name?: string;
+  status: "Pending" | "Started" | "Success" | "Failure";
 }
+
+const COALESCE_MS = 300;
 
 export function useWsEvents() {
   const { t } = useTranslation("tasks");
@@ -21,43 +24,74 @@ export function useWsEvents() {
   useEffect(() => {
     wsClient.connect();
 
-    const unsubStatus = wsClient.on("task_status", (raw) => {
-      const data = raw as TaskStatusMessage;
+    const pendingEvents = new Map<string, { data: TaskStatusMessage; timerId: ReturnType<typeof setTimeout> }>();
+
+    function handleTaskStatus(data: TaskStatusMessage) {
+      const t = tRef.current;
       queryClient.invalidateQueries({ queryKey: ["tasks"] });
 
       const taskName = data.task_type
-        ? tRef.current(`type.${data.task_type}`, { defaultValue: data.task_type })
+        ? t(`type.${data.task_type}`, { defaultValue: data.task_type })
         : data.task_id;
-      if (data.status === "Started") {
-        toast.info(tRef.current("toast.started", { name: taskName }));
+
+      if (data.status === "Pending") {
+        toast.info(t("toast.pending", { name: taskName }));
         addNotification({
           title: taskName ?? data.task_id,
-          description: tRef.current("toast.started", { name: taskName }),
+          description: t("toast.pending", { name: taskName }),
+          variant: "default",
+          timestamp: new Date().toISOString(),
+          taskId: data.task_id,
+        });
+      } else if (data.status === "Started") {
+        toast.info(t("toast.started", { name: taskName }));
+        addNotification({
+          title: taskName ?? data.task_id,
+          description: t("toast.started", { name: taskName }),
           variant: "default",
           timestamp: new Date().toISOString(),
           taskId: data.task_id,
         });
       } else if (data.status === "Success") {
-        toast.success(tRef.current("toast.completed", { name: taskName }));
+        toast.success(t("toast.completed", { name: taskName }));
         addNotification({
           title: taskName ?? data.task_id,
-          description: tRef.current("toast.completed", { name: taskName }),
+          description: t("toast.completed", { name: taskName }),
           variant: "success",
           timestamp: new Date().toISOString(),
           taskId: data.task_id,
         });
         queryClient.invalidateQueries({ queryKey: ["catalog-records"] });
       } else if (data.status === "Failure") {
-        toast.error(tRef.current("toast.failed", { name: taskName }));
+        toast.error(t("toast.failed", { name: taskName }));
         addNotification({
           title: taskName ?? data.task_id,
-          description: tRef.current("toast.failed", { name: taskName }),
+          description: t("toast.failed", { name: taskName }),
           variant: "error",
           timestamp: new Date().toISOString(),
           taskId: data.task_id,
         });
         queryClient.invalidateQueries({ queryKey: ["catalog-records"] });
       }
+    }
+
+    const unsubStatus = wsClient.on("task_status", (raw) => {
+      const data = raw as TaskStatusMessage;
+      const taskId = data.task_id;
+
+      // Cancel any pending coalesced event for this task
+      const existing = pendingEvents.get(taskId);
+      if (existing) {
+        clearTimeout(existing.timerId);
+      }
+
+      // Schedule the event to fire after COALESCE_MS
+      const timerId = setTimeout(() => {
+        pendingEvents.delete(taskId);
+        handleTaskStatus(data);
+      }, COALESCE_MS);
+
+      pendingEvents.set(taskId, { data, timerId });
     });
 
     const unsubProgress = wsClient.on("task_progress", (raw) => {
@@ -84,6 +118,11 @@ export function useWsEvents() {
     });
 
     return () => {
+      // Clear all pending coalesced events on unmount
+      for (const { timerId } of pendingEvents.values()) {
+        clearTimeout(timerId);
+      }
+      pendingEvents.clear();
       unsubStatus();
       unsubProgress();
       unsubLock();
