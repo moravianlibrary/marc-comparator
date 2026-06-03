@@ -309,20 +309,19 @@ def handle_batch_progress_snippet(ctx: ManagedTask) -> None:
         ctx.logger.info(f"Processed {ctx.progress} records so far.")
         ctx.update_progress()
 
-    # DB commit for regular tasks (no SectorBuffer)
+    # DB commit + session cycle for regular tasks (no SectorBuffer)
     if (
         ctx.before_commit is None
         and ctx.progress % ctx.task_settings.commit_interval == 0
     ):
-        ctx.db_session.commit()
+        ctx.cycle_session()
 
-    # Sector flush + DB commit for record-writing tasks (with SectorBuffer)
+    # Sector flush + DB commit + session cycle for record-writing tasks
     if (
         ctx.before_commit is not None
         and ctx.progress % ctx.task_settings.sector_flush_interval == 0
     ):
-        ctx.before_commit()
-        ctx.db_session.commit()
+        ctx.cycle_session()
 
     # Periodically rebuild analytics + facet cube for live dashboard updates
     interval = ctx.task_settings.analytics_rebuild_interval
@@ -346,9 +345,7 @@ def _rebuild_analytics(ctx: ManagedTask) -> None:
 
 def handle_final_batch_snippet(ctx: ManagedTask) -> None:
     """Commit any remaining DB changes and update task progress."""
-    if ctx.before_commit:
-        ctx.before_commit()
-    ctx.db_session.commit()
+    ctx.cycle_session()
     ctx.update_progress()
 
 

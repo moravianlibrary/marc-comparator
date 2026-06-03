@@ -59,6 +59,7 @@ class TestBatchProgressSnippet:
         ctx._total = 1000
         ctx.progress = 0
         ctx.before_commit = before_commit
+        ctx.cycle_session = MagicMock()
         return ctx
 
     def test_progress_update_does_not_commit(self):
@@ -74,8 +75,8 @@ class TestBatchProgressSnippet:
 
         ctx.db_session.commit.assert_not_called()
 
-    def test_commit_interval_commits_for_regular_tasks(self):
-        """At commit_interval (no before_commit), commit the session."""
+    def test_commit_interval_cycles_session_for_regular_tasks(self):
+        """At commit_interval (no before_commit), cycle_session should be called."""
         settings = TaskSettings(
             progress_update_interval=1000,
             commit_interval=1,
@@ -85,10 +86,11 @@ class TestBatchProgressSnippet:
 
         handle_batch_progress_snippet(ctx)
 
-        ctx.db_session.commit.assert_called_once()
+        ctx.cycle_session.assert_called_once()
+        ctx.db_session.commit.assert_not_called()
 
     def test_commit_interval_ignored_when_before_commit_set(self):
-        """When before_commit is set, commit_interval should not trigger commits."""
+        """When before_commit is set, commit_interval should not trigger cycle_session."""
         settings = TaskSettings(
             progress_update_interval=1000,
             commit_interval=1,
@@ -99,28 +101,27 @@ class TestBatchProgressSnippet:
 
         handle_batch_progress_snippet(ctx)
 
+        ctx.cycle_session.assert_not_called()
         ctx.db_session.commit.assert_not_called()
         before_commit.assert_not_called()
 
-    def test_sector_flush_interval_flushes_and_commits(self):
-        """At sector_flush_interval (with before_commit), flush sectors then commit."""
+    def test_sector_flush_interval_cycles_session(self):
+        """At sector_flush_interval (with before_commit), cycle_session should be called."""
         settings = TaskSettings(
             progress_update_interval=1000,
             commit_interval=1000,
             sector_flush_interval=1,
         )
-        call_order = []
-        before_commit = lambda: call_order.append("before_commit")
-
+        before_commit = MagicMock()
         ctx = self._make_ctx(settings, before_commit=before_commit)
-        ctx.db_session.commit = lambda: call_order.append("commit")
 
         handle_batch_progress_snippet(ctx)
 
-        assert call_order == ["before_commit", "commit"]
+        ctx.cycle_session.assert_called_once()
+        ctx.db_session.commit.assert_not_called()
 
     def test_sector_flush_interval_ignored_when_no_before_commit(self):
-        """When before_commit is not set, sector_flush_interval should not trigger."""
+        """When before_commit is not set, sector_flush_interval should not trigger cycle_session."""
         settings = TaskSettings(
             progress_update_interval=1000,
             commit_interval=1000,
@@ -130,7 +131,52 @@ class TestBatchProgressSnippet:
 
         handle_batch_progress_snippet(ctx)
 
+        ctx.cycle_session.assert_not_called()
         ctx.db_session.commit.assert_not_called()
+
+
+class TestBatchProgressCycling:
+    def test_commit_interval_cycles_session(self):
+        """At commit_interval (regular task), cycle_session should be called."""
+        settings = TaskSettings(
+            progress_update_interval=1000,
+            commit_interval=1,
+            sector_flush_interval=1000,
+        )
+        ctx = ManagedTask(task_id="fake-id")
+        ctx.db_session = MagicMock()
+        ctx.task = MagicMock()
+        ctx.task.type = MagicMock()
+        ctx.task_settings = settings
+        ctx._total = 1000
+        ctx.progress = 0
+        ctx.before_commit = None
+        ctx.cycle_session = MagicMock()
+
+        handle_batch_progress_snippet(ctx)
+
+        ctx.cycle_session.assert_called_once()
+
+    def test_sector_flush_interval_cycles_session(self):
+        """At sector_flush_interval (record-writing task), cycle_session should be called."""
+        settings = TaskSettings(
+            progress_update_interval=1000,
+            commit_interval=1000,
+            sector_flush_interval=1,
+        )
+        ctx = ManagedTask(task_id="fake-id")
+        ctx.db_session = MagicMock()
+        ctx.task = MagicMock()
+        ctx.task.type = MagicMock()
+        ctx.task_settings = settings
+        ctx._total = 1000
+        ctx.progress = 0
+        ctx.before_commit = MagicMock()
+        ctx.cycle_session = MagicMock()
+
+        handle_batch_progress_snippet(ctx)
+
+        ctx.cycle_session.assert_called_once()
 
 
 class TestCycleSession:
