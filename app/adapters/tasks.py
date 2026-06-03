@@ -153,7 +153,7 @@ class ManagedTask:
             self.update_progress()
 
     def save_task(self):
-        self.task.save(self.db_session)
+        self.task.save(self.db_session, commit=False)
 
     def update_progress(self) -> None:
         self.task.progress = self.progress / self._total if self._total else None
@@ -200,6 +200,7 @@ class ManagedTask:
             self.task.status = TaskStatus.Started
             self.task.started_at = config.timestamp
             self.save_task()
+            self.db_session.commit()
             publish_event(
                 TaskStatusEvent(
                     task_id=str(self.task.task_id),
@@ -262,6 +263,10 @@ class ManagedTask:
                     rebuild_all(self.db_session)
                 except Exception as e:
                     logging.warning(f"Analytics rebuild failed: {e}")
+
+            if self.before_commit:
+                self.before_commit()
+            self.db_session.commit()
         finally:
             # --- Release resources ---
             if self.lock:

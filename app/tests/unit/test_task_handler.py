@@ -1,6 +1,6 @@
 from unittest.mock import MagicMock
 
-from adapters.tasks import TaskHandler
+from adapters.tasks import ManagedTask, TaskHandler
 
 
 class TestFlushTraceback:
@@ -29,3 +29,15 @@ class TestFlushTraceback:
 
         managed_task.before_commit.assert_not_called()
         db_session.flush.assert_called_once()
+
+
+class TestSaveTask:
+    def test_save_task_does_not_commit(self):
+        """save_task must flush (not commit) so that commit boundaries control persistence."""
+        ctx = ManagedTask(task_id="fake-id")
+        ctx.db_session = MagicMock()
+        ctx.task = MagicMock()
+
+        ctx.save_task()
+
+        ctx.task.save.assert_called_once_with(ctx.db_session, commit=False)
