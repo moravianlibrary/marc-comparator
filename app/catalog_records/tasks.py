@@ -102,11 +102,16 @@ def save_record_metadata(
     base: str,
     system_number: str,
     record: MarcRecord,
+    catalog_record: CatalogRecord | None = None,
 ) -> CatalogRecord:
-    """Save catalog record metadata (without MARC bytes) to the database."""
-    catalog_record = CatalogRecord.find_by_base_and_system_number(
-        ctx.db_session, base, system_number
-    )
+    """Save catalog record metadata (without MARC bytes) to the database.
+
+    When *catalog_record* is passed, it is reused instead of querying again.
+    """
+    if catalog_record is None:
+        catalog_record = CatalogRecord.find_by_base_and_system_number(
+            ctx.db_session, base, system_number
+        )
 
     if catalog_record:
         catalog_record.deleted = False
@@ -199,8 +204,11 @@ async def fetch_batch_of_records_task(task_id: str) -> None:
 
                     from adapters.marc_sectors import read_marc
 
-                    old_marc = read_marc(ctx.db_session, base, system_number)
-                    catalog_record = save_record_metadata(ctx, base, system_number, record)
+                    existing = CatalogRecord.find_by_base_and_system_number(
+                        ctx.db_session, base, system_number
+                    )
+                    old_marc = read_marc(ctx.db_session, base, system_number) if existing else None
+                    catalog_record = save_record_metadata(ctx, base, system_number, record, existing)
                     buffer.add(base, system_number, record._marc)
 
                     if old_marc is not None and old_marc != record._marc:
@@ -253,10 +261,8 @@ async def records_sync_task(task_id: str, lock_key: str, lock_blocking_timeout: 
                     ctx.logger.error(f"Failed fetching record {base}-{system_number}.")
                     continue
 
-                catalog_record = (
-                    ctx.db_session.query(CatalogRecord)
-                    .filter_by(base=base, system_number=system_number)
-                    .first()
+                catalog_record = CatalogRecord.find_by_base_and_system_number(
+                    ctx.db_session, base, system_number
                 )
 
                 if status == RecordStatus.Deleted and catalog_record is None:
@@ -273,8 +279,8 @@ async def records_sync_task(task_id: str, lock_key: str, lock_blocking_timeout: 
                 else:
                     from adapters.marc_sectors import read_marc
 
-                    old_marc = read_marc(ctx.db_session, base, system_number)
-                    cr = save_record_metadata(ctx, base, system_number, record)
+                    old_marc = read_marc(ctx.db_session, base, system_number) if catalog_record else None
+                    cr = save_record_metadata(ctx, base, system_number, record, catalog_record)
                     buffer.add(base, system_number, record._marc)
 
                     if old_marc is not None and old_marc != record._marc:

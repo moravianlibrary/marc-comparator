@@ -147,7 +147,7 @@ def scenario_no_link_with_existing(
     existing_link: AuthorityLink,
 ) -> list[LinkActionResult]:
     """No link found but an existing link exists; delete it."""
-    existing_link.delete(db_session)
+    existing_link.delete(db_session, commit=False)
     return [LinkActionResult.DeletedLink]
 
 
@@ -232,7 +232,7 @@ def scenario_found_link_replace(
     target_base: str,
 ) -> list[LinkActionResult]:
     """Found link has different authority than existing; replace."""
-    existing_link.delete(db_session)
+    existing_link.delete(db_session, commit=False)
     _, record_result = _upsert_authority_record_and_link(
         db_session, catalog_record, found_link, linker_instance, target_base
     )

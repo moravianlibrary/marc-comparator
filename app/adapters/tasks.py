@@ -66,8 +66,16 @@ class TaskHandler(logging.Handler):
         self._managed_task = managed_task
         self.current_level = logging.INFO
         self._pending = 0
+        self._buffer: list[str] = []
 
     def _flush_traceback(self):
+        if self._buffer:
+            batch = "".join(self._buffer)
+            if self.task.traceback:
+                self.task.traceback += batch
+            else:
+                self.task.traceback = batch
+            self._buffer.clear()
         try:
             self.db_session.flush()
         except Exception:
@@ -79,10 +87,7 @@ class TaskHandler(logging.Handler):
         timestamp = config.timestamp
         entry = f"[{timestamp}] {record.levelname}: {msg}\n"
 
-        if self.task.traceback:
-            self.task.traceback += entry
-        else:
-            self.task.traceback = entry
+        self._buffer.append(entry)
 
         self._pending += 1
         severity_changed = False

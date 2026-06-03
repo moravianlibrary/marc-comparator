@@ -13,9 +13,10 @@ class BaseOperationsMixin:
             db_session.flush()
         return self
 
-    def delete(self: Self, db_session: DatabaseSession) -> Self:
+    def delete(self: Self, db_session: DatabaseSession, *, commit: bool = True) -> Self:
         db_session.delete(self)
-        db_session.commit()
+        if commit:
+            db_session.commit()
         return self
 
 

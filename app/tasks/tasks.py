@@ -1,6 +1,6 @@
 from datetime import UTC, datetime, timedelta
 
-from adapters.tasks import ManagedTask, handle_batch_progress_snippet
+from adapters.tasks import ManagedTask, handle_batch_progress_snippet, handle_final_batch_snippet
 from entities.task import Task, TaskStatus
 
 
@@ -33,9 +33,13 @@ async def delete_tasks(task_id: str) -> None:
 
         for task in tasks:
             try:
-                task.delete(ctx.db_session)
+                task.delete(ctx.db_session, commit=False)
                 handle_batch_progress_snippet(ctx)
             except Exception as e:
+                ctx.db_session.rollback()
                 ctx.logger.error(f"Failed to delete task {task.task_id}:\n{e}")
+                handle_batch_progress_snippet(ctx)
+
+        handle_final_batch_snippet(ctx)
 
         ctx.logger.info(f"Finished deleting, total tasks processed: {ctx.progress}")

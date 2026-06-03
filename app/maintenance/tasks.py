@@ -2,7 +2,7 @@ from sqlalchemy import func
 
 from adapters.lock_server import get_active_locks
 from adapters.marc_sectors import _decompressor, write_records_to_sector
-from adapters.tasks import ManagedTask, handle_batch_progress_snippet
+from adapters.tasks import ManagedTask, handle_batch_progress_snippet, handle_final_batch_snippet
 from entities.catalog_record import CatalogRecord
 from entities.marc_sector import MarcRecordIndex, MarcSector
 
@@ -28,16 +28,19 @@ async def cleanup_stale_locks(task_id: str) -> None:
 async def compact_sectors(task_id: str) -> None:
     """Rewrite MARC sectors to eliminate gaps from deleted records."""
     async with ManagedTask(task_id=task_id) as ctx:
-        sectors = (
-            ctx.db_session.query(MarcSector.base, MarcSector.sector_id)
+        sectors = [
+            (s.base, s.sector_id, s.record_count)
+            for s in ctx.db_session.query(
+                MarcSector.base, MarcSector.sector_id, MarcSector.record_count
+            )
             .order_by(MarcSector.base, MarcSector.sector_id)
             .all()
-        )
+        ]
 
-        ctx.total = len(sectors)
+        ctx.total = sum(rc for _, _, rc in sectors)
         ctx.logger.info(f"Found {len(sectors)} sectors to check for compaction.")
 
-        for base, sector_id in sectors:
+        for base, sector_id, record_count in sectors:
             indexes = (
                 ctx.db_session.query(MarcRecordIndex)
                 .filter(
@@ -50,6 +53,8 @@ async def compact_sectors(task_id: str) -> None:
 
             sector = ctx.db_session.get(MarcSector, (base, sector_id))
             if sector is None:
+                ctx.progress += record_count
+                ctx.update_progress()
                 continue
 
             raw = _decompressor.decompress(sector.data)
@@ -67,14 +72,17 @@ async def compact_sectors(task_id: str) -> None:
 
                 if len(records) == 0:
                     ctx.db_session.delete(sector)
-                    ctx.db_session.commit()
                 else:
                     write_records_to_sector(ctx.db_session, base, sector_id, records)
-                    ctx.db_session.commit()
 
-            handle_batch_progress_snippet(ctx)
+                ctx.cycle_session()
 
-        ctx.logger.info(f"Compaction complete. Processed {ctx.progress} sectors with changes.")
+            ctx.progress += record_count
+            ctx.update_progress()
+
+        handle_final_batch_snippet(ctx)
+
+        ctx.logger.info(f"Compaction complete. Processed {ctx.progress} records.")
 
 
 async def rebuild_search_vectors(task_id: str) -> None:
@@ -84,12 +92,18 @@ async def rebuild_search_vectors(task_id: str) -> None:
     from adapters.marc_sectors import read_marc
 
     async with ManagedTask(task_id=task_id) as ctx:
-        total = ctx.db_session.query(func.count(CatalogRecord.id)).scalar()
-        ctx.total = total
-        ctx.logger.info(f"Rebuilding search vectors for {total} records...")
+        record_ids = [
+            r[0] for r in ctx.db_session.query(CatalogRecord.id).all()
+        ]
+        ctx.total = len(record_ids)
+        ctx.logger.info(f"Rebuilding search vectors for {ctx.total} records...")
 
-        records = ctx.db_session.query(CatalogRecord).yield_per(500)
-        for record in records:
+        for record_id in record_ids:
+            record = ctx.db_session.get(CatalogRecord, record_id)
+            if record is None:
+                handle_batch_progress_snippet(ctx)
+                continue
+
             marc_bytes = read_marc(ctx.db_session, record.base, record.system_number)
             if marc_bytes:
                 try:
@@ -102,5 +116,6 @@ async def rebuild_search_vectors(task_id: str) -> None:
 
             handle_batch_progress_snippet(ctx)
 
-        ctx.db_session.commit()
+        handle_final_batch_snippet(ctx)
+
         ctx.logger.info(f"Search vector rebuild complete. Processed {ctx.progress} records.")
