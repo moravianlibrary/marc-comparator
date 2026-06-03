@@ -277,17 +277,27 @@ class ManagedTask:
 
 
 def handle_batch_progress_snippet(ctx: ManagedTask) -> None:
-    """Increment progress and periodically log + persist progress."""
+    """Increment progress and periodically report/persist progress."""
     ctx.progress += 1
 
+    # Progress reporting: WS event + traceback log (no commit)
     if ctx.progress % ctx.task_settings.progress_update_interval == 0:
         ctx.logger.info(f"Processed {ctx.progress} records so far.")
         ctx.update_progress()
 
-    # Periodically commit DB changes
-    if ctx.progress % ctx.task_settings.commit_interval == 0:
-        if ctx.before_commit:
-            ctx.before_commit()
+    # DB commit for regular tasks (no SectorBuffer)
+    if (
+        ctx.before_commit is None
+        and ctx.progress % ctx.task_settings.commit_interval == 0
+    ):
+        ctx.db_session.commit()
+
+    # Sector flush + DB commit for record-writing tasks (with SectorBuffer)
+    if (
+        ctx.before_commit is not None
+        and ctx.progress % ctx.task_settings.sector_flush_interval == 0
+    ):
+        ctx.before_commit()
         ctx.db_session.commit()
 
     # Periodically rebuild analytics + facet cube for live dashboard updates
