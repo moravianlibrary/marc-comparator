@@ -266,6 +266,21 @@ class ManagedTask:
                 self.logger.error(f"Task failed with exception: {exc_value}", exc_info=True)
             self.task.finished_at = config.timestamp
             self.save_task()
+
+            # Rebuild analytics after successful data-changing tasks
+            if exc_type is None and self.task.type in ANALYTICS_REBUILD_TASK_TYPES:
+                try:
+                    from catalog_records.analytics import rebuild_all
+
+                    rebuild_all(self.db_session)
+                except Exception as e:
+                    logging.warning(f"Analytics rebuild failed: {e}")
+
+            if self.before_commit:
+                self.before_commit()
+            self.db_session.commit()
+
+            # Publish events AFTER commit so clients refetch committed data
             publish_event(
                 TaskProgressEvent(
                     task_id=str(self.task.task_id),
@@ -283,19 +298,6 @@ class ManagedTask:
                     created_by=str(self.task.created_by),
                 )
             )
-
-            # Rebuild analytics after successful data-changing tasks
-            if exc_type is None and self.task.type in ANALYTICS_REBUILD_TASK_TYPES:
-                try:
-                    from catalog_records.analytics import rebuild_all
-
-                    rebuild_all(self.db_session)
-                except Exception as e:
-                    logging.warning(f"Analytics rebuild failed: {e}")
-
-            if self.before_commit:
-                self.before_commit()
-            self.db_session.commit()
         finally:
             # --- Release resources ---
             if self.lock:
