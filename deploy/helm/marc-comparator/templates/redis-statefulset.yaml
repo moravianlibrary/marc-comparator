@@ -21,6 +21,7 @@ spec:
       containers:
         - name: redis
           image: "{{ .Values.redis.image.repository }}:{{ .Values.redis.image.tag }}"
+          command: ["redis-server", "/usr/local/etc/redis/redis.conf"]
           ports:
             - name: redis
               containerPort: {{ .Values.redis.port }}
@@ -38,8 +39,15 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /data
+            - name: redis-config
+              mountPath: /usr/local/etc/redis
+              readOnly: true
           resources:
             {{- toYaml .Values.redis.resources | nindent 12 }}
+      volumes:
+        - name: redis-config
+          configMap:
+            name: {{ include "marc-comparator.fullname" . }}-redis-config
   volumeClaimTemplates:
     - metadata:
         name: data
