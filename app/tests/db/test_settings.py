@@ -27,6 +27,8 @@ def _task_settings_data():
     return {
         "progress_update_interval": 200,
         "commit_interval": 1000,
+        "sector_flush_interval": 500,
+        "analytics_rebuild_interval": 5000,
     }
 
 
@@ -215,6 +217,8 @@ class TestSettingsUpdate:
         data_v2 = {
             "progress_update_interval": 50,
             "commit_interval": 250,
+            "sector_flush_interval": 500,
+            "analytics_rebuild_interval": 5000,
         }
 
         await client.post("/settings/system/tasks", json=data_v1)
