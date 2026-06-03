@@ -53,7 +53,7 @@ LEVEL_NO_TO_SEVERITY = {
 class TaskHandler(logging.Handler):
     """
     Logging handler that writes messages to a Task.traceback field.
-    Batches commits to reduce DB overhead — flushes every `flush_interval`
+    Batches flushes to reduce DB overhead — flushes every `flush_interval`
     entries, on severity escalation, and on close.
     """
 
@@ -67,11 +67,9 @@ class TaskHandler(logging.Handler):
         self.current_level = logging.INFO
         self._pending = 0
 
-    def _commit(self):
+    def _flush_traceback(self):
         try:
-            if self._managed_task.before_commit:
-                self._managed_task.before_commit()
-            self.db_session.commit()
+            self.db_session.flush()
         except Exception:
             self.db_session.rollback()
         self._pending = 0
@@ -98,11 +96,11 @@ class TaskHandler(logging.Handler):
                 severity_changed = True
 
         if severity_changed or self._pending >= self.FLUSH_INTERVAL:
-            self._commit()
+            self._flush_traceback()
 
     def close(self):
         if self._pending > 0:
-            self._commit()
+            self._flush_traceback()
         super().close()
 
 
