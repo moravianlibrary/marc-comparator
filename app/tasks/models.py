@@ -10,11 +10,15 @@ from entities.settings import SettingsSchema
 class TaskSettings(SettingsSchema):
     progress_update_interval: int = Field(
         100,
-        description="Interval (in number of records) to update task progress.",
+        description="Interval (in number of records) to update task progress via WS and traceback. Does not trigger a DB commit.",
     )
     commit_interval: int = Field(
         500,
-        description="Number of records between database commits.",
+        description="Number of records between database commits for regular tasks.",
+    )
+    sector_flush_interval: int = Field(
+        500,
+        description="Number of records between SectorBuffer flush + DB commit for record-writing tasks (sync, batch fetch).",
     )
     analytics_rebuild_interval: int = Field(
         5000,
