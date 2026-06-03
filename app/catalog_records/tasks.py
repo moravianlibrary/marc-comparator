@@ -391,7 +391,7 @@ async def process_records(task_id: str) -> None:
                     _handle_result_changes(ctx.db_session, catalog_record.id, old_hashes)
 
                     catalog_record.processed_at = config.timestamp
-                    catalog_record.save(ctx.db_session)
+                    catalog_record.save(ctx.db_session, commit=False)
 
                     handle_batch_progress_snippet(ctx)
 
