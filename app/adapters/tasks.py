@@ -141,6 +141,7 @@ class ManagedTask:
         self._total: int | None = None
         self.progress: int = 0
         self.before_commit: Callable[[], None] | None = None
+        self._handler: "TaskHandler | None" = None
 
     @property
     def total(self) -> int | None:
@@ -166,6 +167,28 @@ class ManagedTask:
             )
         )
 
+    def cycle_session(self) -> None:
+        """Close the current DB session and open a fresh one.
+
+        Commits pending work (with before_commit if set), closes the old
+        session, opens a new one, and re-loads the task entity. Updates
+        all internal references (handler, db_session, task).
+        """
+        if self.before_commit:
+            self.before_commit()
+        self.db_session.commit()
+
+        task_id = self.task.task_id
+
+        self.db_session.close()
+
+        self.db_session = get_db_session()
+        self.task = self.db_session.get(Task, task_id)
+
+        if self._handler:
+            self._handler.db_session = self.db_session
+            self._handler.task = self.task
+
     async def __aenter__(self) -> "ManagedTask":
         # --- DB session ---
         self.db_session = get_db_session()
@@ -177,6 +200,7 @@ class ManagedTask:
             # --- Logger ---
             self.logger = logging.getLogger(f"task-{self.task_id}")
             handler = TaskHandler(self.db_session, self.task, self)
+            self._handler = handler
             formatter = logging.Formatter("%(message)s")
             handler.setFormatter(formatter)
             self.logger.addHandler(handler)

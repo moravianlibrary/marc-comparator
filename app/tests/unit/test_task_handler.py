@@ -1,6 +1,7 @@
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch, call
 
 from adapters.tasks import ManagedTask, TaskHandler, handle_batch_progress_snippet
+from entities.task import Task, TaskStatus, TaskType
 from tasks.models import TaskSettings
 
 
@@ -130,3 +131,61 @@ class TestBatchProgressSnippet:
         handle_batch_progress_snippet(ctx)
 
         ctx.db_session.commit.assert_not_called()
+
+
+class TestCycleSession:
+    def test_cycle_session_closes_old_and_opens_new(self):
+        """cycle_session should close the old session and open a new one."""
+        old_session = MagicMock()
+        new_session = MagicMock()
+
+        task = Task(
+            name="Test",
+            type=TaskType.FetchRecord,
+            created_by="12345678-1234-4678-9abc-1234567890ab",
+        )
+        task.task_id = "fake-task-id"
+
+        reloaded_task = MagicMock()
+        reloaded_task.task_id = "fake-task-id"
+        new_session.get.return_value = reloaded_task
+
+        ctx = ManagedTask(task_id="fake-task-id")
+        ctx.db_session = old_session
+        ctx.task = task
+        ctx.before_commit = None
+
+        # Mock the TaskHandler
+        handler = MagicMock()
+        ctx._handler = handler
+
+        with patch("adapters.tasks.get_db_session", return_value=new_session):
+            ctx.cycle_session()
+
+        old_session.commit.assert_called_once()
+        old_session.close.assert_called_once()
+        assert ctx.db_session is new_session
+        assert ctx.task is reloaded_task
+        assert handler.db_session is new_session
+        assert handler.task is reloaded_task
+
+    def test_cycle_session_calls_before_commit(self):
+        """cycle_session should call before_commit before committing."""
+        old_session = MagicMock()
+        new_session = MagicMock()
+        new_session.get.return_value = MagicMock()
+
+        ctx = ManagedTask(task_id="fake-task-id")
+        ctx.db_session = old_session
+        ctx.task = MagicMock()
+        ctx.task.task_id = "fake-task-id"
+        ctx._handler = MagicMock()
+
+        call_order = []
+        ctx.before_commit = lambda: call_order.append("before_commit")
+        old_session.commit = lambda: call_order.append("commit")
+
+        with patch("adapters.tasks.get_db_session", return_value=new_session):
+            ctx.cycle_session()
+
+        assert call_order == ["before_commit", "commit"]
