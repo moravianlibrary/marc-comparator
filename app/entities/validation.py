@@ -52,7 +52,7 @@ class Validation(Base):
                     result=result.model_dump(),
                 )
             )
-        db_session.commit()
+        db_session.flush()
 
     @classmethod
     def delete_by_record_and_validator(
@@ -69,7 +69,7 @@ class Validation(Base):
             )
             .delete(synchronize_session=False)
         )
-        db_session.commit()
+        db_session.flush()
 
     # --- Properties for accessing validation result ---
 

@@ -171,7 +171,7 @@ def scenario_found_link_update(
         found_link.record._marc,
     )
 
-    current_link.save(db_session)
+    current_link.save(db_session, commit=False)
     return [
         LinkActionResult.UpdatedLink,
         LinkActionResult.UpdatedAuthorityRecord,
@@ -204,7 +204,7 @@ def _upsert_authority_record_and_link(
         record_result = LinkActionResult.UpdatedAuthorityRecord
 
     authority_record.update_search_text_from(found_link.record)
-    authority_record.save(db_session)
+    authority_record.save(db_session, commit=False)
     upsert_record_in_sector(
         db_session,
         found_link.base,
@@ -219,7 +219,7 @@ def _upsert_authority_record_and_link(
         authority_record_id=authority_record.id,
         confidence=found_link.confidence,
     )
-    new_link.save(db_session)
+    new_link.save(db_session, commit=False)
     return authority_record, record_result
 
 

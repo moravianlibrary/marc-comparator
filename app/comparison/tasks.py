@@ -75,7 +75,7 @@ async def handle_catalog_record_comparison(
             result=result.model_dump(),
         )
 
-    comparison.save(db_session)
+    comparison.save(db_session, commit=False)
 
 
 async def compare_records(task_id: str) -> None:
