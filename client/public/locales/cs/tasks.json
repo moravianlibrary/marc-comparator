@@ -45,6 +45,7 @@
     "Critical": "Závažná chyba"
   },
   "toast": {
+    "pending": "Úkol \"{{name}}\" byl naplánován",
     "started": "Úkol \"{{name}}\" byl spuštěn",
     "completed": "Úkol \"{{name}}\" byl úspěšně dokončen",
     "failed": "Úkol \"{{name}}\" selhal"
