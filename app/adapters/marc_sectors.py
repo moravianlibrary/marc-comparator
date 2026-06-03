@@ -1,5 +1,6 @@
 import logging
 from collections import defaultdict
+from collections.abc import Callable
 
 import zstandard as zstd
 from sqlalchemy.orm import Session
@@ -149,10 +150,14 @@ def _parse_blob_with_index(db: Session, base: str, sector_id: int, raw: bytes) -
 class SectorBuffer:
     """Accumulates records per (base, sector_id) and flushes whole sectors."""
 
-    def __init__(self, db: Session, flush_threshold: int = SECTOR_SIZE):
-        self.db = db
+    def __init__(self, get_db: Callable[[], Session], flush_threshold: int = SECTOR_SIZE):
+        self._get_db = get_db
         self.flush_threshold = flush_threshold
         self._buffers: dict[tuple[str, int], dict[str, bytes]] = defaultdict(dict)
+
+    @property
+    def db(self) -> Session:
+        return self._get_db()
 
     def add(self, base: str, system_number: str, marc_bytes: bytes):
         sector_id = sysno_to_sector_id(system_number)

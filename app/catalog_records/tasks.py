@@ -174,7 +174,7 @@ async def fetch_batch_of_records_task(task_id: str) -> None:
         data = FetchBatchOfRecordsData.model_validate(ctx.task.data)
         ctx.total = sum(len(d.system_numbers) for d in data.per_base)
 
-        buffer = SectorBuffer(ctx.db_session)
+        buffer = SectorBuffer(lambda: ctx.db_session)
         ctx.before_commit = buffer.flush_all
 
         for fetch_base_data in data.per_base:
@@ -244,7 +244,7 @@ async def records_sync_task(task_id: str, lock_key: str, lock_blocking_timeout: 
             ctx.logger.error(f"OAI service for {base} is not available")
             return
 
-        buffer = SectorBuffer(ctx.db_session)
+        buffer = SectorBuffer(lambda: ctx.db_session)
         ctx.before_commit = buffer.flush_all
 
         for base, system_number, status, record in client.OAI.list_records(from_date, None):
