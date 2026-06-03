@@ -168,9 +168,14 @@ async def fetch_record_task(task_id: str) -> None:
 
 
 async def fetch_batch_of_records_task(task_id: str) -> None:
+    from adapters.marc_sectors import SectorBuffer
+
     async with ManagedTask(task_id=task_id) as ctx:
         data = FetchBatchOfRecordsData.model_validate(ctx.task.data)
         ctx.total = sum(len(d.system_numbers) for d in data.per_base)
+
+        buffer = SectorBuffer(ctx.db_session)
+        ctx.before_commit = buffer.flush_all
 
         for fetch_base_data in data.per_base:
             base = fetch_base_data.base
@@ -192,7 +197,16 @@ async def fetch_batch_of_records_task(task_id: str) -> None:
                         handle_batch_progress_snippet(ctx)
                         continue
 
-                    save_record_snippet(ctx, base, system_number, record)
+                    from adapters.marc_sectors import read_marc
+
+                    old_marc = read_marc(ctx.db_session, base, system_number)
+                    catalog_record = save_record_metadata(ctx, base, system_number, record)
+                    buffer.add(base, system_number, record._marc)
+
+                    if old_marc is not None and old_marc != record._marc:
+                        catalog_record.processed_at = None
+                        RecordReview.outdate_current(ctx.db_session, catalog_record.id)
+
                     handle_batch_progress_snippet(ctx)
 
                 except Exception as e:
