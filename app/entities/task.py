@@ -1,4 +1,6 @@
+import uuid
 from datetime import datetime
+
 from enum import StrEnum
 
 from pydantic import UUID4, BaseModel
@@ -82,7 +84,7 @@ class Task(
 ):
     __tablename__ = "tasks"
 
-    task_id = Column(UUID(as_uuid=True), primary_key=True, default=func.gen_random_uuid())
+    task_id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     name = Column(String(255), nullable=False)
     type = Column(Enum(TaskType), nullable=False)
     status = Column(Enum(TaskStatus), nullable=False, default=TaskStatus.Pending)
@@ -96,6 +98,13 @@ class Task(
     data = Column(JSON, nullable=True)
     progress = Column(Float, nullable=True)
     traceback = Column(Text, nullable=True)
+
+    def __init__(self, **kwargs):
+        kwargs.setdefault("task_id", uuid.uuid4())
+        kwargs.setdefault("status", TaskStatus.Pending)
+        kwargs.setdefault("severity", TaskSeverity.Info)
+        kwargs.setdefault("created_at", datetime.now())
+        super().__init__(**kwargs)
 
     @property
     def traceback_lines(self) -> int:

@@ -511,7 +511,35 @@ async def enqueue_task(task: Task, db_session: DatabaseSession) -> TaskSchema:
     db_session.commit()
     db_session.refresh(task)
 
-    dispatch_task(task)
+    try:
+        dispatch_task(task)
+    except Exception as e:
+        task.status = TaskStatus.Failure
+        task.finished_at = config.timestamp
+        task.traceback = f"Failed to dispatch task to worker: {e}"
+        db_session.commit()
+        publish_event(
+            TaskStatusEvent(
+                task_id=str(task.task_id),
+                task_type=task.type.value,
+                name=task.name,
+                status=task.status.value,
+                severity=task.severity.value,
+                created_by=str(task.created_by),
+            )
+        )
+        raise
+
+    publish_event(
+        TaskStatusEvent(
+            task_id=str(task.task_id),
+            task_type=task.type.value,
+            name=task.name,
+            status=task.status.value,
+            severity=task.severity.value,
+            created_by=str(task.created_by),
+        )
+    )
 
     return TaskSchema.model_validate(task, from_attributes=True)
 
