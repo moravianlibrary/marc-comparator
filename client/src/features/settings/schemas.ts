@@ -1,6 +1,9 @@
 import { z } from "zod";
 
-export const catalogClientSchema = z.object({
+// looseObject: the server stores extra keys the form does not edit
+// (e.g. the MARC parsing `context`) - a strict schema would silently strip
+// them from the submitted payload and reset them to server defaults.
+export const catalogClientSchema = z.looseObject({
   base: z.string().min(1),
   host: z.url(),
   endpoint: z.string().min(1),
@@ -8,7 +11,11 @@ export const catalogClientSchema = z.object({
   total_retry: z.number().int().min(0).max(20),
   retry_backoff_factor: z.number().int().min(0).max(10),
   system_number_pattern: z.string().min(1),
-  oai_sets: z.array(z.string().min(1)).min(1),
+  // Edited as a comma-separated input; drop empty segments before validating.
+  oai_sets: z.preprocess(
+    (v) => (Array.isArray(v) ? v.map((s) => String(s).trim()).filter(Boolean) : v),
+    z.array(z.string().min(1)).min(1),
+  ),
   oai_identifier_template: z.string().min(1),
 });
 

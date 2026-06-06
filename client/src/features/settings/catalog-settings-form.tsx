@@ -174,6 +174,27 @@ export function CatalogSettingsForm({ data, onDirtyChange, onFormRef, onSubmit }
                   />
                   <FormField
                     control={form.control}
+                    name={`clients.${index}.oai_sets`}
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>{t("catalog.oai-sets")}</FormLabel>
+                        <FormControl>
+                          <Input
+                            value={(field.value ?? []).join(", ")}
+                            onChange={(e) =>
+                              field.onChange(e.target.value.split(",").map((s) => s.trimStart()))
+                            }
+                            onBlur={field.onBlur}
+                            name={field.name}
+                            ref={field.ref}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
                     name={`clients.${index}.oai_identifier_template`}
                     render={({ field }) => (
                       <FormItem>

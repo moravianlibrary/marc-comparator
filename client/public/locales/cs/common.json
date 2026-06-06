@@ -2,6 +2,8 @@
   "app-name": "MARC Comparator",
   "save": "Uložit",
   "saved": "Uloženo",
+  "save-failed": "Uložení se nezdařilo",
+  "validation-failed": "Formulář obsahuje neplatné hodnoty",
   "discard": "Zahodit",
   "cancel": "Zrušit",
   "delete": "Smazat",

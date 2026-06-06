@@ -96,6 +96,7 @@
       "total-retry": "Počet opakovaných pokusů při selhání požadavku, než se úkol označí jako neúspěšný.",
       "retry-backoff-factor": "Násobitel zpoždění mezi opakovanými pokusy. Vyšší hodnota znamená delší čekání mezi pokusy.",
       "system-number-pattern": "Regulární výraz pro extrakci systémového čísla ze záznamu. Používá se pro identifikaci záznamů v katalogu.",
+      "oai-sets": "OAI sady (setSpec), ze kterých se při synchronizaci sklízejí záznamy. Více sad oddělte čárkou (např. MZK01-VDK, MZK01-VUFIND). Dostupné sady zjistíte na adrese serveru pomocí ?verb=ListSets (např. https://aleph.mzk.cz/OAI?verb=ListSets).",
       "oai-identifier-template": "Šablona pro sestavení OAI identifikátoru ze systémového čísla záznamu."
     },
     "tasks": {

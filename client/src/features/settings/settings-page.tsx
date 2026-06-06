@@ -76,9 +76,14 @@ export function SettingsPage() {
   const saveMutation = useMutation({
     mutationFn: (data: unknown) => apiClient.post(endpoint, data),
     onSuccess: () => {
+      // The refetched data becomes the form's new baseline (values prop in
+      // useSettingsForm), which flips isDirty back to false — no manual
+      // setIsDirty here, it would desync from the form's own dirty state.
       queryClient.invalidateQueries({ queryKey: ["settings", activeScope] });
-      setIsDirty(false);
       toast.success(t("common:saved"));
+    },
+    onError: () => {
+      toast.error(t("common:save-failed"));
     },
   });
 

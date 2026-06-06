@@ -32,6 +32,9 @@ export function CatalogHelp() {
           {t("help.catalog.system-number-pattern")}
         </li>
         <li>
+          <strong>{t("catalog.oai-sets")}</strong> — {t("help.catalog.oai-sets")}
+        </li>
+        <li>
           <strong>{t("catalog.oai-identifier-template")}</strong> —{" "}
           {t("help.catalog.oai-identifier-template")}
         </li>
