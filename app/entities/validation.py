@@ -21,7 +21,7 @@ class Validation(Base):
 
     id = Column(Integer, primary_key=True, autoincrement=True)
 
-    catalog_record_id = Column(String, ForeignKey("catalog_records.id"), nullable=False)
+    catalog_record_id = Column(String, ForeignKey("catalog_records.id"), nullable=False, index=True)
     validator = Column(String, nullable=False)
 
     _result = Column(JSONB, name="result", nullable=False)
