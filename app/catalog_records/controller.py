@@ -34,7 +34,7 @@ router = APIRouter(prefix="/catalog-records", tags=["Catalog Records"])
     dependencies=[WithPermission(Permission.ReadRecords)],
     response_model=SearchRecordsResponse,
 )
-async def search_records(
+def search_records(
     request: Annotated[SearchRecordsRequest, Body()],
     db_session: DatabaseSessionDep,
 ):
@@ -46,7 +46,7 @@ async def search_records(
     dependencies=[WithPermission(Permission.ReadRecords)],
     response_model=FacetsResponse,
 )
-async def get_record_facets(
+def get_record_facets(
     request: Annotated[FacetsRequest, Body()],
     db_session: DatabaseSessionDep,
 ):
@@ -58,7 +58,7 @@ async def get_record_facets(
     dependencies=[WithPermission(Permission.ReadRecords)],
     response_model=FacetsPreviewResponse,
 )
-async def get_record_facets_preview(
+def get_record_facets_preview(
     request: Annotated[FacetsPreviewRequest, Body()],
     db_session: DatabaseSessionDep,
 ):
@@ -70,7 +70,7 @@ async def get_record_facets_preview(
     dependencies=[WithPermission(Permission.ReadRecords)],
     response_model=MarcRecord,
 )
-async def get_marc_record(
+def get_marc_record(
     base: str,
     system_number: str,
     db_session: DatabaseSessionDep,
@@ -82,7 +82,7 @@ async def get_marc_record(
     "/{base}/{system_number}/comparisons",
     dependencies=[WithPermission(Permission.ReadRecords)],
 )
-async def get_comparisons(
+def get_comparisons(
     base: str,
     system_number: str,
     db_session: DatabaseSessionDep,
@@ -94,7 +94,7 @@ async def get_comparisons(
     "/{base}/{system_number}/validations",
     dependencies=[WithPermission(Permission.ReadRecords)],
 )
-async def get_validations(
+def get_validations(
     base: str,
     system_number: str,
     db_session: DatabaseSessionDep,
@@ -146,7 +146,7 @@ async def sync_records(
     dependencies=[WithPermission(Permission.ReadRecords)],
     response_model=RecordReviewsResponse,
 )
-async def get_reviews(
+def get_reviews(
     base: str,
     system_number: str,
     db_session: DatabaseSessionDep,
@@ -158,7 +158,7 @@ async def get_reviews(
     "/{base}/{system_number}/review",
     dependencies=[WithPermission(Permission.ReviewRecords)],
 )
-async def create_review(
+def create_review(
     base: str,
     system_number: str,
     data: Annotated[CreateReviewRequest, Body()],
@@ -172,7 +172,7 @@ async def create_review(
     "/{base}/{system_number}/review",
     dependencies=[WithPermission(Permission.ReviewRecords)],
 )
-async def delete_review(
+def delete_review(
     base: str,
     system_number: str,
     aspect_name: str,

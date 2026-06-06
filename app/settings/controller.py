@@ -32,14 +32,14 @@ record_tools_settings_router = APIRouter(
 
 
 @system_settings_router.get("/catalog", response_model=CatalogSettings)
-async def get_catalog_settings(
+def get_catalog_settings(
     db_session: DatabaseSessionDep,
 ):
     return service.get_settings(SettingsScope.Catalog, db_session)
 
 
 @system_settings_router.post("/catalog", response_model=CatalogSettings)
-async def set_catalog_settings(
+def set_catalog_settings(
     settings: Annotated[CatalogSettings, Body()],
     db_session: DatabaseSessionDep,
 ):
@@ -47,14 +47,14 @@ async def set_catalog_settings(
 
 
 @system_settings_router.get("/tasks", response_model=TaskSettings)
-async def get_task_settings(
+def get_task_settings(
     db_session: DatabaseSessionDep,
 ):
     return service.get_settings(SettingsScope.Tasks, db_session)
 
 
 @system_settings_router.post("/tasks", response_model=TaskSettings)
-async def set_task_settings(
+def set_task_settings(
     settings: Annotated[TaskSettings, Body()],
     db_session: DatabaseSessionDep,
 ):
@@ -62,14 +62,14 @@ async def set_task_settings(
 
 
 @record_tools_settings_router.get("/authority-linkers", response_model=AuthorityLinkingSettings)
-async def get_authority_linking_settings(
+def get_authority_linking_settings(
     db_session: DatabaseSessionDep,
 ):
     return service.get_settings(SettingsScope.AuthorityLinking, db_session)
 
 
 @record_tools_settings_router.post("/authority-linkers", response_model=AuthorityLinkingSettings)
-async def set_authority_linking_settings(
+def set_authority_linking_settings(
     settings: Annotated[AuthorityLinkingSettings, Body()],
     db_session: DatabaseSessionDep,
 ):
@@ -77,14 +77,14 @@ async def set_authority_linking_settings(
 
 
 @record_tools_settings_router.get("/comparators", response_model=ComparisonSettings)
-async def get_comparison_settings(
+def get_comparison_settings(
     db_session: DatabaseSessionDep,
 ):
     return service.get_settings(SettingsScope.Comparison, db_session)
 
 
 @record_tools_settings_router.post("/comparators", response_model=ComparisonSettings)
-async def set_comparison_settings(
+def set_comparison_settings(
     settings: Annotated[ComparisonSettings, Body()],
     db_session: DatabaseSessionDep,
 ):
@@ -92,14 +92,14 @@ async def set_comparison_settings(
 
 
 @record_tools_settings_router.get("/validators", response_model=ValidationSettings)
-async def get_validation_settings(
+def get_validation_settings(
     db_session: DatabaseSessionDep,
 ):
     return service.get_settings(SettingsScope.Validation, db_session)
 
 
 @record_tools_settings_router.post("/validators", response_model=ValidationSettings)
-async def set_validation_settings(
+def set_validation_settings(
     settings: Annotated[ValidationSettings, Body()],
     db_session: DatabaseSessionDep,
 ):
@@ -107,14 +107,14 @@ async def set_validation_settings(
 
 
 @record_tools_settings_router.get("/process-records", response_model=ProcessRecordsSettings)
-async def get_process_records_settings(
+def get_process_records_settings(
     db_session: DatabaseSessionDep,
 ):
     return service.get_settings(SettingsScope.ProcessRecords, db_session)
 
 
 @record_tools_settings_router.post("/process-records", response_model=ProcessRecordsSettings)
-async def set_process_records_settings(
+def set_process_records_settings(
     settings: Annotated[ProcessRecordsSettings, Body()],
     db_session: DatabaseSessionDep,
 ):
@@ -122,14 +122,14 @@ async def set_process_records_settings(
 
 
 @system_settings_router.get("/maintenance", response_model=MaintenanceSettings)
-async def get_maintenance_settings(
+def get_maintenance_settings(
     db_session: DatabaseSessionDep,
 ):
     return service.get_settings(SettingsScope.Maintenance, db_session)
 
 
 @system_settings_router.post("/maintenance", response_model=MaintenanceSettings)
-async def set_maintenance_settings(
+def set_maintenance_settings(
     settings: Annotated[MaintenanceSettings, Body()],
     db_session: DatabaseSessionDep,
 ):

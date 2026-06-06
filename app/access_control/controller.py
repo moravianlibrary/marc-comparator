@@ -21,7 +21,7 @@ users_router = APIRouter(prefix="/users")
 
 
 @roles_router.get("", response_model=Page[RoleSchema])
-async def get_roles(
+def get_roles(
     params: Annotated[PageRequestParams, Query(...)],
     db_session: DatabaseSessionDep,
 ):
@@ -29,12 +29,12 @@ async def get_roles(
 
 
 @roles_router.post("", response_model=RoleSchema)
-async def create_role(role: Annotated[EditRole, Body(...)], db_session: DatabaseSessionDep):
+def create_role(role: Annotated[EditRole, Body(...)], db_session: DatabaseSessionDep):
     return service.create_role(role, db_session)
 
 
 @roles_router.put("/{role_id}", response_model=RoleSchema)
-async def update_role(
+def update_role(
     role_id: int,
     role: Annotated[EditRole, Body(...)],
     db_session: DatabaseSessionDep,
@@ -43,7 +43,7 @@ async def update_role(
 
 
 @roles_router.delete("/{role_id}", response_model=RoleSchema)
-async def delete_role(
+def delete_role(
     role_id: int,
     db_session: DatabaseSessionDep,
 ):
@@ -51,7 +51,7 @@ async def delete_role(
 
 
 @users_router.get("", response_model=Page[UserSchema])
-async def get_users(
+def get_users(
     params: Annotated[UsersRequestParams, Query(...)],
     db_session: DatabaseSessionDep,
 ):
@@ -59,7 +59,7 @@ async def get_users(
 
 
 @users_router.patch("/{user_id}/assign-role/{role_id}", response_model=UserSchema)
-async def assign_role_to_user(
+def assign_role_to_user(
     user_id: str,
     role_id: int,
     db_session: DatabaseSessionDep,
@@ -68,7 +68,7 @@ async def assign_role_to_user(
 
 
 @users_router.patch("/{user_id}/unassign-role/{role_id}", response_model=UserSchema)
-async def unassign_role_from_user(
+def unassign_role_from_user(
     user_id: str,
     role_id: int,
     db_session: DatabaseSessionDep,

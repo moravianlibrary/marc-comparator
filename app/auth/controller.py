@@ -45,12 +45,12 @@ def _clear_auth_cookies(response: Response):
 
 
 @router.post("/sign-up", status_code=status.HTTP_201_CREATED)
-async def register_user(db: DatabaseSessionDep, register_user_request: RegisterUserRequest):
+def register_user(db: DatabaseSessionDep, register_user_request: RegisterUserRequest):
     service.register_user(db, register_user_request)
 
 
 @router.post("/login")
-async def login(data: LoginRequest, response: Response, db: DatabaseSessionDep):
+def login(data: LoginRequest, response: Response, db: DatabaseSessionDep):
     user = service.authenticate_user(data.email, data.password, db)
     if not user:
         raise service.AuthenticationError()
@@ -69,7 +69,7 @@ async def login(data: LoginRequest, response: Response, db: DatabaseSessionDep):
 
 
 @router.post("/refresh")
-async def refresh(
+def refresh(
     response: Response,
     db: DatabaseSessionDep,
     refresh_token: str = Cookie(default=""),
@@ -94,11 +94,11 @@ async def refresh(
 
 
 @router.post("/logout")
-async def logout(response: Response):
+def logout(response: Response):
     _clear_auth_cookies(response)
     return {"status": "ok"}
 
 
 @router.get("/me", response_model=MeSchema)
-async def get_current_user(current_user: service.CurrentUser, db: DatabaseSessionDep):
+def get_current_user(current_user: service.CurrentUser, db: DatabaseSessionDep):
     return service.get_current_user_data(current_user, db)

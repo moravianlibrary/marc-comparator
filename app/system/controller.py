@@ -14,7 +14,7 @@ router = APIRouter(
 
 
 @router.get("/health")
-async def health_check(db_session: DatabaseSessionDep):
+def health_check(db_session: DatabaseSessionDep):
     result = service.check_health(db_session)
     status_code = 200 if result.status == "ok" else 503
     return JSONResponse(content=result.model_dump(exclude_none=True), status_code=status_code)
@@ -29,5 +29,5 @@ async def get_system_info(
 
 
 @router.get("/locks", response_model=list[str])
-async def get_locks(_: CurrentUser):
+def get_locks(_: CurrentUser):
     return service.get_locks()

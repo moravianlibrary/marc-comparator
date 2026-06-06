@@ -25,7 +25,7 @@ router = APIRouter(prefix="/tasks", tags=["Tasks"])
     dependencies=[WithPermission(Permission.ManageTasks)],
     response_model=SearchTasksResponse,
 )
-async def search_own(
+def search_own(
     request: Annotated[SearchTasksRequest, Body()],
     current_user: CurrentUser,
     db_session: DatabaseSessionDep,
@@ -39,7 +39,7 @@ async def search_own(
     dependencies=[WithPermission(Permission.ManageAllTasks)],
     response_model=SearchTasksResponse,
 )
-async def search_all(
+def search_all(
     request: Annotated[SearchTasksRequest, Body()],
     db_session: DatabaseSessionDep,
 ):
@@ -50,7 +50,7 @@ async def search_all(
     "/{task_id}/traceback",
     dependencies=[WithPermission(Permission.ManageTasks)],
 )
-async def get_traceback_lines(
+def get_traceback_lines(
     task_id: str,
     params: Annotated[TracebackLinesRequestParams, Query()],
     current_user: CurrentUser,
