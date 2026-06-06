@@ -5,6 +5,7 @@ from httpx import AsyncClient
 
 from adapters.aleph_client_registry import AlephClientRegistry
 from adapters.database import DatabaseSession
+from catalog_records.analytics import upsert_records
 from entities.catalog_record import CatalogRecord
 from entities.task import Task
 from tests.conftest import (
@@ -531,6 +532,10 @@ def sample_records(db_session: DatabaseSession):
     r1 = create_catalog_record(db_session, "MZK01", "001217709", test_record_1)
     r2 = create_catalog_record(db_session, "MZK01", "001217729", test_record_2)
     r3 = create_catalog_record(db_session, "TEST", "000000001", test_record_1, deleted=True)
+
+    # Search totals are counted from the analytics table; populate it the
+    # same way sync/process tasks do in production.
+    upsert_records(db_session, [r1.id, r2.id, r3.id])
 
     return [r1, r2, r3]
 

@@ -1,11 +1,13 @@
-from sqlalchemy import func
-from sqlalchemy.orm import Session
+from sqlalchemy import func, text
+from sqlalchemy.orm import Session, selectinload
 
 from entities.catalog_record import CatalogRecord, CatalogRecordSource
 from entities.comparison import Comparison
 
+from .analytics import TABLE as ANALYTICS_TABLE
 from .filter_orm import apply_conditions
-from .filter_spec import parse_filters
+from .filter_spec import FilterCondition, FilterField, parse_filters
+from .filter_sql import compile_conditions
 from .models import (
     AuthorityLinkSummary,
     ComparisonSummary,
@@ -31,11 +33,30 @@ def build_filtered_query(db: Session, filters: RecordFilter):
     return apply_conditions(query, parse_filters(filters))
 
 
-def search_records(request: SearchRecordsRequest, db: Session) -> SearchRecordsResponse:
-    query = db.query(CatalogRecord).filter(CatalogRecord.source_type == CatalogRecordSource.Main)
-    query = apply_conditions(query, parse_filters(request.filters))
+def _count_total(db: Session, conditions: list[FilterCondition], query) -> int:
+    """Count matching records from the denormalized analytics table.
 
-    total = query.count()
+    Counting the catalog_records heap takes seconds at 1.7M rows; the
+    analytics table is the same record set (source_type = Main) and the
+    count stays consistent with the facet counts, which are computed the
+    same way. Falls back to the ORM count for text_query, which the
+    analytics table does not support (the GIN-indexed query is selective).
+    """
+    if any(c.field == FilterField.TextQuery for c in conditions):
+        return query.count()
+
+    where, params = compile_conditions(conditions)
+    return (
+        db.execute(text(f"SELECT count(*) FROM {ANALYTICS_TABLE} {where}"), params).scalar() or 0
+    )
+
+
+def search_records(request: SearchRecordsRequest, db: Session) -> SearchRecordsResponse:
+    conditions = parse_filters(request.filters)
+    query = db.query(CatalogRecord).filter(CatalogRecord.source_type == CatalogRecordSource.Main)
+    query = apply_conditions(query, conditions)
+
+    total = _count_total(db, conditions, query)
 
     if request.sort_by == "comparison_score":
         avg_score = (
@@ -51,6 +72,15 @@ def search_records(request: SearchRecordsRequest, db: Session) -> SearchRecordsR
         if request.sort_order == "desc":
             sort_col = sort_col.desc()
         query = query.order_by(sort_col)
+
+    # Eager-load everything _to_summary touches (state also reads reviews) —
+    # lazy loading costs 4 extra queries per record.
+    query = query.options(
+        selectinload(CatalogRecord.authority_links),
+        selectinload(CatalogRecord.comparisons),
+        selectinload(CatalogRecord.validations),
+        selectinload(CatalogRecord.reviews),
+    )
 
     offset = (request.page - 1) * request.page_size
     records = query.offset(offset).limit(request.page_size).all()
