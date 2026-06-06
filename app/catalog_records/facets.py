@@ -43,61 +43,78 @@ _ALL_FACET_FIELDS = SCALAR_FACETS + list(BOOL_FACETS.keys()) + ARRAY_FACETS
 
 
 def get_facets(request: FacetsRequest, db: Session) -> FacetsResponse:
-    where, params = compile_conditions(parse_filters(request.filters))
+    conditions = parse_filters(request.filters)
 
-    # --- 1. Scalar + bool facets + total via GROUPING SETS (single scan) ---
-    gs_sets = ", ".join(f"({col})" for col in _GS_COLUMNS)
-    col_list = ", ".join(_GS_COLUMNS)
+    # Unfiltered facets are exactly the cube's per-target totals — serve them
+    # from the precomputed cube (the same source get_facets_preview already
+    # uses) instead of rescanning 1.7M analytics rows (~5s of DB time).
+    if not conditions:
+        cube_response = _facets_from_cube(db)
+        if cube_response is not None:
+            return cube_response
+
+    where, params = compile_conditions(conditions)
+    return _facets_live(where, params, db)
+
+
+def _facets_from_cube(db: Session) -> FacetsResponse | None:
+    """Build the unfiltered facets response from the precomputed cube.
+
+    Returns None when the cube has not been built yet (fresh install before
+    the first rebuild_all) so the caller can fall back to live queries.
+    """
     rows = (
         db.execute(
             text(
-                f"SELECT {col_list}, count(*) AS cnt "
-                f"FROM {TABLE} {where} "
-                f"GROUP BY GROUPING SETS ({gs_sets}, ())"
-            ),
-            params,
+                f"SELECT target_field, target_value, cnt "
+                f"FROM {CUBE_TABLE} WHERE facet_field = '_total_'"
+            )
         )
         .mappings()
         .all()
     )
+    if not rows:
+        return None
 
-    facets = _parse_grouping_sets_rows(rows)
-
-    # --- 2. Array facets (single UNION ALL query) ---
-    parts = []
-    for field in ARRAY_FACETS:
-        parts.append(
-            f"SELECT '{field}' AS facet_field, val, count(*) AS cnt "
-            f"FROM {TABLE}, unnest({field}) AS t(val) "
-            f"{where} GROUP BY val"
+    buckets_by_field: dict[str, list[FacetBucket]] = {}
+    for r in rows:
+        buckets_by_field.setdefault(r["target_field"], []).append(
+            FacetBucket(key=r["target_value"], count=r["cnt"])
         )
-    arr_rows = db.execute(text(" UNION ALL ".join(parts)), params).mappings().all()
-    arr_by_field: dict[str, list[FacetBucket]] = {}
-    for r in arr_rows:
-        arr_by_field.setdefault(r["facet_field"], []).append(
-            FacetBucket(key=r["val"], count=r["cnt"])
-        )
-    for field in ARRAY_FACETS:
-        buckets = arr_by_field.get(field, [])
-        buckets.sort(key=lambda b: -b.count)
-        facets.append(FacetResult(field=field, buckets=buckets))
 
-    # --- 3. Score histogram ---
-    histograms = []
+    facets = []
+    for field in SCALAR_FACETS:
+        facets.append(
+            FacetResult(
+                field=field,
+                buckets=sorted(buckets_by_field.get(field, []), key=lambda b: -b.count),
+            )
+        )
+    for field in BOOL_FACETS:
+        facets.append(FacetResult(field=field, buckets=buckets_by_field.get(field, [])))
+    for field in ARRAY_FACETS:
+        facets.append(
+            FacetResult(
+                field=field,
+                buckets=sorted(buckets_by_field.get(field, []), key=lambda b: -b.count),
+            )
+        )
+
+    # is_deleted is NOT NULL, so its buckets partition all records exactly once.
+    total = sum(b.count for b in buckets_by_field.get("is_deleted", []))
+
     hist_rows = (
         db.execute(
             text(
-                f"SELECT floor(val / 0.05) * 0.05 AS bucket_min, "
-                f"       floor(val / 0.05) * 0.05 + 0.05 AS bucket_max, "
-                f"       count(*) AS cnt "
-                f"FROM {TABLE}, unnest(overall_scores) AS t(val) "
-                f"{where} GROUP BY bucket_min, bucket_max ORDER BY bucket_min"
-            ),
-            params,
+                f"SELECT bucket_min, bucket_max, sum(cnt)::bigint AS cnt "
+                f"FROM {CUBE_HIST_TABLE} WHERE target_field = 'is_deleted' "
+                f"GROUP BY bucket_min, bucket_max ORDER BY bucket_min"
+            )
         )
         .mappings()
         .all()
     )
+    histograms = []
     if hist_rows:
         histograms.append(
             HistogramResult(
@@ -109,7 +126,73 @@ def get_facets(request: FacetsRequest, db: Session) -> FacetsResponse:
             )
         )
 
-    # --- 4. Total count (from the empty () grouping set in query 1) ---
+    return FacetsResponse(facets=facets, histograms=histograms, total=total)
+
+
+def _facets_live(where: str, params: dict, db: Session) -> FacetsResponse:
+    """Compute facets with live queries, running the independent scans
+    concurrently (same pattern as _preview_live_grouped) — wall time is the
+    slowest scan instead of the sum of all eleven."""
+    gs_sets = ", ".join(f"({col})" for col in _GS_COLUMNS)
+    col_list = ", ".join(_GS_COLUMNS)
+    gs_sql = (
+        f"SELECT {col_list}, count(*) AS cnt "
+        f"FROM {TABLE} {where} "
+        f"GROUP BY GROUPING SETS ({gs_sets}, ())"
+    )
+
+    arr_sqls = {
+        field: (
+            f"SELECT val, count(*) AS cnt "
+            f"FROM {TABLE}, unnest({field}) AS t(val) "
+            f"{where} GROUP BY val"
+        )
+        for field in ARRAY_FACETS
+    }
+
+    hist_sql = (
+        f"SELECT floor(val / 0.05) * 0.05 AS bucket_min, "
+        f"       floor(val / 0.05) * 0.05 + 0.05 AS bucket_max, "
+        f"       count(*) AS cnt "
+        f"FROM {TABLE}, unnest(overall_scores) AS t(val) "
+        f"{where} GROUP BY bucket_min, bucket_max ORDER BY bucket_min"
+    )
+
+    engine = db.get_bind()
+
+    def _run(sql):
+        with engine.connect() as conn:
+            return conn.execute(text(sql), params).mappings().all()
+
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        gs_future = pool.submit(_run, gs_sql)
+        arr_futures = {field: pool.submit(_run, sql) for field, sql in arr_sqls.items()}
+        hist_future = pool.submit(_run, hist_sql)
+
+        rows = gs_future.result()
+        arr_rows_by_field = {field: f.result() for field, f in arr_futures.items()}
+        hist_rows = hist_future.result()
+
+    facets = _parse_grouping_sets_rows(rows)
+
+    for field in ARRAY_FACETS:
+        buckets = [FacetBucket(key=r["val"], count=r["cnt"]) for r in arr_rows_by_field[field]]
+        buckets.sort(key=lambda b: -b.count)
+        facets.append(FacetResult(field=field, buckets=buckets))
+
+    histograms = []
+    if hist_rows:
+        histograms.append(
+            HistogramResult(
+                field="overall_score",
+                buckets=[
+                    HistogramBucket(min=r["bucket_min"], max=r["bucket_max"], count=r["cnt"])
+                    for r in hist_rows
+                ],
+            )
+        )
+
+    # Total count (from the empty () grouping set)
     total = 0
     for row in rows:
         if all(row[col] is None for col in _GS_COLUMNS):
