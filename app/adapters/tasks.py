@@ -4,6 +4,7 @@ from contextlib import AbstractContextManager as ContextManager
 
 from celery import Celery, shared_task
 from celery import Task as CeleryTask
+from celery.signals import worker_process_init
 from sqlalchemy.orm import Session
 
 from adapters.database import DatabaseSession, get_db_session
@@ -39,6 +40,20 @@ tasks_client = Celery(
 )
 
 tasks_client.conf.redbeat_redis_url = config.broker.url
+
+
+@worker_process_init.connect
+def _reset_db_pool(**_kwargs):
+    """Drop pooled DB connections inherited from the prefork parent.
+
+    Forked workers would otherwise share the parent's sockets, which
+    corrupts the protocol (SSL EOF / bad record mac errors). dispose with
+    close=False discards the pool without closing the parent's FDs.
+    """
+    from adapters.database import engine
+
+    engine.dispose(close=False)
+
 
 type TasksClient = Celery
 
