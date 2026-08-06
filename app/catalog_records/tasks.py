@@ -304,7 +304,7 @@ async def process_records(task_id: str) -> None:
     Process catalog records: link to authorities, compare with linked records,
     validate, and mark as processed.
     """
-    async with ManagedTask(task_id=task_id) as ctx:
+    async with ManagedTask(task_id=task_id, lock_key=f"task-run-{task_id}") as ctx:
         settings: ProcessRecordsSettings | None = Settings.get(
             ctx.db_session,
             SettingsScope.ProcessRecords,

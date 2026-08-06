@@ -99,6 +99,19 @@ export const maintenanceSettingsSchema = z.object({
   task_cleanup: periodicTaskConfigSchema,
   task_cleanup_max_age_days: z.number().int().min(1).max(365),
   sector_compaction: periodicTaskConfigSchema,
+  orphan_reaper: periodicTaskConfigSchema,
 });
 
 export type MaintenanceSettingsFormValues = z.infer<typeof maintenanceSettingsSchema>;
+
+export const periodicSyncBaseConfigSchema = z.object({
+  base: z.string(),
+  enabled: z.boolean(),
+  interval_hours: z.number().int().min(1).max(720),
+});
+
+export const periodicSyncSettingsSchema = z.object({
+  bases: z.array(periodicSyncBaseConfigSchema),
+});
+
+export type PeriodicSyncSettingsFormValues = z.infer<typeof periodicSyncSettingsSchema>;

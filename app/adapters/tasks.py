@@ -15,6 +15,7 @@ from config import config
 # Importing entities to register with the ORM
 from entities.catalog_record import CatalogRecord  # noqa: F401
 from entities.marc_sector import MarcRecordIndex, MarcSector  # noqa: F401
+from entities.report_artifact import ReportArtifact  # noqa: F401
 from entities.role import Role  # noqa: F401
 from entities.settings import Settings, SettingsScope
 from entities.task import Task, TaskSchema, TaskSeverity, TaskStatus, TaskType
@@ -31,6 +32,20 @@ ANALYTICS_REBUILD_TASK_TYPES = {
     TaskType.CompareRecords,
 }
 
+#: Max times a task may be (re)delivered before it is treated as a poison
+#: message and failed outright, instead of crash-looping the worker forever.
+MAX_TASK_ATTEMPTS = 3
+
+#: Redis redelivers an in-flight task after this many seconds even if the
+#: original is still running. Must exceed the longest legitimate task (a full
+#: base sync); the orphaned-task reaper covers anything that outlives it.
+TASK_VISIBILITY_TIMEOUT = 6 * 60 * 60  # 6 hours
+
+#: A Started task whose heartbeat is older than this (and which is not in any
+#: worker's active set) is treated as orphaned and failed by the reaper. Must
+#: exceed the longest legitimate gap between progress writes.
+REAPER_HEARTBEAT_TIMEOUT = 15 * 60  # 15 minutes
+
 tasks_client = Celery(
     "tasks",
     broker=config.broker.url,
@@ -40,6 +55,44 @@ tasks_client = Celery(
 )
 
 tasks_client.conf.redbeat_redis_url = config.broker.url
+
+# --- Redelivery safety (see docs / PLAN Workstream 1) ---
+# Ack a task only after it finishes so a worker death (even SIGKILL) redelivers
+# it instead of dropping it. prefetch_multiplier=1 reserves only what is actively
+# running, shrinking the lost-on-crash window and stopping queue hoarding.
+tasks_client.conf.task_acks_late = True
+tasks_client.conf.task_reject_on_worker_lost = True
+tasks_client.conf.worker_prefetch_multiplier = 1
+tasks_client.conf.broker_transport_options = {
+    "visibility_timeout": TASK_VISIBILITY_TIMEOUT,
+}
+
+
+class TaskAlreadyRunningError(Exception):
+    """Raised when a task's run-lock is already held by a live copy.
+
+    Happens when a task is redelivered while the original is still running
+    (i.e. it outlived the visibility timeout). The duplicate must abort
+    WITHOUT touching the task row — the original owns it.
+    """
+
+    def __init__(self, task_id: str):
+        super().__init__(f"Task '{task_id}' is already running; skipping duplicate")
+
+
+class PoisonPillError(Exception):
+    """Raised when a task has been redelivered more than MAX_TASK_ATTEMPTS times.
+
+    The row is marked Failure before this is raised; raising it lets Celery ack
+    the message (acks_late acks on completion, success or failure) so the
+    crash-loop is broken.
+    """
+
+    def __init__(self, task_id: str, attempts: int):
+        super().__init__(
+            f"Task '{task_id}' exceeded {MAX_TASK_ATTEMPTS} attempts "
+            f"({attempts}); marking as failed (poison message)"
+        )
 
 
 @worker_process_init.connect
@@ -178,6 +231,8 @@ class ManagedTask:
 
     def update_progress(self) -> None:
         self.task.progress = self.progress / self._total if self._total else None
+        # Liveness heartbeat for the orphaned-task reaper (see reap_orphaned_tasks).
+        self.task.heartbeat = config.timestamp
         self.save_task()
         publish_event(
             TaskProgressEvent(
@@ -209,6 +264,27 @@ class ManagedTask:
             self._handler.db_session = self.db_session
             self._handler.task = self.task
 
+    def _release_lock(self) -> None:
+        if self.lock:
+            try:
+                self.lock.__exit__(None, None, None)
+            except Exception:
+                logging.warning("Failed to release task lock", exc_info=True)
+            self.lock = None
+            self._lock_obj = None
+
+    def _publish_status(self) -> None:
+        publish_event(
+            TaskStatusEvent(
+                task_id=str(self.task.task_id),
+                task_type=self.task.type.value,
+                name=self.task.name,
+                status=self.task.status.value,
+                severity=self.task.severity.value,
+                created_by=str(self.task.created_by),
+            )
+        )
+
     async def __aenter__(self) -> "ManagedTask":
         # --- DB session ---
         self.db_session = get_db_session()
@@ -216,7 +292,51 @@ class ManagedTask:
         # --- Load task ---
         self.task = Task.get(self.db_session, self.task_id)
 
+        # --- Acquire lock FIRST (before touching the row) ---
+        # A redelivered duplicate (task that outlived the visibility timeout)
+        # must bail without altering the row the original owns. If the lock
+        # server is unreachable, degrade gracefully and run without the guard
+        # rather than failing the task outright (per-record writes are
+        # idempotent for sequential re-runs; the guard only matters for the
+        # rare simultaneous-redelivery case).
+        if self.lock_key:
+            self.lock = one_at_a_time_lock(self.lock_key, self.lock_blocking_timeout)
+            try:
+                lock_obj = self.lock.__enter__()
+            except Exception:
+                logging.warning(
+                    f"Lock server unavailable for '{self.lock_key}'; "
+                    "proceeding without run-lock",
+                    exc_info=True,
+                )
+                self.lock = None
+            else:
+                if not lock_obj:
+                    self._release_lock()
+                    self.db_session.close()
+                    raise TaskAlreadyRunningError(self.task_id)
+                self._lock_obj = lock_obj
+
         try:
+            # --- Poison-message guard ---
+            # Bound redeliveries under acks_late so a task that reliably crashes
+            # the worker fails instead of crash-looping forever.
+            self.task.attempts = (self.task.attempts or 0) + 1
+            self.save_task()
+            self.db_session.commit()
+            if self.task.attempts > MAX_TASK_ATTEMPTS:
+                self.task.status = TaskStatus.Failure
+                self.task.severity = TaskSeverity.Error
+                self.task.finished_at = config.timestamp
+                if self.task.traceback:
+                    self.task.traceback += "\nPoison message: exceeded max redeliveries\n"
+                else:
+                    self.task.traceback = "Poison message: exceeded max redeliveries\n"
+                self.save_task()
+                self.db_session.commit()
+                self._publish_status()
+                raise PoisonPillError(self.task_id, self.task.attempts)
+
             # --- Logger ---
             self.logger = logging.getLogger(f"task-{self.task_id}")
             handler = TaskHandler(self.db_session, self.task, self)
@@ -243,30 +363,31 @@ class ManagedTask:
             self.logger.info("Task started")
             self.task.status = TaskStatus.Started
             self.task.started_at = config.timestamp
+            self.task.heartbeat = config.timestamp
             self.save_task()
             self.db_session.commit()
-            publish_event(
-                TaskStatusEvent(
-                    task_id=str(self.task.task_id),
-                    task_type=self.task.type.value,
-                    name=self.task.name,
-                    status=self.task.status.value,
-                    severity=self.task.severity.value,
-                    created_by=str(self.task.created_by),
-                )
-            )
-
-            # --- Acquire lock if needed ---
-            if self.lock_key:
-                self.lock = one_at_a_time_lock(self.lock_key, self.lock_blocking_timeout)
-                lock_obj = self.lock.__enter__()
-                if not lock_obj:
-                    raise ValueError(f"Task lock '{self.lock_key}' is already acquired")
-                self._lock_obj = lock_obj
+            self._publish_status()
 
             return self
+        except PoisonPillError:
+            # Row already marked Failure above; just release resources.
+            self._release_lock()
+            self.db_session.close()
+            raise
         except Exception:
-            await self.__aexit__(None, None, None)
+            # Genuine setup error: mark the row Failure so it is not left
+            # wedged in Started, then release resources.
+            try:
+                self.task.status = TaskStatus.Failure
+                self.task.severity = TaskSeverity.Error
+                self.task.finished_at = config.timestamp
+                self.save_task()
+                self.db_session.commit()
+                self._publish_status()
+            except Exception:
+                self.db_session.rollback()
+            self._release_lock()
+            self.db_session.close()
             raise
 
     async def __aexit__(self, exc_type, exc_value, traceback):
@@ -479,6 +600,15 @@ def compact_sectors_task(self: CeleryTask) -> None:
     return async_to_sync(compact_sectors)(str(self.request.id))
 
 
+@shared_task(name="create_report_task", bind=True)
+def create_report_task(self: CeleryTask) -> None:
+    from asgiref.sync import async_to_sync
+
+    from reports.tasks import create_report
+
+    return async_to_sync(create_report)(str(self.request.id))
+
+
 @shared_task(name="rebuild_search_vectors_task", bind=True)
 def rebuild_search_vectors_task(self: CeleryTask) -> None:
     from asgiref.sync import async_to_sync
@@ -493,6 +623,7 @@ def periodic_task_cleanup(max_age_days: int = 30) -> None:
     """Called by redbeat. Creates a Task DB row and dispatches delete_tasks."""
     from adapters.database import SessionLocal
     from entities.task import Task, TaskType
+    from entities.user import SYSTEM_USER_ID
 
     db = SessionLocal()
     try:
@@ -500,6 +631,7 @@ def periodic_task_cleanup(max_age_days: int = 30) -> None:
             name=f"Periodic task cleanup (>{max_age_days} days)",
             type=TaskType.DeleteTasks,
             data={"max_age_days": max_age_days},
+            created_by=SYSTEM_USER_ID,
         )
         db.add(task)
         db.commit()
@@ -514,17 +646,129 @@ def periodic_sector_compaction() -> None:
     """Called by redbeat. Creates a Task DB row and dispatches compact_sectors."""
     from adapters.database import SessionLocal
     from entities.task import Task, TaskType
+    from entities.user import SYSTEM_USER_ID
 
     db = SessionLocal()
     try:
         task = Task(
             name="Periodic sector compaction",
             type=TaskType.CompactSectors,
+            created_by=SYSTEM_USER_ID,
         )
         db.add(task)
         db.commit()
         db.refresh(task)
         dispatch_task(task)
+    finally:
+        db.close()
+
+
+@shared_task(name="periodic_sync_records")
+def periodic_sync_records(base: str) -> None:
+    """Called by redbeat. Builds an incremental SyncRecords task for a base.
+
+    from_date is derived from the base's newest ``latest_sync`` so each run
+    harvests only what changed since the last successful sync (full harvest on
+    the first run, when there are no records yet).
+    """
+    from sqlalchemy import func as sa_func
+
+    from adapters.database import SessionLocal
+    from catalog_records.models import SyncRecordsData
+    from entities.catalog_record import CatalogRecord
+    from entities.user import SYSTEM_USER_ID
+
+    db = SessionLocal()
+    try:
+        latest_sync = (
+            db.query(sa_func.max(CatalogRecord.latest_sync))
+            .filter(CatalogRecord.base == base)
+            .scalar()
+        )
+        data = SyncRecordsData(base=base, from_date=latest_sync)
+        task = Task(
+            name=f"Scheduled sync for base {base}",
+            type=TaskType.SyncRecords,
+            data=data.model_dump(mode="json"),
+            created_by=SYSTEM_USER_ID,
+        )
+        db.add(task)
+        db.commit()
+        db.refresh(task)
+        dispatch_task(task)
+    finally:
+        db.close()
+
+
+@shared_task(name="reap_orphaned_tasks")
+def reap_orphaned_tasks() -> None:
+    """Fail tasks left stuck in ``Started`` after their worker died.
+
+    Under ``acks_late`` a redelivered task normally re-runs to completion, but a
+    task that outlives the visibility timeout (or is otherwise non-resumable)
+    can sit in ``Started`` forever. A row is reaped only if BOTH hold: its
+    heartbeat is stale AND its id is absent from every worker's active set — so
+    a transient slow batch is never reaped. Marks matches ``Failure`` (does not
+    resume the work; redelivery/rerun handles resumption).
+    """
+    from datetime import timedelta
+
+    from sqlalchemy import and_, or_
+
+    from adapters.database import SessionLocal
+
+    db = SessionLocal()
+    try:
+        cutoff = config.timestamp - timedelta(seconds=REAPER_HEARTBEAT_TIMEOUT)
+        candidates = (
+            db.query(Task)
+            .filter(
+                Task.status == TaskStatus.Started,
+                or_(
+                    Task.heartbeat < cutoff,
+                    and_(Task.heartbeat.is_(None), Task.started_at < cutoff),
+                ),
+            )
+            .all()
+        )
+        if not candidates:
+            return
+
+        # Ids currently executing on any worker (None => workers unreachable).
+        active_ids: set[str] = set()
+        active = tasks_client.control.inspect().active()
+        if active:
+            for entries in active.values():
+                for entry in entries:
+                    tid = entry.get("id")
+                    if tid:
+                        active_ids.add(str(tid))
+
+        reaped = 0
+        for task in candidates:
+            if str(task.task_id) in active_ids:
+                continue
+            task.status = TaskStatus.Failure
+            task.severity = TaskSeverity.Error
+            task.finished_at = config.timestamp
+            task.traceback = (task.traceback or "") + (
+                "Interrupted — no heartbeat (worker died); reaped by orphan sweep\n"
+            )
+            reaped += 1
+            publish_event(
+                TaskStatusEvent(
+                    task_id=str(task.task_id),
+                    task_type=task.type.value,
+                    name=task.name,
+                    status=task.status.value,
+                    severity=task.severity.value,
+                    created_by=str(task.created_by),
+                )
+            )
+
+        if reaped:
+            db.commit()
+            logging.warning(f"Reaped {reaped} orphaned task(s) stuck in Started")
     finally:
         db.close()
 
@@ -542,6 +786,7 @@ TASK_DISPATCH = {
     TaskType.CleanupStaleLocks: cleanup_stale_locks_task,
     TaskType.CompactSectors: compact_sectors_task,
     TaskType.RebuildSearchVectors: rebuild_search_vectors_task,
+    TaskType.CreateReport: create_report_task,
 }
 
 

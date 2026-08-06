@@ -1,3 +1,4 @@
+from uuid import UUID as StdUUID
 from uuid import uuid4
 
 from sqlalchemy import Column, ForeignKey, Integer, String
@@ -8,6 +9,11 @@ from adapters.database import Base
 
 from ._operations import BaseOperationsMixin, RetrievalOperationsMixin
 from .role import Permission, Role
+
+#: Fixed identity that owns scheduler-created tasks (periodic cleanup,
+#: compaction, sync). Seeded on startup; never logs in.
+SYSTEM_USER_ID = StdUUID("00000000-0000-0000-0000-000000000001")
+SYSTEM_USER_EMAIL = "system@marc-comparator.local"
 
 
 class User(Base, BaseOperationsMixin, RetrievalOperationsMixin):

@@ -1,15 +1,21 @@
 import asyncio
+import json
 import re
+from collections import defaultdict
+from collections.abc import Iterable
 from dataclasses import dataclass
 
 from kramerius import KrameriusClient, KrameriusConfig, KrameriusField, Model
 from marcdantic import MarcRecord
+from marcdantic.fields import VariableField
 from marcdantic.selectors import IsbnActiveJq, IssnActiveJq, NbnActiveJq
 from pydantic import BaseModel
 from solrify import F, G
 
+from ..reports import ReportFile
 from ._base import (
     BaseValidator,
+    ReportInput,
     ValidationResult,
     ValidationTarget,
     ValidityStatus,
@@ -68,6 +74,9 @@ FL = [
 ]
 MAX_QUERY_PARTS = 50
 
+#: Standard 856 $y link text written for added/replaced links.
+STANDARD_LINK_TEXT = "Digitalizovaný dokument"
+
 
 @dataclass
 class FoundKrameriusLink:
@@ -83,6 +92,7 @@ class KrameriusLinksValidator(BaseValidator):
     """
 
     config_model = KrameriusLinksValidatorConfig
+    can_generate_report = True
 
     def __init__(self, config: KrameriusLinksValidatorConfig):
         self.config = config
@@ -357,3 +367,175 @@ class KrameriusLinksValidator(BaseValidator):
             )
 
         return results
+
+    # ── report generation ──────────────────────────────────────────────────
+    #
+    # Turn the stored not-valid results into Aleph sequential (.seq) repair
+    # files (REPLACE-ALL mode: every 856 for a sysno is wiped and reloaded from
+    # the emitted lines) plus a delete list for sysnos left with no 856 fields.
+    # All changes for one record are grouped and applied in a single pass so
+    # conflicting edits to the same 856 set do not overwrite each other.
+    #
+    # reason → action:
+    #   missing_link_in_marc  → add a new correct 856
+    #   wrong_server_found    → remove the wrong-server field + add a correct one
+    #   wrong_path_found      → replace $u at field_index with the correct URL
+    #   wrong_path_not_found  → replace $u at field_index with the correct URL
+    #   missing_link_text     → add $y (standard link text) at field_index
+    #   link_not_found        → remove the broken field at field_index
+    # Non-repairable reasons (invalid_link_format, wrong_server_not_found,
+    # non_linkable_model, non_top_level_document) are left untouched.
+
+    def _make_url(self, params: dict[str, str]) -> str:
+        pid = params.get("pid", "")
+        template = params.get("url") or self.config.kramerius_client_url
+        return template.replace("{pid}", pid)
+
+    def _build_changes(self, results: Iterable[ValidationResult]) -> dict:
+        changes: dict = {"modifications": [], "removals": set(), "additions": []}
+        for result in results:
+            reason = result.reason
+            params = result.params or {}
+            field_index = result.target.field_index
+
+            if reason == "missing_link_in_marc":
+                changes["additions"].append(
+                    {"u": self._make_url(params), "y": STANDARD_LINK_TEXT}
+                )
+            elif reason == "wrong_server_found":
+                if field_index is not None:
+                    changes["removals"].add(field_index)
+                changes["additions"].append(
+                    {"u": self._make_url(params), "y": STANDARD_LINK_TEXT}
+                )
+            elif reason in ("wrong_path_found", "wrong_path_not_found"):
+                changes["modifications"].append(
+                    {"field_index": field_index, "action": "replace_u", "new_u": self._make_url(params)}
+                )
+            elif reason == "missing_link_text":
+                changes["modifications"].append(
+                    {"field_index": field_index, "action": "add_y", "new_y": STANDARD_LINK_TEXT}
+                )
+            elif reason == "link_not_found":
+                if field_index is not None:
+                    changes["removals"].add(field_index)
+            # other reasons are not auto-repairable — leave the field as-is
+        return changes
+
+    def _apply_changes(
+        self,
+        fields: list[VariableField],
+        changes: dict,
+        errors: list[dict],
+        catalog_record_id: str,
+    ) -> list[VariableField]:
+        # Step 1 — in-place modifications (indices stay valid).
+        for mod in changes["modifications"]:
+            idx = mod["field_index"]
+            if idx is None or idx >= len(fields):
+                errors.append(
+                    {
+                        "catalog_record_id": catalog_record_id,
+                        "error": (
+                            f"modification field_index {idx} out of range "
+                            f"({len(fields)} 856 fields) — skipping"
+                        ),
+                    }
+                )
+                continue
+            if mod["action"] == "replace_u":
+                fields[idx].subfields["u"] = [mod["new_u"]]
+            elif mod["action"] == "add_y":
+                fields[idx].subfields["y"] = [mod["new_y"]]
+
+        # Step 2 — drop removed fields (by original index).
+        removals = changes["removals"]
+        kept = [f for i, f in enumerate(fields) if i not in removals]
+
+        # Step 3 — append additions, skipping any $u already present (Aleph
+        # replaces all 856, so a duplicate $u would commit a duplicate link).
+        existing_us = {u for f in kept for u in f.subfields.get("u", [])}
+        for add in changes["additions"]:
+            if add["u"] in existing_us:
+                continue
+            kept.append(
+                VariableField(ind1="4", ind2="1", subfields={"u": [add["u"]], "y": [add["y"]]})
+            )
+            existing_us.add(add["u"])
+
+        return kept
+
+    @staticmethod
+    def _field_to_seq_line(sysno: str, field: VariableField) -> str:
+        ind1 = field.ind1 or " "
+        ind2 = field.ind2 or " "
+        subfields = "".join(
+            f"$${code}{value}"
+            for code, values in field.subfields.items()
+            for value in values
+        )
+        return f"{sysno} {VALIDATION_FIELD.tag}{ind1}{ind2} L {subfields}"
+
+    def generate_report(self, records: Iterable[ReportInput]) -> list[ReportFile]:
+        seq_lines_by_base: dict[str, list[str]] = defaultdict(list)
+        delete_sysnos_by_base: dict[str, list[str]] = defaultdict(list)
+        errors: list[dict] = []
+
+        for record in records:
+            try:
+                # 'MZK01-001974304' → doc number '001974304'
+                doc_number = record.catalog_record_id.split("-", 1)[-1]
+                sysno = doc_number.zfill(9)
+
+                changes = self._build_changes(record.results)
+                if not (
+                    changes["modifications"] or changes["removals"] or changes["additions"]
+                ):
+                    # No repairable results for this record — leave it alone.
+                    continue
+
+                fields = record.marc.variable_fields.query_fields('.["856"][]?')
+                final_fields = self._apply_changes(
+                    list(fields), changes, errors, record.catalog_record_id
+                )
+
+                if final_fields:
+                    for field in final_fields:
+                        seq_lines_by_base[record.base].append(
+                            self._field_to_seq_line(sysno, field)
+                        )
+                else:
+                    # Every 856 removed, none added — needs deletion.
+                    delete_sysnos_by_base[record.base].append(sysno)
+            except Exception as exc:  # noqa: BLE001 - report, don't abort the batch
+                errors.append(
+                    {"catalog_record_id": record.catalog_record_id, "error": str(exc)}
+                )
+
+        report_files: list[ReportFile] = []
+        for base, lines in sorted(seq_lines_by_base.items()):
+            report_files.append(
+                ReportFile(
+                    filename=f"aleph_seq_{base}.seq",
+                    content=("\n".join(lines) + "\n").encode("utf-8"),
+                    content_type="text/plain",
+                )
+            )
+        for base, sysnos in sorted(delete_sysnos_by_base.items()):
+            report_files.append(
+                ReportFile(
+                    filename=f"aleph_delete_856_{base}.txt",
+                    content=("\n".join(sorted(sysnos)) + "\n").encode("utf-8"),
+                    content_type="text/plain",
+                )
+            )
+        if errors:
+            report_files.append(
+                ReportFile(
+                    filename="errors.json",
+                    content=json.dumps(errors, indent=2, ensure_ascii=False).encode("utf-8"),
+                    content_type="application/json",
+                )
+            )
+
+        return report_files

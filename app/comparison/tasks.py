@@ -79,7 +79,7 @@ async def handle_catalog_record_comparison(
 
 
 async def compare_records(task_id: str) -> None:
-    async with ManagedTask(task_id=task_id) as ctx:
+    async with ManagedTask(task_id=task_id, lock_key=f"task-run-{task_id}") as ctx:
         data = ComparisonTaskData.model_validate(ctx.task.data)
 
         comparator = load_comparator(ctx.db_session)

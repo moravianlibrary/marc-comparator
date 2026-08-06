@@ -14,7 +14,8 @@
     "title": "Podrobnosti úkolu",
     "task-id": "ID úkolu",
     "select-instructions": "Pro zobrazení podrobností vyberte úkol v tabulce.",
-    "no-traceback": "Pro tento úkol není k dispozici žádný traceback."
+    "no-traceback": "Pro tento úkol není k dispozici žádný traceback.",
+    "reports": "Reporty ke stažení"
   },
   "type": {
     "FetchRecord": "Přidání záznamu",
@@ -29,7 +30,8 @@
     "RefreshAnalytics": "Obnovení analytických dat",
     "CleanupStaleLocks": "Vyčištění neplatných zámků",
     "CompactSectors": "Kompakce sektorů",
-    "RebuildSearchVectors": "Obnova vyhledávacích vektorů"
+    "RebuildSearchVectors": "Obnova vyhledávacích vektorů",
+    "CreateReport": "Vytvoření reportu"
   },
   "status": {
     "Pending": "Naplánováno",

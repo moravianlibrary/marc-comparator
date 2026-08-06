@@ -303,7 +303,7 @@ def handle_catalog_record_link_action(
 
 
 async def authority_linking(task_id: str) -> None:
-    async with ManagedTask(task_id=task_id) as ctx:
+    async with ManagedTask(task_id=task_id, lock_key=f"task-run-{task_id}") as ctx:
         data = AuthorityLinkingTaskData.model_validate(ctx.task.data)
 
         authority_linkers = load_authority_linkers(ctx.db_session, data.linkers)

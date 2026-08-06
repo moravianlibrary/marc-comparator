@@ -17,12 +17,14 @@ class SettingsScope(StrEnum):
     Comparison = "comparators"
     ProcessRecords = "process-records"
     Maintenance = "maintenance"
+    PeriodicSync = "periodic-sync"
 
 
 type SystemSettingsScope = Literal[
     SettingsScope.Catalog,
     SettingsScope.Tasks,
     SettingsScope.Maintenance,
+    SettingsScope.PeriodicSync,
 ]
 type RecordToolsSettingsScope = Literal[
     SettingsScope.Validation,

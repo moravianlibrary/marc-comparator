@@ -9,8 +9,8 @@ from auth.models import RegisterUserRequest
 from auth.service import register_user
 from config import config
 from entities.role import Role
-from entities.settings import Settings
-from entities.user import User
+from entities.settings import Settings, SettingsScope
+from entities.user import SYSTEM_USER_EMAIL, SYSTEM_USER_ID, User
 from settings.models import SETTINGS_MODEL_DISPATCHER
 from ws.manager import manager
 
@@ -78,6 +78,19 @@ async def lifespan(app):
         # Create default roles
         Role.create_default_roles(db_session)
 
+        # Create the system user that owns scheduler-created tasks (never logs in)
+        if db_session.get(User, SYSTEM_USER_ID) is None:
+            db_session.add(
+                User(
+                    id=SYSTEM_USER_ID,
+                    email=SYSTEM_USER_EMAIL,
+                    first_name="System",
+                    last_name="Scheduler",
+                    password_hash="!disabled",
+                )
+            )
+            db_session.commit()
+
         # Create admin user if not exists
         admin_user = db_session.query(User).filter(User.email == config.auth.admin.email).first()
 
@@ -103,6 +116,30 @@ async def lifespan(app):
                 continue
 
             Settings.save(db_session, scope, model_cls(), model_cls)
+
+        # Reconcile scheduled (redbeat) jobs from persisted settings so
+        # default-enabled schedules (e.g. the orphaned-task reaper) exist
+        # without waiting for a settings save.
+        try:
+            from maintenance.models import MaintenanceSettings
+            from maintenance.schedule import sync_redbeat_schedule
+
+            maintenance_settings = (
+                Settings.get(db_session, SettingsScope.Maintenance, MaintenanceSettings)
+                or MaintenanceSettings()
+            )
+            sync_redbeat_schedule(maintenance_settings)
+
+            from periodic_sync.models import PeriodicSyncSettings
+            from periodic_sync.schedule import sync_periodic_sync_schedule
+
+            periodic_sync_settings = (
+                Settings.get(db_session, SettingsScope.PeriodicSync, PeriodicSyncSettings)
+                or PeriodicSyncSettings()
+            )
+            sync_periodic_sync_schedule(periodic_sync_settings)
+        except Exception:
+            logger.warning("Failed to reconcile redbeat schedule on startup", exc_info=True)
 
     # Start Redis Pub/Sub subscriber for WS event fan-out
     subscriber_task = asyncio.create_task(subscribe_events(manager.broadcast))

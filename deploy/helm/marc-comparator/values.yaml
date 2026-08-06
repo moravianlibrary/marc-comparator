@@ -23,6 +23,9 @@ app:
 # -- Worker (Celery)
 worker:
   replicaCount: 1
+  # Number of prefork worker processes. Keep at/under the CPU limit below to
+  # avoid oversubscription (OOM/eviction that orphans tasks).
+  concurrency: 2
   image:
     repository: marc-comparator-worker
   resources:

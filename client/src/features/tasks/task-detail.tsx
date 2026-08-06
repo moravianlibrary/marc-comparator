@@ -1,10 +1,12 @@
 import { useQuery } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import { Download } from "lucide-react";
 import apiClient from "@/lib/api-client";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import type { ReportArtifact } from "@/types/task";
 
 interface TaskDetailProps {
   taskId: string;
@@ -23,6 +25,15 @@ export function TaskDetail({ taskId, isRunning, progress }: TaskDetailProps) {
     refetchInterval: isRunning ? 5000 : false,
   });
 
+  const { data: reports } = useQuery<ReportArtifact[]>({
+    queryKey: ["reports", taskId],
+    queryFn: () =>
+      apiClient
+        .get<ReportArtifact[]>("/reports", { params: { task_id: taskId } })
+        .then((r) => r.data),
+    refetchInterval: isRunning ? 5000 : false,
+  });
+
   return (
     <Card className="h-full">
       <CardHeader className="pb-2">
@@ -37,6 +48,23 @@ export function TaskDetail({ taskId, isRunning, progress }: TaskDetailProps) {
         )}
       </CardHeader>
       <CardContent>
+        {reports && reports.length > 0 && (
+          <div className="mb-4 space-y-2">
+            <p className="text-sm font-medium">{t("detail.reports")}</p>
+            <div className="flex flex-col gap-1">
+              {reports.map((report) => (
+                <a
+                  key={report.id}
+                  href={`/api/reports/${report.id}/download`}
+                  className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
+                >
+                  <Download className="h-4 w-4" />
+                  {report.filename} ({Math.round(report.size / 1024)} kB)
+                </a>
+              ))}
+            </div>
+          </div>
+        )}
         {isLoading ? (
           <Skeleton className="h-[60vh] w-full rounded-md" />
         ) : traceback ? (

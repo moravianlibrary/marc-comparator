@@ -9,7 +9,18 @@ export const TaskType = {
   DeleteTasks: "DeleteTasks",
   ProcessRecords: "ProcessRecords",
   RebuildAnalyticalData: "RebuildAnalyticalData",
+  CreateReport: "CreateReport",
 } as const;
+
+export interface ReportArtifact {
+  id: string;
+  task_id: string;
+  tool: string;
+  filename: string;
+  content_type: string;
+  size: number;
+  created_at: string;
+}
 
 export type TaskType = (typeof TaskType)[keyof typeof TaskType];
 

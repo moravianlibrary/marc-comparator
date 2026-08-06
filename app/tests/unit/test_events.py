@@ -13,6 +13,7 @@ class TestEventSerialization:
     def test_task_status_event_round_trip(self):
         event = TaskStatusEvent(
             task_id="abc-123",
+            task_type="ValidateRecords",
             name="Test task",
             status="Success",
             severity="Info",
@@ -60,6 +61,7 @@ class TestEventSerialization:
             {
                 "type": "task_status",
                 "task_id": "x",
+                "task_type": "ValidateRecords",
                 "name": "Test",
                 "status": "Started",
                 "severity": "Info",

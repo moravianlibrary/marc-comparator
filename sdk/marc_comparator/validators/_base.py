@@ -1,8 +1,11 @@
 from abc import ABC, abstractmethod
+from collections.abc import Iterable
 from enum import StrEnum
 
 from marcdantic import MarcRecord
 from pydantic import BaseModel
+
+from ..reports import ReportFile
 
 
 class ValidityStatus(StrEnum):
@@ -36,14 +39,38 @@ class ValidationResult(BaseModel):
     params: dict[str, str] | None = None
 
 
+class ReportInput(BaseModel):
+    """One record's not-valid results plus its full MARC, for report building."""
+
+    catalog_record_id: str
+    base: str
+    marc: MarcRecord
+    results: list[ValidationResult]
+
+
 class BaseValidator(ABC):
     """Abstract base class for MARC record validators."""
 
     config_model: type[BaseModel] | None = None
 
+    #: Whether this validator can turn its stored not-valid results into a
+    #: downloadable repair artifact. Validators that can override
+    #: ``generate_report`` set this True.
+    can_generate_report: bool = False
+
     @abstractmethod
     async def run(self, record: MarcRecord) -> list[ValidationResult]:
         """
         Validate a MARC record and return a list of validation results.
+        """
+        raise NotImplementedError
+
+    def generate_report(self, records: Iterable[ReportInput]) -> list[ReportFile]:
+        """
+        Build repair-artifact files from not-valid results.
+
+        Override in validators that support it. Pure/CPU-only: no network, no
+        DB — takes MARC + results, returns file bytes, so it is unit-testable
+        against fixtures.
         """
         raise NotImplementedError

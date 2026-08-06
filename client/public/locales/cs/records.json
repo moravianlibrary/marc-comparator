@@ -109,7 +109,11 @@
       "validate-description-single": "Spustí vybrané validátory na tomto záznamu. Výsledky validace se uloží k záznamu.",
       "validate-description-bulk": "Spustí vybrané validátory na {{count}} aktuálně vyfiltrovaných záznamech. Výsledky validace se uloží k záznamům.",
       "select-validators": "Validátory",
-      "no-validators": "Žádné validátory nejsou k dispozici."
+      "no-validators": "Žádné validátory nejsou k dispozici.",
+      "report-validator": "Vytvořit opravný report",
+      "report-comparator": "Vytvořit report porovnání",
+      "report-title": "Vytvořit opravný report",
+      "report-description": "Vytvoří stažitelný opravný soubor (Aleph .seq) z uložených nevalidních výsledků vybraných validátorů. Před generováním doporučujeme bázi znovu synchronizovat."
     },
     "column-config": "Nastavení sloupců",
     "search-placeholder": "Hledat záznamy...",

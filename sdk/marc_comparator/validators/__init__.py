@@ -1,7 +1,9 @@
 from enum import StrEnum
 
+from ..reports import ReportFile
 from ._base import (
     BaseValidator,
+    ReportInput,
     ValidationResult,
     ValidationTarget,
     ValidityStatus,
@@ -24,6 +26,8 @@ __all__ = [
     "BaseValidator",
     "KrameriusLinksValidator",
     "KrameriusLinksValidatorConfig",
+    "ReportFile",
+    "ReportInput",
     "VALIDATOR_DISPATCHER",
     "ValidationResult",
     "ValidationTarget",

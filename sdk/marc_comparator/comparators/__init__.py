@@ -1,7 +1,9 @@
 from enum import StrEnum
 
+from ..reports import ReportFile
 from ._base import (
     BaseComparator,
+    ComparisonReportInput,
     Explanation,
     FieldComparisonResult,
     MatchQuality,
@@ -23,11 +25,13 @@ __all__ = [
     "BaseComparator",
     "COMPARATOR_DISPATCHER",
     "Comparator",
+    "ComparisonReportInput",
     "DefaultComparator",
     "DefaultComparatorConfig",
     "Explanation",
     "FieldComparisonResult",
     "MatchQuality",
     "RecordComparisonResult",
+    "ReportFile",
     "SubfieldComparisonResult",
 ]

@@ -7,6 +7,7 @@ from catalog_records.models import ProcessRecordsSettings
 from entities.role import Permission
 from entities.settings import SettingsScope
 from maintenance.models import MaintenanceSettings
+from periodic_sync.models import PeriodicSyncSettings
 from settings.models import (
     AuthorityLinkingSettings,
     CatalogSettings,
@@ -137,6 +138,25 @@ def set_maintenance_settings(
     from maintenance.schedule import sync_redbeat_schedule
 
     sync_redbeat_schedule(settings)
+    return saved
+
+
+@system_settings_router.get("/periodic-sync", response_model=PeriodicSyncSettings)
+def get_periodic_sync_settings(
+    db_session: DatabaseSessionDep,
+):
+    return service.get_settings(SettingsScope.PeriodicSync, db_session)
+
+
+@system_settings_router.post("/periodic-sync", response_model=PeriodicSyncSettings)
+def set_periodic_sync_settings(
+    settings: Annotated[PeriodicSyncSettings, Body()],
+    db_session: DatabaseSessionDep,
+):
+    saved = service.set_settings(SettingsScope.PeriodicSync, settings, db_session)
+    from periodic_sync.schedule import sync_periodic_sync_schedule
+
+    sync_periodic_sync_schedule(settings)
     return saved
 
 

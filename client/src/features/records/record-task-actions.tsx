@@ -41,7 +41,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Label } from "@/components/ui/label";
 import type { RecordFilter } from "./types";
 
-type DialogAction = "link-authorities" | "compare" | "validate";
+type DialogAction = "link-authorities" | "compare" | "validate" | "report";
 
 interface RecordTaskActionsProps {
   filters: RecordFilter;
@@ -130,6 +130,9 @@ export function AdvancedTaskActions({ filters, totalCount }: AdvancedTaskActions
   // -- Validation dialog state --
   const [selectedValidators, setSelectedValidators] = useState<Set<string>>(new Set());
 
+  // -- Report dialog state --
+  const [selectedReportValidators, setSelectedReportValidators] = useState<Set<string>>(new Set());
+
   const { data: systemInfo } = useSystemInfo();
 
   const authorityLinkers = systemInfo?.enabled_authority_linkers ?? [];
@@ -168,6 +171,26 @@ export function AdvancedTaskActions({ filters, totalCount }: AdvancedTaskActions
   const validateMutation = useMutation({
     mutationFn: async (validators: string[]) => {
       await apiClient.post("/validation/task", { validators, filters });
+    },
+    onSuccess: onTaskCreated,
+    onError,
+  });
+
+  const reportValidatorMutation = useMutation({
+    mutationFn: async (validators: string[]) => {
+      await Promise.all(
+        validators.map((tool) =>
+          apiClient.post("/reports/task", { kind: "validator", tool, filters }),
+        ),
+      );
+    },
+    onSuccess: onTaskCreated,
+    onError,
+  });
+
+  const reportComparatorMutation = useMutation({
+    mutationFn: async () => {
+      await apiClient.post("/reports/task", { kind: "comparator", tool: "default", filters });
     },
     onSuccess: onTaskCreated,
     onError,
@@ -230,6 +253,21 @@ export function AdvancedTaskActions({ filters, totalCount }: AdvancedTaskActions
     setPendingDialog(null);
   }
 
+  function openReport() {
+    setSelectedReportValidators(
+      enabledValidators.length === 1 && enabledValidators[0] != null
+        ? new Set([enabledValidators[0]])
+        : new Set(),
+    );
+    setPendingDialog("report");
+  }
+
+  function confirmReport() {
+    if (selectedReportValidators.size === 0) return;
+    reportValidatorMutation.mutate(Array.from(selectedReportValidators));
+    setPendingDialog(null);
+  }
+
   const availableBases = [...new Set(authorityLinkers.flatMap((l) => l.target_bases))];
 
   const linkerOptions = authorityLinkers.map((linker) => ({
@@ -240,7 +278,11 @@ export function AdvancedTaskActions({ filters, totalCount }: AdvancedTaskActions
 
   const isSingle = totalCount === 1;
   const isBusy =
-    linkAuthoritiesMutation.isPending || compareMutation.isPending || validateMutation.isPending;
+    linkAuthoritiesMutation.isPending ||
+    compareMutation.isPending ||
+    validateMutation.isPending ||
+    reportValidatorMutation.isPending ||
+    reportComparatorMutation.isPending;
 
   return (
     <>
@@ -258,6 +300,12 @@ export function AdvancedTaskActions({ filters, totalCount }: AdvancedTaskActions
             {t("table.actions.compare")}
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={openValidate}>{t("table.actions.validate")}</DropdownMenuItem>
+          <DropdownMenuItem onSelect={openReport}>
+            {t("table.actions.report-validator")}
+          </DropdownMenuItem>
+          <DropdownMenuItem onSelect={() => reportComparatorMutation.mutate()}>
+            {t("table.actions.report-comparator")}
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 
@@ -460,6 +508,60 @@ export function AdvancedTaskActions({ filters, totalCount }: AdvancedTaskActions
             <Button
               onClick={confirmValidate}
               disabled={selectedValidators.size === 0 || enabledValidators.length === 0}
+            >
+              {t("common:confirm")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Report (validator repair artifact) dialog */}
+      <Dialog
+        open={pendingDialog === "report"}
+        onOpenChange={(open) => !open && setPendingDialog(null)}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("table.actions.report-title")}</DialogTitle>
+            <DialogDescription>{t("table.actions.report-description")}</DialogDescription>
+          </DialogHeader>
+
+          {enabledValidators.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t("table.actions.no-validators")}</p>
+          ) : (
+            <div className="space-y-2">
+              <Label>{t("table.actions.select-validators")}</Label>
+              <div className="space-y-2">
+                {enabledValidators.map((v) => (
+                  <div key={v} className="flex items-center gap-2">
+                    <Checkbox
+                      id={`report-validator-${v}`}
+                      checked={selectedReportValidators.has(v)}
+                      onCheckedChange={(checked) => {
+                        setSelectedReportValidators((prev) => {
+                          const next = new Set(prev);
+                          if (checked) next.add(v);
+                          else next.delete(v);
+                          return next;
+                        });
+                      }}
+                    />
+                    <Label htmlFor={`report-validator-${v}`}>
+                      {t(`validator-name.${v}`, { defaultValue: v })}
+                    </Label>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPendingDialog(null)}>
+              {t("common:cancel")}
+            </Button>
+            <Button
+              onClick={confirmReport}
+              disabled={selectedReportValidators.size === 0 || enabledValidators.length === 0}
             >
               {t("common:confirm")}
             </Button>

@@ -91,7 +91,7 @@ async def handle_catalog_record_validation(
 
 
 async def validate_records(task_id: str) -> None:
-    async with ManagedTask(task_id=task_id) as ctx:
+    async with ManagedTask(task_id=task_id, lock_key=f"task-run-{task_id}") as ctx:
         data = ValidationTaskData.model_validate(ctx.task.data)
 
         validator_instances = load_validators(ctx.db_session, data.validators, ctx.logger)

@@ -29,6 +29,7 @@ import { ComparisonSettingsForm } from "./comparison-settings-form";
 import { ValidationSettingsForm } from "./validation-settings-form";
 import { ProcessRecordsSettingsForm } from "./process-records-settings-form";
 import { MaintenanceSettingsForm } from "./maintenance-settings-form";
+import { PeriodicSyncSettingsForm } from "./periodic-sync-settings-form";
 import { SkeletonForm } from "@/components/skeletons/skeleton-form";
 
 const SETTINGS_SCOPES: SettingsScope[] = [
@@ -39,6 +40,7 @@ const SETTINGS_SCOPES: SettingsScope[] = [
   "validators",
   "process-records",
   "maintenance",
+  "periodic-sync",
 ];
 
 const SETTINGS_ENDPOINTS: Record<SettingsScope, string> = {
@@ -49,6 +51,7 @@ const SETTINGS_ENDPOINTS: Record<SettingsScope, string> = {
   validators: "/settings/record-tools/validators",
   "process-records": "/settings/record-tools/process-records",
   maintenance: "/settings/system/maintenance",
+  "periodic-sync": "/settings/system/periodic-sync",
 };
 
 export function SettingsPage() {
@@ -139,6 +142,9 @@ export function SettingsPage() {
         break;
       case "maintenance":
         form = <MaintenanceSettingsForm {...commonProps} />;
+        break;
+      case "periodic-sync":
+        form = <PeriodicSyncSettingsForm {...commonProps} />;
         break;
     }
     return <div className="animate-fade-in">{form}</div>;

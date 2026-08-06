@@ -136,6 +136,42 @@ export function MaintenanceSettingsForm({ data, onDirtyChange, onFormRef, onSubm
                 )}
               />
             </div>
+
+            <div className="space-y-4">
+              <h3 className="text-sm font-medium">{t("maintenance.orphan-reaper.title")}</h3>
+
+              <FormField
+                control={form.control}
+                name="orphan_reaper.enabled"
+                render={({ field }) => (
+                  <FormItem className="flex items-center gap-3 space-y-0">
+                    <FormControl>
+                      <Switch checked={field.value} onCheckedChange={field.onChange} />
+                    </FormControl>
+                    <FormLabel>{t("maintenance.enabled")}</FormLabel>
+                  </FormItem>
+                )}
+              />
+
+              <FormField
+                control={form.control}
+                name="orphan_reaper.interval_hours"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>{t("maintenance.interval-hours")}</FormLabel>
+                    <FormDescription>{t("maintenance.interval-hours-description")}</FormDescription>
+                    <FormControl>
+                      <Input
+                        type="number"
+                        {...field}
+                        onChange={(e) => field.onChange(Number(e.target.value))}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
           </CardContent>
         </Card>
       </form>

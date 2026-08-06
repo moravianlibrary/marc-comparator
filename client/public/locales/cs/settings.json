@@ -8,7 +8,13 @@
     "comparators": "Nastavení porovnávání",
     "validators": "Nastavení validátorů",
     "process-records": "Nastavení zpracování záznamů",
-    "maintenance": "Nastavení údržby"
+    "maintenance": "Nastavení údržby",
+    "periodic-sync": "Plánovaná synchronizace"
+  },
+  "periodic-sync": {
+    "enabled": "Aktivní",
+    "interval-hours": "Interval (hodiny)",
+    "no-bases": "Nejsou nakonfigurovány žádné báze katalogu."
   },
   "catalog": {
     "clients": "Nastavení Aleph katalogů",
@@ -77,6 +83,9 @@
     },
     "sector-compaction": {
       "title": "Automatická kompaktace sektorů"
+    },
+    "orphan-reaper": {
+      "title": "Uvolnění zaseknutých úkolů"
     },
     "enabled": "Aktivní",
     "interval-hours": "Interval (hodiny)",

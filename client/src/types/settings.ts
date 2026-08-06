@@ -90,6 +90,17 @@ export interface MaintenanceSettings {
   task_cleanup: PeriodicTaskConfig;
   task_cleanup_max_age_days: number;
   sector_compaction: PeriodicTaskConfig;
+  orphan_reaper: PeriodicTaskConfig;
+}
+
+export interface PeriodicSyncBaseConfig {
+  base: string;
+  enabled: boolean;
+  interval_hours: number;
+}
+
+export interface PeriodicSyncSettings {
+  bases: PeriodicSyncBaseConfig[];
 }
 
 export type SettingsScope =
@@ -99,7 +110,8 @@ export type SettingsScope =
   | "comparators"
   | "validators"
   | "process-records"
-  | "maintenance";
+  | "maintenance"
+  | "periodic-sync";
 
 export interface SystemInfo {
   system_version: string;
