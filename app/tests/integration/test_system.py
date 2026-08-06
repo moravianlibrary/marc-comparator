@@ -84,6 +84,8 @@ class TestSystemInfoEndpoint:
         assert body["configured_bases"] == []
         assert body["enabled_authority_linkers"] == []
         assert body["enabled_validators"] == []
+        assert body["report_capable_validators"] == []
+        assert body["report_capable_comparator"] is None
         assert "system_version" in body
         assert "system_commit" in body
         assert body["uptime_seconds"] >= 0

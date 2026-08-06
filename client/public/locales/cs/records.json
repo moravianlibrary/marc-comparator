@@ -110,6 +110,7 @@
       "validate-description-bulk": "Spustí vybrané validátory na {{count}} aktuálně vyfiltrovaných záznamech. Výsledky validace se uloží k záznamům.",
       "select-validators": "Validátory",
       "no-validators": "Žádné validátory nejsou k dispozici.",
+      "no-report-validators": "Žádný z povolených validátorů neumí vytvořit report.",
       "report-validator": "Vytvořit opravný report",
       "report-comparator": "Vytvořit report porovnání",
       "report-title": "Vytvořit opravný report",

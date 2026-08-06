@@ -137,6 +137,10 @@ export function AdvancedTaskActions({ filters, totalCount }: AdvancedTaskActions
 
   const authorityLinkers = systemInfo?.enabled_authority_linkers ?? [];
   const enabledValidators = systemInfo?.enabled_validators ?? [];
+  // Only a subset of enabled tools can actually produce a report, so the
+  // report actions are driven by these rather than by the enabled lists.
+  const reportValidators = systemInfo?.report_capable_validators ?? [];
+  const reportComparator = systemInfo?.report_capable_comparator ?? null;
 
   const onTaskCreated = () => queryClient.invalidateQueries({ queryKey: ["tasks"] });
   const onError = () => toast.error(t("common:error"));
@@ -189,8 +193,8 @@ export function AdvancedTaskActions({ filters, totalCount }: AdvancedTaskActions
   });
 
   const reportComparatorMutation = useMutation({
-    mutationFn: async () => {
-      await apiClient.post("/reports/task", { kind: "comparator", tool: "default", filters });
+    mutationFn: async (tool: string) => {
+      await apiClient.post("/reports/task", { kind: "comparator", tool, filters });
     },
     onSuccess: onTaskCreated,
     onError,
@@ -255,8 +259,8 @@ export function AdvancedTaskActions({ filters, totalCount }: AdvancedTaskActions
 
   function openReport() {
     setSelectedReportValidators(
-      enabledValidators.length === 1 && enabledValidators[0] != null
-        ? new Set([enabledValidators[0]])
+      reportValidators.length === 1 && reportValidators[0] != null
+        ? new Set([reportValidators[0]])
         : new Set(),
     );
     setPendingDialog("report");
@@ -300,12 +304,16 @@ export function AdvancedTaskActions({ filters, totalCount }: AdvancedTaskActions
             {t("table.actions.compare")}
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={openValidate}>{t("table.actions.validate")}</DropdownMenuItem>
-          <DropdownMenuItem onSelect={openReport}>
-            {t("table.actions.report-validator")}
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={() => reportComparatorMutation.mutate()}>
-            {t("table.actions.report-comparator")}
-          </DropdownMenuItem>
+          {reportValidators.length > 0 && (
+            <DropdownMenuItem onSelect={openReport}>
+              {t("table.actions.report-validator")}
+            </DropdownMenuItem>
+          )}
+          {reportComparator != null && (
+            <DropdownMenuItem onSelect={() => reportComparatorMutation.mutate(reportComparator)}>
+              {t("table.actions.report-comparator")}
+            </DropdownMenuItem>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 
@@ -526,13 +534,15 @@ export function AdvancedTaskActions({ filters, totalCount }: AdvancedTaskActions
             <DialogDescription>{t("table.actions.report-description")}</DialogDescription>
           </DialogHeader>
 
-          {enabledValidators.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t("table.actions.no-validators")}</p>
+          {reportValidators.length === 0 ? (
+            <p className="text-sm text-muted-foreground">
+              {t("table.actions.no-report-validators")}
+            </p>
           ) : (
             <div className="space-y-2">
               <Label>{t("table.actions.select-validators")}</Label>
               <div className="space-y-2">
-                {enabledValidators.map((v) => (
+                {reportValidators.map((v) => (
                   <div key={v} className="flex items-center gap-2">
                     <Checkbox
                       id={`report-validator-${v}`}
@@ -561,7 +571,7 @@ export function AdvancedTaskActions({ filters, totalCount }: AdvancedTaskActions
             </Button>
             <Button
               onClick={confirmReport}
-              disabled={selectedReportValidators.size === 0 || enabledValidators.length === 0}
+              disabled={selectedReportValidators.size === 0 || reportValidators.length === 0}
             >
               {t("common:confirm")}
             </Button>

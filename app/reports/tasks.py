@@ -35,13 +35,11 @@ def _validator_report_files(ctx: ManagedTask, data: CreateReportData) -> list[Re
     validator = Validator(data.tool)
     instances = load_validators(ctx.db_session, [validator], ctx.logger)
     if not instances:
-        ctx.logger.error(f"Validator '{data.tool}' could not be initialized")
-        return []
+        raise ValueError(f"Validator '{data.tool}' could not be initialized")
 
     instance = instances[0].instance
     if not instance.can_generate_report:
-        ctx.logger.error(f"Validator '{data.tool}' does not support report generation")
-        return []
+        raise ValueError(f"Validator '{data.tool}' does not support report generation")
 
     record_ids = _filtered_record_ids(ctx, data)
     ctx.total = len(record_ids)
@@ -81,11 +79,9 @@ def _comparator_report_files(ctx: ManagedTask, data: CreateReportData) -> list[R
 
     comparator = load_comparator(ctx.db_session)
     if not comparator:
-        ctx.logger.error("Comparator could not be initialized")
-        return []
+        raise ValueError("Comparator could not be initialized")
     if not comparator.can_generate_report:
-        ctx.logger.error(f"Comparator '{data.tool}' does not support report generation")
-        return []
+        raise ValueError(f"Comparator '{data.tool}' does not support report generation")
 
     record_ids = _filtered_record_ids(ctx, data)
     ctx.total = len(record_ids)
@@ -123,7 +119,14 @@ async def create_report(task_id: str) -> None:
             report_files = _comparator_report_files(ctx, data)
 
         if not report_files:
-            ctx.logger.info("No report data generated; nothing to store")
+            # Not an error — the tool ran fine, the filtered set just held
+            # nothing repairable. Warn so the task does not finish green with
+            # no download and no explanation.
+            ctx.logger.warning(
+                f"'{data.tool}' produced no report data for the selected records — "
+                "nothing to download. The filtered set has no stored results this "
+                "tool can act on."
+            )
             return
 
         buffer = io.BytesIO()

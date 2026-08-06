@@ -121,5 +121,7 @@ export interface SystemInfo {
   authority_bases: string[];
   enabled_authority_linkers: Array<{ name: string; target_bases: string[] }>;
   enabled_validators: string[];
+  report_capable_validators: string[];
+  report_capable_comparator: string | null;
   kramerius_client_urls: Record<string, string>;
 }

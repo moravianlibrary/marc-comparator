@@ -14,6 +14,13 @@ class SystemInfo(BaseModel):
     authority_bases: list[str]
     enabled_authority_linkers: list[AuthorityLinkerInfo]
     enabled_validators: list[str]
+    #: Subset of enabled_validators whose implementation can turn stored
+    #: results into a downloadable repair artifact.
+    report_capable_validators: list[str] = []
+    #: The enabled comparator's name if it can produce an analysis report,
+    #: otherwise None. The client uses this as the report `tool` rather than
+    #: assuming a comparator name.
+    report_capable_comparator: str | None = None
     kramerius_client_urls: dict[str, str] = {}
 
 

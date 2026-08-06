@@ -5,6 +5,7 @@ from marc_comparator.authority_linkers import (
     AUTHORITY_LINKER_DISPATCHER,
     AuthorityLinker,
 )
+from marc_comparator.validators import VALIDATOR_DISPATCHER, Validator
 from sqlalchemy import text
 
 from adapters.database import DatabaseSession
@@ -12,6 +13,8 @@ from adapters.lock_server import get_active_locks
 from adapters.lock_server import lock_server_client as redis_client
 from authority_linking.models import AuthorityLinkingSettings
 from catalog_records.models import CatalogSettings
+from comparison import UsedComparator, UsedComparatorClass
+from comparison.models import ComparisonSettings
 from entities.settings import Settings, SettingsScope
 from settings.models import SETTINGS_MODEL_DISPATCHER
 
@@ -76,6 +79,29 @@ def get_enabled_validators(db_session: DatabaseSession) -> list[str]:
     return _get_enabled_tools(db_session, SettingsScope.Validation)
 
 
+def get_report_capable_validators(db_session: DatabaseSession) -> list[str]:
+    """Enabled validators that implement ``generate_report``."""
+    capable = []
+    for name in get_enabled_validators(db_session):
+        try:
+            validator_cls = VALIDATOR_DISPATCHER.get(Validator(name))
+        except ValueError:
+            continue
+        if validator_cls and validator_cls.can_generate_report:
+            capable.append(name)
+    return capable
+
+
+def get_report_capable_comparator(db_session: DatabaseSession) -> str | None:
+    """The enabled comparator's name, if it implements ``generate_report``."""
+    settings: ComparisonSettings = get_settings(SettingsScope.Comparison, db_session)
+    if not settings or settings.comparator is None:
+        return None
+    if not UsedComparatorClass.can_generate_report:
+        return None
+    return UsedComparator.value
+
+
 async def get_system_info(db_session: DatabaseSession) -> SystemInfo:
     from marc_comparator.validators.kramerius_links import (
         KrameriusLinksValidatorConfig,
@@ -114,6 +140,8 @@ async def get_system_info(db_session: DatabaseSession) -> SystemInfo:
         authority_bases=authority_bases,
         enabled_authority_linkers=enabled_linkers,
         enabled_validators=get_enabled_validators(db_session),
+        report_capable_validators=get_report_capable_validators(db_session),
+        report_capable_comparator=get_report_capable_comparator(db_session),
         kramerius_client_urls=kramerius_client_urls,
     )
 
