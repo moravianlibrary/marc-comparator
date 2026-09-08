@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **Kramerius link discovery proposed links to unrelated documents.** Identifiers were
+  OR-ed into one query and every hit became a proposed 856, so a single unreliable
+  identifier invented dozens of links per record. MZK's Kramerius has ČNB numbers shared
+  by unrelated documents — `cnb002657972` matches 41, `cnb002860278` matches 210 — which
+  is what produced the bad Aleph batch of July 2026. Hits are now attributed back to the
+  identifier that matched them, and an identifier resolving to more documents than a
+  record can plausibly have (`max_roots_per_identifier`, default 10) is discarded with a
+  warning instead of being trusted. Verified against the live index: the two reported
+  records go from 41 and 210 proposed links to 1 (the correct one) and 0.
+- Root model was read from the end of `own_model_path` (the leaf) while the root pid came
+  from the start of `own_pid_path`. Any parent reached via a hit on its child — a
+  monograph unit or periodical volume — was therefore reported as `non_linkable_model`
+  and silently skipped.
+
 ### Added
 
 - `make check` quality gate (`format-check` + `lint` + `typecheck`) and the supporting

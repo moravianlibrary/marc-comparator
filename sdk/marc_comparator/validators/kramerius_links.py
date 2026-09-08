@@ -1,5 +1,6 @@
 import asyncio
 import json
+import logging
 import re
 from collections import defaultdict
 from collections.abc import Iterable
@@ -37,6 +38,12 @@ class KrameriusLinksValidatorConfig(BaseModel):
     solr_cloud: bool = True
     search_page_size: int = 10
 
+    #: A bibliographic record maps to a handful of digitised documents at most, so an
+    #: identifier matching more than this is not identifying anything and its hits are
+    #: discarded. MZK's Kramerius has ČNB numbers shared by dozens to hundreds of
+    #: unrelated documents; without this cap every one of them became a proposed link.
+    max_roots_per_identifier: int = 10
+
 
 VALIDATION_FIELD = ValidationTarget(tag="856", codes=["u", "y"])
 
@@ -70,9 +77,25 @@ FL = [
         KrameriusField.OwnPidPath,
         KrameriusField.ModelPath,
         KrameriusField.Level,
+        # Returned so each hit can be attributed back to the identifier that matched
+        # it, which is what lets an unreliable identifier be dropped on its own.
+        KrameriusField.Barcode,
+        KrameriusField.Isbn,
+        KrameriusField.Issn,
+        KrameriusField.Nbn,
     ]
 ]
 MAX_QUERY_PARTS = 50
+
+#: The KrameriusDocument attribute carrying each identifier we search on.
+IDENTIFIER_DOC_ATTR = {
+    KrameriusField.Barcode: "barcode",
+    KrameriusField.Isbn: "isbn",
+    KrameriusField.Issn: "issn",
+    KrameriusField.Nbn: "nbn",
+}
+
+logger = logging.getLogger(__name__)
 
 #: Standard 856 $y link text written for added/replaced links.
 STANDARD_LINK_TEXT = "Digitalizovaný dokument"
@@ -129,6 +152,17 @@ class KrameriusLinksValidator(BaseValidator):
             (field, value) for field, values in raw_fields for value in (values or [])
         ]
 
+        searched_values: dict[KrameriusField, set[str]] = defaultdict(set)
+        for field, value in field_query_parts:
+            searched_values[field].add(value)
+
+        # Hits grouped by the identifier that produced them. None collects hits that
+        # match no searched value verbatim (a normalisation difference, say) — they are
+        # kept, but subject to the same plausibility cap as any single identifier.
+        roots_by_identifier: dict[KrameriusField | None, dict[str, FoundKrameriusLink]] = (
+            defaultdict(dict)
+        )
+
         for i in range(0, len(field_query_parts), MAX_QUERY_PARTS):
             upper = min(i + MAX_QUERY_PARTS, len(field_query_parts))
             field_query_parts_chunk = field_query_parts[i:upper]
@@ -149,10 +183,34 @@ class KrameriusLinksValidator(BaseValidator):
 
             for doc in await asyncio.to_thread(self.client.Search.search, query, fl=FL):
                 root_pid = doc.own_pid_path.split("/")[0]
-                root_model = Model(doc.model_path.split("/")[-1])
+                # Both paths run root -> leaf, so the root's model is the first element.
+                # Taking the last one named the leaf, which wrongly flagged every parent
+                # reached via a child hit as non-linkable.
+                root_model = Model(doc.model_path.split("/")[0])
                 has_wrong_model = root_model not in VALID_TOP_LEVEL_MODELS
+                link = FoundKrameriusLink(root_pid, root_model, has_wrong_model)
 
-                links[root_pid] = FoundKrameriusLink(root_pid, root_model, has_wrong_model)
+                matched = [
+                    field
+                    for field, attr in IDENTIFIER_DOC_ATTR.items()
+                    if searched_values[field] & set(getattr(doc, attr) or [])
+                ]
+                for field in matched or [None]:
+                    roots_by_identifier[field][root_pid] = link
+
+        for field, roots in roots_by_identifier.items():
+            if len(roots) > self.config.max_roots_per_identifier:
+                logger.warning(
+                    "Ignoring %s: matched %d distinct documents for %s, which is more "
+                    "than a single record can plausibly have — the identifier is not "
+                    "discriminating and its hits would become bogus links",
+                    field.value if field else "unattributed hits",
+                    len(roots),
+                    sorted(searched_values.get(field, set())) if field else "-",
+                )
+                continue
+
+            links.update(roots)
 
         for pid in current_kramerius_pids:
             docs = list(
@@ -174,7 +232,8 @@ class KrameriusLinksValidator(BaseValidator):
                 continue
 
             root_pid = doc.own_pid_path.split("/")[0]
-            root_model = Model(doc.model_path.split("/")[-1])
+            # Root model is the first element of the path, not the leaf's.
+            root_model = Model(doc.model_path.split("/")[0])
             has_wrong_model = root_model not in VALID_TOP_LEVEL_MODELS
 
             links[root_pid] = FoundKrameriusLink(root_pid, root_model, has_wrong_model)
