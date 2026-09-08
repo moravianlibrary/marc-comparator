@@ -46,6 +46,7 @@ def make_record(*, isbn: str | None = ISBN, nbn: str | None = NBN) -> MarcRecord
 def doc(pid: str, *, isbn=None, nbn=None, model_path="monograph", own_pid_path=None):
     return KrameriusDocument.model_validate(
         {
+            "pid": pid,
             "own_pid_path": own_pid_path or pid,
             "own_model_path": model_path,
             "level": 0,
@@ -191,3 +192,57 @@ async def test_run_proposes_only_the_identifier_backed_link():
 
     additions = [r for r in results if r.reason == "missing_link_in_marc"]
     assert [(r.params or {})["pid"] for r in additions] == [OWN_PID]
+
+
+# ── $z part designation, taken from the linked document's title ───────────────
+#
+# part.number.str would be the obvious source but is empty on every top-level
+# document (0 of 314 169 in MZK's index), so the title is all there is.
+
+PART_TITLES = [
+    ("O ztraceném ševci: pohorský obraz. [Díl] 1", "Díl 1"),
+    ("Jalna. [Díl] 15. Co vítr přivál", "Díl 15"),
+    ("Dynastie Morlandů. 9. díl. Neklidné moře", "Díl 9"),
+    ("Rok na vsi: kronika moravské dědiny. Sv. 3", "Sv. 3"),
+    # No part designation — must not invent one.
+    ("LibreOffice Writer: praktický průvodce", None),
+    ("Pěšky po jižních Čechách. 21. Z renesančních Slavonic", None),
+    ("Text v pohybu četby", None),
+    ("", None),
+    (None, None),
+]
+
+
+@pytest.mark.parametrize(("title", "expected"), PART_TITLES)
+def test_part_number_extraction(title, expected):
+    assert make_validator([])._part_number(title) == expected
+
+
+@pytest.mark.asyncio
+async def test_link_carries_part_number_from_its_own_title():
+    docs = [doc(OWN_PID, isbn=[ISBN])]
+    docs[0].title = "Dynastie Morlandů. 9. díl. Neklidné moře"
+
+    links, _ = await make_validator(docs).find_kramerius_links(make_record(), [])
+
+    assert links[0].part_number == "Díl 9"
+
+
+@pytest.mark.asyncio
+async def test_child_hit_does_not_borrow_its_part_number_for_the_parent():
+    """A child's title names the child's part, not the root's — do not copy it up."""
+    root = "uuid:parent-monograph"
+    docs = [
+        doc(
+            "uuid:child-unit",
+            isbn=[ISBN],
+            own_pid_path=f"{root}/uuid:child-unit",
+            model_path="monograph/monographunit",
+        )
+    ]
+    docs[0].title = "Rok na vsi. 3. Březen-Duben"
+
+    links, _ = await make_validator(docs).find_kramerius_links(make_record(), [])
+
+    assert links[0].pid == root
+    assert links[0].part_number is None

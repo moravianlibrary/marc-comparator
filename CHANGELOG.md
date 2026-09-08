@@ -19,6 +19,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   repair batch. Verified against the live index: the two reported records go from 41 and
   210 proposed links to 1 (the correct one) and 0, with the second record's three
   genuine links still validating as `Valid`.
+- A wrong-server 856 was repaired by deleting the field and adding a replacement, which
+  silently discarded the cataloguer's `$x` (digitisation project) and `$z` (volume).
+  All three URL repairs now rewrite `$u` in place, so the other subfields survive. `$x`
+  is still never written for a *new* link — the project is not recorded anywhere in the
+  Kramerius index, and Tomáš Prachař's instruction was to omit the subfield rather than
+  guess.
 - Root model was read from the end of `own_model_path` (the leaf) while the root pid came
   from the start of `own_pid_path`. Any parent reached via a hit on its child — a
   monograph unit or periodical volume — was therefore reported as `non_linkable_model`
@@ -26,6 +32,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- 856 `$z` on newly proposed Kramerius links, so a volume of a multi-part work says which
+  volume it is (`$$zDíl 1`), as requested by Věra Mynářová. The designation is read from
+  the linked document's title via configurable `part_number_patterns`; Kramerius' own
+  `part.number.str` is unusable here because it is empty on every top-level document
+  (0 of 314 169) and populated only on `monographunit` children, which are never link
+  targets. No designation is written when none is found.
 - New `kramerius-links` review category `identifier_matches_multiple_documents`. When one
   identifier resolves to several Kramerius documents the extra matches are almost always
   wrong metadata on the Kramerius side, so rather than guessing, the validator reports the

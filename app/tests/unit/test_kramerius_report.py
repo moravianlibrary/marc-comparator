@@ -198,3 +198,100 @@ def test_out_of_range_field_index_recorded_in_errors():
     files = seq_files(make_validator().generate_report([inp]))
     assert "errors.json" in files
     assert "out of range" in files["errors.json"]
+
+
+# ── $z / $x handling (Věra Mynářová's request, 24.07.2026) ────────────────────
+
+
+def test_addition_carries_part_number_as_z():
+    """A volume of a multi-part work says which volume it is."""
+    inp = ReportInput(
+        catalog_record_id=CID,
+        base="MZK01",
+        marc=make_record([]),
+        results=[
+            result(
+                "missing_link_in_marc",
+                params={"pid": "uuid:vol1", "part": "Díl 1"},
+            )
+        ],
+    )
+    line = seq_files(make_validator().generate_report([inp]))["aleph_seq_MZK01.seq"].strip()
+
+    assert line.endswith("$$yDigitalizovaný dokument$$zDíl 1")
+    assert line.startswith(f"{SYSNO} 85641 L $$uhttps://")
+
+
+def test_addition_without_part_number_has_no_z():
+    inp = ReportInput(
+        catalog_record_id=CID,
+        base="MZK01",
+        marc=make_record([]),
+        results=[result("missing_link_in_marc", params={"pid": "uuid:only"})],
+    )
+    line = seq_files(make_validator().generate_report([inp]))["aleph_seq_MZK01.seq"].strip()
+
+    assert "$$z" not in line
+
+
+def test_url_repair_preserves_existing_x_and_z():
+    """Cataloguers' $x and $z must survive a URL fix — they cannot be reconstructed."""
+    old = "https://www.digitalniknihovna.cz/mzk/view/uuid:abc"
+    record = make_record(
+        [
+            {
+                "ind1": "4",
+                "ind2": "1",
+                "subfields": {
+                    "u": [old],
+                    "y": [STANDARD_LINK_TEXT],
+                    "x": ["NDK"],
+                    "z": ["Díl 2"],
+                },
+            }
+        ]
+    )
+    inp = ReportInput(
+        catalog_record_id=CID,
+        base="MZK01",
+        marc=record,
+        results=[
+            result("wrong_path_found", field_index=0, params={"pid": "uuid:abc"}),
+        ],
+    )
+    line = seq_files(make_validator().generate_report([inp]))["aleph_seq_MZK01.seq"].strip()
+
+    assert "$$xNDK" in line
+    assert "$$zDíl 2" in line
+    assert "/mzk/uuid/uuid:abc" in line
+    assert "/mzk/view/" not in line
+
+
+def test_wrong_server_repair_preserves_x_and_z():
+    """Same for a wrong-server URL: rewrite $u in place, do not drop the field."""
+    record = make_record(
+        [
+            {
+                "ind1": "4",
+                "ind2": "1",
+                "subfields": {
+                    "u": ["https://kramerius.example.org/view/uuid:abc"],
+                    "y": [STANDARD_LINK_TEXT],
+                    "x": ["NDK"],
+                    "z": ["2014/27"],
+                },
+            }
+        ]
+    )
+    inp = ReportInput(
+        catalog_record_id=CID,
+        base="MZK01",
+        marc=record,
+        results=[result("wrong_server_found", field_index=0, params={"pid": "uuid:abc"})],
+    )
+    line = seq_files(make_validator().generate_report([inp]))["aleph_seq_MZK01.seq"].strip()
+
+    assert line.count("$$u") == 1
+    assert "$$xNDK" in line
+    assert "$$z2014/27" in line
+    assert "kramerius.example.org" not in line
