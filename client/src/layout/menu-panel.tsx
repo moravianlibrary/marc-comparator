@@ -1,41 +1,41 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { useTranslation } from "react-i18next";
-import { Menu, ListTodo, Settings, Shield, Info, Wrench } from "lucide-react";
+import { Info, ListTodo, Menu, Settings, Shield, Wrench } from 'lucide-react';
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
+import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Button } from "@/components/ui/button";
-import { useHasPermission } from "@/hooks/use-permissions";
-import { Permission } from "@/types/permission";
-import { SystemInfoDialog } from "@/features/system/system-info-dialog";
+} from '@/components/ui/dropdown-menu';
+import { SystemInfoDialog } from '@/features/system/system-info-dialog';
+import { useHasPermission } from '@/hooks/use-permissions';
+import { Permission } from '@/types/permission';
 
 const menuItems = [
   {
-    labelKey: "common:menu.tasks",
-    path: "/tasks",
+    labelKey: 'common:menu.tasks',
+    path: '/tasks',
     icon: ListTodo,
     permission: Permission.ManageTasks,
   },
   {
-    labelKey: "common:menu.settings",
-    path: "/settings",
+    labelKey: 'common:menu.settings',
+    path: '/settings',
     icon: Settings,
     permission: { any: [Permission.ManageAppSettings, Permission.ManageTaskSettings] } as const,
   },
   {
-    labelKey: "common:menu.access-control",
-    path: "/access-control",
+    labelKey: 'common:menu.access-control',
+    path: '/access-control',
     icon: Shield,
     permission: Permission.ManageAccessControl,
   },
   {
-    labelKey: "common:menu.maintenance",
-    path: "/maintenance",
+    labelKey: 'common:menu.maintenance',
+    path: '/maintenance',
     icon: Wrench,
     permission: Permission.ManageAppSettings,
   },
@@ -47,7 +47,7 @@ export function MenuPanel() {
   const { hasPermission } = useHasPermission();
   const [showSystemInfo, setShowSystemInfo] = useState(false);
 
-  const visibleItems = menuItems.filter((item) => hasPermission(item.permission) !== false);
+  const visibleItems = menuItems.filter(item => hasPermission(item.permission) !== false);
 
   return (
     <>
@@ -58,7 +58,7 @@ export function MenuPanel() {
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start">
-          {visibleItems.map((item) => (
+          {visibleItems.map(item => (
             <DropdownMenuItem key={item.path} onClick={() => navigate(item.path)}>
               <item.icon className="mr-2 h-4 w-4" />
               {t(item.labelKey)}
@@ -67,7 +67,7 @@ export function MenuPanel() {
           {visibleItems.length > 0 && <DropdownMenuSeparator />}
           <DropdownMenuItem onClick={() => setShowSystemInfo(true)}>
             <Info className="mr-2 h-4 w-4" />
-            {t("common:menu.system")}
+            {t('common:menu.system')}
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

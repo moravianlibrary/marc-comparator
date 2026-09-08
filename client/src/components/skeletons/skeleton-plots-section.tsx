@@ -1,11 +1,11 @@
-import { Skeleton } from "@/components/ui/skeleton";
+import { Skeleton } from '@/components/ui/skeleton';
 import {
   SkeletonBarChart,
   SkeletonDonutChart,
   SkeletonHistogram,
   SkeletonRadialChart,
   SkeletonStackedBar,
-} from "./skeleton-chart";
+} from './skeleton-chart';
 
 export function SkeletonRecordsSection() {
   return (

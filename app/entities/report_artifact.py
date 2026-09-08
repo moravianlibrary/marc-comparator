@@ -1,17 +1,17 @@
 import uuid
 from datetime import datetime
 
-from pydantic import UUID4, BaseModel
+from pydantic import UUID4, BaseModel, ConfigDict
 from sqlalchemy import (
     TIMESTAMP,
     UUID,
     BigInteger,
-    Column,
     ForeignKey,
     LargeBinary,
     String,
     func,
 )
+from sqlalchemy.orm import Mapped, mapped_column
 
 from adapters.database import Base
 
@@ -29,27 +29,25 @@ class ReportArtifactSchema(BaseModel):
     size: int
     created_at: datetime
 
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ReportArtifact(Base, BaseOperationsMixin, RetrievalOperationsMixin):
     __tablename__ = "report_artifacts"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    task_id = Column(
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    task_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("tasks.task_id", ondelete="CASCADE"),
-        nullable=False,
         index=True,
     )
     # The validator/comparator that produced the artifact (enum value string).
-    tool = Column(String, nullable=False)
-    filename = Column(String, nullable=False)
-    content_type = Column(String, nullable=False, default="application/zip")
-    blob = Column(LargeBinary, nullable=False)
-    size = Column(BigInteger, nullable=False)
-    created_at = Column(TIMESTAMP, nullable=False, default=func.now())
+    tool: Mapped[str] = mapped_column(String)
+    filename: Mapped[str] = mapped_column(String)
+    content_type: Mapped[str] = mapped_column(String, default="application/zip")
+    blob: Mapped[bytes] = mapped_column(LargeBinary)
+    size: Mapped[int] = mapped_column(BigInteger)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP, default=func.now())
 
     def __init__(self, **kwargs):
         kwargs.setdefault("id", uuid.uuid4())

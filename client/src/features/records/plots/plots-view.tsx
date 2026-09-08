@@ -1,64 +1,51 @@
-import { useState } from "react";
-import { useTranslation } from "react-i18next";
-import { useRecordFilters } from "../use-record-filters";
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import {
+  SkeletonComparisonSection,
+  SkeletonRecordsSection,
+  SkeletonValidationSection,
+} from '@/components/skeletons/skeleton-plots-section';
+import type { FacetBucket, FacetResult, HistogramBucket } from '../types';
+import type { ArrayFilterKey, BoolFilterKey } from '../use-record-filters';
+import { useRecordFilters } from '../use-record-filters';
+import { type ActiveFilter, ActiveFiltersBar } from './active-filters-bar';
+import { ComparisonSection } from './comparison-section';
+import { ContextSection, type PillGroup } from './context-section';
+import { RecordsSection } from './records-section';
+import { SectionConfig } from './section-config';
 import {
   useFacets,
+  usePerValidatorData,
   usePrefetchFacetPreview,
   usePreviewForValue,
-  usePerValidatorData,
-} from "./use-facets";
-import { SectionConfig } from "./section-config";
-import { useSectionVisibility } from "./use-section-visibility";
-import { ActiveFiltersBar, type ActiveFilter } from "./active-filters-bar";
-import { ContextSection, type PillGroup } from "./context-section";
-import { RecordsSection } from "./records-section";
-import { ComparisonSection } from "./comparison-section";
-import { ValidationSection } from "./validation-section";
-import type { FacetBucket, FacetResult, HistogramBucket } from "../types";
-import {
-  SkeletonRecordsSection,
-  SkeletonComparisonSection,
-  SkeletonValidationSection,
-} from "@/components/skeletons/skeleton-plots-section";
+} from './use-facets';
+import type { ChartId } from './use-section-visibility';
+import { useSectionVisibility } from './use-section-visibility';
+import { ValidationSection } from './validation-section';
 
-type FilterKey =
-  | "bases"
-  | "typeOfRecord"
-  | "bibliographicLevel"
-  | "deleted"
-  | "processed"
-  | "reviewStatuses"
-  | "authorityLinkLinkers"
-  | "authorityLinkBases"
-  | "comparisonBases"
-  | "matchQualities"
-  | "fieldExplanations"
-  | "validators"
-  | "validationStatuses"
-  | "validationTargetTags"
-  | "validationReasons";
+type FilterKey = ArrayFilterKey | BoolFilterKey;
 
 const FACET_TO_URL_PARAM: Partial<Record<string, FilterKey>> = {
-  base: "bases",
-  type_of_record: "typeOfRecord",
-  bibliographic_level: "bibliographicLevel",
-  is_deleted: "deleted",
-  is_processed: "processed",
-  review_status: "reviewStatuses",
-  authority_link_linkers: "authorityLinkLinkers",
-  authority_link_bases: "authorityLinkBases",
-  comparison_bases: "comparisonBases",
-  match_qualities: "matchQualities",
-  field_explanations: "fieldExplanations",
-  validators: "validators",
-  validation_statuses: "validationStatuses",
-  validation_target_tags: "validationTargetTags",
-  validation_reasons: "validationReasons",
+  base: 'bases',
+  type_of_record: 'typeOfRecord',
+  bibliographic_level: 'bibliographicLevel',
+  is_deleted: 'deleted',
+  is_processed: 'processed',
+  review_status: 'reviewStatuses',
+  authority_link_linkers: 'authorityLinkLinkers',
+  authority_link_bases: 'authorityLinkBases',
+  comparison_bases: 'comparisonBases',
+  match_qualities: 'matchQualities',
+  field_explanations: 'fieldExplanations',
+  validators: 'validators',
+  validation_statuses: 'validationStatuses',
+  validation_target_tags: 'validationTargetTags',
+  validation_reasons: 'validationReasons',
 };
 
 const BOOL_LABEL_TO_VALUE: Record<string, Record<string, string>> = {
-  deleted: { Deleted: "true", Active: "false" },
-  processed: { Processed: "true", Unprocessed: "false" },
+  deleted: { Deleted: 'true', Active: 'false' },
+  processed: { Processed: 'true', Unprocessed: 'false' },
 };
 
 const EXPLANATION_ORDER: Record<string, number> = {
@@ -71,8 +58,8 @@ const EXPLANATION_ORDER: Record<string, number> = {
 };
 
 export function PlotsView() {
-  const { t } = useTranslation("records");
-  const { filters, setFilters, toggleArrayFilter, setScoreRange, clearFilters } =
+  const { t } = useTranslation('records');
+  const { filters, setFilters, toggleArrayFilter, setBoolFilter, setScoreRange, clearFilters } =
     useRecordFilters();
   const { data: facetsData, isLoading } = useFacets();
   const [hoveredField, setHoveredField] = useState<string | null>(null);
@@ -81,7 +68,7 @@ export function PlotsView() {
   const { isVisible, toggleChart, toggleSection, isSectionVisible } = useSectionVisibility();
   const perValidatorData = usePerValidatorData();
 
-  const previewFacets = usePreviewForValue(hoveredField ?? "", hoveredValue);
+  const previewFacets = usePreviewForValue(hoveredField ?? '', hoveredValue);
 
   if (isLoading) {
     return (
@@ -94,10 +81,10 @@ export function PlotsView() {
   }
 
   if (!facetsData) {
-    return <p className="text-muted-foreground">{t("plots.no-data")}</p>;
+    return <p className="text-muted-foreground">{t('plots.no-data')}</p>;
   }
 
-  const facetsByField = new Map(facetsData.facets.map((f) => [f.field, f]));
+  const facetsByField = new Map(facetsData.facets.map(f => [f.field, f]));
 
   function getBuckets(field: string): FacetBucket[] {
     return facetsByField.get(field)?.buckets ?? [];
@@ -105,10 +92,14 @@ export function PlotsView() {
 
   function getActiveValues(facetField: string): string[] {
     const paramKey = FACET_TO_URL_PARAM[facetField];
-    if (!paramKey) return [];
+    if (!paramKey) {
+      return [];
+    }
     const paramValue = filters[paramKey];
-    if (paramKey === "deleted" || paramKey === "processed") {
-      if (!paramValue) return [];
+    if (paramKey === 'deleted' || paramKey === 'processed') {
+      if (!paramValue) {
+        return [];
+      }
       const labelMap = BOOL_LABEL_TO_VALUE[paramKey]!;
       return Object.entries(labelMap)
         .filter(([, v]) => v === paramValue)
@@ -119,31 +110,38 @@ export function PlotsView() {
 
   function handleToggle(facetField: string, value: string) {
     const paramKey = FACET_TO_URL_PARAM[facetField];
-    if (!paramKey) return;
-    if (paramKey === "deleted" || paramKey === "processed") {
-      const labelMap = BOOL_LABEL_TO_VALUE[paramKey]!;
-      const targetValue = labelMap[value];
-      const currentValue = filters[paramKey];
-      setFilters({
-        [paramKey]: currentValue === targetValue ? "" : targetValue,
-        page: 1,
-      } as any);
-    } else {
-      toggleArrayFilter(paramKey as any, value);
+    if (!paramKey) {
+      return;
     }
+    if (paramKey === 'deleted' || paramKey === 'processed') {
+      const targetValue = BOOL_LABEL_TO_VALUE[paramKey]![value] ?? '';
+      const currentValue = filters[paramKey];
+      setBoolFilter(paramKey, currentValue === targetValue ? '' : targetValue);
+      return;
+    }
+
+    toggleArrayFilter(paramKey, value);
   }
 
   function getPreviewBuckets(facetField: string): FacetBucket[] | undefined {
-    if (hasRecordIdFilter) return undefined;
-    if (!previewFacets || facetField === hoveredField) return undefined;
+    if (hasRecordIdFilter) {
+      return undefined;
+    }
+    if (!previewFacets || facetField === hoveredField) {
+      return undefined;
+    }
     const result = previewFacets.facets.find((f: FacetResult) => f.field === facetField);
     return result?.buckets ?? [];
   }
 
   function getPreviewHistogramBuckets(field: string): HistogramBucket[] | undefined {
-    if (hasRecordIdFilter) return undefined;
-    if (!previewFacets || field === hoveredField) return undefined;
-    const result = previewFacets.histograms.find((h) => h.field === field);
+    if (hasRecordIdFilter) {
+      return undefined;
+    }
+    if (!previewFacets || field === hoveredField) {
+      return undefined;
+    }
+    const result = previewFacets.histograms.find(h => h.field === field);
     return result?.buckets ?? [];
   }
 
@@ -151,8 +149,12 @@ export function PlotsView() {
     return {
       onToggle: (value: string) => handleToggle(field, value),
       onHover: (value: string) => {
-        if (hasRecordIdFilter) return;
-        if (getActiveValues(field).includes(value)) return;
+        if (hasRecordIdFilter) {
+          return;
+        }
+        if (getActiveValues(field).includes(value)) {
+          return;
+        }
         setHoveredField(field);
         setHoveredValue(value);
       },
@@ -163,12 +165,14 @@ export function PlotsView() {
     };
   }
 
-  const scoreHistogram = facetsData.histograms.find((h) => h.field === "overall_score");
+  const scoreHistogram = facetsData.histograms.find(h => h.field === 'overall_score');
 
-  const explanationBuckets = [...getBuckets("field_explanations")].sort((a, b) => {
+  const explanationBuckets = [...getBuckets('field_explanations')].sort((a, b) => {
     const orderA = EXPLANATION_ORDER[a.key] ?? Number.MAX_SAFE_INTEGER;
     const orderB = EXPLANATION_ORDER[b.key] ?? Number.MAX_SAFE_INTEGER;
-    if (orderA !== orderB) return orderA - orderB;
+    if (orderA !== orderB) {
+      return orderA - orderB;
+    }
     return b.count - a.count;
   });
 
@@ -176,21 +180,21 @@ export function PlotsView() {
   const allFacetFields = Object.keys(FACET_TO_URL_PARAM);
   const activeFilters: ActiveFilter[] = [];
   const VALUE_TRANSLATORS: Record<string, (v: string) => string> = {
-    is_deleted: (v) => t(`state.${v}`),
-    is_processed: (v) => t(`state.${v}`),
-    review_status: (v) => t(`state.${v}`),
-    type_of_record: (v) => t(`type-of-record.${v}`, { defaultValue: v }),
-    bibliographic_level: (v) => t(`bibliographic-level.${v}`, { defaultValue: v }),
-    validators: (v) => t(`validator-name.${v}`, { defaultValue: v }),
-    match_qualities: (v) => t(`match-quality.${v}`, { defaultValue: v }),
-    validation_statuses: (v) => {
-      const s = v.includes(":") ? v.slice(v.indexOf(":") + 1) : v;
+    is_deleted: v => t(`state.${v}`),
+    is_processed: v => t(`state.${v}`),
+    review_status: v => t(`state.${v}`),
+    type_of_record: v => t(`type-of-record.${v}`, { defaultValue: v }),
+    bibliographic_level: v => t(`bibliographic-level.${v}`, { defaultValue: v }),
+    validators: v => t(`validator-name.${v}`, { defaultValue: v }),
+    match_qualities: v => t(`match-quality.${v}`, { defaultValue: v }),
+    validation_statuses: v => {
+      const s = v.includes(':') ? v.slice(v.indexOf(':') + 1) : v;
       return t(`validity-status.${s}`, { defaultValue: s });
     },
-    field_explanations: (v) => t(`field-explanation.${v}`, { defaultValue: v }),
-    authority_link_linkers: (v) => t(`linker-name.${v}`, { defaultValue: v }),
-    validation_reasons: (v) => {
-      const r = v.includes(":") ? v.slice(v.indexOf(":") + 1) : v;
+    field_explanations: v => t(`field-explanation.${v}`, { defaultValue: v }),
+    authority_link_linkers: v => t(`linker-name.${v}`, { defaultValue: v }),
+    validation_reasons: v => {
+      const r = v.includes(':') ? v.slice(v.indexOf(':') + 1) : v;
       return t(`validation-reason.${r}`, { defaultValue: r });
     },
   };
@@ -212,30 +216,30 @@ export function PlotsView() {
   const hasAnyFilter = activeFilters.length > 0 || hasScoreFilter || hasRecordIdFilter;
 
   // Context pill groups
-  const contextFields: { field: string; label: string; formatLabel?: (k: string) => string }[] = [
-    { field: "base", label: t("facet-fields.base") },
+  const contextFields: { field: ChartId; label: string; formatLabel?: (k: string) => string }[] = [
+    { field: 'base', label: t('facet-fields.base') },
     {
-      field: "authority_link_bases",
-      label: t("facet-fields.authority_link_bases"),
+      field: 'authority_link_bases',
+      label: t('facet-fields.authority_link_bases'),
     },
     {
-      field: "authority_link_linkers",
-      label: t("facet-fields.authority_link_linkers"),
-      formatLabel: (k) => t(`linker-name.${k}`, { defaultValue: k }),
+      field: 'authority_link_linkers',
+      label: t('facet-fields.authority_link_linkers'),
+      formatLabel: k => t(`linker-name.${k}`, { defaultValue: k }),
     },
     {
-      field: "comparison_bases",
-      label: t("facet-fields.comparison_bases"),
+      field: 'comparison_bases',
+      label: t('facet-fields.comparison_bases'),
     },
     {
-      field: "validators",
-      label: t("facet-fields.validators"),
-      formatLabel: (k) => t(`validator-name.${k}`, { defaultValue: k }),
+      field: 'validators',
+      label: t('facet-fields.validators'),
+      formatLabel: k => t(`validator-name.${k}`, { defaultValue: k }),
     },
   ];
 
   const pillGroups: PillGroup[] = contextFields
-    .filter(({ field }) => isVisible(field as any) && getBuckets(field).length > 0)
+    .filter(({ field }) => isVisible(field) && getBuckets(field).length > 0)
     .map(({ field, label, formatLabel }) => {
       const handlers = makeChartHandlers(field);
       return {
@@ -247,33 +251,34 @@ export function PlotsView() {
         formatLabel,
         ...handlers,
         onHover: (value: string) => {
-          if (!hasRecordIdFilter) prefetch(field);
+          if (!hasRecordIdFilter) {
+            prefetch(field);
+          }
           handlers.onHover(value);
         },
       };
     });
 
   const hasRecordsContent =
-    (isVisible("record_status") &&
-      (getBuckets("is_deleted").length > 0 ||
-        getBuckets("review_status").length > 0 ||
-        getBuckets("is_processed").length > 0)) ||
-    (isVisible("type_of_record") && getBuckets("type_of_record").length > 0) ||
-    (isVisible("bibliographic_level") && getBuckets("bibliographic_level").length > 0);
+    (isVisible('record_status') &&
+      (getBuckets('is_deleted').length > 0 ||
+        getBuckets('review_status').length > 0 ||
+        getBuckets('is_processed').length > 0)) ||
+    (isVisible('type_of_record') && getBuckets('type_of_record').length > 0) ||
+    (isVisible('bibliographic_level') && getBuckets('bibliographic_level').length > 0);
 
   const hasComparisonContent =
-    (isVisible("match_quality") && getBuckets("match_qualities").length > 0) ||
-    (isVisible("overall_score") && scoreHistogram && scoreHistogram.buckets.length > 0) ||
-    (isVisible("field_explanations") && explanationBuckets.length > 0);
+    (isVisible('match_quality') && getBuckets('match_qualities').length > 0) ||
+    (isVisible('overall_score') && scoreHistogram && scoreHistogram.buckets.length > 0) ||
+    (isVisible('field_explanations') && explanationBuckets.length > 0);
 
-  const hasValidationContent =
-    perValidatorData && perValidatorData.some(({ statuses }) => statuses.length > 0);
+  const hasValidationContent = perValidatorData?.some(({ statuses }) => statuses.length > 0);
 
   return (
     <div className="space-y-6 animate-fade-in">
       <div className="flex items-center justify-between gap-4">
         <p className="text-sm text-muted-foreground">
-          {t("plots.total-records", { count: facetsData.total })}
+          {t('plots.total-records', { count: facetsData.total })}
         </p>
         <SectionConfig
           isVisible={isVisible}
@@ -292,22 +297,22 @@ export function PlotsView() {
           scoreMin={filters.scoreMin}
           scoreMax={filters.scoreMax}
           onToggleFilter={handleToggle}
-          onClearRecordId={() => setFilters({ recordId: "", recordIndex: 0 })}
+          onClearRecordId={() => setFilters({ recordId: '', recordIndex: 0 })}
           onClearScore={() => setScoreRange(0, 1)}
           onClearAll={clearFilters}
         />
       )}
 
-      {isSectionVisible("context") && (pillGroups.length > 0 || hasRecordIdFilter) && (
+      {isSectionVisible('context') && (pillGroups.length > 0 || hasRecordIdFilter) && (
         <ContextSection
           pillGroups={pillGroups}
           hasRecordIdFilter={hasRecordIdFilter}
           recordId={filters.recordId}
-          onClearRecordId={() => setFilters({ recordId: "", recordIndex: 0 })}
+          onClearRecordId={() => setFilters({ recordId: '', recordIndex: 0 })}
         />
       )}
 
-      {isSectionVisible("records") && hasRecordsContent && (
+      {isSectionVisible('records') && hasRecordsContent && (
         <RecordsSection
           isVisible={isVisible}
           getBuckets={getBuckets}
@@ -321,7 +326,7 @@ export function PlotsView() {
         />
       )}
 
-      {isSectionVisible("comparison") && hasComparisonContent && (
+      {isSectionVisible('comparison') && hasComparisonContent && (
         <ComparisonSection
           isVisible={isVisible}
           getBuckets={getBuckets}
@@ -337,7 +342,7 @@ export function PlotsView() {
         />
       )}
 
-      {isSectionVisible("validation") && hasValidationContent && (
+      {isSectionVisible('validation') && hasValidationContent && (
         <ValidationSection
           isVisible={isVisible}
           getActiveValues={getActiveValues}

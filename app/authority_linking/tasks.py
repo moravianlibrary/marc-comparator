@@ -12,7 +12,7 @@ from marc_comparator.authority_linkers import AuthorityLink as SdkAuthorityLink
 from marcdantic import MarcRecord
 
 from adapters.database import DatabaseSession
-from adapters.marc_sectors import upsert_record_in_sector
+from adapters.marc_sectors import marc_bytes_of, upsert_record_in_sector
 from adapters.tasks import (
     ManagedTask,
     handle_batch_progress_snippet,
@@ -69,17 +69,16 @@ def init_authority_linkers(
         if not linker_cls:
             continue
 
-        linker_config = (
-            getattr(settings, linker.value.replace("-", "_"), None)
-            if linker_cls.config_model
-            else None
-        )
-
-        linker_instance = (
-            linker_cls(config=linker_cls.config_model.model_validate(linker_config))
-            if linker_config
-            else linker_cls()
-        )
+        config_model = linker_cls.config_model
+        if config_model is None:
+            linker_instance = linker_cls()
+        else:
+            # Settings may store null for a configured linker; fall back to the
+            # config model's own defaults rather than constructing without one.
+            stored = getattr(settings, linker.value.replace("-", "_"), None)
+            linker_instance = linker_cls(
+                config_model.model_validate(stored) if stored is not None else config_model()
+            )
 
         authority_linkers.append(AuthorityLinkerInstance(linker, linker_instance))
 
@@ -168,7 +167,7 @@ def scenario_found_link_update(
         db_session,
         authority_record.base,
         authority_record.system_number,
-        found_link.record._marc,
+        marc_bytes_of(found_link.record),
     )
 
     current_link.save(db_session, commit=False)
@@ -209,7 +208,7 @@ def _upsert_authority_record_and_link(
         db_session,
         found_link.base,
         found_link.system_number,
-        found_link.record._marc,
+        marc_bytes_of(found_link.record),
     )
 
     new_link = AuthorityLink(
@@ -266,38 +265,31 @@ def handle_catalog_record_link_action(
     """
     existing_link = get_existing_link(db_session, catalog_record.id, target_base)
 
-    if found_link is None and existing_link is None:
-        return scenario_no_link_no_existing()
-
-    if found_link is None and existing_link is not None:
+    # find_best_link_for_record yields the link and its linker together or
+    # neither, so one being None means there is no found link at all.
+    if found_link is None or linker_instance is None:
+        if existing_link is None:
+            return scenario_no_link_no_existing()
         return scenario_no_link_with_existing(db_session, existing_link)
 
-    if (
-        found_link is not None
-        and existing_link is not None
-        and existing_link.system_number == found_link.system_number
-    ):
-        return scenario_found_link_update(db_session, found_link, linker_instance, existing_link)
-
-    if (
-        found_link is not None
-        and existing_link is not None
-        and existing_link.system_number != found_link.system_number
-    ):
-        return scenario_found_link_replace(
+    if existing_link is None:
+        return scenario_found_link_create(
             db_session,
             catalog_record,
             found_link,
             linker_instance,
-            existing_link,
             target_base,
         )
 
-    return scenario_found_link_create(
+    if existing_link.system_number == found_link.system_number:
+        return scenario_found_link_update(db_session, found_link, linker_instance, existing_link)
+
+    return scenario_found_link_replace(
         db_session,
         catalog_record,
         found_link,
         linker_instance,
+        existing_link,
         target_base,
     )
 
@@ -323,6 +315,11 @@ async def authority_linking(task_id: str) -> None:
 
         for record_id in record_ids:
             catalog_record = ctx.db_session.get(CatalogRecord, record_id)
+            if catalog_record is None:
+                # Deleted between building the id list and getting here.
+                handle_batch_progress_snippet(ctx)
+                continue
+
             try:
                 if catalog_record.base == data.target_base:
                     handle_batch_progress_snippet(ctx)

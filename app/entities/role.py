@@ -1,9 +1,9 @@
 from enum import StrEnum
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, Column, Integer, String
+from sqlalchemy import Boolean, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import Mapped, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from adapters.database import Base, DatabaseSession
 
@@ -62,12 +62,12 @@ def resolve_permissions(permissions: list[Permission]) -> list[Permission]:
 class Role(Base, BaseOperationsMixin, RetrievalOperationsMixin):
     __tablename__ = "roles"
 
-    id = Column(Integer, primary_key=True)
-    name = Column(String, unique=True, nullable=False)
-    _permissions = Column("permissions", JSONB, nullable=False)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String, unique=True)
+    _permissions: Mapped[list[str]] = mapped_column("permissions", JSONB)
 
-    immutable = Column(Boolean, default=False, nullable=False)
-    protected = Column(Boolean, default=False, nullable=False)
+    immutable: Mapped[bool] = mapped_column(Boolean, default=False)
+    protected: Mapped[bool] = mapped_column(Boolean, default=False)
 
     users: Mapped[list["User"]] = relationship(
         "User",

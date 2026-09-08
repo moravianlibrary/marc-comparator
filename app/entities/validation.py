@@ -1,3 +1,4 @@
+from datetime import datetime
 from functools import cached_property
 from typing import TYPE_CHECKING
 
@@ -6,9 +7,9 @@ from marc_comparator.validators import (
     ValidationTarget,
     ValidityStatus,
 )
-from sqlalchemy import TIMESTAMP, Column, ForeignKey, Integer, String, func
+from sqlalchemy import TIMESTAMP, ForeignKey, Integer, String, func
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import Mapped, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from adapters.database import Base, DatabaseSession
 
@@ -19,13 +20,15 @@ if TYPE_CHECKING:
 class Validation(Base):
     __tablename__ = "validations"
 
-    id = Column(Integer, primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
 
-    catalog_record_id = Column(String, ForeignKey("catalog_records.id"), nullable=False, index=True)
-    validator = Column(String, nullable=False)
+    catalog_record_id: Mapped[str] = mapped_column(
+        String, ForeignKey("catalog_records.id"), index=True
+    )
+    validator: Mapped[str] = mapped_column(String)
 
-    _result = Column(JSONB, name="result", nullable=False)
-    updated_at = Column(TIMESTAMP, nullable=False, default=func.now(), onupdate=func.now())
+    _result: Mapped[dict] = mapped_column("result", JSONB)
+    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP, default=func.now(), onupdate=func.now())
 
     catalog_record: Mapped["CatalogRecord"] = relationship(
         "CatalogRecord",
@@ -81,8 +84,7 @@ class Validation(Base):
     def result(self, value: dict):
         self._result = value
         # Invalidate cached property
-        if "validation_result" in self.__dict__:
-            del self.__dict__["validation_result"]
+        vars(self).pop("validation_result", None)
 
     @cached_property
     def validation_result(self) -> ValidationResult:

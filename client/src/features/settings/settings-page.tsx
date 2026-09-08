@@ -1,16 +1,8 @@
-import { useState, useCallback, useRef } from "react";
-import { useTranslation } from "react-i18next";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { toast } from "sonner";
-import apiClient from "@/lib/api-client";
-import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useCallback, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
+import { SkeletonForm } from '@/components/skeletons/skeleton-form';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -20,45 +12,53 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import type { SettingsScope } from "@/types/settings";
-import { CatalogSettingsForm } from "./catalog-settings-form";
-import { TaskSettingsForm } from "./task-settings-form";
-import { AuthorityLinkingSettingsForm } from "./authority-linking-settings-form";
-import { ComparisonSettingsForm } from "./comparison-settings-form";
-import { ValidationSettingsForm } from "./validation-settings-form";
-import { ProcessRecordsSettingsForm } from "./process-records-settings-form";
-import { MaintenanceSettingsForm } from "./maintenance-settings-form";
-import { PeriodicSyncSettingsForm } from "./periodic-sync-settings-form";
-import { SkeletonForm } from "@/components/skeletons/skeleton-form";
+} from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import apiClient from '@/lib/api-client';
+import type { SettingsScope } from '@/types/settings';
+import { AuthorityLinkingSettingsForm } from './authority-linking-settings-form';
+import { CatalogSettingsForm } from './catalog-settings-form';
+import { ComparisonSettingsForm } from './comparison-settings-form';
+import { MaintenanceSettingsForm } from './maintenance-settings-form';
+import { PeriodicSyncSettingsForm } from './periodic-sync-settings-form';
+import { ProcessRecordsSettingsForm } from './process-records-settings-form';
+import { TaskSettingsForm } from './task-settings-form';
+import { ValidationSettingsForm } from './validation-settings-form';
 
 const SETTINGS_SCOPES: SettingsScope[] = [
-  "catalog",
-  "tasks",
-  "authority-linkers",
-  "comparators",
-  "validators",
-  "process-records",
-  "maintenance",
-  "periodic-sync",
+  'catalog',
+  'tasks',
+  'authority-linkers',
+  'comparators',
+  'validators',
+  'process-records',
+  'maintenance',
+  'periodic-sync',
 ];
 
 const SETTINGS_ENDPOINTS: Record<SettingsScope, string> = {
-  catalog: "/settings/system/catalog",
-  tasks: "/settings/system/tasks",
-  "authority-linkers": "/settings/record-tools/authority-linkers",
-  comparators: "/settings/record-tools/comparators",
-  validators: "/settings/record-tools/validators",
-  "process-records": "/settings/record-tools/process-records",
-  maintenance: "/settings/system/maintenance",
-  "periodic-sync": "/settings/system/periodic-sync",
+  catalog: '/settings/system/catalog',
+  tasks: '/settings/system/tasks',
+  'authority-linkers': '/settings/record-tools/authority-linkers',
+  comparators: '/settings/record-tools/comparators',
+  validators: '/settings/record-tools/validators',
+  'process-records': '/settings/record-tools/process-records',
+  maintenance: '/settings/system/maintenance',
+  'periodic-sync': '/settings/system/periodic-sync',
 };
 
 export function SettingsPage() {
-  const { t } = useTranslation("settings");
+  const { t } = useTranslation('settings');
   const queryClient = useQueryClient();
 
-  const [activeScope, setActiveScope] = useState<SettingsScope>("catalog");
+  const [activeScope, setActiveScope] = useState<SettingsScope>('catalog');
   const [isDirty, setIsDirty] = useState(false);
   const [pendingScope, setPendingScope] = useState<SettingsScope | null>(null);
   const formRef = useRef<{
@@ -72,8 +72,8 @@ export function SettingsPage() {
   const endpoint = SETTINGS_ENDPOINTS[activeScope];
 
   const { data: settings, isLoading } = useQuery({
-    queryKey: ["settings", activeScope],
-    queryFn: () => apiClient.get(endpoint).then((r) => r.data),
+    queryKey: ['settings', activeScope],
+    queryFn: () => apiClient.get(endpoint).then(r => r.data),
   });
 
   const saveMutation = useMutation({
@@ -82,11 +82,11 @@ export function SettingsPage() {
       // The refetched data becomes the form's new baseline (values prop in
       // useSettingsForm), which flips isDirty back to false — no manual
       // setIsDirty here, it would desync from the form's own dirty state.
-      queryClient.invalidateQueries({ queryKey: ["settings", activeScope] });
-      toast.success(t("common:saved"));
+      queryClient.invalidateQueries({ queryKey: ['settings', activeScope] });
+      toast.success(t('common:saved'));
     },
     onError: () => {
-      toast.error(t("common:save-failed"));
+      toast.error(t('common:save-failed'));
     },
   });
 
@@ -111,7 +111,9 @@ export function SettingsPage() {
   }, [pendingScope]);
 
   function renderForm() {
-    if (isLoading || !settings) return <SkeletonForm fields={6} />;
+    if (isLoading || !settings) {
+      return <SkeletonForm fields={6} />;
+    }
 
     const commonProps = {
       data: settings,
@@ -122,28 +124,28 @@ export function SettingsPage() {
 
     let form: React.ReactNode;
     switch (activeScope) {
-      case "catalog":
+      case 'catalog':
         form = <CatalogSettingsForm {...commonProps} />;
         break;
-      case "tasks":
+      case 'tasks':
         form = <TaskSettingsForm {...commonProps} />;
         break;
-      case "authority-linkers":
+      case 'authority-linkers':
         form = <AuthorityLinkingSettingsForm {...commonProps} />;
         break;
-      case "comparators":
+      case 'comparators':
         form = <ComparisonSettingsForm {...commonProps} />;
         break;
-      case "validators":
+      case 'validators':
         form = <ValidationSettingsForm {...commonProps} />;
         break;
-      case "process-records":
+      case 'process-records':
         form = <ProcessRecordsSettingsForm {...commonProps} />;
         break;
-      case "maintenance":
+      case 'maintenance':
         form = <MaintenanceSettingsForm {...commonProps} />;
         break;
-      case "periodic-sync":
+      case 'periodic-sync':
         form = <PeriodicSyncSettingsForm {...commonProps} />;
         break;
     }
@@ -153,7 +155,7 @@ export function SettingsPage() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-4">
-        <h1 className="text-2xl font-semibold">{t("title")}</h1>
+        <h1 className="text-2xl font-semibold">{t('title')}</h1>
       </div>
 
       <div className="flex items-center gap-4">
@@ -162,7 +164,7 @@ export function SettingsPage() {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            {SETTINGS_SCOPES.map((scope) => (
+            {SETTINGS_SCOPES.map(scope => (
               <SelectItem key={scope} value={scope}>
                 {t(`types.${scope}`)}
               </SelectItem>
@@ -174,7 +176,7 @@ export function SettingsPage() {
           onClick={() => formRef.current?.submit()}
           disabled={!isDirty || saveMutation.isPending}
         >
-          {t("common:save")}
+          {t('common:save')}
         </Button>
         <Button
           variant="outline"
@@ -184,7 +186,7 @@ export function SettingsPage() {
           }}
           disabled={!isDirty}
         >
-          {t("common:discard")}
+          {t('common:discard')}
         </Button>
       </div>
 
@@ -192,17 +194,17 @@ export function SettingsPage() {
 
       <AlertDialog
         open={pendingScope !== null}
-        onOpenChange={(open) => !open && setPendingScope(null)}
+        onOpenChange={open => !open && setPendingScope(null)}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t("unsaved-warning")}</AlertDialogTitle>
-            <AlertDialogDescription>{t("unsaved-warning")}</AlertDialogDescription>
+            <AlertDialogTitle>{t('unsaved-warning')}</AlertDialogTitle>
+            <AlertDialogDescription>{t('unsaved-warning')}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t("common:cancel")}</AlertDialogCancel>
+            <AlertDialogCancel>{t('common:cancel')}</AlertDialogCancel>
             <AlertDialogAction onClick={handleDiscardAndSwitch}>
-              {t("common:discard")}
+              {t('common:discard')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

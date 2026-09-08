@@ -225,10 +225,7 @@ def generate_text(prompt: str, *, backend: BackendLiteral | None = None) -> str:
         return _CACHE[key]
 
     try:
-        if resolved == "ollama":
-            txt = _ollama_generate(prompt)
-        else:
-            txt = _llama_generate(prompt)
+        txt = _ollama_generate(prompt) if resolved == "ollama" else _llama_generate(prompt)
     except Exception:
         logger.warning(
             "LLM generation failed on %s backend, attempting fallback", resolved, exc_info=True

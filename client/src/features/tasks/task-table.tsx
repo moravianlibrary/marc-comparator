@@ -1,4 +1,6 @@
-import { useTranslation } from "react-i18next";
+import { useTranslation } from 'react-i18next';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 import {
   Table,
   TableBody,
@@ -6,10 +8,8 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import type { Task } from "@/types/task";
+} from '@/components/ui/table';
+import type { Task } from '@/types/task';
 
 interface TaskTableProps {
   tasks: Task[];
@@ -20,12 +20,12 @@ interface TaskTableProps {
   onRevoke: (taskId: string) => void;
 }
 
-const statusVariantMap: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
-  Pending: "outline",
-  Started: "default",
-  Success: "secondary",
-  Failure: "destructive",
-  Revoked: "outline",
+const statusVariantMap: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+  Pending: 'outline',
+  Started: 'default',
+  Success: 'secondary',
+  Failure: 'destructive',
+  Revoked: 'outline',
 };
 
 export function TaskTable({
@@ -36,32 +36,32 @@ export function TaskTable({
   onSelectTask,
   onRevoke,
 }: TaskTableProps) {
-  const { t } = useTranslation("tasks");
+  const { t } = useTranslation('tasks');
 
   return (
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead>{t("fields.type")}</TableHead>
-          <TableHead>{t("fields.status")}</TableHead>
-          <TableHead>{t("fields.severity")}</TableHead>
-          <TableHead>{t("fields.run-time")}</TableHead>
-          {showCreatedBy && <TableHead>{t("fields.created-by")}</TableHead>}
-          <TableHead>{t("common:actions")}</TableHead>
+          <TableHead>{t('fields.type')}</TableHead>
+          <TableHead>{t('fields.status')}</TableHead>
+          <TableHead>{t('fields.severity')}</TableHead>
+          <TableHead>{t('fields.run-time')}</TableHead>
+          {showCreatedBy && <TableHead>{t('fields.created-by')}</TableHead>}
+          <TableHead>{t('common:actions')}</TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
-        {tasks.map((task) => (
+        {tasks.map(task => (
           <TableRow
             key={task.task_id}
-            className={`cursor-pointer ${selectedTaskId === task.task_id ? "bg-muted" : ""}`}
+            className={`cursor-pointer ${selectedTaskId === task.task_id ? 'bg-muted' : ''}`}
             onClick={() => onSelectTask(task.task_id)}
           >
             <TableCell className="font-medium">
               {t(`type.${task.type}`, { defaultValue: task.type })}
             </TableCell>
             <TableCell>
-              <Badge variant={statusVariantMap[task.status] ?? "outline"}>
+              <Badge variant={statusVariantMap[task.status] ?? 'outline'}>
                 {t(`status.${task.status}`)}
               </Badge>
             </TableCell>
@@ -70,23 +70,23 @@ export function TaskTable({
               {task.started_at && task.finished_at
                 ? formatDuration(task.started_at, task.finished_at)
                 : task.started_at
-                  ? "..."
-                  : "-"}
+                  ? '...'
+                  : '-'}
             </TableCell>
             {showCreatedBy && (
               <TableCell>{userNames?.get(task.created_by) ?? task.created_by}</TableCell>
             )}
             <TableCell>
-              {task.status === "Started" && (
+              {task.status === 'Started' && (
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={(e) => {
+                  onClick={e => {
                     e.stopPropagation();
                     onRevoke(task.task_id);
                   }}
                 >
-                  {t("fields.revoke")}
+                  {t('fields.revoke')}
                 </Button>
               )}
             </TableCell>
@@ -100,7 +100,9 @@ export function TaskTable({
 function formatDuration(start: string, end: string): string {
   const ms = new Date(end).getTime() - new Date(start).getTime();
   const seconds = Math.floor(ms / 1000);
-  if (seconds < 60) return `${seconds}s`;
+  if (seconds < 60) {
+    return `${seconds}s`;
+  }
   const minutes = Math.floor(seconds / 60);
   const remainingSeconds = seconds % 60;
   return `${minutes}m ${remainingSeconds}s`;

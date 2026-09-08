@@ -1,4 +1,4 @@
-import type { ValidationSummary } from "./types";
+import type { ValidationSummary } from './types';
 
 export const STATUS_ORDER: Record<string, number> = {
   Valid: 0,
@@ -32,19 +32,19 @@ export function groupValidations(validations: ValidationSummary[]) {
 }
 
 export function stripPrefix(key: string): string {
-  const i = key.indexOf(":");
+  const i = key.indexOf(':');
   return i >= 0 ? key.slice(i + 1) : key;
 }
 
 export const VALIDATION_BADGE_CLASS: Record<string, string> = {
-  Valid: "badge-valid",
-  Invalid: "badge-invalid",
-  ForReview: "badge-for-review",
-  AdditionalInfo: "badge-additional-info",
+  Valid: 'badge-valid',
+  Invalid: 'badge-invalid',
+  ForReview: 'badge-for-review',
+  AdditionalInfo: 'badge-additional-info',
 };
 
 export const COMPARISON_BADGE_CLASS: Record<string, string> = {
-  Excellent: "badge-excellent",
-  Moderate: "badge-moderate",
-  Poor: "badge-poor",
+  Excellent: 'badge-excellent',
+  Moderate: 'badge-moderate',
+  Poor: 'badge-poor',
 };

@@ -13,7 +13,7 @@ from entities.catalog_record import CatalogRecord
 from entities.comparison import Comparison
 from entities.settings import Settings, SettingsScope
 
-from . import UsedComparator, UsedComparatorClass
+from . import UsedComparator, UsedComparatorClass, UsedComparatorConfig
 from .models import ComparisonSettings, ComparisonTaskData
 
 
@@ -29,10 +29,9 @@ def load_comparator(db_session: DatabaseSession) -> BaseComparator | None:
 
 
 def init_comparator(settings: ComparisonSettings) -> BaseComparator:
-    config = settings.comparator
-    if config is not None:
-        return UsedComparatorClass(config)
-    return UsedComparatorClass()
+    # Settings may store null; fall back to the config model's own defaults
+    # rather than constructing the comparator without one.
+    return UsedComparatorClass(settings.comparator or UsedComparatorConfig())
 
 
 async def handle_catalog_record_comparison(
@@ -97,6 +96,11 @@ async def compare_records(task_id: str) -> None:
 
         for record_id in record_ids:
             catalog_record = ctx.db_session.get(CatalogRecord, record_id)
+            if catalog_record is None:
+                # Deleted between building the id list and getting here.
+                handle_batch_progress_snippet(ctx)
+                continue
+
             try:
                 await handle_catalog_record_comparison(
                     ctx.db_session,

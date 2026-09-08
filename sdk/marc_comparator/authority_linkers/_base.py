@@ -39,6 +39,11 @@ class BaseAuthorityLinker(ABC):
 
     config_model: type[BaseModel] | None = None
 
+    def __init__(self, config: BaseModel | None = None) -> None:
+        #: Linkers declaring a ``config_model`` are constructed with an
+        #: instance of it; the rest take no config at all.
+        self.config = config
+
     @classmethod
     @abstractmethod
     async def get_target_bases(cls, config: BaseModel) -> list[str]:

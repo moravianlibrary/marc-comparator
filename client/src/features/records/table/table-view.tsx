@@ -1,27 +1,25 @@
-import { useMemo, useState, useEffect } from "react";
 import {
-  useReactTable,
-  getCoreRowModel,
   flexRender,
+  getCoreRowModel,
   type SortingState,
+  useReactTable,
   type VisibilityState,
-} from "@tanstack/react-table";
-import { useTranslation } from "react-i18next";
-import { Info, X } from "lucide-react";
-import { useHasPermission } from "@/hooks/use-permissions";
-import { Permission } from "@/types/permission";
-
-import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
+} from '@tanstack/react-table';
+import { Info, X } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { SkeletonTable } from '@/components/skeletons/skeleton-table';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+} from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -29,13 +27,14 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-import { useRecordFilters } from "../use-record-filters";
-import { useRecordsSearch } from "../use-records-query";
-import { RecordTaskActions, AdvancedTaskActions } from "../record-task-actions";
-import { createColumns } from "./columns";
-import { ColumnConfig } from "./column-config";
-import { SkeletonTable } from "@/components/skeletons/skeleton-table";
+} from '@/components/ui/table';
+import { useHasPermission } from '@/hooks/use-permissions';
+import { Permission } from '@/types/permission';
+import { AdvancedTaskActions, RecordTaskActions } from '../record-task-actions';
+import { useRecordFilters } from '../use-record-filters';
+import { useRecordsSearch } from '../use-records-query';
+import { ColumnConfig } from './column-config';
+import { createColumns } from './columns';
 
 const PAGE_SIZES = [10, 25, 50, 100, 1000];
 
@@ -50,7 +49,9 @@ export function TableView() {
   const [searchInput, setSearchInput] = useState(filters.search);
 
   useEffect(() => {
-    if (searchInput === filters.search) return;
+    if (searchInput === filters.search) {
+      return;
+    }
     const timeout = setTimeout(() => setSearch(searchInput), 300);
     return () => clearTimeout(timeout);
   }, [searchInput, filters.search, setSearch]);
@@ -65,19 +66,19 @@ export function TableView() {
 
   const onNavigate = useMemo(
     () => (rowIndex: number, viewKey: string) => {
-      setFilters({ tab: "carousel", recordIndex: rowIndex, carouselView: viewKey });
+      setFilters({ tab: 'carousel', recordIndex: rowIndex, carouselView: viewKey });
     },
     [setFilters],
   );
 
   const sorting: SortingState = useMemo(
-    () => [{ id: filters.sortBy, desc: filters.sortOrder === "desc" }],
+    () => [{ id: filters.sortBy, desc: filters.sortOrder === 'desc' }],
     [filters.sortBy, filters.sortOrder],
   );
 
   const [columnVisibility, setColumnVisibility] = useState<VisibilityState>(() => {
     try {
-      const stored = localStorage.getItem("table:columnVisibility");
+      const stored = localStorage.getItem('table:columnVisibility');
       return stored ? JSON.parse(stored) : {};
     } catch {
       return {};
@@ -85,7 +86,7 @@ export function TableView() {
   });
 
   useEffect(() => {
-    localStorage.setItem("table:columnVisibility", JSON.stringify(columnVisibility));
+    localStorage.setItem('table:columnVisibility', JSON.stringify(columnVisibility));
   }, [columnVisibility]);
 
   const columns = useMemo(() => createColumns(t, onNavigate), [t, onNavigate]);
@@ -95,17 +96,19 @@ export function TableView() {
   // A/D keyboard pagination
   useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
-      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
-      if (e.key === "a" && filters.page > 1) {
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+      if (e.key === 'a' && filters.page > 1) {
         e.preventDefault();
         setFilters({ page: filters.page - 1 });
-      } else if (e.key === "d" && filters.page < totalPages) {
+      } else if (e.key === 'd' && filters.page < totalPages) {
         e.preventDefault();
         setFilters({ page: filters.page + 1 });
       }
     }
-    window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, [filters.page, totalPages, setFilters]);
 
   const table = useReactTable({
@@ -125,12 +128,12 @@ export function TableView() {
       columnVisibility,
     },
     onColumnVisibilityChange: setColumnVisibility,
-    onSortingChange: (updater) => {
-      const next = typeof updater === "function" ? updater(sorting) : updater;
+    onSortingChange: updater => {
+      const next = typeof updater === 'function' ? updater(sorting) : updater;
       if (next.length > 0 && next[0]) {
         setFilters({
           sortBy: next[0].id as typeof filters.sortBy,
-          sortOrder: next[0].desc ? "desc" : "asc",
+          sortOrder: next[0].desc ? 'desc' : 'asc',
           page: 1,
         });
       }
@@ -144,18 +147,18 @@ export function TableView() {
           <Badge
             variant="secondary"
             className="gap-1 cursor-pointer shrink-0"
-            onClick={() => setFilters({ recordId: "", recordIndex: 0 })}
+            onClick={() => setFilters({ recordId: '', recordIndex: 0 })}
           >
-            <span className="text-muted-foreground">{t("records:plots.record-id")}:</span>{" "}
+            <span className="text-muted-foreground">{t('records:plots.record-id')}:</span>{' '}
             {filters.recordId}
             <X className="h-3 w-3" />
           </Badge>
         )}
         <div className="flex items-center gap-1.5 max-w-sm flex-1 min-w-[200px]">
           <Input
-            placeholder={t("records:table.search-placeholder")}
+            placeholder={t('records:table.search-placeholder')}
             value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
+            onChange={e => setSearchInput(e.target.value)}
           />
           <Popover>
             <PopoverTrigger asChild>
@@ -165,18 +168,18 @@ export function TableView() {
             </PopoverTrigger>
             <PopoverContent className="w-[320px]" align="start">
               <div className="space-y-3">
-                <p className="font-medium text-sm">{t("records:table.search-help.title")}</p>
+                <p className="font-medium text-sm">{t('records:table.search-help.title')}</p>
                 <div className="space-y-2 text-sm">
                   <div>
-                    <p className="font-medium">{t("records:table.search-help.exact-match")}</p>
+                    <p className="font-medium">{t('records:table.search-help.exact-match')}</p>
                     <p className="text-muted-foreground">
-                      {t("records:table.search-help.exact-match-desc")}
+                      {t('records:table.search-help.exact-match-desc')}
                     </p>
                   </div>
                   <div>
-                    <p className="font-medium">{t("records:table.search-help.text-search")}</p>
+                    <p className="font-medium">{t('records:table.search-help.text-search')}</p>
                     <p className="text-muted-foreground">
-                      {t("records:table.search-help.text-search-desc")}
+                      {t('records:table.search-help.text-search-desc')}
                     </p>
                   </div>
                 </div>
@@ -190,7 +193,7 @@ export function TableView() {
         {(canProcess || canRunPartial) && (
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground whitespace-nowrap">
-              {t("records:table.bulk-actions")}
+              {t('records:table.bulk-actions')}
             </span>
             {canProcess && (
               <RecordTaskActions filters={buildRecordFilter()} totalCount={data?.total} />
@@ -207,26 +210,26 @@ export function TableView() {
       <div className="rounded-md border">
         <Table>
           <TableHeader>
-            {table.getHeaderGroups().map((headerGroup) => (
+            {table.getHeaderGroups().map(headerGroup => (
               <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => {
+                {headerGroup.headers.map(header => {
                   const canSort = header.column.getCanSort();
                   const sorted = header.column.getIsSorted();
                   return (
                     <TableHead
                       key={header.id}
                       style={{ width: header.getSize() }}
-                      className={canSort ? "cursor-pointer select-none" : undefined}
+                      className={canSort ? 'cursor-pointer select-none' : undefined}
                       onClick={canSort ? header.column.getToggleSortingHandler() : undefined}
                     >
                       <div className="flex items-center gap-1">
                         {header.isPlaceholder
                           ? null
                           : flexRender(header.column.columnDef.header, header.getContext())}
-                        {sorted === "asc" && " \u2191"}
-                        {sorted === "desc" && " \u2193"}
+                        {sorted === 'asc' && ' \u2191'}
+                        {sorted === 'desc' && ' \u2193'}
                         {canSort && !sorted && (
-                          <span className="text-muted-foreground/40">{" \u2195"}</span>
+                          <span className="text-muted-foreground/40">{' \u2195'}</span>
                         )}
                       </div>
                     </TableHead>
@@ -245,17 +248,17 @@ export function TableView() {
             ) : table.getRowModel().rows.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={columns.length} className="text-center">
-                  {t("common:no-data")}
+                  {t('common:no-data')}
                 </TableCell>
               </TableRow>
             ) : (
-              table.getRowModel().rows.map((row) => (
+              table.getRowModel().rows.map(row => (
                 <TableRow
                   key={row.id}
                   className="cursor-pointer animate-fade-in"
-                  onClick={() => setFilters({ tab: "carousel", recordIndex: row.index })}
+                  onClick={() => setFilters({ tab: 'carousel', recordIndex: row.index })}
                 >
-                  {row.getVisibleCells().map((cell) => (
+                  {row.getVisibleCells().map(cell => (
                     <TableCell key={cell.id}>
                       {flexRender(cell.column.columnDef.cell, cell.getContext())}
                     </TableCell>
@@ -271,23 +274,23 @@ export function TableView() {
         <div className="flex items-center gap-3">
           <p className="text-sm text-muted-foreground">
             {data
-              ? t("common:pagination.page", {
+              ? t('common:pagination.page', {
                   page: filters.page,
                   total: totalPages,
                 })
-              : ""}
+              : ''}
           </p>
           <div className="flex items-center gap-1.5">
-            <span className="text-xs text-muted-foreground">{t("records:table.page-size")}</span>
+            <span className="text-xs text-muted-foreground">{t('records:table.page-size')}</span>
             <Select
               value={String(filters.pageSize)}
-              onValueChange={(val) => setFilters({ pageSize: Number(val), page: 1 })}
+              onValueChange={val => setFilters({ pageSize: Number(val), page: 1 })}
             >
               <SelectTrigger className="h-8 w-fit">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {PAGE_SIZES.map((size) => (
+                {PAGE_SIZES.map(size => (
                   <SelectItem key={size} value={String(size)}>
                     {size}
                   </SelectItem>
@@ -303,7 +306,7 @@ export function TableView() {
             onClick={() => setPage(filters.page - 1)}
             disabled={filters.page <= 1}
           >
-            {t("common:pagination.previous")}
+            {t('common:pagination.previous')}
           </Button>
           <Button
             variant="outline"
@@ -311,7 +314,7 @@ export function TableView() {
             onClick={() => setPage(filters.page + 1)}
             disabled={filters.page >= totalPages}
           >
-            {t("common:pagination.next")}
+            {t('common:pagination.next')}
           </Button>
         </div>
       </div>

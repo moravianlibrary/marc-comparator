@@ -1,8 +1,18 @@
-from unittest.mock import MagicMock, patch, call
+from typing import cast
+from unittest.mock import MagicMock, patch
+from uuid import UUID
 
 from adapters.tasks import ManagedTask, TaskHandler, handle_batch_progress_snippet
-from entities.task import Task, TaskStatus, TaskType
+from entities.task import Task, TaskType
 from tasks.models import TaskSettings
+
+#: Any well-formed UUID — these tests never persist or look the task up by it.
+FAKE_TASK_ID = UUID("00000000-0000-4000-8000-0000000f00d5")
+
+
+def mocked(value: object) -> MagicMock:
+    """Narrow an attribute the test replaced with a MagicMock back to MagicMock."""
+    return cast(MagicMock, value)
 
 
 class TestFlushTraceback:
@@ -42,7 +52,7 @@ class TestSaveTask:
 
         ctx.save_task()
 
-        ctx.task.save.assert_called_once_with(ctx.db_session, commit=False)
+        mocked(ctx.task.save).assert_called_once_with(ctx.db_session, commit=False)
 
 
 class TestBatchProgressSnippet:
@@ -73,7 +83,7 @@ class TestBatchProgressSnippet:
 
         handle_batch_progress_snippet(ctx)
 
-        ctx.db_session.commit.assert_not_called()
+        mocked(ctx.db_session.commit).assert_not_called()
 
     def test_commit_interval_cycles_session_for_regular_tasks(self):
         """At commit_interval (no before_commit), cycle_session should be called."""
@@ -86,8 +96,8 @@ class TestBatchProgressSnippet:
 
         handle_batch_progress_snippet(ctx)
 
-        ctx.cycle_session.assert_called_once()
-        ctx.db_session.commit.assert_not_called()
+        mocked(ctx.cycle_session).assert_called_once()
+        mocked(ctx.db_session.commit).assert_not_called()
 
     def test_commit_interval_ignored_when_before_commit_set(self):
         """When before_commit is set, commit_interval should not trigger cycle_session."""
@@ -101,8 +111,8 @@ class TestBatchProgressSnippet:
 
         handle_batch_progress_snippet(ctx)
 
-        ctx.cycle_session.assert_not_called()
-        ctx.db_session.commit.assert_not_called()
+        mocked(ctx.cycle_session).assert_not_called()
+        mocked(ctx.db_session.commit).assert_not_called()
         before_commit.assert_not_called()
 
     def test_sector_flush_interval_cycles_session(self):
@@ -117,8 +127,8 @@ class TestBatchProgressSnippet:
 
         handle_batch_progress_snippet(ctx)
 
-        ctx.cycle_session.assert_called_once()
-        ctx.db_session.commit.assert_not_called()
+        mocked(ctx.cycle_session).assert_called_once()
+        mocked(ctx.db_session.commit).assert_not_called()
 
     def test_sector_flush_interval_ignored_when_no_before_commit(self):
         """When before_commit is not set, sector_flush_interval should not trigger cycle_session."""
@@ -131,8 +141,8 @@ class TestBatchProgressSnippet:
 
         handle_batch_progress_snippet(ctx)
 
-        ctx.cycle_session.assert_not_called()
-        ctx.db_session.commit.assert_not_called()
+        mocked(ctx.cycle_session).assert_not_called()
+        mocked(ctx.db_session.commit).assert_not_called()
 
 
 class TestBatchProgressCycling:
@@ -155,7 +165,7 @@ class TestBatchProgressCycling:
 
         handle_batch_progress_snippet(ctx)
 
-        ctx.cycle_session.assert_called_once()
+        mocked(ctx.cycle_session).assert_called_once()
 
     def test_sector_flush_interval_cycles_session(self):
         """At sector_flush_interval (record-writing task), cycle_session should be called."""
@@ -176,7 +186,7 @@ class TestBatchProgressCycling:
 
         handle_batch_progress_snippet(ctx)
 
-        ctx.cycle_session.assert_called_once()
+        mocked(ctx.cycle_session).assert_called_once()
 
 
 class TestCycleSession:
@@ -190,7 +200,7 @@ class TestCycleSession:
             type=TaskType.FetchRecord,
             created_by="12345678-1234-4678-9abc-1234567890ab",
         )
-        task.task_id = "fake-task-id"
+        task.task_id = FAKE_TASK_ID
 
         reloaded_task = MagicMock()
         reloaded_task.task_id = "fake-task-id"

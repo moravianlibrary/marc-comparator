@@ -1,9 +1,11 @@
+from datetime import datetime
 from enum import StrEnum
-from typing import Literal
+from typing import Literal, TypeVar
 
 from pydantic import BaseModel, ValidationError
-from sqlalchemy import TIMESTAMP, Column, Enum, func
+from sqlalchemy import TIMESTAMP, Enum, func
 from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.orm import Mapped, mapped_column
 
 from adapters.database import Base, DatabaseSession
 from entities._operations import BaseOperationsMixin
@@ -37,22 +39,26 @@ class SettingsSchema(BaseModel):
     pass
 
 
+#: Lets `get`/`save` hand back the concrete schema the caller asked for
+#: instead of the `SettingsSchema` base.
+SettingsSchemaT = TypeVar("SettingsSchemaT", bound=SettingsSchema)
+
+
 class Settings(Base, BaseOperationsMixin):
     """Stores configuration settings for specific system features."""
 
     __tablename__ = "settings"
 
-    scope = Column(Enum(SettingsScope), primary_key=True)
-    data = Column(JSONB, nullable=False)
+    # Native PG enum — reads come back as SettingsScope members.
+    scope: Mapped[SettingsScope] = mapped_column(Enum(SettingsScope), primary_key=True)
+    data: Mapped[dict] = mapped_column(JSONB)
 
-    created_at = Column(
+    created_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True),
-        nullable=False,
         server_default=func.now(),
     )
-    updated_at = Column(
+    updated_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True),
-        nullable=False,
         server_default=func.now(),
         onupdate=func.now(),
     )
@@ -62,8 +68,8 @@ class Settings(Base, BaseOperationsMixin):
         cls,
         db_session: DatabaseSession,
         scope: SettingsScope,
-        model: type[SettingsSchema],
-    ) -> SettingsSchema | None:
+        model: type[SettingsSchemaT],
+    ) -> SettingsSchemaT | None:
         """
         Retrieve and validate the settings for the given scope.
 
@@ -84,23 +90,25 @@ class Settings(Base, BaseOperationsMixin):
         SettingsSchema | None
             The validated settings data, or `None` if not found or invalid.
         """
-        try:
-            settings = db_session.get(cls, scope)
+        settings = db_session.get(cls, scope)
+        if settings is None:
+            return None
 
-            return model.model_validate(settings.data) if settings else None
+        try:
+            return model.model_validate(settings.data)
         except ValidationError:
             db_session.delete(settings)
             db_session.commit()
             return None
 
     @classmethod
-    def save(
+    def upsert(
         cls,
         db_session: DatabaseSession,
         scope: SettingsScope,
         data: BaseModel,
-        model: type[SettingsSchema],
-    ) -> SettingsSchema:
+        model: type[SettingsSchemaT],
+    ) -> SettingsSchemaT:
         """
         Insert or update settings for the given scope.
 

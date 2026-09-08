@@ -1,8 +1,17 @@
-import { useTranslation } from "react-i18next";
+import { useTranslation } from 'react-i18next';
+
+/** The subset of a recharts tooltip payload entry this component actually reads.
+ *  Recharts types it loosely; the datum itself is built by the facet components. */
+interface FacetTooltipEntry {
+  name?: string;
+  value?: string | number;
+  color?: string;
+  payload: Record<string, string | number | undefined>;
+}
 
 interface FacetTooltipProps {
   active?: boolean;
-  payload?: any[];
+  payload?: FacetTooltipEntry[];
   nameKey?: string;
   countKey?: string;
   previewKey?: string;
@@ -11,20 +20,23 @@ interface FacetTooltipProps {
 export function FacetTooltip({
   active,
   payload,
-  nameKey = "name",
-  countKey = "count",
-  previewKey = "preview",
+  nameKey = 'name',
+  countKey = 'count',
+  previewKey = 'preview',
 }: FacetTooltipProps) {
   const { t } = useTranslation();
 
-  if (!active || !payload?.length) return null;
+  if (!active || !payload?.length) {
+    return null;
+  }
 
-  const item = payload[0];
+  const item = payload[0]!;
   const data = item.payload;
   const name = data[nameKey] ?? item.name;
   const count = data[countKey] ?? item.value;
-  const preview = data[previewKey];
-  const color = data.fill ?? item.color;
+  const rawPreview = data[previewKey];
+  const preview = typeof rawPreview === 'number' ? rawPreview : undefined;
+  const color = typeof data.fill === 'string' ? data.fill : item.color;
 
   return (
     <div className="grid min-w-[8rem] items-start gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl">
@@ -33,9 +45,9 @@ export function FacetTooltip({
         <div className="flex w-full items-stretch gap-2">
           <div className="shrink-0 rounded-[2px] w-1" style={{ backgroundColor: color }} />
           <div className="flex flex-1 justify-between items-center leading-none">
-            <span className="text-muted-foreground">{t("common:chart.count")}</span>
+            <span className="text-muted-foreground">{t('common:chart.count')}</span>
             <span className="font-mono font-medium text-foreground tabular-nums">
-              {typeof count === "number" ? count.toLocaleString() : count}
+              {typeof count === 'number' ? count.toLocaleString() : count}
             </span>
           </div>
         </div>
@@ -44,11 +56,11 @@ export function FacetTooltip({
             <div
               className="shrink-0 rounded-[2px] w-1"
               style={{
-                backgroundColor: "color-mix(in oklch, var(--muted-foreground) 15%, transparent)",
+                backgroundColor: 'color-mix(in oklch, var(--muted-foreground) 15%, transparent)',
               }}
             />
             <div className="flex flex-1 justify-between items-center leading-none">
-              <span className="text-muted-foreground">{t("common:chart.preview")}</span>
+              <span className="text-muted-foreground">{t('common:chart.preview')}</span>
               <span className="font-mono font-medium text-foreground tabular-nums">
                 {preview.toLocaleString()}
               </span>

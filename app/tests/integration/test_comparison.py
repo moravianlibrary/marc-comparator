@@ -22,10 +22,16 @@ from tests.conftest import (
 # --- Fixtures ---
 
 
+def _require_record(db_session: DatabaseSession, base: str, system_number: str) -> CatalogRecord:
+    record = CatalogRecord.find_by_base_and_system_number(db_session, base, system_number)
+    assert record is not None, f"expected {base}-{system_number} to exist"
+    return record
+
+
 @pytest.fixture(scope="function")
-def comparison_settings(db_session: DatabaseSession) -> Settings:
+def comparison_settings(db_session: DatabaseSession) -> ComparisonSettings:
     test_settings = load_test_json("comparison_settings.json")
-    return Settings.save(
+    return Settings.upsert(
         db_session,
         SettingsScope.Comparison,
         ComparisonSettings.model_validate(test_settings),
@@ -61,7 +67,7 @@ def authority_link(
     main_catalog_record: CatalogRecord,
     authority_catalog_record: CatalogRecord,
 ) -> AuthorityLink:
-    AuthorityLink(
+    return AuthorityLink(
         main_record_id=main_catalog_record.id,
         linker="knihovny-cz",
         base="SKC",
@@ -83,7 +89,7 @@ def task(db_session: DatabaseSession, user: TokenData) -> Task:
 
 
 @pytest.fixture(scope="function")
-def mock_comparator_result(mocker: MockerFixture) -> MockerFixture:
+def mock_comparator_result(mocker: MockerFixture) -> None:
     class MockComparator(BaseComparator):
         def __init__(self, config=None):
             pass
@@ -91,14 +97,14 @@ def mock_comparator_result(mocker: MockerFixture) -> MockerFixture:
         async def run(self, record_a, record_b) -> RecordComparisonResult:
             return RecordComparisonResult(overall_score=0.9, summary="Mock comparison result")
 
-    return mocker.patch(
+    mocker.patch(
         "comparison.tasks.UsedComparatorClass",
         MockComparator,
     )
 
 
 @pytest.fixture(scope="function")
-def mock_no_comparator(mocker: MockerFixture) -> MockerFixture:
+def mock_no_comparator(mocker: MockerFixture) -> None:
     return mocker.patch(
         "comparison.tasks.init_comparator",
         side_effect=ValueError("No comparator found"),
@@ -111,7 +117,7 @@ def task_settings_one_by_one(db_session: DatabaseSession) -> TaskSettings:
         progress_update_interval=1,
         commit_interval=1,
     )
-    return Settings.save(
+    return Settings.upsert(
         db_session,
         SettingsScope.Tasks,
         settings,
@@ -185,16 +191,9 @@ class TestComparisonTask:
     ):
         from comparison.tasks import compare_records
 
-        await compare_records(task.task_id)
+        await compare_records(str(task.task_id))
 
-        assert (
-            len(
-                CatalogRecord.find_by_base_and_system_number(
-                    db_session, "MZK01", "000999001"
-                ).comparisons
-            )
-            == 1
-        )
+        assert len(_require_record(db_session, "MZK01", "000999001").comparisons) == 1
 
 
 class TestComparisonTaskWithExistingComparison:
@@ -211,16 +210,9 @@ class TestComparisonTaskWithExistingComparison:
     ):
         from comparison.tasks import compare_records
 
-        await compare_records(task.task_id)
+        await compare_records(str(task.task_id))
 
-        assert (
-            len(
-                CatalogRecord.find_by_base_and_system_number(
-                    db_session, "MZK01", "000999001"
-                ).comparisons
-            )
-            == 1
-        )
+        assert len(_require_record(db_session, "MZK01", "000999001").comparisons) == 1
 
 
 class TestComparisonTaskWithoutExistingAuthorityLink:
@@ -236,16 +228,9 @@ class TestComparisonTaskWithoutExistingAuthorityLink:
     ):
         from comparison.tasks import compare_records
 
-        await compare_records(task.task_id)
+        await compare_records(str(task.task_id))
 
-        assert (
-            len(
-                CatalogRecord.find_by_base_and_system_number(
-                    db_session, "MZK01", "000999001"
-                ).comparisons
-            )
-            == 0
-        )
+        assert len(_require_record(db_session, "MZK01", "000999001").comparisons) == 0
 
 
 class TestComparisonTaskNoSettingsFound:
@@ -260,7 +245,7 @@ class TestComparisonTaskNoSettingsFound:
     ):
         from comparison.tasks import compare_records
 
-        await compare_records(task.task_id)
+        await compare_records(str(task.task_id))
 
 
 class TestComparisonTaskNoComparatorFound:
@@ -276,7 +261,7 @@ class TestComparisonTaskNoComparatorFound:
     ):
         from comparison.tasks import compare_records
 
-        await compare_records(task.task_id)
+        await compare_records(str(task.task_id))
 
 
 class TestComparisonTaskIndexingOneByOne:
@@ -293,4 +278,4 @@ class TestComparisonTaskIndexingOneByOne:
     ):
         from comparison.tasks import compare_records
 
-        await compare_records(task.task_id)
+        await compare_records(str(task.task_id))

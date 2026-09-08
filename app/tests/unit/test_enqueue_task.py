@@ -18,13 +18,15 @@ class TestEnqueueTask:
             created_by="12345678-1234-4678-9abc-1234567890ab",
         )
 
-        with patch("adapters.tasks.dispatch_task", side_effect=ConnectionError("broker down")):
-            with pytest.raises(ConnectionError):
-                await enqueue_task(task, db_session)
+        with (
+            patch("adapters.tasks.dispatch_task", side_effect=ConnectionError("broker down")),
+            pytest.raises(ConnectionError),
+        ):
+            await enqueue_task(task, db_session)
 
         assert task.status == TaskStatus.Failure
         assert task.finished_at is not None
-        assert "Failed to dispatch" in task.traceback
+        assert "Failed to dispatch" in (task.traceback or "")
 
     @pytest.mark.asyncio
     async def test_dispatch_failure_publishes_failure_event(self):
@@ -41,9 +43,9 @@ class TestEnqueueTask:
         with (
             patch("adapters.tasks.dispatch_task", side_effect=ConnectionError("broker down")),
             patch("adapters.tasks.publish_event") as mock_publish,
+            pytest.raises(ConnectionError),
         ):
-            with pytest.raises(ConnectionError):
-                await enqueue_task(task, db_session)
+            await enqueue_task(task, db_session)
 
         mock_publish.assert_called_once()
         event = mock_publish.call_args[0][0]

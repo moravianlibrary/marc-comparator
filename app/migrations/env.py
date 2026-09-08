@@ -1,13 +1,11 @@
 from logging.config import fileConfig
 
-from sqlalchemy import engine_from_config, pool
-
 from alembic import context
-
-from config import config as app_config
+from sqlalchemy import engine_from_config, pool
 
 # Import all entity modules so Base.metadata knows about every table
 from adapters.database import Base
+from config import config as app_config
 from entities.authority_link import AuthorityLink  # noqa: F401
 from entities.catalog_record import CatalogRecord  # noqa: F401
 from entities.comparison import Comparison  # noqa: F401
@@ -38,9 +36,7 @@ EXCLUDE_TABLES = {
 
 
 def include_object(object, name, type_, reflected, compare_to):
-    if type_ == "table" and name in EXCLUDE_TABLES:
-        return False
-    return True
+    return not (type_ == "table" and name in EXCLUDE_TABLES)
 
 
 def run_migrations_offline() -> None:

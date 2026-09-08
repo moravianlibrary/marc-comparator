@@ -3,6 +3,7 @@ from collections import defaultdict
 from collections.abc import Callable
 
 import zstandard as zstd
+from marcdantic import MarcRecord
 from sqlalchemy.orm import Session
 
 from adapters.lock_server import lock_server_client
@@ -24,14 +25,30 @@ _decompressor = zstd.ZstdDecompressor()
 CACHE_PREFIX = "marc:"
 
 
+def marc_bytes_of(record: MarcRecord) -> bytes:
+    """
+    Raw MARC bytes of a record, for writing to sector storage.
+
+    Records parsed with ``from_mrc``/``from_xml`` always carry them; ones built
+    from JSON do not, and storing those would silently write nothing.
+    """
+    if record._marc is None:
+        raise ValueError("MarcRecord carries no raw MARC bytes (not parsed from MRC or XML)")
+
+    return record._marc
+
+
 def read_marc(db: Session, base: str, system_number: str) -> bytes | None:
     """Read a single MARC record, checking Redis cache first."""
     cache_key = f"{CACHE_PREFIX}{base}:{system_number}"
 
     try:
         cached = lock_server_client.get(cache_key)
-        if cached is not None:
-            return bytes(cached)
+        if isinstance(cached, bytes):
+            return cached
+        if isinstance(cached, str):
+            # Only reachable if the Redis client is ever built with decode_responses.
+            return cached.encode()
     except Exception:
         logger.debug("Redis cache read failed for %s", cache_key)
 

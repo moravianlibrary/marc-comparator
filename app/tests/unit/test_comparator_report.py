@@ -6,6 +6,7 @@ import io
 from marc_comparator.comparators import (
     ComparisonReportInput,
     DefaultComparator,
+    DefaultComparatorConfig,
     Explanation,
     FieldComparisonResult,
     RecordComparisonResult,
@@ -14,8 +15,7 @@ from marc_comparator.comparators import (
 
 
 def make_comparator() -> DefaultComparator:
-    config_model = DefaultComparator.config_model
-    return DefaultComparator(config_model()) if config_model else DefaultComparator()
+    return DefaultComparator(DefaultComparatorConfig())
 
 
 def parse_csv(content: bytes) -> list[dict]:
@@ -33,11 +33,17 @@ def test_report_has_one_row_per_subfield():
                 explanation=Explanation.Typo,
                 subfield_results=[
                     SubfieldComparisonResult(
-                        code="a", value_a="Foo", value_b="Foo!", score=0.5,
+                        code="a",
+                        value_a="Foo",
+                        value_b="Foo!",
+                        score=0.5,
                         explanation=Explanation.Typo,
                     ),
                     SubfieldComparisonResult(
-                        code="b", value_a="Bar", value_b=None, score=0.0,
+                        code="b",
+                        value_a="Bar",
+                        value_b=None,
+                        score=0.0,
                         explanation=Explanation.Missing,
                     ),
                 ],
@@ -73,7 +79,10 @@ def test_field_without_subfields_yields_one_row():
         overall_score=0.8,
         field_results=[
             FieldComparisonResult(
-                tag="020", value_a="123", value_b="123", score=1.0,
+                tag="020",
+                value_a="123",
+                value_b="123",
+                score=1.0,
                 explanation=Explanation.Identical,
             )
         ],

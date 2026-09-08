@@ -1,7 +1,7 @@
-import { useTranslation } from "react-i18next";
-import { X } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
+import { X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
 
 export interface ActiveFilter {
   facetField: string;
@@ -35,14 +35,14 @@ export function ActiveFiltersBar({
   onClearScore,
   onClearAll,
 }: ActiveFiltersBarProps) {
-  const { t } = useTranslation("records");
+  const { t } = useTranslation('records');
 
   return (
     <div className="flex flex-wrap items-center gap-2">
       <span className="text-sm font-medium text-muted-foreground">
-        {t("plots.active-filters")}:
+        {t('plots.active-filters')}:
       </span>
-      {activeFilters.map((af) => (
+      {activeFilters.map(af => (
         <Badge
           key={`${af.facetField}-${af.value}`}
           variant="secondary"
@@ -55,13 +55,13 @@ export function ActiveFiltersBar({
       ))}
       {hasRecordIdFilter && (
         <Badge variant="secondary" className="gap-1 cursor-pointer" onClick={onClearRecordId}>
-          <span className="text-muted-foreground">{t("plots.record-id")}:</span> {recordId}
+          <span className="text-muted-foreground">{t('plots.record-id')}:</span> {recordId}
           <X className="h-3 w-3" />
         </Badge>
       )}
       {hasScoreFilter && (
         <Badge variant="secondary" className="gap-1 cursor-pointer" onClick={onClearScore}>
-          <span className="text-muted-foreground">{t("facet-fields.overall_score")}:</span>{" "}
+          <span className="text-muted-foreground">{t('facet-fields.overall_score')}:</span>{' '}
           {(scoreMin * 100).toFixed(0)}–{(scoreMax * 100).toFixed(0)}%
           <X className="h-3 w-3" />
         </Badge>
@@ -72,7 +72,7 @@ export function ActiveFiltersBar({
         className="h-6 text-xs text-muted-foreground"
         onClick={onClearAll}
       >
-        {t("plots.clear-all")}
+        {t('plots.clear-all')}
       </Button>
     </div>
   );

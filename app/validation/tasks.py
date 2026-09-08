@@ -54,15 +54,14 @@ def init_validators(
             logger.error(f"Unknown validator: {validator}")
             continue
 
-        validator_config = (
-            getattr(settings, validator.value.replace("-", "_"), None)
-            if validator_cls.config_model
-            else None
-        )
-
-        validator_instance = (
-            validator_cls(validator_config) if validator_config else validator_cls()
-        )
+        config_model = validator_cls.config_model
+        if config_model is None:
+            validator_instance = validator_cls()
+        else:
+            # Settings may store null for a configured validator; fall back to the
+            # config model's own defaults rather than constructing without one.
+            stored = getattr(settings, validator.value.replace("-", "_"), None)
+            validator_instance = validator_cls(stored if stored is not None else config_model())
 
         validator_instances.append(ValidatorInstance(type=validator, instance=validator_instance))
 
@@ -109,6 +108,13 @@ async def validate_records(task_id: str) -> None:
 
         for record_id in record_ids:
             catalog_record = ctx.db_session.get(CatalogRecord, record_id)
+            if catalog_record is None:
+                # Deleted between building the id list and getting here — the
+                # total counts one step per validator, so advance them all.
+                for _ in validator_instances:
+                    handle_batch_progress_snippet(ctx)
+                continue
+
             for validator_instance in validator_instances:
                 try:
                     await handle_catalog_record_validation(

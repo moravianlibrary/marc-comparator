@@ -65,7 +65,7 @@ def verify_access_token(token: str) -> TokenData:
         return TokenData(user_id=user_id)
     except PyJWTError as e:
         logging.warning(f"Token verification failed: {str(e)}")
-        raise AuthenticationError("Invalid token")
+        raise AuthenticationError("Invalid token") from e
 
 
 def verify_refresh_token(token: str) -> str:
@@ -78,8 +78,8 @@ def verify_refresh_token(token: str) -> str:
         if not user_id:
             raise AuthenticationError("Missing user ID in token")
         return user_id
-    except PyJWTError:
-        raise AuthenticationError("Invalid refresh token")
+    except PyJWTError as e:
+        raise AuthenticationError("Invalid refresh token") from e
 
 
 def get_current_user(request: Request) -> TokenData:
@@ -108,7 +108,7 @@ def register_user(db: Session, register_user_request: RegisterUserRequest) -> No
     except Exception as e:
         db.rollback()
         logging.error(f"Failed to register user: {register_user_request.email}. Error: {str(e)}")
-        raise RegistrationError()
+        raise RegistrationError() from e
 
 
 def get_current_user_data(current_user: TokenData, db: Session) -> User:

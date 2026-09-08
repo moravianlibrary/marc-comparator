@@ -1,8 +1,14 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useTranslation } from "react-i18next";
-import apiClient from "@/lib/api-client";
-import { useGetMe } from "@/hooks/use-auth";
-import { Badge } from "@/components/ui/badge";
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useTranslation } from 'react-i18next';
+import { SkeletonTable } from '@/components/skeletons/skeleton-table';
+import { Badge } from '@/components/ui/badge';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import {
   Table,
   TableBody,
@@ -10,41 +16,35 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "@/components/ui/table";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import type { User } from "@/types/user";
-import type { Role } from "@/types/role";
-import { SkeletonTable } from "@/components/skeletons/skeleton-table";
+} from '@/components/ui/table';
+import { useGetMe } from '@/hooks/use-auth';
+import apiClient from '@/lib/api-client';
+import type { Role } from '@/types/role';
+import type { User } from '@/types/user';
 
 export function UsersSection() {
-  const { t } = useTranslation("access-control");
+  const { t } = useTranslation('access-control');
   const queryClient = useQueryClient();
   const { data: me } = useGetMe();
 
   const { data: usersData, isLoading } = useQuery<{ items: User[]; num_found: number }>({
-    queryKey: ["access-control", "users"],
+    queryKey: ['access-control', 'users'],
     queryFn: () =>
       apiClient
-        .get<{ items: User[]; num_found: number }>("/access-control/users", {
+        .get<{ items: User[]; num_found: number }>('/access-control/users', {
           params: { page: 1, page_size: 100 },
         })
-        .then((r) => r.data),
+        .then(r => r.data),
   });
 
   const { data: rolesData } = useQuery<{ items: Role[]; num_found: number }>({
-    queryKey: ["access-control", "roles"],
+    queryKey: ['access-control', 'roles'],
     queryFn: () =>
       apiClient
-        .get<{ items: Role[]; num_found: number }>("/access-control/roles", {
+        .get<{ items: Role[]; num_found: number }>('/access-control/roles', {
           params: { page: 1, page_size: 100 },
         })
-        .then((r) => r.data),
+        .then(r => r.data),
   });
 
   const users = usersData?.items ?? [];
@@ -55,7 +55,7 @@ export function UsersSection() {
       apiClient.patch(`/access-control/users/${userId}/assign-role/${roleId}`),
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ["access-control", "users"],
+        queryKey: ['access-control', 'users'],
       });
     },
   });
@@ -65,14 +65,14 @@ export function UsersSection() {
       apiClient.patch(`/access-control/users/${userId}/unassign-role/${roleId}`),
     onSuccess: () => {
       queryClient.invalidateQueries({
-        queryKey: ["access-control", "users"],
+        queryKey: ['access-control', 'users'],
       });
     },
   });
 
   return (
     <div className="space-y-4">
-      <h2 className="text-lg font-medium">{t("users.title")}</h2>
+      <h2 className="text-lg font-medium">{t('users.title')}</h2>
 
       {isLoading ? (
         <SkeletonTable rows={4} columns={5} />
@@ -80,18 +80,18 @@ export function UsersSection() {
         <Table className="animate-fade-in">
           <TableHeader>
             <TableRow>
-              <TableHead>{t("users.fields.email")}</TableHead>
-              <TableHead>{t("users.fields.first-name")}</TableHead>
-              <TableHead>{t("users.fields.last-name")}</TableHead>
-              <TableHead>{t("users.fields.roles")}</TableHead>
-              <TableHead>{t("users.assign-role")}</TableHead>
+              <TableHead>{t('users.fields.email')}</TableHead>
+              <TableHead>{t('users.fields.first-name')}</TableHead>
+              <TableHead>{t('users.fields.last-name')}</TableHead>
+              <TableHead>{t('users.fields.roles')}</TableHead>
+              <TableHead>{t('users.assign-role')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {users.map((user) => {
+            {users.map(user => {
               const isSelf = me?.id === user.id;
-              const userRoleIds = user.roles.map((r) => r.id);
-              const availableRoles = roles.filter((r) => !userRoleIds.includes(r.id));
+              const userRoleIds = user.roles.map(r => r.id);
+              const availableRoles = roles.filter(r => !userRoleIds.includes(r.id));
 
               return (
                 <TableRow key={user.id}>
@@ -100,11 +100,11 @@ export function UsersSection() {
                   <TableCell>{user.last_name}</TableCell>
                   <TableCell>
                     <div className="flex flex-wrap gap-1">
-                      {user.roles.map((role) => (
+                      {user.roles.map(role => (
                         <Badge
                           key={role.id}
-                          variant={isSelf ? "outline" : "secondary"}
-                          className={isSelf ? "" : "cursor-pointer"}
+                          variant={isSelf ? 'outline' : 'secondary'}
+                          className={isSelf ? '' : 'cursor-pointer'}
                           onClick={
                             isSelf
                               ? undefined
@@ -116,7 +116,7 @@ export function UsersSection() {
                           }
                         >
                           {role.name}
-                          {!isSelf && " ×"}
+                          {!isSelf && ' ×'}
                         </Badge>
                       ))}
                     </div>
@@ -124,7 +124,7 @@ export function UsersSection() {
                   <TableCell>
                     {!isSelf && availableRoles.length > 0 && (
                       <Select
-                        onValueChange={(roleId) =>
+                        onValueChange={roleId =>
                           assignMutation.mutate({
                             userId: user.id,
                             roleId: Number(roleId),
@@ -132,10 +132,10 @@ export function UsersSection() {
                         }
                       >
                         <SelectTrigger className="w-[180px]">
-                          <SelectValue placeholder={t("users.assign-role")} />
+                          <SelectValue placeholder={t('users.assign-role')} />
                         </SelectTrigger>
                         <SelectContent>
-                          {availableRoles.map((role) => (
+                          {availableRoles.map(role => (
                             <SelectItem key={role.id} value={String(role.id)}>
                               {role.name}
                             </SelectItem>

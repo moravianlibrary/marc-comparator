@@ -19,7 +19,9 @@ class RegisterUserRequest(BaseModel):
 
 
 class TokenData(BaseModel):
-    user_id: str | None = None
+    # Always populated: verify_access_token raises when the token carries no id,
+    # and verify_refresh_token returns a plain str.
+    user_id: str
 
 
 class UserSchema(BaseModel):

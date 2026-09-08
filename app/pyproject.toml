@@ -1,9 +1,80 @@
+[project]
+name = "marc-comparator-app"
+version = "1.0.0rc6"
+description = "MARC Comparator — API and worker"
+requires-python = ">=3.12"
+# Shared by both the API and the worker images.
+dependencies = [
+    "celery",
+    # Shared: the API writes the redbeat schedule entries (on startup and whenever
+    # maintenance / periodic-sync settings are saved); the worker's beat reads them.
+    "celery-redbeat",
+    "email-validator",
+    "marc-comparator-sdk",
+    "psycopg2-binary",
+    "pydantic-settings",
+    "pytz",
+    "pyyaml",
+    "redis",
+    "requests",
+    "sqlalchemy",
+    "zstandard",
+]
+
+# The API and worker ship as separate images with separate dependency sets, so
+# each is an extra over the shared core above rather than one combined list.
+# `make deps-export` renders these into requirements.app.txt / requirements.worker.txt.
+[project.optional-dependencies]
+api = [
+    "alembic",
+    "bcrypt==4.0.1",
+    "fastapi",
+    "httpx",
+    "passlib",
+    "pyjwt",
+    "python-multipart",
+    "uvicorn[standard]",
+]
+worker = [
+    "asgiref",
+]
+
+[dependency-groups]
+dev = [
+    "basedpyright",
+    "coverage",
+    # starlette>=1.3 deprecates httpx in its TestClient in favour of httpx2.
+    "httpx2",
+    "mypy",
+    "pytest",
+    "pytest-asyncio",
+    "pytest-mock",
+    "ruff",
+    "testcontainers",
+]
+
+[tool.uv]
+# The app is run from source (PYTHONPATH=.), not installed as a package.
+package = false
+
+[tool.uv.sources]
+marc-comparator-sdk = { path = "../sdk", editable = true }
+
+[tool.basedpyright]
+# Mirrors .vscode/settings.json so the editor and `make typecheck` agree.
+typeCheckingMode = "standard"
+pythonVersion = "3.12"
+# ../sdk is needed because setuptools' editable-install finder is an import hook
+# that static analysis cannot follow — point at the SDK source instead.
+extraPaths = [".", "../sdk"]
+exclude = [".venv", "**/__pycache__"]
+
 [tool.ruff]
 target-version = "py312"
 line-length = 100
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "W", "UP"]
+select = ["E", "F", "I", "W", "UP", "B", "SIM"]
 ignore = ["E501"]
 
 [tool.ruff.format]

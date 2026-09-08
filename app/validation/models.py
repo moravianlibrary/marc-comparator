@@ -7,7 +7,7 @@ from entities.settings import SettingsSchema
 
 class ValidationSettings(SettingsSchema):
     kramerius_links: KrameriusLinksValidatorConfig | None = Field(
-        KrameriusLinksValidatorConfig(), alias="kramerius-links"
+        default=KrameriusLinksValidatorConfig(), alias="kramerius-links"
     )
 
 

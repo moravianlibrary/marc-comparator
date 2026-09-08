@@ -1,10 +1,10 @@
-import { useMemo, useRef } from "react";
-import { cn } from "@/lib/utils";
-import { PieChart, Pie, Cell } from "recharts";
-import { ChartContainer, ChartTooltip, type ChartConfig } from "@/components/ui/chart";
-import { FacetTooltip } from "./facet-tooltip";
-import { useTranslation } from "react-i18next";
-import type { FacetBucket } from "../types";
+import { useMemo, useRef } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Cell, Pie, PieChart } from 'recharts';
+import { type ChartConfig, ChartContainer, ChartTooltip } from '@/components/ui/chart';
+import { cn } from '@/lib/utils';
+import type { FacetBucket } from '../types';
+import { FacetTooltip } from './facet-tooltip';
 
 interface RadialQualityProps {
   data: FacetBucket[];
@@ -15,12 +15,12 @@ interface RadialQualityProps {
   onLeave: () => void;
 }
 
-const QUALITY_ORDER = ["Poor", "Moderate", "Excellent"] as const;
+const QUALITY_ORDER = ['Poor', 'Moderate', 'Excellent'] as const;
 
 const QUALITY_COLORS: Record<string, string> = {
-  Excellent: "var(--status-success)",
-  Moderate: "var(--status-warning)",
-  Poor: "var(--status-danger)",
+  Excellent: 'var(--status-success)',
+  Moderate: 'var(--status-warning)',
+  Poor: 'var(--status-danger)',
 };
 
 export function RadialQuality({
@@ -31,14 +31,14 @@ export function RadialQuality({
   onHover,
   onLeave,
 }: RadialQualityProps) {
-  const { t } = useTranslation("records");
+  const { t } = useTranslation('records');
   const chartConfig = useMemo<ChartConfig>(
     () => ({
-      count: { label: t("common:chart.count") },
-      preview: { label: t("common:chart.preview") },
-      Excellent: { label: t("match-quality.Excellent"), color: "var(--status-success)" },
-      Moderate: { label: t("match-quality.Moderate"), color: "var(--status-warning)" },
-      Poor: { label: t("match-quality.Poor"), color: "var(--status-danger)" },
+      count: { label: t('common:chart.count') },
+      preview: { label: t('common:chart.preview') },
+      Excellent: { label: t('match-quality.Excellent'), color: 'var(--status-success)' },
+      Moderate: { label: t('match-quality.Moderate'), color: 'var(--status-warning)' },
+      Poor: { label: t('match-quality.Poor'), color: 'var(--status-danger)' },
     }),
     [t],
   );
@@ -51,9 +51,9 @@ export function RadialQuality({
   const total = data.reduce((sum, b) => sum + b.count, 0);
   const previewTotal = isShowingPreview ? previewData.reduce((sum, b) => sum + b.count, 0) : 0;
 
-  const mainSegments = QUALITY_ORDER.map((quality) => {
-    const bucket = data.find((b) => b.key === quality);
-    const previewCount = previewData?.find((p) => p.key === quality)?.count ?? 0;
+  const mainSegments = QUALITY_ORDER.map(quality => {
+    const bucket = data.find(b => b.key === quality);
+    const previewCount = previewData?.find(p => p.key === quality)?.count ?? 0;
     return {
       name: t(`match-quality.${quality}`),
       key: quality,
@@ -63,8 +63,8 @@ export function RadialQuality({
     };
   });
 
-  const previewSegments = QUALITY_ORDER.map((quality) => {
-    const count = previewData?.find((p) => p.key === quality)?.count ?? 0;
+  const previewSegments = QUALITY_ORDER.map(quality => {
+    const count = previewData?.find(p => p.key === quality)?.count ?? 0;
     return {
       name: t(`match-quality.${quality}`),
       key: quality,
@@ -84,9 +84,7 @@ export function RadialQuality({
             <ChartTooltip cursor={false} content={<FacetTooltip />} />
             <Pie
               data={
-                isShowingPreview
-                  ? previewSegments
-                  : previewSegments.map((s) => ({ ...s, count: 0 }))
+                isShowingPreview ? previewSegments : previewSegments.map(s => ({ ...s, count: 0 }))
               }
               dataKey="count"
               nameKey="name"
@@ -99,7 +97,7 @@ export function RadialQuality({
               isAnimationActive={justStartedPreview}
               animationDuration={300}
             >
-              {previewSegments.map((entry) => (
+              {previewSegments.map(entry => (
                 <Cell
                   key={entry.key}
                   fill={`color-mix(in oklch, ${QUALITY_COLORS[entry.key]} 25%, transparent)`}
@@ -112,22 +110,28 @@ export function RadialQuality({
               nameKey="name"
               startAngle={180}
               endAngle={0}
-              innerRadius={isShowingPreview ? "74%" : "70%"}
-              outerRadius={isShowingPreview ? "88%" : "84%"}
+              innerRadius={isShowingPreview ? '74%' : '70%'}
+              outerRadius={isShowingPreview ? '88%' : '84%'}
               paddingAngle={1}
               cornerRadius={4}
               cursor="pointer"
               onClick={(_, index) => {
                 const entry = mainSegments[index];
-                if (!entry) return;
-                if (entry.count === 0) return;
-                if (isShowingPreview && entry.preview === 0) return;
+                if (!entry) {
+                  return;
+                }
+                if (entry.count === 0) {
+                  return;
+                }
+                if (isShowingPreview && entry.preview === 0) {
+                  return;
+                }
                 onToggle(entry.key);
               }}
               onMouseEnter={(_, index) => onHover(mainSegments[index]!.key)}
               onMouseLeave={onLeave}
             >
-              {mainSegments.map((entry) => (
+              {mainSegments.map(entry => (
                 <Cell key={entry.key} fill={entry.fill} />
               ))}
             </Pie>
@@ -136,29 +140,29 @@ export function RadialQuality({
         <div className="absolute bottom-0 left-0 right-0 flex flex-col items-center pointer-events-none">
           <p
             className={cn(
-              "font-bold tabular-nums",
+              'font-bold tabular-nums',
               total > 999999
-                ? "text-xs"
+                ? 'text-xs'
                 : total > 99999
-                  ? "text-sm"
+                  ? 'text-sm'
                   : total > 9999
-                    ? "text-lg"
-                    : "text-2xl",
+                    ? 'text-lg'
+                    : 'text-2xl',
             )}
           >
-            {total.toLocaleString("cs-CZ")}
+            {total.toLocaleString('cs-CZ')}
           </p>
           <span
             className="text-xs tabular-nums text-muted-foreground fade-toggle"
             data-visible={isShowingPreview}
           >
-            {previewTotal.toLocaleString("cs-CZ")}
+            {previewTotal.toLocaleString('cs-CZ')}
           </span>
         </div>
       </div>
       <div className="flex gap-4 mt-2 text-xs">
         {[...QUALITY_ORDER].reverse().map((quality: string) => {
-          const segment = mainSegments.find((s) => s.key === quality)!;
+          const segment = mainSegments.find(s => s.key === quality)!;
           const pct = total > 0 ? Math.round((segment.count / total) * 100) : 0;
           const previewPct =
             isShowingPreview && previewTotal > 0
@@ -169,13 +173,14 @@ export function RadialQuality({
             !isActive && (segment.count === 0 || (isShowingPreview && segment.preview === 0));
           return (
             <button
+              type="button"
               key={quality}
               disabled={isDisabled}
               className={cn(
-                "flex items-center gap-1 transition-opacity",
+                'flex items-center gap-1 transition-opacity',
                 isDisabled
-                  ? "opacity-30 cursor-not-allowed"
-                  : activeValues.length > 0 && !isActive && "opacity-40",
+                  ? 'opacity-30 cursor-not-allowed'
+                  : activeValues.length > 0 && !isActive && 'opacity-40',
               )}
               onClick={() => onToggle(quality)}
               onMouseEnter={() => onHover(quality)}

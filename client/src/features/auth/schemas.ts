@@ -1,5 +1,5 @@
-import { z } from "zod";
-import i18n from "@/lib/i18n";
+import { z } from 'zod';
+import i18n from '@/lib/i18n';
 
 export const loginSchema = z.object({
   email: z.email(),
@@ -20,8 +20,8 @@ export const signupSchema = z
     if (data.password !== data.confirm_password) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
-        path: ["confirm_password"],
-        message: i18n.t("validation.passwords-mismatch"),
+        path: ['confirm_password'],
+        message: i18n.t('validation.passwords-mismatch'),
       });
     }
   });

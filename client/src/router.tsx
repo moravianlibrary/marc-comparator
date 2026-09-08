@@ -1,64 +1,64 @@
-import { createBrowserRouter, Navigate } from "react-router-dom";
-import { AppLayout } from "@/layout/app-layout";
-import { LoginPage } from "@/features/auth/login-page";
-import { SignupPage } from "@/features/auth/signup-page";
-import { LogoutPage } from "@/features/auth/logout-page";
-import { TasksPage } from "@/features/tasks/tasks-page";
-import { AccessControlPage } from "@/features/access-control/access-control-page";
-import { ServiceUnavailablePage } from "@/features/errors/service-unavailable-page";
+import { createBrowserRouter, Navigate } from 'react-router-dom';
+import { AccessControlPage } from '@/features/access-control/access-control-page';
+import { LoginPage } from '@/features/auth/login-page';
+import { LogoutPage } from '@/features/auth/logout-page';
+import { SignupPage } from '@/features/auth/signup-page';
+import { ServiceUnavailablePage } from '@/features/errors/service-unavailable-page';
+import { TasksPage } from '@/features/tasks/tasks-page';
+import { AppLayout } from '@/layout/app-layout';
 
 export const router = createBrowserRouter([
   {
-    path: "/login",
+    path: '/login',
     element: <LoginPage />,
   },
   {
-    path: "/service-unavailable",
+    path: '/service-unavailable',
     element: <ServiceUnavailablePage />,
   },
   {
-    path: "/signup",
+    path: '/signup',
     element: <SignupPage />,
   },
   {
-    path: "/logout",
+    path: '/logout',
     element: <LogoutPage />,
   },
   {
-    path: "/",
+    path: '/',
     element: <AppLayout />,
     children: [
       {
         index: true,
         lazy: async () => {
-          const { RecordsPage } = await import("@/features/records/records-page");
+          const { RecordsPage } = await import('@/features/records/records-page');
           return { Component: RecordsPage };
         },
       },
       {
-        path: "tasks",
+        path: 'tasks',
         element: <TasksPage />,
       },
       {
-        path: "settings",
+        path: 'settings',
         lazy: async () => {
-          const { SettingsPage } = await import("@/features/settings/settings-page");
+          const { SettingsPage } = await import('@/features/settings/settings-page');
           return { Component: SettingsPage };
         },
       },
       {
-        path: "access-control",
+        path: 'access-control',
         element: <AccessControlPage />,
       },
       {
-        path: "maintenance",
+        path: 'maintenance',
         lazy: async () => {
-          const { MaintenancePage } = await import("@/features/maintenance/maintenance-page");
+          const { MaintenancePage } = await import('@/features/maintenance/maintenance-page');
           return { Component: MaintenancePage };
         },
       },
       {
-        path: "*",
+        path: '*',
         element: <Navigate to="/" replace />,
       },
     ],

@@ -4,6 +4,7 @@ from marc_comparator.validators import (
     BaseValidator,
     ValidationResult,
     ValidationTarget,
+    Validator,
     ValidityStatus,
 )
 from pytest_mock import MockerFixture
@@ -26,10 +27,16 @@ from validation.models import ValidationSettings, ValidationTaskData
 # --- Fixtures ---
 
 
+def _require_record(db_session: DatabaseSession, base: str, system_number: str) -> CatalogRecord:
+    record = CatalogRecord.find_by_base_and_system_number(db_session, base, system_number)
+    assert record is not None, f"expected {base}-{system_number} to exist"
+    return record
+
+
 @pytest.fixture(scope="function")
-def validation_settings(db_session: DatabaseSession) -> Settings:
+def validation_settings(db_session: DatabaseSession) -> ValidationSettings:
     test_settings = load_test_json("validation_settings.json")
-    return Settings.save(
+    return Settings.upsert(
         db_session,
         SettingsScope.Validation,
         ValidationSettings.model_validate(test_settings),
@@ -56,13 +63,13 @@ def task(db_session: DatabaseSession, user: TokenData) -> Task:
         type=TaskType.ValidateRecords,
         created_by=user.user_id,
         data=ValidationTaskData(
-            validators=["kramerius-links"],
+            validators=[Validator.KrameriusLinks],
         ).model_dump(mode="json"),
     ).save(db_session)
 
 
 @pytest.fixture(scope="function")
-def mock_validator_result(mocker: MockerFixture) -> MockerFixture:
+def mock_validator_result(mocker: MockerFixture) -> None:
     class MockValidator(BaseValidator):
         async def run(self, record) -> list[ValidationResult]:
             return [
@@ -73,15 +80,15 @@ def mock_validator_result(mocker: MockerFixture) -> MockerFixture:
                 )
             ]
 
-    return mocker.patch(
+    mocker.patch(
         "validation.tasks.VALIDATOR_DISPATCHER",
         {"kramerius-links": MockValidator},
     )
 
 
 @pytest.fixture(scope="function")
-def mock_no_validator(mocker: MockerFixture) -> MockerFixture:
-    return mocker.patch(
+def mock_no_validator(mocker: MockerFixture) -> None:
+    mocker.patch(
         "validation.tasks.VALIDATOR_DISPATCHER",
         {},
     )
@@ -93,7 +100,7 @@ def task_settings_one_by_one(db_session: DatabaseSession) -> TaskSettings:
         progress_update_interval=1,
         commit_interval=1,
     )
-    return Settings.save(
+    return Settings.upsert(
         db_session,
         SettingsScope.Tasks,
         settings,
@@ -172,16 +179,9 @@ class TestValidationTask:
     ):
         from validation.tasks import validate_records
 
-        await validate_records(task.task_id)
+        await validate_records(str(task.task_id))
 
-        assert (
-            len(
-                CatalogRecord.find_by_base_and_system_number(
-                    db_session, "MZK01", "000999002"
-                ).validations
-            )
-            == 1
-        )
+        assert len(_require_record(db_session, "MZK01", "000999002").validations) == 1
 
 
 class TestValidationTaskWithExistingValidation:
@@ -198,16 +198,9 @@ class TestValidationTaskWithExistingValidation:
     ):
         from validation.tasks import validate_records
 
-        await validate_records(task.task_id)
+        await validate_records(str(task.task_id))
 
-        assert (
-            len(
-                CatalogRecord.find_by_base_and_system_number(
-                    db_session, "MZK01", "000999002"
-                ).validations
-            )
-            == 1
-        )
+        assert len(_require_record(db_session, "MZK01", "000999002").validations) == 1
 
 
 class TestValidationTaskNoSettingsFound:
@@ -222,7 +215,7 @@ class TestValidationTaskNoSettingsFound:
     ):
         from validation.tasks import validate_records
 
-        await validate_records(task.task_id)
+        await validate_records(str(task.task_id))
 
 
 class TestValidationTaskNoValidatorFound:
@@ -238,7 +231,7 @@ class TestValidationTaskNoValidatorFound:
     ):
         from validation.tasks import validate_records
 
-        await validate_records(task.task_id)
+        await validate_records(str(task.task_id))
 
 
 class TestValidationTaskIndexingOneByOne:
@@ -255,4 +248,4 @@ class TestValidationTaskIndexingOneByOne:
     ):
         from validation.tasks import validate_records
 
-        await validate_records(task.task_id)
+        await validate_records(str(task.task_id))

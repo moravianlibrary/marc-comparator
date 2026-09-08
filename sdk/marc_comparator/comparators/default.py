@@ -161,7 +161,11 @@ class DefaultComparator(BaseComparator):
             )
 
             subfield_results: list[SubfieldComparisonResult] = []
-            for group, (idxA, idxB) in zip(groups, zip(indexes_A, indexes_B)):
+            # strict=True: these are parallel per-group lists built from `groups`, so a
+            # length mismatch means a bug — silently comparing fewer subfields is worse.
+            for group, (idxA, idxB) in zip(
+                groups, zip(indexes_A, indexes_B, strict=True), strict=True
+            ):
                 subfield_results.append(
                     SubfieldComparisonResult(
                         code=group["code"],
@@ -183,7 +187,9 @@ class DefaultComparator(BaseComparator):
                 tuple[str, int | None, str, int | None],
                 list[SubfieldComparisonResult],
             ] = defaultdict(list)
-            for subfield, (idxA, idxB) in zip(subfield_results, zip(indexes_A, indexes_B)):
+            for subfield, (idxA, idxB) in zip(
+                subfield_results, zip(indexes_A, indexes_B, strict=True), strict=True
+            ):
                 fields_by_idx[(idxA[0], idxA[1], idxB[0], idxB[1])].append(subfield)
 
             # Build FieldComparisonResult objects

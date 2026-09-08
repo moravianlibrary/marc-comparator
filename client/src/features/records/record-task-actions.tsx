@@ -1,11 +1,8 @@
-import { useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useTranslation } from "react-i18next";
-import { toast } from "sonner";
-import { MoreHorizontal } from "lucide-react";
-import apiClient from "@/lib/api-client";
-import { useSystemInfo } from "@/hooks/use-system-info";
-import { Button } from "@/components/ui/button";
+import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { MoreHorizontal } from 'lucide-react';
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -15,7 +12,9 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+} from '@/components/ui/alert-dialog';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
@@ -23,25 +22,26 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
+} from '@/components/ui/dialog';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+} from '@/components/ui/dropdown-menu';
+import { Label } from '@/components/ui/label';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
-import { Checkbox } from "@/components/ui/checkbox";
-import { Label } from "@/components/ui/label";
-import type { RecordFilter } from "./types";
+} from '@/components/ui/select';
+import { useSystemInfo } from '@/hooks/use-system-info';
+import apiClient from '@/lib/api-client';
+import type { RecordFilter } from './types';
 
-type DialogAction = "link-authorities" | "compare" | "validate" | "report";
+type DialogAction = 'link-authorities' | 'compare' | 'validate' | 'report';
 
 interface RecordTaskActionsProps {
   filters: RecordFilter;
@@ -49,22 +49,26 @@ interface RecordTaskActionsProps {
 }
 
 export function RecordTaskActions({ filters, totalCount }: RecordTaskActionsProps) {
-  const { t } = useTranslation("records");
+  const { t } = useTranslation('records');
   const queryClient = useQueryClient();
-  const [pendingAction, setPendingAction] = useState<"process" | null>(null);
+  const [pendingAction, setPendingAction] = useState<'process' | null>(null);
 
-  const onTaskCreated = () => queryClient.invalidateQueries({ queryKey: ["tasks"] });
-  const onError = () => toast.error(t("common:error"));
+  const onTaskCreated = () => queryClient.invalidateQueries({ queryKey: ['tasks'] });
+  const onError = () => toast.error(t('common:error'));
 
   const processMutation = useMutation({
-    mutationFn: () => apiClient.post("/catalog-records/process", filters),
+    mutationFn: () => apiClient.post('/catalog-records/process', filters),
     onSuccess: onTaskCreated,
     onError,
   });
 
   function confirmAction() {
-    if (!pendingAction) return;
-    if (pendingAction === "process") processMutation.mutate();
+    if (!pendingAction) {
+      return;
+    }
+    if (pendingAction === 'process') {
+      processMutation.mutate();
+    }
     setPendingAction(null);
   }
 
@@ -75,34 +79,34 @@ export function RecordTaskActions({ filters, totalCount }: RecordTaskActionsProp
       <Button
         variant="outline"
         size="sm"
-        onClick={() => setPendingAction("process")}
+        onClick={() => setPendingAction('process')}
         disabled={processMutation.isPending}
       >
-        {t("table.actions.process")}
+        {t('table.actions.process')}
       </Button>
 
       <AlertDialog
         open={pendingAction !== null}
-        onOpenChange={(open) => !open && setPendingAction(null)}
+        onOpenChange={open => !open && setPendingAction(null)}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t("common:confirm")}</AlertDialogTitle>
+            <AlertDialogTitle>{t('common:confirm')}</AlertDialogTitle>
             <AlertDialogDescription>
               {pendingAction &&
                 (isSingle
-                  ? t("table.actions.confirm-task-single", {
+                  ? t('table.actions.confirm-task-single', {
                       action: t(`table.actions.${pendingAction}`),
                     })
-                  : t("table.actions.confirm-task-bulk", {
+                  : t('table.actions.confirm-task-bulk', {
                       action: t(`table.actions.${pendingAction}`),
-                      count: totalCount ?? "?",
+                      count: totalCount ?? '?',
                     }))}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t("common:cancel")}</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmAction}>{t("common:confirm")}</AlertDialogAction>
+            <AlertDialogCancel>{t('common:cancel')}</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmAction}>{t('common:confirm')}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -116,7 +120,7 @@ interface AdvancedTaskActionsProps {
 }
 
 export function AdvancedTaskActions({ filters, totalCount }: AdvancedTaskActionsProps) {
-  const { t } = useTranslation("records");
+  const { t } = useTranslation('records');
   const queryClient = useQueryClient();
   const [pendingDialog, setPendingDialog] = useState<DialogAction | null>(null);
 
@@ -142,12 +146,12 @@ export function AdvancedTaskActions({ filters, totalCount }: AdvancedTaskActions
   const reportValidators = systemInfo?.report_capable_validators ?? [];
   const reportComparator = systemInfo?.report_capable_comparator ?? null;
 
-  const onTaskCreated = () => queryClient.invalidateQueries({ queryKey: ["tasks"] });
-  const onError = () => toast.error(t("common:error"));
+  const onTaskCreated = () => queryClient.invalidateQueries({ queryKey: ['tasks'] });
+  const onError = () => toast.error(t('common:error'));
 
   const linkAuthoritiesMutation = useMutation({
     mutationFn: async ({ base, linkers }: { base: string; linkers: string[] }) => {
-      await apiClient.post("/authority-linking/task", {
+      await apiClient.post('/authority-linking/task', {
         linkers,
         target_base: base,
         filters,
@@ -160,8 +164,8 @@ export function AdvancedTaskActions({ filters, totalCount }: AdvancedTaskActions
   const compareMutation = useMutation({
     mutationFn: async (bases: string[]) => {
       await Promise.all(
-        bases.map((targetBase) =>
-          apiClient.post("/comparison/task", {
+        bases.map(targetBase =>
+          apiClient.post('/comparison/task', {
             target_base: targetBase,
             filters,
           }),
@@ -174,7 +178,7 @@ export function AdvancedTaskActions({ filters, totalCount }: AdvancedTaskActions
 
   const validateMutation = useMutation({
     mutationFn: async (validators: string[]) => {
-      await apiClient.post("/validation/task", { validators, filters });
+      await apiClient.post('/validation/task', { validators, filters });
     },
     onSuccess: onTaskCreated,
     onError,
@@ -183,8 +187,8 @@ export function AdvancedTaskActions({ filters, totalCount }: AdvancedTaskActions
   const reportValidatorMutation = useMutation({
     mutationFn: async (validators: string[]) => {
       await Promise.all(
-        validators.map((tool) =>
-          apiClient.post("/reports/task", { kind: "validator", tool, filters }),
+        validators.map(tool =>
+          apiClient.post('/reports/task', { kind: 'validator', tool, filters }),
         ),
       );
     },
@@ -194,7 +198,7 @@ export function AdvancedTaskActions({ filters, totalCount }: AdvancedTaskActions
 
   const reportComparatorMutation = useMutation({
     mutationFn: async (tool: string) => {
-      await apiClient.post("/reports/task", { kind: "comparator", tool, filters });
+      await apiClient.post('/reports/task', { kind: 'comparator', tool, filters });
     },
     onSuccess: onTaskCreated,
     onError,
@@ -208,29 +212,29 @@ export function AdvancedTaskActions({ filters, totalCount }: AdvancedTaskActions
         ? new Set([authorityBases[0]])
         : new Set(),
     );
-    setPendingDialog("compare");
+    setPendingDialog('compare');
   }
 
   function confirmCompare() {
-    if (selectedComparisonBases.size === 0) return;
+    if (selectedComparisonBases.size === 0) {
+      return;
+    }
     compareMutation.mutate(Array.from(selectedComparisonBases));
     setPendingDialog(null);
   }
 
   function openLinkAuthorities() {
-    const bases = [...new Set(authorityLinkers.flatMap((l) => l.target_bases))];
-    const defaultBase = bases.length === 1 ? bases[0] ?? null : null;
+    const bases = [...new Set(authorityLinkers.flatMap(l => l.target_bases))];
+    const defaultBase = bases.length === 1 ? (bases[0] ?? null) : null;
     setSelectedBase(defaultBase);
     // If only one base, pre-select all compatible linkers if there's exactly one
     const compatible = defaultBase
-      ? authorityLinkers.filter((l) => l.target_bases.includes(defaultBase))
+      ? authorityLinkers.filter(l => l.target_bases.includes(defaultBase))
       : [];
     setSelectedLinkers(
-      compatible.length === 1 && compatible[0] != null
-        ? new Set([compatible[0].name])
-        : new Set(),
+      compatible.length === 1 && compatible[0] != null ? new Set([compatible[0].name]) : new Set(),
     );
-    setPendingDialog("link-authorities");
+    setPendingDialog('link-authorities');
   }
 
   function openValidate() {
@@ -239,11 +243,13 @@ export function AdvancedTaskActions({ filters, totalCount }: AdvancedTaskActions
         ? new Set([enabledValidators[0]])
         : new Set(),
     );
-    setPendingDialog("validate");
+    setPendingDialog('validate');
   }
 
   function confirmLinkAuthorities() {
-    if (!selectedBase || selectedLinkers.size === 0) return;
+    if (!selectedBase || selectedLinkers.size === 0) {
+      return;
+    }
     linkAuthoritiesMutation.mutate({
       base: selectedBase,
       linkers: Array.from(selectedLinkers),
@@ -252,7 +258,9 @@ export function AdvancedTaskActions({ filters, totalCount }: AdvancedTaskActions
   }
 
   function confirmValidate() {
-    if (selectedValidators.size === 0) return;
+    if (selectedValidators.size === 0) {
+      return;
+    }
     validateMutation.mutate(Array.from(selectedValidators));
     setPendingDialog(null);
   }
@@ -263,21 +271,23 @@ export function AdvancedTaskActions({ filters, totalCount }: AdvancedTaskActions
         ? new Set([reportValidators[0]])
         : new Set(),
     );
-    setPendingDialog("report");
+    setPendingDialog('report');
   }
 
   function confirmReport() {
-    if (selectedReportValidators.size === 0) return;
+    if (selectedReportValidators.size === 0) {
+      return;
+    }
     reportValidatorMutation.mutate(Array.from(selectedReportValidators));
     setPendingDialog(null);
   }
 
-  const availableBases = [...new Set(authorityLinkers.flatMap((l) => l.target_bases))];
+  const availableBases = [...new Set(authorityLinkers.flatMap(l => l.target_bases))];
 
-  const linkerOptions = authorityLinkers.map((linker) => ({
+  const linkerOptions = authorityLinkers.map(linker => ({
     id: linker.name,
     label: linker.name,
-    disabled: !linker.target_bases.includes(selectedBase || ""),
+    disabled: !linker.target_bases.includes(selectedBase || ''),
   }));
 
   const isSingle = totalCount === 1;
@@ -298,20 +308,20 @@ export function AdvancedTaskActions({ filters, totalCount }: AdvancedTaskActions
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <DropdownMenuItem onSelect={openLinkAuthorities}>
-            {t("table.actions.link-authorities")}
+            {t('table.actions.link-authorities')}
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={openCompare} disabled={authorityBases.length === 0}>
-            {t("table.actions.compare")}
+            {t('table.actions.compare')}
           </DropdownMenuItem>
-          <DropdownMenuItem onSelect={openValidate}>{t("table.actions.validate")}</DropdownMenuItem>
+          <DropdownMenuItem onSelect={openValidate}>{t('table.actions.validate')}</DropdownMenuItem>
           {reportValidators.length > 0 && (
             <DropdownMenuItem onSelect={openReport}>
-              {t("table.actions.report-validator")}
+              {t('table.actions.report-validator')}
             </DropdownMenuItem>
           )}
           {reportComparator != null && (
             <DropdownMenuItem onSelect={() => reportComparatorMutation.mutate(reportComparator)}>
-              {t("table.actions.report-comparator")}
+              {t('table.actions.report-comparator')}
             </DropdownMenuItem>
           )}
         </DropdownMenuContent>
@@ -319,35 +329,38 @@ export function AdvancedTaskActions({ filters, totalCount }: AdvancedTaskActions
 
       {/* Comparison dialog */}
       <Dialog
-        open={pendingDialog === "compare"}
-        onOpenChange={(open) => !open && setPendingDialog(null)}
+        open={pendingDialog === 'compare'}
+        onOpenChange={open => !open && setPendingDialog(null)}
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t("table.actions.compare-title")}</DialogTitle>
+            <DialogTitle>{t('table.actions.compare-title')}</DialogTitle>
             <DialogDescription>
               {isSingle
-                ? t("table.actions.compare-description-single")
-                : t("table.actions.compare-description-bulk", { count: totalCount ?? "?" })}
+                ? t('table.actions.compare-description-single')
+                : t('table.actions.compare-description-bulk', { count: totalCount ?? '?' })}
             </DialogDescription>
           </DialogHeader>
 
           {authorityBases.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t("table.actions.no-authority-bases")}</p>
+            <p className="text-sm text-muted-foreground">{t('table.actions.no-authority-bases')}</p>
           ) : (
             <div className="space-y-2">
-              <Label>{t("table.actions.select-comparison-bases")}</Label>
+              <Label>{t('table.actions.select-comparison-bases')}</Label>
               <div className="space-y-2">
-                {authorityBases.map((base) => (
+                {authorityBases.map(base => (
                   <div key={base} className="flex items-center gap-2">
                     <Checkbox
                       id={`comp-base-${base}`}
                       checked={selectedComparisonBases.has(base)}
-                      onCheckedChange={(checked) => {
-                        setSelectedComparisonBases((prev) => {
+                      onCheckedChange={checked => {
+                        setSelectedComparisonBases(prev => {
                           const next = new Set(prev);
-                          if (checked) next.add(base);
-                          else next.delete(base);
+                          if (checked) {
+                            next.add(base);
+                          } else {
+                            next.delete(base);
+                          }
                           return next;
                         });
                       }}
@@ -361,10 +374,10 @@ export function AdvancedTaskActions({ filters, totalCount }: AdvancedTaskActions
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setPendingDialog(null)}>
-              {t("common:cancel")}
+              {t('common:cancel')}
             </Button>
             <Button onClick={confirmCompare} disabled={selectedComparisonBases.size === 0}>
-              {t("common:confirm")}
+              {t('common:confirm')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -372,32 +385,32 @@ export function AdvancedTaskActions({ filters, totalCount }: AdvancedTaskActions
 
       {/* Authority Linking dialog */}
       <Dialog
-        open={pendingDialog === "link-authorities"}
-        onOpenChange={(open) => !open && setPendingDialog(null)}
+        open={pendingDialog === 'link-authorities'}
+        onOpenChange={open => !open && setPendingDialog(null)}
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t("table.actions.authority-linking-title")}</DialogTitle>
+            <DialogTitle>{t('table.actions.authority-linking-title')}</DialogTitle>
             <DialogDescription>
               {isSingle
-                ? t("table.actions.authority-linking-description-single")
-                : t("table.actions.authority-linking-description-bulk", {
-                    count: totalCount ?? "?",
+                ? t('table.actions.authority-linking-description-single')
+                : t('table.actions.authority-linking-description-bulk', {
+                    count: totalCount ?? '?',
                   })}
             </DialogDescription>
           </DialogHeader>
 
           {authorityLinkers.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t("table.actions.no-linkers")}</p>
+            <p className="text-sm text-muted-foreground">{t('table.actions.no-linkers')}</p>
           ) : (
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label>{t("table.actions.select-base")}</Label>
+                <Label>{t('table.actions.select-base')}</Label>
                 <Select
-                  value={selectedBase ?? ""}
-                  onValueChange={(v) => {
+                  value={selectedBase ?? ''}
+                  onValueChange={v => {
                     setSelectedBase(v);
-                    const compatible = authorityLinkers.filter((l) => l.target_bases.includes(v));
+                    const compatible = authorityLinkers.filter(l => l.target_bases.includes(v));
                     setSelectedLinkers(
                       compatible.length === 1 && compatible[0] != null
                         ? new Set([compatible[0].name])
@@ -406,10 +419,10 @@ export function AdvancedTaskActions({ filters, totalCount }: AdvancedTaskActions
                   }}
                 >
                   <SelectTrigger>
-                    <SelectValue placeholder={t("table.actions.select-base-placeholder")} />
+                    <SelectValue placeholder={t('table.actions.select-base-placeholder')} />
                   </SelectTrigger>
                   <SelectContent>
-                    {availableBases.map((base) => (
+                    {availableBases.map(base => (
                       <SelectItem key={base} value={base}>
                         {base}
                       </SelectItem>
@@ -419,26 +432,29 @@ export function AdvancedTaskActions({ filters, totalCount }: AdvancedTaskActions
               </div>
 
               <div className="space-y-2">
-                <Label>{t("table.actions.select-linkers")}</Label>
+                <Label>{t('table.actions.select-linkers')}</Label>
                 <div className="space-y-2">
-                  {linkerOptions.map((opt) => (
+                  {linkerOptions.map(opt => (
                     <div key={opt.id} className="flex items-center gap-2">
                       <Checkbox
                         id={`linker-${opt.id}`}
                         disabled={opt.disabled}
                         checked={selectedLinkers.has(opt.id)}
-                        onCheckedChange={(checked) => {
-                          setSelectedLinkers((prev) => {
+                        onCheckedChange={checked => {
+                          setSelectedLinkers(prev => {
                             const next = new Set(prev);
-                            if (checked) next.add(opt.id);
-                            else next.delete(opt.id);
+                            if (checked) {
+                              next.add(opt.id);
+                            } else {
+                              next.delete(opt.id);
+                            }
                             return next;
                           });
                         }}
                       />
                       <Label
                         htmlFor={`linker-${opt.id}`}
-                        className={opt.disabled ? "text-muted-foreground" : ""}
+                        className={opt.disabled ? 'text-muted-foreground' : ''}
                       >
                         {opt.label}
                       </Label>
@@ -451,7 +467,7 @@ export function AdvancedTaskActions({ filters, totalCount }: AdvancedTaskActions
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setPendingDialog(null)}>
-              {t("common:cancel")}
+              {t('common:cancel')}
             </Button>
             <Button
               onClick={confirmLinkAuthorities}
@@ -459,7 +475,7 @@ export function AdvancedTaskActions({ filters, totalCount }: AdvancedTaskActions
                 !selectedBase || selectedLinkers.size === 0 || authorityLinkers.length === 0
               }
             >
-              {t("common:confirm")}
+              {t('common:confirm')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -467,35 +483,38 @@ export function AdvancedTaskActions({ filters, totalCount }: AdvancedTaskActions
 
       {/* Validation dialog */}
       <Dialog
-        open={pendingDialog === "validate"}
-        onOpenChange={(open) => !open && setPendingDialog(null)}
+        open={pendingDialog === 'validate'}
+        onOpenChange={open => !open && setPendingDialog(null)}
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t("table.actions.validate-title")}</DialogTitle>
+            <DialogTitle>{t('table.actions.validate-title')}</DialogTitle>
             <DialogDescription>
               {isSingle
-                ? t("table.actions.validate-description-single")
-                : t("table.actions.validate-description-bulk", { count: totalCount ?? "?" })}
+                ? t('table.actions.validate-description-single')
+                : t('table.actions.validate-description-bulk', { count: totalCount ?? '?' })}
             </DialogDescription>
           </DialogHeader>
 
           {enabledValidators.length === 0 ? (
-            <p className="text-sm text-muted-foreground">{t("table.actions.no-validators")}</p>
+            <p className="text-sm text-muted-foreground">{t('table.actions.no-validators')}</p>
           ) : (
             <div className="space-y-2">
-              <Label>{t("table.actions.select-validators")}</Label>
+              <Label>{t('table.actions.select-validators')}</Label>
               <div className="space-y-2">
-                {enabledValidators.map((v) => (
+                {enabledValidators.map(v => (
                   <div key={v} className="flex items-center gap-2">
                     <Checkbox
                       id={`validator-${v}`}
                       checked={selectedValidators.has(v)}
-                      onCheckedChange={(checked) => {
-                        setSelectedValidators((prev) => {
+                      onCheckedChange={checked => {
+                        setSelectedValidators(prev => {
                           const next = new Set(prev);
-                          if (checked) next.add(v);
-                          else next.delete(v);
+                          if (checked) {
+                            next.add(v);
+                          } else {
+                            next.delete(v);
+                          }
                           return next;
                         });
                       }}
@@ -511,13 +530,13 @@ export function AdvancedTaskActions({ filters, totalCount }: AdvancedTaskActions
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setPendingDialog(null)}>
-              {t("common:cancel")}
+              {t('common:cancel')}
             </Button>
             <Button
               onClick={confirmValidate}
               disabled={selectedValidators.size === 0 || enabledValidators.length === 0}
             >
-              {t("common:confirm")}
+              {t('common:confirm')}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -525,33 +544,36 @@ export function AdvancedTaskActions({ filters, totalCount }: AdvancedTaskActions
 
       {/* Report (validator repair artifact) dialog */}
       <Dialog
-        open={pendingDialog === "report"}
-        onOpenChange={(open) => !open && setPendingDialog(null)}
+        open={pendingDialog === 'report'}
+        onOpenChange={open => !open && setPendingDialog(null)}
       >
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>{t("table.actions.report-title")}</DialogTitle>
-            <DialogDescription>{t("table.actions.report-description")}</DialogDescription>
+            <DialogTitle>{t('table.actions.report-title')}</DialogTitle>
+            <DialogDescription>{t('table.actions.report-description')}</DialogDescription>
           </DialogHeader>
 
           {reportValidators.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              {t("table.actions.no-report-validators")}
+              {t('table.actions.no-report-validators')}
             </p>
           ) : (
             <div className="space-y-2">
-              <Label>{t("table.actions.select-validators")}</Label>
+              <Label>{t('table.actions.select-validators')}</Label>
               <div className="space-y-2">
-                {reportValidators.map((v) => (
+                {reportValidators.map(v => (
                   <div key={v} className="flex items-center gap-2">
                     <Checkbox
                       id={`report-validator-${v}`}
                       checked={selectedReportValidators.has(v)}
-                      onCheckedChange={(checked) => {
-                        setSelectedReportValidators((prev) => {
+                      onCheckedChange={checked => {
+                        setSelectedReportValidators(prev => {
                           const next = new Set(prev);
-                          if (checked) next.add(v);
-                          else next.delete(v);
+                          if (checked) {
+                            next.add(v);
+                          } else {
+                            next.delete(v);
+                          }
                           return next;
                         });
                       }}
@@ -567,13 +589,13 @@ export function AdvancedTaskActions({ filters, totalCount }: AdvancedTaskActions
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setPendingDialog(null)}>
-              {t("common:cancel")}
+              {t('common:cancel')}
             </Button>
             <Button
               onClick={confirmReport}
               disabled={selectedReportValidators.size === 0 || reportValidators.length === 0}
             >
-              {t("common:confirm")}
+              {t('common:confirm')}
             </Button>
           </DialogFooter>
         </DialogContent>

@@ -1,3 +1,4 @@
+from datetime import datetime
 from enum import StrEnum
 from typing import Optional
 
@@ -8,14 +9,13 @@ from marcdantic.selectors import SubtitleJq, TitleJq
 from sqlalchemy import (
     TIMESTAMP,
     Boolean,
-    Column,
     Index,
     String,
     event,
     func,
 )
 from sqlalchemy.dialects.postgresql import ARRAY, TSVECTOR
-from sqlalchemy.orm import Mapped, Session, relationship
+from sqlalchemy.orm import Mapped, Session, mapped_column, relationship
 
 from adapters.database import Base, DatabaseSession
 
@@ -52,31 +52,35 @@ class CatalogRecord(
 ):
     __tablename__ = "catalog_records"
 
-    id = Column(String, primary_key=True)
-    base = Column(String, nullable=False)
-    system_number = Column(String, nullable=False)
-    title = Column(String, nullable=True)
-    authors = Column(ARRAY(String), nullable=False, default=[])
+    # Nullability comes from the annotation: Mapped[T] is NOT NULL, Mapped[T | None]
+    # is nullable. Explicit SQL types are kept so the DDL matches the migration.
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    base: Mapped[str] = mapped_column(String)
+    system_number: Mapped[str] = mapped_column(String)
+    title: Mapped[str | None] = mapped_column(String)
+    # default=list, not default=[] — a literal would be shared by every instance.
+    authors: Mapped[list[str]] = mapped_column(ARRAY(String), default=list)
 
-    latest_sync = Column(TIMESTAMP, nullable=False, default=func.now())
-    deleted = Column(Boolean, nullable=False, default=False)
-    processed_at = Column(TIMESTAMP, nullable=True)
+    latest_sync: Mapped[datetime] = mapped_column(TIMESTAMP, default=func.now())
+    deleted: Mapped[bool] = mapped_column(Boolean, default=False)
+    processed_at: Mapped[datetime | None] = mapped_column(TIMESTAMP)
 
-    source_type = Column(String, nullable=False, default=CatalogRecordSource.Main)
-    source_name = Column(String, nullable=True)
+    # source_type is a plain String column, not a DB enum — CatalogRecordSource is only
+    # its default, so reads come back as str. Annotating the enum here would be a lie.
+    source_type: Mapped[str] = mapped_column(String, default=CatalogRecordSource.Main)
+    source_name: Mapped[str | None] = mapped_column(String)
 
-    updated_at = Column(
+    updated_at: Mapped[datetime] = mapped_column(
         TIMESTAMP(timezone=True),
-        nullable=False,
         server_default=func.now(),
         onupdate=func.now(),
     )
-    _type_of_record = Column("type_of_record", String, nullable=True)
-    _bibliographic_level = Column("bibliographic_level", String, nullable=True)
-    latest_transaction = Column(TIMESTAMP, nullable=True)
+    _type_of_record: Mapped[str | None] = mapped_column("type_of_record", String)
+    _bibliographic_level: Mapped[str | None] = mapped_column("bibliographic_level", String)
+    latest_transaction: Mapped[datetime | None] = mapped_column(TIMESTAMP)
 
-    search_text = Column(String, nullable=True)
-    search_vector = Column(TSVECTOR)
+    search_text: Mapped[str | None] = mapped_column(String)
+    search_vector: Mapped[str | None] = mapped_column(TSVECTOR)
 
     authority_links: Mapped[list[AuthorityLink]] = relationship(
         "AuthorityLink",

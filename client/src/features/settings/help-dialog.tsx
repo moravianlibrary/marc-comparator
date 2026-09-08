@@ -1,9 +1,9 @@
-import { useState, type ReactNode } from "react";
-import { HelpCircle } from "lucide-react";
-import { useTranslation } from "react-i18next";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { HelpCircle } from 'lucide-react';
+import { type ReactNode, useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Button } from '@/components/ui/button';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { ScrollArea } from '@/components/ui/scroll-area';
 
 interface HelpDialogProps {
   titleKey: string;
@@ -11,7 +11,7 @@ interface HelpDialogProps {
 }
 
 export function HelpDialog({ titleKey, children }: HelpDialogProps) {
-  const { t } = useTranslation("settings");
+  const { t } = useTranslation('settings');
   const [open, setOpen] = useState(false);
 
   return (
@@ -21,7 +21,7 @@ export function HelpDialog({ titleKey, children }: HelpDialogProps) {
         variant="ghost"
         size="icon"
         className="h-7 w-7"
-        title={t("help.title")}
+        title={t('help.title')}
         onClick={() => setOpen(true)}
       >
         <HelpCircle className="h-4 w-4 text-muted-foreground" />

@@ -1,3 +1,4 @@
+from datetime import datetime
 from functools import cached_property
 from typing import TYPE_CHECKING, Optional
 
@@ -6,9 +7,9 @@ from marc_comparator.comparators import (
     MatchQuality,
     RecordComparisonResult,
 )
-from sqlalchemy import TIMESTAMP, Column, ForeignKey, String, func
+from sqlalchemy import TIMESTAMP, ForeignKey, String, func
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import Mapped, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from adapters.database import Base, DatabaseSession
 
@@ -21,13 +22,15 @@ if TYPE_CHECKING:
 class Comparison(Base, BaseOperationsMixin):
     __tablename__ = "comparisons"
 
-    main_record_id = Column(String, ForeignKey("catalog_records.id"), primary_key=True)
-    comparator = Column(String, nullable=False, primary_key=True)
-    base = Column(String, nullable=False, primary_key=True)
-    other_record_id = Column(String, ForeignKey("catalog_records.id"), nullable=False)
+    main_record_id: Mapped[str] = mapped_column(
+        String, ForeignKey("catalog_records.id"), primary_key=True
+    )
+    comparator: Mapped[str] = mapped_column(String, primary_key=True)
+    base: Mapped[str] = mapped_column(String, primary_key=True)
+    other_record_id: Mapped[str] = mapped_column(String, ForeignKey("catalog_records.id"))
 
-    _result = Column("result", JSONB, nullable=False)
-    updated_at = Column(TIMESTAMP, nullable=False, default=func.now(), onupdate=func.now())
+    _result: Mapped[dict] = mapped_column("result", JSONB)
+    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP, default=func.now(), onupdate=func.now())
 
     main_record: Mapped["CatalogRecord"] = relationship(
         "CatalogRecord",
@@ -72,8 +75,7 @@ class Comparison(Base, BaseOperationsMixin):
     def result(self, value: dict):
         self._result = value
         # Invalidate cached property
-        if "record_result" in self.__dict__:
-            del self.__dict__["record_result"]
+        vars(self).pop("record_result", None)
 
     @cached_property
     def record_result(self) -> RecordComparisonResult:

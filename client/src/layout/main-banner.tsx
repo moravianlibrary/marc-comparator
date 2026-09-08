@@ -1,20 +1,20 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { useTranslation } from "react-i18next";
-import { useQuery } from "@tanstack/react-query";
-import { CircleHelp, LogOut } from "lucide-react";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { FontSizeControl } from "@/components/font-size-control";
-import apiClient from "@/lib/api-client";
-import { Button } from "@/components/ui/button";
-import { useGetMe, useLogout } from "@/hooks/use-auth";
-import { useHasPermission } from "@/hooks/use-permissions";
-import { Permission } from "@/types/permission";
-import { MenuPanel } from "./menu-panel";
-import { TaskProgress } from "./task-progress";
-import { ToastHistory } from "./toast-history";
-import { HelpDialog } from "./help-dialog";
-import type { Task } from "@/types/task";
+import { useQuery } from '@tanstack/react-query';
+import { CircleHelp, LogOut } from 'lucide-react';
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useNavigate } from 'react-router-dom';
+import { FontSizeControl } from '@/components/font-size-control';
+import { ThemeToggle } from '@/components/theme-toggle';
+import { Button } from '@/components/ui/button';
+import { useGetMe, useLogout } from '@/hooks/use-auth';
+import { useHasPermission } from '@/hooks/use-permissions';
+import apiClient from '@/lib/api-client';
+import { Permission } from '@/types/permission';
+import type { Task } from '@/types/task';
+import { HelpDialog } from './help-dialog';
+import { MenuPanel } from './menu-panel';
+import { TaskProgress } from './task-progress';
+import { ToastHistory } from './toast-history';
 
 export function MainBanner() {
   const navigate = useNavigate();
@@ -27,18 +27,18 @@ export function MainBanner() {
   const canManageTasks = hasPermission(Permission.ManageTasks);
 
   const { data: tasksData } = useQuery<{ items: Task[] }>({
-    queryKey: ["tasks", "running"],
+    queryKey: ['tasks', 'running'],
     queryFn: () =>
       apiClient
-        .post<{ items: Task[] }>("/tasks/search-own", {
-          filters: { status: ["Started"] },
+        .post<{ items: Task[] }>('/tasks/search-own', {
+          filters: { status: ['Started'] },
           page: 1,
           page_size: 20,
         })
-        .then((r) => r.data),
+        .then(r => r.data),
     enabled: canManageTasks === true,
-    refetchInterval: (query) =>
-      query.state.data?.items?.some((task) => task.status === "Started") ? 5000 : false,
+    refetchInterval: query =>
+      query.state.data?.items?.some(task => task.status === 'Started') ? 5000 : false,
   });
 
   const runningTasks = tasksData?.items ?? [];
@@ -49,7 +49,7 @@ export function MainBanner() {
         <Button
           variant="ghost"
           className="font-semibold text-lg p-0 h-auto hover:bg-transparent gap-2"
-          onClick={() => navigate("/")}
+          onClick={() => navigate('/')}
         >
           <img src="/marcomparator-only-logo-transparent.png" alt="" className="h-8 dark:hidden" />
           <img
@@ -57,7 +57,7 @@ export function MainBanner() {
             alt=""
             className="h-8 hidden dark:block"
           />
-          {t("common:app-name")}
+          {t('common:app-name')}
         </Button>
 
         <MenuPanel />
@@ -69,7 +69,7 @@ export function MainBanner() {
           onClick={() => setShowHelp(true)}
         >
           <CircleHelp className="h-4 w-4" />
-          {t("common:menu.help")}
+          {t('common:menu.help')}
         </Button>
 
         <div className="flex-1" />
@@ -88,7 +88,7 @@ export function MainBanner() {
             <Button
               variant="ghost"
               size="icon"
-              title={t("common:user-menu.logout")}
+              title={t('common:user-menu.logout')}
               onClick={() => logout.mutate()}
             >
               <LogOut className="h-4 w-4" />

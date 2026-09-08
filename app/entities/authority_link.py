@@ -1,7 +1,8 @@
+from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import TIMESTAMP, Column, Float, ForeignKey, String, func
-from sqlalchemy.orm import Mapped, relationship
+from sqlalchemy import TIMESTAMP, Float, ForeignKey, String, func
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from adapters.database import Base, DatabaseSession
 from entities._operations import BaseOperationsMixin
@@ -13,18 +14,19 @@ if TYPE_CHECKING:
 class AuthorityLink(Base, BaseOperationsMixin):
     __tablename__ = "authority_links"
 
-    main_record_id = Column(String, ForeignKey("catalog_records.id"), primary_key=True)
-    linker = Column(String, nullable=False, primary_key=True)
-    base = Column(String, nullable=False, primary_key=True)
+    main_record_id: Mapped[str] = mapped_column(
+        String, ForeignKey("catalog_records.id"), primary_key=True
+    )
+    linker: Mapped[str] = mapped_column(String, primary_key=True)
+    base: Mapped[str] = mapped_column(String, primary_key=True)
 
-    authority_record_id = Column(
+    authority_record_id: Mapped[str] = mapped_column(
         String,
         ForeignKey("catalog_records.id"),
-        nullable=False,
     )
 
-    confidence = Column(Float, nullable=True)
-    updated_at = Column(TIMESTAMP, nullable=False, default=func.now(), onupdate=func.now())
+    confidence: Mapped[float | None] = mapped_column(Float)
+    updated_at: Mapped[datetime] = mapped_column(TIMESTAMP, default=func.now(), onupdate=func.now())
 
     main_record: Mapped["CatalogRecord"] = relationship(
         "CatalogRecord",

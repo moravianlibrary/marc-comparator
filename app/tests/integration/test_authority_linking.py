@@ -2,6 +2,7 @@ import pytest
 from httpx import AsyncClient
 from marc_comparator.authority_linkers import (
     AuthorityLink,
+    AuthorityLinker,
     BaseAuthorityLinker,
 )
 from pytest_mock import MockerFixture
@@ -24,6 +25,12 @@ from tests.conftest import (
 )
 
 
+def _require_record(db_session: DatabaseSession, base: str, system_number: str) -> CatalogRecord:
+    record = CatalogRecord.find_by_base_and_system_number(db_session, base, system_number)
+    assert record is not None, f"expected {base}-{system_number} to exist"
+    return record
+
+
 class TestAuthorityLinkingEndpoints:
     @pytest.mark.asyncio
     async def test_authority_linking_task_creation(
@@ -35,7 +42,7 @@ class TestAuthorityLinkingEndpoints:
     ):
         test_settings = load_test_json("authority_linking_settings.json")
 
-        Settings.save(
+        Settings.upsert(
             db_session,
             SettingsScope.AuthorityLinking,
             AuthorityLinkingSettings.model_validate(test_settings),
@@ -84,8 +91,8 @@ def catalog_record(
 
 
 @pytest.fixture(scope="function")
-def authority_linking_settings(db_session: DatabaseSession) -> Settings:
-    return Settings.save(
+def authority_linking_settings(db_session: DatabaseSession) -> AuthorityLinkingSettings:
+    return Settings.upsert(
         db_session,
         SettingsScope.AuthorityLinking,
         AuthorityLinkingSettings.model_validate(load_test_json("authority_linking_settings.json")),
@@ -100,7 +107,7 @@ def task(db_session: DatabaseSession, user: TokenData) -> Task:
         type=TaskType.LinkRecordsToAuthorities,
         created_by=user.user_id,
         data=AuthorityLinkingTaskData(
-            linkers=["knihovny-cz"],
+            linkers=[AuthorityLinker.KnihovnyCz],
             target_base="SKC",
         ).model_dump(mode="json"),
     ).save(db_session)
@@ -121,7 +128,7 @@ def authority_link(db_session: DatabaseSession) -> AuthorityLinkEntity:
     main_record_id = CatalogRecord.generate_id("MZK01", "001217709")
     authority_record_id = CatalogRecord.generate_id("SKC", "001217729")
 
-    AuthorityLinkEntity(
+    return AuthorityLinkEntity(
         main_record_id=main_record_id,
         linker="knihovny-cz",
         base="SKC",
@@ -131,38 +138,40 @@ def authority_link(db_session: DatabaseSession) -> AuthorityLinkEntity:
 
 
 @pytest.fixture(scope="function")
-def mock_linker_with_link(mocker: MockerFixture) -> MockerFixture:
+def mock_linker_with_link(mocker: MockerFixture) -> None:
     class MockLinker(BaseAuthorityLinker):
-        async def get_target_bases(self, config):
+        @classmethod
+        async def get_target_bases(cls, config):
             return ["SKC"]
 
         async def run(self, base, system_number, record, target_base):
             return AuthorityLink(base=target_base, system_number="001217729", record=record)
 
-    return mocker.patch(
+    mocker.patch(
         "authority_linking.tasks.AUTHORITY_LINKER_DISPATCHER",
         {"knihovny-cz": MockLinker},
     )
 
 
 @pytest.fixture(scope="function")
-def mock_linker_with_no_link(mocker: MockerFixture) -> MockerFixture:
+def mock_linker_with_no_link(mocker: MockerFixture) -> None:
     class MockLinker(BaseAuthorityLinker):
-        async def get_target_bases(self, config):
+        @classmethod
+        async def get_target_bases(cls, config):
             return ["SKC"]
 
         async def run(self, base, system_number, record, target_base):
             return None
 
-    return mocker.patch(
+    mocker.patch(
         "authority_linking.tasks.AUTHORITY_LINKER_DISPATCHER",
         {"knihovny-cz": MockLinker},
     )
 
 
 @pytest.fixture(scope="function")
-def mock_no_linker(mocker: MockerFixture) -> MockerFixture:
-    return mocker.patch(
+def mock_no_linker(mocker: MockerFixture) -> None:
+    mocker.patch(
         "authority_linking.tasks.AUTHORITY_LINKER_DISPATCHER",
         {"knihovny-cz": None},
     )
@@ -184,7 +193,7 @@ class TestAuthorityLinkingTask:
     ):
         from authority_linking.tasks import authority_linking
 
-        await authority_linking(task.task_id)
+        await authority_linking(str(task.task_id))
 
         assert (
             CatalogRecord.find_by_base_and_system_number(db_session, "SKC", "001217729") is not None
@@ -202,7 +211,7 @@ class TestAuthorityLinkingTask:
     ):
         from authority_linking.tasks import authority_linking
 
-        await authority_linking(task.task_id)
+        await authority_linking(str(task.task_id))
 
     @pytest.mark.asyncio
     async def test_no_linker_found(
@@ -216,7 +225,7 @@ class TestAuthorityLinkingTask:
     ):
         from authority_linking.tasks import authority_linking
 
-        await authority_linking(task.task_id)
+        await authority_linking(str(task.task_id))
 
 
 class TestAuthorityLinkingTaskExistingRecord:
@@ -235,14 +244,9 @@ class TestAuthorityLinkingTaskExistingRecord:
 
         from authority_linking.tasks import authority_linking
 
-        await authority_linking(task.task_id)
+        await authority_linking(str(task.task_id))
 
-        assert (
-            latest_sync
-            != CatalogRecord.find_by_base_and_system_number(
-                db_session, "SKC", "001217729"
-            ).latest_sync
-        )
+        assert latest_sync != _require_record(db_session, "SKC", "001217729").latest_sync
 
 
 class TestAuthorityLinkingTaskExistingRecordExistingLink:
@@ -262,14 +266,9 @@ class TestAuthorityLinkingTaskExistingRecordExistingLink:
 
         from authority_linking.tasks import authority_linking
 
-        await authority_linking(task.task_id)
+        await authority_linking(str(task.task_id))
 
-        assert (
-            latest_sync
-            != CatalogRecord.find_by_base_and_system_number(
-                db_session, "SKC", "001217729"
-            ).latest_sync
-        )
+        assert latest_sync != _require_record(db_session, "SKC", "001217729").latest_sync
 
 
 class TestAuthorityLinkingTaskNoLinkerSettings:
@@ -284,4 +283,4 @@ class TestAuthorityLinkingTaskNoLinkerSettings:
     ):
         from authority_linking.tasks import authority_linking
 
-        await authority_linking(task.task_id)
+        await authority_linking(str(task.task_id))

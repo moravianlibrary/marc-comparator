@@ -1,13 +1,15 @@
 import asyncio
 import logging
+from contextlib import asynccontextmanager
 
+from fastapi import FastAPI
 from sqlalchemy import text
 
 from adapters.database import get_db_session
 from adapters.events import subscribe_events
 from auth.models import RegisterUserRequest
 from auth.service import register_user
-from config import config
+from config import INSECURE_DEFAULT_SECRET_KEY, config
 from entities.role import Role
 from entities.settings import Settings, SettingsScope
 from entities.user import SYSTEM_USER_EMAIL, SYSTEM_USER_ID, User
@@ -17,12 +19,13 @@ from ws.manager import manager
 logger = logging.getLogger(__name__)
 
 
-async def lifespan(app):
+@asynccontextmanager
+async def lifespan(app: FastAPI):
     # Warn about insecure default JWT secret
-    if config.auth.secret_key == "your-secret-key":
+    if config.auth.secret_key == INSECURE_DEFAULT_SECRET_KEY:
         logger.warning(
             "AUTH SECRET KEY IS SET TO THE DEFAULT VALUE. "
-            "This is insecure — set a strong secret via AUTH_SECRET_KEY env var."
+            "This is insecure — set a strong secret via the SECRET_KEY env var."
         )
 
     # Run database migrations
@@ -103,6 +106,10 @@ async def lifespan(app):
             admin_user = (
                 db_session.query(User).filter(User.email == config.auth.admin.email).first()
             )
+            if admin_user is None:
+                raise RuntimeError(
+                    f"Admin user '{config.auth.admin.email}' missing right after registration"
+                )
 
             admin_role = Role.get_by_name(db_session, "Admin")
             if admin_role not in admin_user.roles:
@@ -115,7 +122,7 @@ async def lifespan(app):
             if Settings.get(db_session, scope, model_cls):
                 continue
 
-            Settings.save(db_session, scope, model_cls(), model_cls)
+            Settings.upsert(db_session, scope, model_cls(), model_cls)
 
         # Reconcile scheduled (redbeat) jobs from persisted settings so
         # default-enabled schedules (e.g. the orphaned-task reaper) exist
@@ -147,8 +154,8 @@ async def lifespan(app):
     yield
 
     # Shutdown subscriber
+    # gather(return_exceptions=True) collects the subscriber's CancelledError as a
+    # result. Catching CancelledError here would also swallow a cancellation aimed
+    # at the lifespan task itself, silently ignoring shutdown.
     subscriber_task.cancel()
-    try:
-        await subscriber_task
-    except asyncio.CancelledError:
-        pass
+    await asyncio.gather(subscriber_task, return_exceptions=True)

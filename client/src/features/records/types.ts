@@ -33,13 +33,13 @@ export interface ComparisonSummary {
   base: string;
   other_record_id: string;
   overall_score: number;
-  match_quality: "Excellent" | "Moderate" | "Poor";
+  match_quality: 'Excellent' | 'Moderate' | 'Poor';
 }
 
 export interface ValidationSummary {
   validator: string;
   target_tag: string;
-  status: "Valid" | "ForReview" | "Invalid" | "AdditionalInfo";
+  status: 'Valid' | 'ForReview' | 'Invalid' | 'AdditionalInfo';
 }
 
 export interface RecordSummary {
@@ -63,8 +63,8 @@ export interface SearchRecordsRequest {
   filters?: RecordFilter;
   page?: number;
   page_size?: number;
-  sort_by?: "id" | "base" | "system_number" | "latest_sync" | "updated_at" | "comparison_score";
-  sort_order?: "asc" | "desc";
+  sort_by?: 'id' | 'base' | 'system_number' | 'latest_sync' | 'updated_at' | 'comparison_score';
+  sort_order?: 'asc' | 'desc';
 }
 
 export interface SearchRecordsResponse {
@@ -189,7 +189,7 @@ export interface ReviewDetail {
   reviewed_by: string;
   reviewer_name: string | null;
   reviewed_at: string;
-  status: "current" | "outdated" | "superseded";
+  status: 'current' | 'outdated' | 'superseded';
 }
 
 export interface RecordReviewsResponse {
@@ -199,17 +199,17 @@ export interface RecordReviewsResponse {
 
 // --- Tab type ---
 
-export type RecordTab = "plots" | "table" | "carousel" | "addition";
+export type RecordTab = 'plots' | 'table' | 'carousel' | 'addition';
 
 // --- Shared style constants ---
 
 export const STATE_COLORS: Record<string, string> = {
-  Active: "state-active",
-  Deleted: "state-deleted",
-  Unprocessed: "state-unprocessed",
-  Processed: "state-processed",
-  Reviewed: "state-reviewed",
-  PartiallyReviewed: "state-partially-reviewed",
-  Unreviewed: "state-unreviewed",
-  ReviewNotNeeded: "state-review-not-needed",
+  Active: 'state-active',
+  Deleted: 'state-deleted',
+  Unprocessed: 'state-unprocessed',
+  Processed: 'state-processed',
+  Reviewed: 'state-reviewed',
+  PartiallyReviewed: 'state-partially-reviewed',
+  Unreviewed: 'state-unreviewed',
+  ReviewNotNeeded: 'state-review-not-needed',
 };

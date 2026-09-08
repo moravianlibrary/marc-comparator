@@ -55,7 +55,7 @@ class TestTasksSettingsEndpoints:
 
         test_settings = load_test_json("authority_linking_settings.json")
 
-        Settings.save(
+        Settings.upsert(
             db_session,
             SettingsScope.AuthorityLinking,
             AuthorityLinkingSettings.model_validate(test_settings),
@@ -242,7 +242,7 @@ class TestSettingsService:
         from settings.service import get_settings_part
         from tasks.models import TaskSettings
 
-        Settings.save(
+        Settings.upsert(
             db_session,
             SettingsScope.Tasks,
             TaskSettings(progress_update_interval=42, commit_interval=100),
@@ -257,7 +257,7 @@ class TestSettingsService:
         from settings.service import get_settings_part
         from tasks.models import TaskSettings
 
-        Settings.save(
+        Settings.upsert(
             db_session,
             SettingsScope.Tasks,
             TaskSettings(),
@@ -273,7 +273,7 @@ class TestSettingsService:
         from validation.models import ValidationSettings
 
         test_settings = load_test_json("validation_settings.json")
-        Settings.save(
+        Settings.upsert(
             db_session,
             SettingsScope.Validation,
             ValidationSettings.model_validate(test_settings),

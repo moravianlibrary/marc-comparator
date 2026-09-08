@@ -1,17 +1,17 @@
-import { useTranslation } from "react-i18next";
-import { ALargeSmall } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { ALargeSmall } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { useFontSize, FONT_SIZE_OPTIONS, type FontSizeKey } from "@/hooks/use-font-size";
+} from '@/components/ui/dropdown-menu';
+import { FONT_SIZE_OPTIONS, type FontSizeKey, useFontSize } from '@/hooks/use-font-size';
 
 export function FontSizeControl() {
-  const { t } = useTranslation("common");
+  const { t } = useTranslation('common');
   const { size, setSize } = useFontSize();
 
   return (
@@ -22,8 +22,8 @@ export function FontSizeControl() {
         </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuRadioGroup value={size} onValueChange={(v) => setSize(v as FontSizeKey)}>
-          {FONT_SIZE_OPTIONS.map((key) => (
+        <DropdownMenuRadioGroup value={size} onValueChange={v => setSize(v as FontSizeKey)}>
+          {FONT_SIZE_OPTIONS.map(key => (
             <DropdownMenuRadioItem key={key} value={key}>
               {t(`font-size.${key}`)}
             </DropdownMenuRadioItem>

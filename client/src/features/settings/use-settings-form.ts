@@ -1,15 +1,15 @@
-import { useEffect } from "react";
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useEffect } from 'react';
 import {
-  useForm,
   type DefaultValues,
   type FieldValues,
   type Resolver,
   type SubmitHandler,
-} from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useTranslation } from "react-i18next";
-import { toast } from "sonner";
-import type { ZodType } from "zod";
+  useForm,
+} from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
+import type { ZodType } from 'zod';
 
 interface UseSettingsFormOptions<T extends FieldValues> {
   schema: ZodType<T>;
@@ -29,7 +29,10 @@ export function useSettingsForm<T extends FieldValues>({
   const { t } = useTranslation();
 
   const form = useForm<T>({
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    // zod's inferred schema output and react-hook-form's Resolver<T> do not unify
+    // through the generic T, so the resolver has to be cast. The `as Resolver<T>` on
+    // the result is what keeps the form itself type-checked.
+    // biome-ignore lint/suspicious/noExplicitAny: see comment above
     resolver: zodResolver(schema as any) as Resolver<T>,
     defaultValues,
     // Track refetched server data as the new baseline: after a save the
@@ -48,7 +51,7 @@ export function useSettingsForm<T extends FieldValues>({
       // visible error) silently does nothing.
       submit: () =>
         form.handleSubmit(onSubmit as SubmitHandler<T>, () =>
-          toast.error(t("common:validation-failed")),
+          toast.error(t('common:validation-failed')),
         )(),
       reset: () => form.reset(defaultValues),
     });

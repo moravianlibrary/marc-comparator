@@ -6,13 +6,21 @@
 @custom-variant dark (&:is(.dark *));
 
 @keyframes fade-in {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes progress-indeterminate {
-  0% { transform: translateX(-100%); }
-  100% { transform: translateX(300%); }
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(300%);
+  }
 }
 
 @theme inline {
@@ -60,7 +68,7 @@
   --color-sidebar-ring: var(--sidebar-ring);
   --radius: 0.625rem;
   --font-heading: var(--font-sans);
-  --font-sans: 'Geist Variable', sans-serif;
+  --font-sans: "Geist Variable", sans-serif;
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -77,7 +85,14 @@
   .recharts-wrapper *:focus {
     outline: none;
   }
-  button, [role="button"], a, select, label[for], [type="checkbox"], [type="radio"], summary {
+  button,
+  [role="button"],
+  a,
+  select,
+  label[for],
+  [type="checkbox"],
+  [type="radio"],
+  summary {
     cursor: pointer;
   }
   body {
@@ -221,7 +236,7 @@ html[data-font-size="x-large"] {
   --chart-4: oklch(0.555 0.163 48.998);
   --chart-5: oklch(0.473 0.137 46.201);
   /* Semantic status colors for dashboard indicators */
-  --status-success: oklch(0.60 0.18 145);
+  --status-success: oklch(0.6 0.18 145);
   --status-warning: oklch(0.75 0.18 75);
   --status-danger: oklch(0.55 0.22 25);
   --status-info: oklch(0.55 0.18 250);
@@ -229,7 +244,7 @@ html[data-font-size="x-large"] {
   --status-sky: oklch(0.55 0.18 230);
   --status-cyan: oklch(0.55 0.18 200);
   --status-slate: oklch(0.55 0.03 260);
-  --status-gray: oklch(0.60 0.01 260);
+  --status-gray: oklch(0.6 0.01 260);
   --radius: 0.625rem;
   --sidebar: oklch(0.986 0.002 67.8);
   --sidebar-foreground: oklch(0.147 0.004 49.3);
@@ -266,8 +281,8 @@ html[data-font-size="x-large"] {
   --chart-4: oklch(0.555 0.163 48.998);
   --chart-5: oklch(0.473 0.137 46.201);
   --status-success: oklch(0.62 0.16 148);
-  --status-warning: oklch(0.80 0.16 80);
-  --status-danger: oklch(0.65 0.20 25);
+  --status-warning: oklch(0.8 0.16 80);
+  --status-danger: oklch(0.65 0.2 25);
   --status-info: oklch(0.65 0.16 250);
   --status-violet: oklch(0.65 0.16 295);
   --status-sky: oklch(0.65 0.16 230);

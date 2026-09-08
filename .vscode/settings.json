@@ -13,16 +13,20 @@
     }
   },
 
-  "[typescript][typescriptreact]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  "[typescript][typescriptreact][javascript]": {
+    "editor.defaultFormatter": "biomejs.biome",
+    "editor.codeActionsOnSave": {
+      "source.fixAll.biome": "explicit",
+      "source.organizeImports.biome": "explicit"
+    }
   },
 
   "[json][jsonc]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
+    "editor.defaultFormatter": "biomejs.biome"
   },
 
   "[css]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
+    "editor.defaultFormatter": "biomejs.biome"
   },
 
   "[yaml]": {
@@ -33,10 +37,12 @@
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
 
-  "python.analysis.extraPaths": ["./app", "./sdk"],
-  "python.linting.enabled": false,
-  "python.linting.pycodestyleEnabled": false,
-  "ruff.configuration": null,
-  "ruff.lint.run": "onSave",
+  "python.defaultInterpreterPath": "${workspaceFolder}/app/.venv/bin/python",
+  "python.pythonPath": "${workspaceFolder}/app/.venv/bin/python",
+  "python.languageServer": "None",
+
+  "basedpyright.analysis.extraPaths": ["./app", "./sdk"],
+  "basedpyright.analysis.typeCheckingMode": "standard",
+
   "ruff.nativeServer": "on"
 }

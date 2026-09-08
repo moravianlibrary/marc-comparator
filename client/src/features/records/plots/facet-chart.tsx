@@ -1,7 +1,7 @@
-import { cn } from "@/lib/utils";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { usePrefetchFacetPreview } from "./use-facets";
-import type { FacetBucket } from "../types";
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { cn } from '@/lib/utils';
+import type { FacetBucket } from '../types';
+import { usePrefetchFacetPreview } from './use-facets';
 
 export interface FacetChildProps {
   data: FacetBucket[];
@@ -50,7 +50,7 @@ export function FacetChart({
 
   return (
     <Card
-      className={cn(hasActive && "ring-2 ring-primary/30", className)}
+      className={cn(hasActive && 'ring-2 ring-primary/30', className)}
       onMouseEnter={() => prefetch(facetField)}
     >
       <CardHeader className="pb-2">

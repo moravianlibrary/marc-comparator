@@ -1,14 +1,14 @@
-import { useState } from "react";
-import { useTranslation } from "react-i18next";
-import { useMutation } from "@tanstack/react-query";
-import { toast } from "sonner";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import apiClient from "@/lib/api-client";
-import type { LucideIcon } from "lucide-react";
-import { Loader2 } from "lucide-react";
+import { useMutation } from '@tanstack/react-query';
+import type { LucideIcon } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import apiClient from '@/lib/api-client';
 
 interface MaintenanceActionCardProps {
   icon: LucideIcon;
@@ -25,8 +25,8 @@ export function MaintenanceActionCard({
   endpoint,
   showMaxAge = false,
 }: MaintenanceActionCardProps) {
-  const { t } = useTranslation("maintenance");
-  const [maxAgeDays, setMaxAgeDays] = useState<string>("");
+  const { t } = useTranslation('maintenance');
+  const [maxAgeDays, setMaxAgeDays] = useState<string>('');
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -36,10 +36,10 @@ export function MaintenanceActionCard({
       return data;
     },
     onSuccess: () => {
-      toast.success(t("started"));
+      toast.success(t('started'));
     },
     onError: () => {
-      toast.error(t("common:error"));
+      toast.error(t('common:error'));
     },
   });
 
@@ -56,14 +56,14 @@ export function MaintenanceActionCard({
         <div className="flex items-end gap-3">
           {showMaxAge && (
             <div className="space-y-1">
-              <Label htmlFor="max-age">{t("actions.delete-tasks.max-age-label")}</Label>
+              <Label htmlFor="max-age">{t('actions.delete-tasks.max-age-label')}</Label>
               <Input
                 id="max-age"
                 type="number"
                 min={1}
-                placeholder={t("actions.delete-tasks.max-age-placeholder")}
+                placeholder={t('actions.delete-tasks.max-age-placeholder')}
                 value={maxAgeDays}
-                onChange={(e) => setMaxAgeDays(e.target.value)}
+                onChange={e => setMaxAgeDays(e.target.value)}
                 className="w-32"
               />
             </div>
@@ -72,10 +72,10 @@ export function MaintenanceActionCard({
             {mutation.isPending ? (
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
-                {t("running")}
+                {t('running')}
               </>
             ) : (
-              t("run")
+              t('run')
             )}
           </Button>
         </div>

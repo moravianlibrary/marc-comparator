@@ -1,6 +1,7 @@
 import logging
 from collections.abc import Callable
 from contextlib import AbstractContextManager as ContextManager
+from typing import Any
 
 from celery import Celery, shared_task
 from celery import Task as CeleryTask
@@ -206,15 +207,59 @@ class ManagedTask:
         self.lock: ContextManager | None = None
         self._lock_obj = None
 
-        self.logger: logging.Logger | None = None
-        self.db_session: DatabaseSession | None = None
-        self.task: Task | None = None
-        self.task_settings: TaskSettings | None = None
+        # Model defaults until __aenter__ loads the stored settings.
+        self.task_settings: TaskSettings = TaskSettings()
+
+        # Populated by __aenter__. Exposed through properties that raise rather than
+        # returning None, so the ~80 use sites below are not each an optional access —
+        # using a ManagedTask outside its context is a bug, not a case to handle.
+        self._db_session: DatabaseSession | None = None
+        self._task: Task | None = None
+        self._logger: logging.Logger | None = None
 
         self._total: int | None = None
         self.progress: int = 0
         self.before_commit: Callable[[], None] | None = None
-        self._handler: "TaskHandler | None" = None
+        self._handler: TaskHandler | None = None
+
+    @property
+    def db_session(self) -> DatabaseSession:
+        if self._db_session is None:
+            raise RuntimeError(
+                f"ManagedTask({self.task_id}) used outside its async context: no DB session"
+            )
+
+        return self._db_session
+
+    @db_session.setter
+    def db_session(self, value: DatabaseSession) -> None:
+        self._db_session = value
+
+    @property
+    def task(self) -> Task:
+        if self._task is None:
+            raise RuntimeError(
+                f"ManagedTask({self.task_id}) used outside its async context: task not loaded"
+            )
+
+        return self._task
+
+    @task.setter
+    def task(self, value: Task) -> None:
+        self._task = value
+
+    @property
+    def logger(self) -> logging.Logger:
+        if self._logger is None:
+            raise RuntimeError(
+                f"ManagedTask({self.task_id}) used outside its async context: no logger"
+            )
+
+        return self._logger
+
+    @logger.setter
+    def logger(self, value: logging.Logger) -> None:
+        self._logger = value
 
     @property
     def total(self) -> int | None:
@@ -223,7 +268,9 @@ class ManagedTask:
     @total.setter
     def total(self, value: int | None) -> None:
         self._total = value
-        if value is not None and self.task:
+        # Checks the backing field, not the property: before __aenter__ this is a
+        # legitimate "not loaded yet", where the property would raise.
+        if value is not None and self._task is not None:
             self.update_progress()
 
     def save_task(self):
@@ -258,7 +305,11 @@ class ManagedTask:
         self.db_session.close()
 
         self.db_session = get_db_session()
-        self.task = self.db_session.get(Task, task_id)
+        reloaded = self.db_session.get(Task, task_id)
+        if reloaded is None:
+            raise RuntimeError(f"Task {task_id} disappeared while cycling the DB session")
+
+        self.task = reloaded
 
         if self._handler:
             self._handler.db_session = self.db_session
@@ -300,13 +351,14 @@ class ManagedTask:
         # idempotent for sequential re-runs; the guard only matters for the
         # rare simultaneous-redelivery case).
         if self.lock_key:
-            self.lock = one_at_a_time_lock(self.lock_key, self.lock_blocking_timeout)
+            self.lock = one_at_a_time_lock(
+                self.lock_key, blocking_timeout=self.lock_blocking_timeout
+            )
             try:
                 lock_obj = self.lock.__enter__()
             except Exception:
                 logging.warning(
-                    f"Lock server unavailable for '{self.lock_key}'; "
-                    "proceeding without run-lock",
+                    f"Lock server unavailable for '{self.lock_key}'; proceeding without run-lock",
                     exc_info=True,
                 )
                 self.lock = None
@@ -346,7 +398,7 @@ class ManagedTask:
             self.logger.addHandler(handler)
 
             # --- Load task settings ---
-            self.task_settings: TaskSettings = (
+            self.task_settings = (
                 Settings.get(self.db_session, SettingsScope.Tasks, TaskSettings) or TaskSettings()
             )
 
@@ -453,10 +505,7 @@ def handle_batch_progress_snippet(ctx: ManagedTask) -> None:
         ctx.update_progress()
 
     # DB commit + session cycle for regular tasks (no SectorBuffer)
-    if (
-        ctx.before_commit is None
-        and ctx.progress % ctx.task_settings.commit_interval == 0
-    ):
+    if ctx.before_commit is None and ctx.progress % ctx.task_settings.commit_interval == 0:
         ctx.cycle_session()
 
     # Sector flush + DB commit + session cycle for record-writing tasks
@@ -675,7 +724,6 @@ def periodic_sync_records(base: str) -> None:
 
     from adapters.database import SessionLocal
     from catalog_records.models import SyncRecordsData
-    from entities.catalog_record import CatalogRecord
     from entities.user import SYSTEM_USER_ID
 
     db = SessionLocal()
@@ -773,7 +821,9 @@ def reap_orphaned_tasks() -> None:
         db.close()
 
 
-TASK_DISPATCH = {
+# celery's @shared_task is untyped — it hands back a Proxy whose attributes
+# resolve only at runtime, so the values here cannot be typed more precisely.
+TASK_DISPATCH: dict[TaskType, Any] = {
     TaskType.FetchRecord: fetch_record_task,
     TaskType.FetchBatchOfRecords: fetch_batch_of_records_task,
     TaskType.SyncRecords: records_sync_task,
@@ -798,6 +848,8 @@ def dispatch_task(task: Task) -> None:
 
     kwargs: dict = {"task_id": str(task.task_id)}
     if task.type == TaskType.SyncRecords:
+        if not task.data or "base" not in task.data:
+            raise ValueError(f"SyncRecords task {task.task_id} has no 'base' in its data")
         kwargs["args"] = [f"catalog_sync_{task.data['base']}", 1]
 
     celery_task.apply_async(**kwargs)

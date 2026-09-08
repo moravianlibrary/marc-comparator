@@ -162,6 +162,11 @@ class BaseComparator(ABC):
     #: comparator, so this is on by default.
     can_generate_report: bool = True
 
+    def __init__(self, config: BaseModel | None = None) -> None:
+        #: Comparators declaring a ``config_model`` are constructed with an
+        #: instance of it; the rest take no config at all.
+        self.config = config
+
     @abstractmethod
     async def run(
         self,
@@ -180,9 +185,7 @@ class BaseComparator(ABC):
         """
         pass
 
-    def generate_report(
-        self, comparisons: Iterable[ComparisonReportInput]
-    ) -> list[ReportFile]:
+    def generate_report(self, comparisons: Iterable[ComparisonReportInput]) -> list[ReportFile]:
         """
         Build a flat CSV analysis report from stored comparison results.
 

@@ -1,8 +1,8 @@
-import { useTranslation } from "react-i18next";
-import { X } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
-import { ContextPills } from "./context-pills";
-import type { FacetBucket } from "../types";
+import { X } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { Card, CardContent } from '@/components/ui/card';
+import type { FacetBucket } from '../types';
+import { ContextPills } from './context-pills';
 
 export interface PillGroup {
   label: string;
@@ -29,19 +29,20 @@ export function ContextSection({
   recordId,
   onClearRecordId,
 }: ContextSectionProps) {
-  const { t } = useTranslation("records");
+  const { t } = useTranslation('records');
 
   return (
     <section className="space-y-2">
       <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-        {t("plots.sections.context")}
+        {t('plots.sections.context')}
       </h3>
       <Card>
         <CardContent className="flex flex-wrap gap-x-6 gap-y-3 pt-4">
           {hasRecordIdFilter && (
             <div>
-              <p className="text-sm font-medium mb-1">{t("plots.record-id")}</p>
+              <p className="text-sm font-medium mb-1">{t('plots.record-id')}</p>
               <button
+                type="button"
                 className="inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-sm font-medium bg-primary text-primary-foreground"
                 onClick={onClearRecordId}
               >
@@ -50,7 +51,7 @@ export function ContextSection({
               </button>
             </div>
           )}
-          {pillGroups.map((group) => (
+          {pillGroups.map(group => (
             <div key={group.facetField}>
               <p className="text-sm font-medium mb-1">{group.label}</p>
               <ContextPills

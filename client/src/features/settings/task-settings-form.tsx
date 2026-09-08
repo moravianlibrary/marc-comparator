@@ -1,20 +1,20 @@
-import { useTranslation } from "react-i18next";
-import { useSettingsForm } from "./use-settings-form";
-import { taskSettingsSchema } from "./schemas";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useTranslation } from 'react-i18next';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
-  FormDescription,
   FormMessage,
-} from "@/components/ui/form";
-import { HelpDialog } from "./help-dialog";
-import { TasksHelp } from "./help-content";
-import type { TaskSettings } from "@/types/settings";
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import type { TaskSettings } from '@/types/settings';
+import { TasksHelp } from './help-content';
+import { HelpDialog } from './help-dialog';
+import { taskSettingsSchema } from './schemas';
+import { useSettingsForm } from './use-settings-form';
 
 interface Props {
   data: TaskSettings;
@@ -24,7 +24,7 @@ interface Props {
 }
 
 export function TaskSettingsForm({ data, onDirtyChange, onFormRef, onSubmit }: Props) {
-  const { t } = useTranslation("settings");
+  const { t } = useTranslation('settings');
 
   const form = useSettingsForm({
     schema: taskSettingsSchema,
@@ -39,7 +39,7 @@ export function TaskSettingsForm({ data, onDirtyChange, onFormRef, onSubmit }: P
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <Card>
           <CardHeader className="flex flex-row items-center gap-2">
-            <CardTitle className="text-base">{t("types.tasks")}</CardTitle>
+            <CardTitle className="text-base">{t('types.tasks')}</CardTitle>
             <HelpDialog titleKey="types.tasks">
               <TasksHelp />
             </HelpDialog>
@@ -50,15 +50,15 @@ export function TaskSettingsForm({ data, onDirtyChange, onFormRef, onSubmit }: P
               name="progress_update_interval"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("tasks-settings.progress-update-interval")}</FormLabel>
+                  <FormLabel>{t('tasks-settings.progress-update-interval')}</FormLabel>
                   <FormDescription>
-                    {t("tasks-settings.progress-update-interval-description")}
+                    {t('tasks-settings.progress-update-interval-description')}
                   </FormDescription>
                   <FormControl>
                     <Input
                       type="number"
                       {...field}
-                      onChange={(e) => field.onChange(Number(e.target.value))}
+                      onChange={e => field.onChange(Number(e.target.value))}
                     />
                   </FormControl>
                   <FormMessage />
@@ -70,15 +70,15 @@ export function TaskSettingsForm({ data, onDirtyChange, onFormRef, onSubmit }: P
               name="commit_interval"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("tasks-settings.commit-interval")}</FormLabel>
+                  <FormLabel>{t('tasks-settings.commit-interval')}</FormLabel>
                   <FormDescription>
-                    {t("tasks-settings.commit-interval-description")}
+                    {t('tasks-settings.commit-interval-description')}
                   </FormDescription>
                   <FormControl>
                     <Input
                       type="number"
                       {...field}
-                      onChange={(e) => field.onChange(Number(e.target.value))}
+                      onChange={e => field.onChange(Number(e.target.value))}
                     />
                   </FormControl>
                   <FormMessage />
@@ -90,15 +90,15 @@ export function TaskSettingsForm({ data, onDirtyChange, onFormRef, onSubmit }: P
               name="analytics_rebuild_interval"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("tasks-settings.analytics-rebuild-interval")}</FormLabel>
+                  <FormLabel>{t('tasks-settings.analytics-rebuild-interval')}</FormLabel>
                   <FormDescription>
-                    {t("tasks-settings.analytics-rebuild-interval-description")}
+                    {t('tasks-settings.analytics-rebuild-interval-description')}
                   </FormDescription>
                   <FormControl>
                     <Input
                       type="number"
                       {...field}
-                      onChange={(e) => field.onChange(Number(e.target.value))}
+                      onChange={e => field.onChange(Number(e.target.value))}
                     />
                   </FormControl>
                   <FormMessage />

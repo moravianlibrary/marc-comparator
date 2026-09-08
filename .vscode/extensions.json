@@ -1,8 +1,11 @@
 {
   "recommendations": [
+    "ms-python.python",
+    "detachhead.basedpyright",
     "charliermarsh.ruff",
+    "biomejs.biome",
     "esbenp.prettier-vscode",
-    "dbaeumer.vscode-eslint",
+    "bradlc.vscode-tailwindcss",
     "editorconfig.editorconfig"
   ]
 }

@@ -1,3 +1,5 @@
+from collections.abc import AsyncGenerator, Generator
+
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
@@ -13,7 +15,7 @@ from tests.conftest import FAKE_USER_ID, truncate_all_tables
 
 
 @pytest_asyncio.fixture(scope="function")
-async def db_session(db_engine, mocker) -> DatabaseSession:
+async def db_session(db_engine, mocker) -> AsyncGenerator[DatabaseSession, None]:
     SessionLocal = sessionmaker(bind=db_engine)
     session = SessionLocal()
 
@@ -36,7 +38,7 @@ async def client():
 
 
 @pytest.fixture(scope="function")
-def user(db_session: DatabaseSession) -> TokenData:
+def user(db_session: DatabaseSession) -> Generator[TokenData, None, None]:
     user = User(
         id=FAKE_USER_ID,
         first_name="Admin",

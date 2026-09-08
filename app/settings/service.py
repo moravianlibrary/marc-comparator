@@ -12,6 +12,8 @@ from .models import SETTINGS_MODEL_DISPATCHER
 
 def get_settings(scope: SettingsScope, db_session: DatabaseSession) -> SettingsSchema:
     settings_cls = SETTINGS_MODEL_DISPATCHER.get(scope)
+    if settings_cls is None:
+        raise SettingsNotFoundError(scope)
 
     settings = Settings.get(db_session, scope, settings_cls)
 
@@ -25,10 +27,12 @@ def set_settings(
     scope: SettingsScope, settings: SettingsSchema, db_session: DatabaseSession
 ) -> SettingsSchema:
     settings_cls = SETTINGS_MODEL_DISPATCHER.get(scope)
+    if settings_cls is None:
+        raise SettingsNotFoundError(scope)
 
     settings_validated = settings.model_validate(settings)
 
-    return Settings.save(db_session, scope, settings_validated, settings_cls)
+    return Settings.upsert(db_session, scope, settings_validated, settings_cls)
 
 
 def get_settings_part(

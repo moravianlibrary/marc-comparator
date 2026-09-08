@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { z } from 'zod';
 
 // looseObject: the server stores extra keys the form does not edit
 // (e.g. the MARC parsing `context`) - a strict schema would silently strip
@@ -13,7 +13,7 @@ export const catalogClientSchema = z.looseObject({
   system_number_pattern: z.string().min(1),
   // Edited as a comma-separated input; drop empty segments before validating.
   oai_sets: z.preprocess(
-    (v) => (Array.isArray(v) ? v.map((s) => String(s).trim()).filter(Boolean) : v),
+    v => (Array.isArray(v) ? v.map(s => String(s).trim()).filter(Boolean) : v),
     z.array(z.string().min(1)).min(1),
   ),
   oai_identifier_template: z.string().min(1),
@@ -47,7 +47,7 @@ export const knihovnyCZLinkerConfigSchema = z.object({
 });
 
 export const authorityLinkingSettingsSchema = z.object({
-  "knihovny-cz": knihovnyCZLinkerConfigSchema.nullable(),
+  'knihovny-cz': knihovnyCZLinkerConfigSchema.nullable(),
 });
 
 export type AuthorityLinkingSettingsFormValues = z.infer<typeof authorityLinkingSettingsSchema>;
@@ -77,15 +77,15 @@ export const krameriusLinksConfigSchema = z.object({
 });
 
 export const validationSettingsSchema = z.object({
-  "kramerius-links": krameriusLinksConfigSchema.nullable(),
+  'kramerius-links': krameriusLinksConfigSchema.nullable(),
 });
 
 export type ValidationSettingsFormValues = z.infer<typeof validationSettingsSchema>;
 
 export const processRecordsSettingsSchema = z.object({
   target_bases: z.array(z.string().min(1)).min(1),
-  authority_linkers: z.array(z.enum(["knihovny-cz"])).min(1),
-  validators: z.array(z.enum(["kramerius-links"])).min(1),
+  authority_linkers: z.array(z.enum(['knihovny-cz'])).min(1),
+  validators: z.array(z.enum(['kramerius-links'])).min(1),
 });
 
 export type ProcessRecordsSettingsFormValues = z.infer<typeof processRecordsSettingsSchema>;

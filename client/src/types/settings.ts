@@ -34,7 +34,7 @@ export interface KnihovnyCZLinkerConfig {
 }
 
 export interface AuthorityLinkingSettings {
-  "knihovny-cz": KnihovnyCZLinkerConfig | null;
+  'knihovny-cz': KnihovnyCZLinkerConfig | null;
 }
 
 export interface ComparatorConfig {
@@ -60,17 +60,17 @@ export interface KrameriusLinksValidatorConfig {
 }
 
 export interface ValidationSettings {
-  "kramerius-links": KrameriusLinksValidatorConfig | null;
+  'kramerius-links': KrameriusLinksValidatorConfig | null;
 }
 
 export const AuthorityLinker = {
-  KnihovnyCz: "knihovny-cz",
+  KnihovnyCz: 'knihovny-cz',
 } as const;
 
 export type AuthorityLinker = (typeof AuthorityLinker)[keyof typeof AuthorityLinker];
 
 export const Validator = {
-  KrameriusLinks: "kramerius-links",
+  KrameriusLinks: 'kramerius-links',
 } as const;
 
 export type Validator = (typeof Validator)[keyof typeof Validator];
@@ -104,14 +104,14 @@ export interface PeriodicSyncSettings {
 }
 
 export type SettingsScope =
-  | "catalog"
-  | "tasks"
-  | "authority-linkers"
-  | "comparators"
-  | "validators"
-  | "process-records"
-  | "maintenance"
-  | "periodic-sync";
+  | 'catalog'
+  | 'tasks'
+  | 'authority-linkers'
+  | 'comparators'
+  | 'validators'
+  | 'process-records'
+  | 'maintenance'
+  | 'periodic-sync';
 
 export interface SystemInfo {
   system_version: string;

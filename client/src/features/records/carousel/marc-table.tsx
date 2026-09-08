@@ -1,14 +1,14 @@
-import type { JSX } from "react";
-import { cn } from "@/lib/utils";
-import { useTranslation } from "react-i18next";
+import type { JSX } from 'react';
+import { useTranslation } from 'react-i18next';
+import { cn } from '@/lib/utils';
 import type {
-  MarcRecordData,
   FieldComparisonResult,
+  MarcRecordData,
   SubfieldComparisonResult,
   ValidationResult,
-} from "../types";
+} from '../types';
 
-export type AnnotationType = "comparison" | "validation";
+export type AnnotationType = 'comparison' | 'validation';
 
 const VALIDATION_STATUS_ORDER: Record<string, number> = {
   Valid: 0,
@@ -21,6 +21,13 @@ function sortByStatus(results: ValidationResult[]): ValidationResult[] {
   return [...results].sort(
     (a, b) => (VALIDATION_STATUS_ORDER[a.status] ?? 99) - (VALIDATION_STATUS_ORDER[b.status] ?? 99),
   );
+}
+
+/** Stable React key for a validation annotation — the rendered list is re-sorted by
+ *  status, so positional keys would make React reuse the wrong rows. */
+function validationKey(result: ValidationResult): string {
+  const { tag, field_index, codes } = result.target;
+  return `${tag}-${field_index ?? 'x'}-${codes?.join('') ?? ''}-${result.status}`;
 }
 
 interface MarcTableProps {
@@ -41,7 +48,10 @@ export function MarcTable({
   krameriusClientUrl,
 }: MarcTableProps) {
   const fixedEntries = Object.entries(marc.fixed_fields)
-    .sort(([a], [b]) => parseInt(a) - parseInt(b))
+    // MARC tags are zero-padded fixed-width strings, so lexicographic order is
+    // numeric order — and unlike parseInt it stays deterministic for non-numeric
+    // tags (parseInt('LDR') is NaN, which leaves the sort order undefined).
+    .sort(([a], [b]) => a.localeCompare(b))
     .filter(([tag]) => !targetTags || targetTags.has(tag));
 
   // Build variable entries and inject synthetic rows for missing validation tags
@@ -50,7 +60,7 @@ export function MarcTable({
     ...Object.keys(marc.variable_fields),
   ]);
   const missingValidationTags: string[] = [];
-  if (annotationType === "validation" && validationAnnotations) {
+  if (annotationType === 'validation' && validationAnnotations) {
     for (const va of validationAnnotations) {
       const tag = va.target.tag;
       if (!existingTags.has(tag) && !missingValidationTags.includes(tag)) {
@@ -65,14 +75,17 @@ export function MarcTable({
   ][] = [
     ...Object.entries(marc.variable_fields),
     ...missingValidationTags.map(
-      (tag) =>
+      tag =>
         [tag, [{ ind1: null, ind2: null, subfields: {} }]] as [
           string,
           { ind1: string | null; ind2: string | null; subfields: Record<string, string[]> }[],
         ],
     ),
   ]
-    .sort(([a], [b]) => parseInt(a) - parseInt(b))
+    // MARC tags are zero-padded fixed-width strings, so lexicographic order is
+    // numeric order — and unlike parseInt it stays deterministic for non-numeric
+    // tags (parseInt('LDR') is NaN, which leaves the sort order undefined).
+    .sort(([a], [b]) => a.localeCompare(b))
     .filter(([tag]) => !targetTags || targetTags.has(tag));
 
   const showAnnotations = !!annotationType;
@@ -97,12 +110,12 @@ export function MarcTable({
       {fixedEntries.map(([tag, value]) => {
         rowIndex++;
         const compAnnotation =
-          annotationType === "comparison"
-            ? comparisonAnnotations?.find((a) => a.tag === tag)
+          annotationType === 'comparison'
+            ? comparisonAnnotations?.find(a => a.tag === tag)
             : undefined;
         const valAnnotationsForField =
-          annotationType === "validation"
-            ? validationAnnotations?.filter((v) => v.target.tag === tag)
+          annotationType === 'validation'
+            ? validationAnnotations?.filter(v => v.target.tag === tag)
             : undefined;
         return (
           <MarcRow
@@ -126,13 +139,13 @@ export function MarcTable({
         const rows = fields.map((field, fieldIdx) => {
           rowIndex++;
           const compAnnotation =
-            annotationType === "comparison"
-              ? comparisonAnnotations?.find((a) => a.tag === tag)
+            annotationType === 'comparison'
+              ? comparisonAnnotations?.find(a => a.tag === tag)
               : undefined;
           const valAnnotationsForField =
-            annotationType === "validation"
+            annotationType === 'validation'
               ? validationAnnotations?.filter(
-                  (v) =>
+                  v =>
                     v.target.tag === tag &&
                     (v.target.field_index === fieldIdx ||
                       (isMissingTag && v.target.field_index == null)),
@@ -140,6 +153,9 @@ export function MarcTable({
               : undefined;
           return (
             <MarcRow
+              // A repeated MARC field is identified by (tag, occurrence): the index is
+              // its identity, not a stand-in for one.
+              // biome-ignore lint/suspicious/noArrayIndexKey: see comment above
               key={`vf-${tag}-${fieldIdx}`}
               tag={tag}
               ind1={field.ind1}
@@ -155,9 +171,9 @@ export function MarcTable({
         });
 
         // Add a synthetic empty row for non-indexed validation results on existing tags
-        if (annotationType === "validation" && !isMissingTag) {
+        if (annotationType === 'validation' && !isMissingTag) {
           const nonIndexed = validationAnnotations?.filter(
-            (v) => v.target.tag === tag && v.target.field_index == null,
+            v => v.target.tag === tag && v.target.field_index == null,
           );
           if (nonIndexed && nonIndexed.length > 0) {
             rowIndex++;
@@ -206,8 +222,8 @@ function MarcRow({
   validationAnnotations,
   krameriusClientUrl,
 }: MarcRowProps) {
-  const i1 = ind1 ?? "-";
-  const i2 = ind2 ?? "-";
+  const i1 = ind1 ?? '-';
+  const i2 = ind2 ?? '-';
 
   // Build subfield rows for rendering
   const subfieldRows: { code: string; value: string }[] = [];
@@ -231,10 +247,13 @@ function MarcRow({
   // so that source value, authority value, and score stay aligned per row
   if (showAnnotationColumn && comparisonAnnotation && hasSubfieldAnnotations) {
     return (
-      <div className={cn("border-b last:border-b-0", striped && "bg-muted/50")}>
+      <div className={cn('border-b last:border-b-0', striped && 'bg-muted/50')}>
         {subfieldRows.map((sf, i) => {
           const srAnnotation = subfieldAnnotationMap.get(sf.code);
           return (
+            // MARC subfields are positional and codes repeat within a field ($a twice),
+            // so position is the only identity available.
+            // biome-ignore lint/suspicious/noArrayIndexKey: see comment above
             <div key={i} className="flex">
               {/* Tag + indicators (first row only) */}
               <div className="flex w-[120px] flex-none items-start gap-4 px-3 py-0.5">
@@ -252,7 +271,7 @@ function MarcRow({
               <div className="w-[35%] flex-none px-3 py-0.5">
                 <div className="flex gap-3">
                   <span className="w-[20px] flex-none font-mono text-sm text-muted-foreground">
-                    {sf.code === "_" ? "" : sf.code}
+                    {sf.code === '_' ? '' : sf.code}
                   </span>
                   <span className="text-sm">{sf.value}</span>
                 </div>
@@ -264,7 +283,7 @@ function MarcRow({
                     <span className="w-[20px] flex-none font-mono text-muted-foreground">
                       {srAnnotation.code}
                     </span>
-                    <span>{srAnnotation.value_b ?? ""}</span>
+                    <span>{srAnnotation.value_b ?? ''}</span>
                   </div>
                 ) : (
                   <div className="text-sm">&nbsp;</div>
@@ -300,7 +319,7 @@ function MarcRow({
   }
 
   return (
-    <div className={cn("border-b last:border-b-0", striped && "bg-muted/50")}>
+    <div className={cn('border-b last:border-b-0', striped && 'bg-muted/50')}>
       <div className="flex">
         {/* Tag + indicators */}
         <div className="flex w-[120px] flex-none items-start gap-4 px-3 py-1.5">
@@ -312,11 +331,14 @@ function MarcRow({
         </div>
 
         {/* Subfields */}
-        <div className={cn("px-3 py-1.5", showAnnotationColumn ? "w-[35%] flex-none" : "flex-1")}>
+        <div className={cn('px-3 py-1.5', showAnnotationColumn ? 'w-[35%] flex-none' : 'flex-1')}>
           {subfieldRows.map((sf, i) => (
+            // MARC subfields are positional and codes repeat within a field ($a twice),
+            // so position is the only identity available.
+            // biome-ignore lint/suspicious/noArrayIndexKey: see comment above
             <div key={i} className="flex gap-3">
               <span className="w-[20px] flex-none font-mono text-sm text-muted-foreground">
-                {sf.code === "_" ? "" : sf.code}
+                {sf.code === '_' ? '' : sf.code}
               </span>
               <span className="text-sm">{sf.value}</span>
             </div>
@@ -341,9 +363,9 @@ function MarcRow({
           validationAnnotations &&
           validationAnnotations.length > 0 && (
             <div className="flex-1 border-l px-3 py-1.5 space-y-2">
-              {sortByStatus(validationAnnotations).map((va, i) => (
+              {sortByStatus(validationAnnotations).map(va => (
                 <ValidationFieldAnnotation
-                  key={i}
+                  key={validationKey(va)}
                   annotation={va}
                   krameriusClientUrl={krameriusClientUrl}
                 />
@@ -361,7 +383,7 @@ function MarcRow({
 }
 
 function ExplanationLabel({ explanation }: { explanation: string }) {
-  const { t } = useTranslation("records");
+  const { t } = useTranslation('records');
   return (
     <span className="text-xs text-muted-foreground truncate">
       {t(`field-explanation.${explanation}`, { defaultValue: explanation })}
@@ -370,10 +392,10 @@ function ExplanationLabel({ explanation }: { explanation: string }) {
 }
 
 function ComparisonFieldAnnotation({ annotation }: { annotation: FieldComparisonResult }) {
-  const { t } = useTranslation("records");
+  const { t } = useTranslation('records');
   return (
     <div className="flex items-center gap-2 text-xs text-muted-foreground">
-      <span>{t("carousel.field-score")}:</span>
+      <span>{t('carousel.field-score')}:</span>
       <ScoreBadge score={annotation.score} />
       {annotation.explanation && <ExplanationLabel explanation={annotation.explanation} />}
     </div>
@@ -384,14 +406,18 @@ const PID_REGEX =
   /uuid:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/g;
 
 function renderTextWithPidLinks(text: string, krameriusClientUrl?: string) {
-  if (!krameriusClientUrl) return text;
+  if (!krameriusClientUrl) {
+    return text;
+  }
   const parts: (string | JSX.Element)[] = [];
   let lastIndex = 0;
   for (const match of text.matchAll(PID_REGEX)) {
     const pid = match[0];
     const idx = match.index!;
-    if (idx > lastIndex) parts.push(text.slice(lastIndex, idx));
-    const url = krameriusClientUrl.replace("{pid}", pid);
+    if (idx > lastIndex) {
+      parts.push(text.slice(lastIndex, idx));
+    }
+    const url = krameriusClientUrl.replace('{pid}', pid);
     parts.push(
       <a
         key={idx}
@@ -405,7 +431,9 @@ function renderTextWithPidLinks(text: string, krameriusClientUrl?: string) {
     );
     lastIndex = idx + pid.length;
   }
-  if (lastIndex < text.length) parts.push(text.slice(lastIndex));
+  if (lastIndex < text.length) {
+    parts.push(text.slice(lastIndex));
+  }
   return parts;
 }
 
@@ -416,24 +444,24 @@ function ValidationFieldAnnotation({
   annotation: ValidationResult;
   krameriusClientUrl?: string;
 }) {
-  const { t } = useTranslation("records");
+  const { t } = useTranslation('records');
   const params = annotation.params ?? {};
   return (
     <div className="space-y-0.5">
       <span
         className={cn(
-          "text-xs font-medium",
-          annotation.status === "Valid" && "text-green-600 dark:text-green-400",
-          annotation.status === "Invalid" && "text-red-600 dark:text-red-400",
-          annotation.status === "ForReview" && "text-yellow-600 dark:text-yellow-400",
-          annotation.status === "AdditionalInfo" && "text-blue-600 dark:text-blue-400",
+          'text-xs font-medium',
+          annotation.status === 'Valid' && 'text-green-600 dark:text-green-400',
+          annotation.status === 'Invalid' && 'text-red-600 dark:text-red-400',
+          annotation.status === 'ForReview' && 'text-yellow-600 dark:text-yellow-400',
+          annotation.status === 'AdditionalInfo' && 'text-blue-600 dark:text-blue-400',
         )}
       >
         {t(`validity-status.${annotation.status}`, { defaultValue: annotation.status })}
         {annotation.reason && (
           <>
-            {" "}
-            -{" "}
+            {' '}
+            -{' '}
             {t(`validation-reason.${annotation.reason}`, {
               ...params,
               defaultValue: annotation.reason,
@@ -442,7 +470,7 @@ function ValidationFieldAnnotation({
         )}
       </span>
       {annotation.reason &&
-        t(`validation-detail.${annotation.reason}`, { ...params, defaultValue: "" }) && (
+        t(`validation-detail.${annotation.reason}`, { ...params, defaultValue: '' }) && (
           <p className="text-xs text-muted-foreground">
             {renderTextWithPidLinks(
               t(`validation-detail.${annotation.reason}`, params),
@@ -451,7 +479,7 @@ function ValidationFieldAnnotation({
           </p>
         )}
       {annotation.reason &&
-        t(`validation-hint.${annotation.reason}`, { ...params, defaultValue: "" }) && (
+        t(`validation-hint.${annotation.reason}`, { ...params, defaultValue: '' }) && (
           <p className="text-xs text-muted-foreground/70">
             {t(`validation-hint.${annotation.reason}`, params)}
           </p>
@@ -465,10 +493,10 @@ function ScoreBadge({ score }: { score: number }) {
   return (
     <span
       className={cn(
-        "font-mono font-medium text-xs",
-        score >= 0.9 && "text-green-600 dark:text-green-400",
-        score >= 0.7 && score < 0.9 && "text-yellow-600 dark:text-yellow-400",
-        score < 0.7 && "text-red-600 dark:text-red-400",
+        'font-mono font-medium text-xs',
+        score >= 0.9 && 'text-green-600 dark:text-green-400',
+        score >= 0.7 && score < 0.9 && 'text-yellow-600 dark:text-yellow-400',
+        score < 0.7 && 'text-red-600 dark:text-red-400',
       )}
     >
       {pct}%

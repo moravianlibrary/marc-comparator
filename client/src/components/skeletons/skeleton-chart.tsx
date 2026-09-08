@@ -1,17 +1,17 @@
-import { cn } from "@/lib/utils";
-import { Skeleton } from "@/components/ui/skeleton";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
+import { Skeleton } from '@/components/ui/skeleton';
+import { cn } from '@/lib/utils';
 
 // Varying bar widths for visual interest
 const BAR_WIDTHS = [
-  "w-[85%]",
-  "w-[60%]",
-  "w-[75%]",
-  "w-[45%]",
-  "w-[90%]",
-  "w-[55%]",
-  "w-[70%]",
-  "w-[40%]",
+  'w-[85%]',
+  'w-[60%]',
+  'w-[75%]',
+  'w-[45%]',
+  'w-[90%]',
+  'w-[55%]',
+  'w-[70%]',
+  'w-[40%]',
 ];
 
 // Varying histogram bar heights (out of 200px container)
@@ -35,7 +35,7 @@ export function SkeletonBarChart({ bars = 5, className }: SkeletonBarChartProps)
           {Array.from({ length: bars }).map((_, i) => (
             <div key={i} className="flex items-center gap-2">
               <Skeleton className="h-4 w-24 flex-none" />
-              <Skeleton className={cn("h-4", BAR_WIDTHS[i % BAR_WIDTHS.length])} />
+              <Skeleton className={cn('h-4', BAR_WIDTHS[i % BAR_WIDTHS.length])} />
             </div>
           ))}
         </div>

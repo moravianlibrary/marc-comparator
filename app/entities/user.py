@@ -1,9 +1,9 @@
 from uuid import UUID as StdUUID
 from uuid import uuid4
 
-from sqlalchemy import Column, ForeignKey, Integer, String
+from sqlalchemy import ForeignKey, Integer, String
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from adapters.database import Base
 
@@ -19,12 +19,12 @@ SYSTEM_USER_EMAIL = "system@marc-comparator.local"
 class User(Base, BaseOperationsMixin, RetrievalOperationsMixin):
     __tablename__ = "users"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    email = Column(String, unique=True, nullable=False)
-    first_name = Column(String, nullable=False)
-    last_name = Column(String, nullable=False)
-    password_hash = Column(String, nullable=False)
-    oidc_sub = Column(String, unique=True, nullable=True)
+    id: Mapped[StdUUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    email: Mapped[str] = mapped_column(String, unique=True)
+    first_name: Mapped[str] = mapped_column(String)
+    last_name: Mapped[str] = mapped_column(String)
+    password_hash: Mapped[str] = mapped_column(String)
+    oidc_sub: Mapped[str | None] = mapped_column(String, unique=True)
 
     roles: Mapped[list[Role]] = relationship(
         "Role",
@@ -59,5 +59,7 @@ class User(Base, BaseOperationsMixin, RetrievalOperationsMixin):
 class UserRole(Base):
     __tablename__ = "user_roles"
 
-    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), primary_key=True)
-    role_id = Column(Integer, ForeignKey("roles.id"), primary_key=True)
+    user_id: Mapped[StdUUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), primary_key=True
+    )
+    role_id: Mapped[int] = mapped_column(Integer, ForeignKey("roles.id"), primary_key=True)

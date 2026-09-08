@@ -1,24 +1,24 @@
-import { useState } from "react";
-import { useSearchParams } from "react-router-dom";
-import { useTranslation } from "react-i18next";
-import axios from "axios";
-import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Loader2 } from "lucide-react";
+import axios from 'axios';
+import { Loader2 } from 'lucide-react';
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { useSearchParams } from 'react-router-dom';
+import { toast } from 'sonner';
+import { Button } from '@/components/ui/button';
 
-const emails = (import.meta.env.VITE_ADMIN_EMAILS || "").split(",").filter(Boolean);
+const emails = (import.meta.env.VITE_ADMIN_EMAILS || '').split(',').filter(Boolean);
 
 export function ServiceUnavailablePage() {
-  const { t } = useTranslation("errors");
+  const { t } = useTranslation('errors');
   const [searchParams] = useSearchParams();
   const [checking, setChecking] = useState(false);
 
-  const redirect = searchParams.get("redirect") || "/";
+  const redirect = searchParams.get('redirect') || '/';
 
   async function handleTryAgain() {
     setChecking(true);
     try {
-      const response = await axios.get("/api/system/health", { timeout: 3000 });
+      const response = await axios.get('/api/system/health', { timeout: 3000 });
       if (response.status === 200) {
         window.location.href = redirect;
         return;
@@ -27,19 +27,19 @@ export function ServiceUnavailablePage() {
       // backend still down
     }
     setChecking(false);
-    toast.error(t("service-unavailable.still-down"));
+    toast.error(t('service-unavailable.still-down'));
   }
 
   return (
     <div className="flex min-h-screen items-center justify-center">
       <div className="mx-auto max-w-md space-y-6 text-center">
-        <h1 className="text-2xl font-semibold">{t("service-unavailable.title")}</h1>
-        <p className="text-muted-foreground">{t("service-unavailable.message")}</p>
+        <h1 className="text-2xl font-semibold">{t('service-unavailable.title')}</h1>
+        <p className="text-muted-foreground">{t('service-unavailable.message')}</p>
 
         {emails.length > 0 && (
           <div className="space-y-2">
             <p className="text-sm text-muted-foreground">
-              {t("service-unavailable.contact-prefix")}
+              {t('service-unavailable.contact-prefix')}
             </p>
             <div className="flex flex-col items-center gap-1">
               {emails.map((email: string) => (
@@ -53,7 +53,7 @@ export function ServiceUnavailablePage() {
 
         <Button onClick={handleTryAgain} disabled={checking}>
           {checking && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-          {t("service-unavailable.try-again")}
+          {t('service-unavailable.try-again')}
         </Button>
       </div>
     </div>

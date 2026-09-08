@@ -1,7 +1,6 @@
-from collections.abc import Callable
 from typing import Annotated
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, params, status
 
 from adapters.database import DatabaseSession, db_session_generator
 from auth.service import CurrentUser, get_current_user_data
@@ -20,12 +19,16 @@ class PermissionDenied(HTTPException):
 
 def require_permission(
     permission: Permission,
-    exception: HTTPException = PermissionDenied(),
-) -> Callable:
+    exception: HTTPException | None = None,
+) -> params.Depends:
     def _check_permissions(user: CurrentUser, db_session: DatabaseSessionDep):
         user_data = get_current_user_data(user, db_session)
-        if permission not in user_data.permissions:
-            raise exception
+        if permission in user_data.permissions:
+            return
+
+        # Built per call: raising a shared instance accumulates __traceback__
+        # and __context__ across unrelated requests.
+        raise exception or PermissionDenied()
 
     return Depends(_check_permissions)
 

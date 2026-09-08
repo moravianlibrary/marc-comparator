@@ -33,10 +33,7 @@ def _heuristic_nonstandard(
     if _strip_punct_space(a) == _strip_punct_space(b):
         return True
 
-    if norm_generic(a) == norm_generic(b):
-        return True
-
-    return False
+    return norm_generic(a) == norm_generic(b)
 
 
 def run(a: str, b: str, role: str, context: dict[str, Any] | None = None) -> dict[str, Any] | None:

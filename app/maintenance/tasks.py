@@ -1,5 +1,3 @@
-from sqlalchemy import func
-
 from adapters.lock_server import get_active_locks
 from adapters.marc_sectors import _decompressor, write_records_to_sector
 from adapters.tasks import ManagedTask, handle_batch_progress_snippet, handle_final_batch_snippet
@@ -92,9 +90,7 @@ async def rebuild_search_vectors(task_id: str) -> None:
     from adapters.marc_sectors import read_marc
 
     async with ManagedTask(task_id=task_id) as ctx:
-        record_ids = [
-            r[0] for r in ctx.db_session.query(CatalogRecord.id).all()
-        ]
+        record_ids = [r[0] for r in ctx.db_session.query(CatalogRecord.id).all()]
         ctx.total = len(record_ids)
         ctx.logger.info(f"Rebuilding search vectors for {ctx.total} records...")
 
@@ -107,7 +103,7 @@ async def rebuild_search_vectors(task_id: str) -> None:
             marc_bytes = read_marc(ctx.db_session, record.base, record.system_number)
             if marc_bytes:
                 try:
-                    marc = MarcRecord(data=marc_bytes)
+                    marc = MarcRecord.from_mrc(marc_bytes)
                     record.update_search_text_from(marc)
                 except Exception as e:
                     ctx.logger.warning(

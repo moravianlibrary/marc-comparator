@@ -15,30 +15,45 @@ from authority_linking.models import AuthorityLinkingSettings
 from catalog_records.models import CatalogSettings
 from comparison import UsedComparator, UsedComparatorClass
 from comparison.models import ComparisonSettings
-from entities.settings import Settings, SettingsScope
+from entities.settings import Settings, SettingsSchema, SettingsSchemaT, SettingsScope
 from settings.models import SETTINGS_MODEL_DISPATCHER
+from validation.models import ValidationSettings
 
 from .models import AuthorityLinkerInfo, HealthStatus, SystemInfo
 
 START_TS = time.time()
 
 
-def get_settings(scope: SettingsScope, db_session: DatabaseSession):
-    model_cls = SETTINGS_MODEL_DISPATCHER.get(scope)
-    if not model_cls:
+def get_settings(
+    scope: SettingsScope,
+    model: type[SettingsSchemaT],
+    db_session: DatabaseSession,
+) -> SettingsSchemaT | None:
+    """Stored settings for a scope, or None when the scope is unknown or unset."""
+    if SETTINGS_MODEL_DISPATCHER.get(scope) is None:
         return None
 
-    settings = Settings.get(db_session, scope, model_cls)
-    return settings
+    return Settings.get(db_session, scope, model)
+
+
+def get_settings_for_scope(
+    scope: SettingsScope, db_session: DatabaseSession
+) -> SettingsSchema | None:
+    """Same, for a scope only known at runtime — the model comes from the dispatcher."""
+    model_cls = SETTINGS_MODEL_DISPATCHER.get(scope)
+    if model_cls is None:
+        return None
+
+    return Settings.get(db_session, scope, model_cls)
 
 
 def get_configured_bases(db_session: DatabaseSession) -> list[str]:
-    settings: CatalogSettings = get_settings(SettingsScope.Catalog, db_session)
+    settings = get_settings(SettingsScope.Catalog, CatalogSettings, db_session)
     return [client.base for client in settings.clients] if settings else []
 
 
 def _get_enabled_tools(db_session: DatabaseSession, scope: SettingsScope) -> list[str]:
-    settings = get_settings(scope, db_session)
+    settings = get_settings_for_scope(scope, db_session)
     if not settings:
         return []
 
@@ -52,7 +67,7 @@ def _get_enabled_tools(db_session: DatabaseSession, scope: SettingsScope) -> lis
 async def get_enabled_authority_linkers(
     db_session: DatabaseSession,
 ) -> list[AuthorityLinkerInfo]:
-    settings: AuthorityLinkingSettings = get_settings(SettingsScope.AuthorityLinking, db_session)
+    settings = get_settings(SettingsScope.AuthorityLinking, AuthorityLinkingSettings, db_session)
 
     if not settings:
         return []
@@ -65,6 +80,9 @@ async def get_enabled_authority_linkers(
         linker_enum = AuthorityLinker(name)
         linker_cls = AUTHORITY_LINKER_DISPATCHER.get(linker_enum)
         if not linker_cls:
+            continue
+
+        if linker_cls.config_model is None:
             continue
 
         target_bases = await linker_cls.get_target_bases(
@@ -94,7 +112,7 @@ def get_report_capable_validators(db_session: DatabaseSession) -> list[str]:
 
 def get_report_capable_comparator(db_session: DatabaseSession) -> str | None:
     """The enabled comparator's name, if it implements ``generate_report``."""
-    settings: ComparisonSettings = get_settings(SettingsScope.Comparison, db_session)
+    settings = get_settings(SettingsScope.Comparison, ComparisonSettings, db_session)
     if not settings or settings.comparator is None:
         return None
     if not UsedComparatorClass.can_generate_report:
@@ -112,7 +130,7 @@ async def get_system_info(db_session: DatabaseSession) -> SystemInfo:
 
     # Get default URL from validator config
     default_url = None
-    validation_settings = get_settings(SettingsScope.Validation, db_session)
+    validation_settings = get_settings(SettingsScope.Validation, ValidationSettings, db_session)
     if validation_settings:
         data = validation_settings.model_dump(by_alias=True)
         kl_config = data.get("kramerius-links")
@@ -121,7 +139,7 @@ async def get_system_info(db_session: DatabaseSession) -> SystemInfo:
             default_url = cfg.kramerius_client_url
 
     # Get per-base overrides from catalog settings
-    catalog_settings: CatalogSettings = get_settings(SettingsScope.Catalog, db_session)
+    catalog_settings = get_settings(SettingsScope.Catalog, CatalogSettings, db_session)
     if catalog_settings:
         per_base = catalog_settings.kramerius_client_urls
         for client in catalog_settings.clients:

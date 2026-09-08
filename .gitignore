@@ -402,12 +402,23 @@ FodyWeavers.xsd
 .venv
 __pycache__/
 
-client/package-lock.json
+# Lockfiles are committed on purpose (reproducible installs): bun.lock, uv.lock
+
+# TypeScript incremental build output
+*.tsbuildinfo
 
 .DS_Store
+
+# Environment files — copy from deploy/docker-compose/app.env.example
 .env
+deploy/docker-compose/app.env
+deploy/docker-compose/app.oidc.env
+
 sdk/build/
 sdk/*.egg-info/
 .superpowers/
 CLAUDE.md
 docs/superpowers/
+
+# Local working notes — not part of the repo
+CONTINUATION.md

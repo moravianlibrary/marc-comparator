@@ -12,7 +12,20 @@ authors = [
     {name = "Robert Randiak", email = "randiak@protonmail.com"}
 ]
 requires-python = ">=3.12"
-dynamic = ["dependencies", "description", "readme"]
+dependencies = [
+    "aleph-nought @ git+https://github.com/moravianlibrary/aleph-nought.git@v0.2.10",
+    "httpx",
+    "kramerius @ git+https://github.com/moravianlibrary/kramerius-client.git@v0.3.3",
+    "lxml",
+    "marcdantic @ git+https://github.com/moravianlibrary/marcdantic.git@v0.3.10",
+    "pydantic",
+    "pymarc",
+    "python-stdnum",
+    "rapidfuzz",
+    "solrify @ git+https://github.com/moravianlibrary/solrify.git@v0.1.1",
+    "typer",
+]
+dynamic = ["description", "readme"]
 
 [project.scripts]
 marc-comparator = "marc_comparator.cli:main"
@@ -29,7 +42,6 @@ packages = [
 ]
 
 [tool.setuptools.dynamic]
-dependencies = {file = "requirements.txt"}
 description = {file = "description.txt"}
 readme = {file = "README.md"}
 
@@ -38,8 +50,13 @@ target-version = "py312"
 line-length = 100
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "W", "UP"]
+select = ["E", "F", "I", "W", "UP", "B", "SIM"]
 ignore = ["E501"]
+
+[tool.ruff.lint.flake8-bugbear]
+# typer.Argument/Option in argument defaults is typer's documented API, not a
+# mutable-default bug, so B008 does not apply to them.
+extend-immutable-calls = ["typer.Argument", "typer.Option"]
 
 [tool.ruff.format]
 quote-style = "double"

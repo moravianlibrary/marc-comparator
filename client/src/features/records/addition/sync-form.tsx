@@ -1,16 +1,13 @@
-import { useEffect } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useTranslation } from "react-i18next";
-import { toast } from "sonner";
-import { AxiosError } from "axios";
-import apiClient from "@/lib/api-client";
-import { useConfiguredBases } from "@/hooks/use-system-info";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { AxiosError } from 'axios';
+import { useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
+import { z } from 'zod';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Form,
   FormControl,
@@ -18,14 +15,17 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form";
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from '@/components/ui/select';
+import { useConfiguredBases } from '@/hooks/use-system-info';
+import apiClient from '@/lib/api-client';
 
 const schema = z.object({
   base: z.string().min(1),
@@ -35,44 +35,44 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>;
 
 export function SyncForm() {
-  const { t } = useTranslation("records");
+  const { t } = useTranslation('records');
 
   const configuredBases = useConfiguredBases();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { base: configuredBases[0] ?? "", from_date: "" },
+    defaultValues: { base: configuredBases[0] ?? '', from_date: '' },
   });
 
   useEffect(() => {
-    if (configuredBases.length > 0 && !form.getValues("base")) {
-      form.reset({ base: configuredBases[0], from_date: "" });
+    if (configuredBases.length > 0 && !form.getValues('base')) {
+      form.reset({ base: configuredBases[0], from_date: '' });
     }
   }, [configuredBases, form]);
 
   const { data: locks = [] } = useQuery<string[]>({
-    queryKey: ["system", "locks"],
-    queryFn: () => apiClient.get<string[]>("/system/locks").then((r) => r.data),
+    queryKey: ['system', 'locks'],
+    queryFn: () => apiClient.get<string[]>('/system/locks').then(r => r.data),
   });
 
-  const selectedBase = form.watch("base");
+  const selectedBase = form.watch('base');
   const isBaseLocked = locks.includes(`catalog_sync_${selectedBase}`);
 
   const queryClient = useQueryClient();
 
   const mutation = useMutation({
     mutationFn: (values: FormValues) =>
-      apiClient.post("/catalog-records/sync", {
+      apiClient.post('/catalog-records/sync', {
         base: values.base,
         from_date: values.from_date || null,
       }),
-    onSuccess: () => form.reset({ base: configuredBases[0] ?? "", from_date: "" }),
+    onSuccess: () => form.reset({ base: configuredBases[0] ?? '', from_date: '' }),
     onError: (error: AxiosError) => {
       if (error.response?.status === 409) {
-        queryClient.invalidateQueries({ queryKey: ["system", "locks"] });
-        toast.warning(t("addition.sync.locked"));
+        queryClient.invalidateQueries({ queryKey: ['system', 'locks'] });
+        toast.warning(t('addition.sync.locked'));
       } else {
-        toast.error(t("common:error"));
+        toast.error(t('common:error'));
       }
     },
   });
@@ -80,12 +80,12 @@ export function SyncForm() {
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">{t("addition.sync.title")}</CardTitle>
+        <CardTitle className="text-base">{t('addition.sync.title')}</CardTitle>
       </CardHeader>
       <CardContent>
         <Form {...form}>
           <form
-            onSubmit={form.handleSubmit((v) => mutation.mutate(v))}
+            onSubmit={form.handleSubmit(v => mutation.mutate(v))}
             className="flex items-end gap-4"
           >
             <FormField
@@ -93,7 +93,7 @@ export function SyncForm() {
               name="base"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("addition.sync.base")}</FormLabel>
+                  <FormLabel>{t('addition.sync.base')}</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger className="w-32">
@@ -101,7 +101,7 @@ export function SyncForm() {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {configuredBases.map((base) => (
+                      {configuredBases.map(base => (
                         <SelectItem key={base} value={base}>
                           {base}
                         </SelectItem>
@@ -117,7 +117,7 @@ export function SyncForm() {
               name="from_date"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("addition.sync.from-date")}</FormLabel>
+                  <FormLabel>{t('addition.sync.from-date')}</FormLabel>
                   <FormControl>
                     <Input type="date" {...field} className="w-48" />
                   </FormControl>
@@ -126,7 +126,7 @@ export function SyncForm() {
               )}
             />
             <Button type="submit" disabled={mutation.isPending || isBaseLocked}>
-              {isBaseLocked ? t("addition.sync.locked") : t("addition.sync.submit")}
+              {isBaseLocked ? t('addition.sync.locked') : t('addition.sync.submit')}
             </Button>
           </form>
         </Form>

@@ -1,15 +1,12 @@
-import { useEffect } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { useMutation } from "@tanstack/react-query";
-import { useTranslation } from "react-i18next";
-import { toast } from "sonner";
-import apiClient from "@/lib/api-client";
-import { useConfiguredBases } from "@/hooks/use-system-info";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation } from '@tanstack/react-query';
+import { useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
+import { z } from 'zod';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Form,
   FormControl,
@@ -17,14 +14,17 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form";
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from '@/components/ui/select';
+import { useConfiguredBases } from '@/hooks/use-system-info';
+import apiClient from '@/lib/api-client';
 
 const schema = z.object({
   base: z.string().min(1),
@@ -34,36 +34,36 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>;
 
 export function FetchSingleForm() {
-  const { t } = useTranslation("records");
+  const { t } = useTranslation('records');
 
   const configuredBases = useConfiguredBases();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { base: configuredBases[0] ?? "", system_number: "" },
+    defaultValues: { base: configuredBases[0] ?? '', system_number: '' },
   });
 
   useEffect(() => {
-    if (configuredBases.length > 0 && !form.getValues("base")) {
-      form.reset({ base: configuredBases[0], system_number: "" });
+    if (configuredBases.length > 0 && !form.getValues('base')) {
+      form.reset({ base: configuredBases[0], system_number: '' });
     }
   }, [configuredBases, form]);
 
   const mutation = useMutation({
-    mutationFn: (data: FormValues) => apiClient.post("/catalog-records/fetch", data),
-    onSuccess: () => form.reset({ base: configuredBases[0] ?? "", system_number: "" }),
-    onError: () => toast.error(t("common:error")),
+    mutationFn: (data: FormValues) => apiClient.post('/catalog-records/fetch', data),
+    onSuccess: () => form.reset({ base: configuredBases[0] ?? '', system_number: '' }),
+    onError: () => toast.error(t('common:error')),
   });
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">{t("addition.fetch-single.title")}</CardTitle>
+        <CardTitle className="text-base">{t('addition.fetch-single.title')}</CardTitle>
       </CardHeader>
       <CardContent>
         <Form {...form}>
           <form
-            onSubmit={form.handleSubmit((v) => mutation.mutate(v))}
+            onSubmit={form.handleSubmit(v => mutation.mutate(v))}
             className="flex items-end gap-4"
           >
             <FormField
@@ -71,7 +71,7 @@ export function FetchSingleForm() {
               name="base"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("addition.fetch-single.base")}</FormLabel>
+                  <FormLabel>{t('addition.fetch-single.base')}</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger className="w-32">
@@ -79,7 +79,7 @@ export function FetchSingleForm() {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {configuredBases.map((base) => (
+                      {configuredBases.map(base => (
                         <SelectItem key={base} value={base}>
                           {base}
                         </SelectItem>
@@ -95,7 +95,7 @@ export function FetchSingleForm() {
               name="system_number"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("addition.fetch-single.system-number")}</FormLabel>
+                  <FormLabel>{t('addition.fetch-single.system-number')}</FormLabel>
                   <FormControl>
                     <Input {...field} className="w-48" />
                   </FormControl>
@@ -104,7 +104,7 @@ export function FetchSingleForm() {
               )}
             />
             <Button type="submit" disabled={mutation.isPending}>
-              {t("addition.fetch-single.submit")}
+              {t('addition.fetch-single.submit')}
             </Button>
           </form>
         </Form>

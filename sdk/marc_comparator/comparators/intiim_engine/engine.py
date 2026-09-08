@@ -404,7 +404,7 @@ def _match_tag_pattern(tag: str, pattern: str) -> bool:
         return False
     tag = str(tag or "").upper()
     if len(pattern) == len(tag) == 3:
-        return all((pc == "X" or pc == tc) for tc, pc in zip(tag, pattern))
+        return all((pc == "X" or pc == tc) for tc, pc in zip(tag, pattern, strict=True))
     return tag == pattern
 
 

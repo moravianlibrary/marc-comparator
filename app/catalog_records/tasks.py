@@ -137,11 +137,11 @@ def save_record_snippet(
     record: MarcRecord,
 ) -> CatalogRecord:
     """Save catalog record metadata and MARC bytes (single-record upsert)."""
-    from adapters.marc_sectors import read_marc, upsert_record_in_sector
+    from adapters.marc_sectors import marc_bytes_of, read_marc, upsert_record_in_sector
 
     old_marc = read_marc(ctx.db_session, base, system_number)
     catalog_record = save_record_metadata(ctx, base, system_number, record)
-    upsert_record_in_sector(ctx.db_session, base, system_number, record._marc)
+    upsert_record_in_sector(ctx.db_session, base, system_number, marc_bytes_of(record))
 
     if old_marc is not None and old_marc != record._marc:
         catalog_record.processed_at = None
@@ -173,7 +173,7 @@ async def fetch_record_task(task_id: str) -> None:
 
 
 async def fetch_batch_of_records_task(task_id: str) -> None:
-    from adapters.marc_sectors import SectorBuffer
+    from adapters.marc_sectors import SectorBuffer, marc_bytes_of
 
     async with ManagedTask(task_id=task_id) as ctx:
         data = FetchBatchOfRecordsData.model_validate(ctx.task.data)
@@ -208,8 +208,10 @@ async def fetch_batch_of_records_task(task_id: str) -> None:
                         ctx.db_session, base, system_number
                     )
                     old_marc = read_marc(ctx.db_session, base, system_number) if existing else None
-                    catalog_record = save_record_metadata(ctx, base, system_number, record, existing)
-                    buffer.add(base, system_number, record._marc)
+                    catalog_record = save_record_metadata(
+                        ctx, base, system_number, record, existing
+                    )
+                    buffer.add(base, system_number, marc_bytes_of(record))
 
                     if old_marc is not None and old_marc != record._marc:
                         catalog_record.processed_at = None
@@ -230,7 +232,7 @@ async def fetch_batch_of_records_task(task_id: str) -> None:
 
 
 async def records_sync_task(task_id: str, lock_key: str, lock_blocking_timeout: int):
-    from adapters.marc_sectors import SectorBuffer
+    from adapters.marc_sectors import SectorBuffer, marc_bytes_of
 
     async with ManagedTask(
         task_id=task_id,
@@ -279,9 +281,11 @@ async def records_sync_task(task_id: str, lock_key: str, lock_blocking_timeout: 
                 else:
                     from adapters.marc_sectors import read_marc
 
-                    old_marc = read_marc(ctx.db_session, base, system_number) if catalog_record else None
+                    old_marc = (
+                        read_marc(ctx.db_session, base, system_number) if catalog_record else None
+                    )
                     cr = save_record_metadata(ctx, base, system_number, record, catalog_record)
-                    buffer.add(base, system_number, record._marc)
+                    buffer.add(base, system_number, marc_bytes_of(record))
 
                     if old_marc is not None and old_marc != record._marc:
                         cr.processed_at = None

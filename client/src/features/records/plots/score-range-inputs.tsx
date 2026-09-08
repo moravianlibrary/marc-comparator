@@ -1,5 +1,5 @@
-import { useRef } from "react";
-import { Input } from "@/components/ui/input";
+import { useRef } from 'react';
+import { Input } from '@/components/ui/input';
 
 interface ScoreRangeInputsProps {
   scoreMin: number;
@@ -14,16 +14,22 @@ export function ScoreRangeInputs({ scoreMin, scoreMax, onChange }: ScoreRangeInp
   function handleSubmit() {
     const rawMin = Number(minRef.current?.value);
     const rawMax = Number(maxRef.current?.value);
-    if (Number.isNaN(rawMin) || Number.isNaN(rawMax)) return;
+    if (Number.isNaN(rawMin) || Number.isNaN(rawMax)) {
+      return;
+    }
     const clampedMin = Math.max(0, Math.min(rawMin, 100));
     const clampedMax = Math.max(clampedMin, Math.min(rawMax, 100));
-    if (minRef.current) minRef.current.value = String(clampedMin);
-    if (maxRef.current) maxRef.current.value = String(clampedMax);
+    if (minRef.current) {
+      minRef.current.value = String(clampedMin);
+    }
+    if (maxRef.current) {
+      maxRef.current.value = String(clampedMax);
+    }
     onChange(clampedMin / 100, clampedMax / 100);
   }
 
   function handleKeyDown(e: React.KeyboardEvent) {
-    if (e.key === "Enter") {
+    if (e.key === 'Enter') {
       e.preventDefault();
       handleSubmit();
       (e.target as HTMLInputElement).blur();

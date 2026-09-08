@@ -1,7 +1,10 @@
+from datetime import datetime
+from uuid import UUID as StdUUID
 from uuid import uuid4
 
-from sqlalchemy import TIMESTAMP, Column, ForeignKey, Index, Integer, String, func
+from sqlalchemy import TIMESTAMP, ForeignKey, Index, Integer, String, func
 from sqlalchemy.dialects.postgresql import JSONB, UUID
+from sqlalchemy.orm import Mapped, mapped_column
 
 from adapters.database import Base, DatabaseSession
 
@@ -9,12 +12,12 @@ from adapters.database import Base, DatabaseSession
 class ResultSnapshot(Base):
     __tablename__ = "result_snapshots"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    record_id = Column(String, ForeignKey("catalog_records.id"), nullable=False)
-    aspect_name = Column(String, nullable=False)
-    version = Column(Integer, nullable=False)
-    data = Column(JSONB, nullable=False)
-    created_at = Column(TIMESTAMP, nullable=False, default=func.now())
+    id: Mapped[StdUUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    record_id: Mapped[str] = mapped_column(String, ForeignKey("catalog_records.id"))
+    aspect_name: Mapped[str] = mapped_column(String)
+    version: Mapped[int] = mapped_column(Integer)
+    data: Mapped[dict] = mapped_column(JSONB)
+    created_at: Mapped[datetime] = mapped_column(TIMESTAMP, default=func.now())
 
     __table_args__ = (Index("ix_result_snapshots_lookup", "record_id", "aspect_name"),)
 

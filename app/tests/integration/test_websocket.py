@@ -1,6 +1,9 @@
+from uuid import UUID
+
 import pytest
 from fastapi import FastAPI
 from starlette.testclient import TestClient
+from starlette.websockets import WebSocketDisconnect
 
 from adapters.lock_server import one_at_a_time_lock
 from tests.conftest import FAKE_USER_ID
@@ -14,17 +17,21 @@ _ws_test_app.include_router(ws_router)
 class TestWebSocketAuth:
     @pytest.mark.asyncio
     async def test_connect_without_token_rejected(self, db_session):
-        with TestClient(_ws_test_app) as client:
-            with pytest.raises(Exception):
-                with client.websocket_connect("/ws"):
-                    pass
+        with (
+            TestClient(_ws_test_app) as client,
+            pytest.raises(WebSocketDisconnect),
+            client.websocket_connect("/ws"),
+        ):
+            pass
 
     @pytest.mark.asyncio
     async def test_connect_with_invalid_token_rejected(self, db_session):
-        with TestClient(_ws_test_app) as client:
-            with pytest.raises(Exception):
-                with client.websocket_connect("/ws", cookies={"access_token": "invalid"}):
-                    pass
+        with (
+            TestClient(_ws_test_app) as client,
+            pytest.raises(WebSocketDisconnect),
+            client.websocket_connect("/ws", cookies={"access_token": "invalid"}),
+        ):
+            pass
 
     @pytest.mark.asyncio
     async def test_connect_with_valid_token(self, db_session, user):
@@ -32,11 +39,13 @@ class TestWebSocketAuth:
 
         from auth.service import create_access_token
 
-        token = create_access_token("admin@example.com", FAKE_USER_ID, timedelta(minutes=5))
+        token = create_access_token("admin@example.com", UUID(FAKE_USER_ID), timedelta(minutes=5))
 
-        with TestClient(_ws_test_app) as client:
-            with client.websocket_connect("/ws", cookies={"access_token": token}) as ws:
-                assert ws is not None
+        with (
+            TestClient(_ws_test_app) as client,
+            client.websocket_connect("/ws", cookies={"access_token": token}) as ws,
+        ):
+            assert ws is not None
 
 
 class TestGetLocksEndpoint:

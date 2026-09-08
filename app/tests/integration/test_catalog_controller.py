@@ -1,3 +1,6 @@
+from typing import cast
+from unittest.mock import Mock
+
 import pytest
 from aleph_nought import RecordStatus
 from aleph_nought.oai.client import ListRecordResponse
@@ -7,7 +10,7 @@ from adapters.aleph_client_registry import AlephClientRegistry
 from adapters.database import DatabaseSession
 from catalog_records.analytics import upsert_records
 from entities.catalog_record import CatalogRecord
-from entities.task import Task
+from entities.task import Task, TaskType
 from tests.conftest import (
     assert_response,
     create_catalog_record,
@@ -85,11 +88,11 @@ class TestTasks:
         db_session: DatabaseSession,
         lock_server_client,
         user,
-        aleph_client_registry: AlephClientRegistry,
+        aleph_client_registry: type[AlephClientRegistry],
         fake_task: Task,
     ):
         test_record = load_test_record("MZK01-001217709.mrc")
-        client = aleph_client_registry.get("TEST")
+        client = cast(Mock, aleph_client_registry.get("TEST"))
         client.OAI.is_available.return_value = True
         client.OAI.get_record.return_value = test_record
 
@@ -112,10 +115,10 @@ class TestTasks:
         db_session: DatabaseSession,
         lock_server_client,
         user,
-        aleph_client_registry: AlephClientRegistry,
+        aleph_client_registry: type[AlephClientRegistry],
         fake_task: Task,
     ):
-        client = aleph_client_registry.get("TEST")
+        client = cast(Mock, aleph_client_registry.get("TEST"))
         client.OAI.is_available.return_value = True
         client.OAI.get_record.return_value = None
 
@@ -132,10 +135,10 @@ class TestTasks:
         db_session: DatabaseSession,
         lock_server_client,
         user,
-        aleph_client_registry: AlephClientRegistry,
+        aleph_client_registry: type[AlephClientRegistry],
         fake_task: Task,
     ):
-        client = aleph_client_registry.get("TEST")
+        client = cast(Mock, aleph_client_registry.get("TEST"))
         client.OAI.is_available.return_value = False
 
         fake_task.data = {"base": "TEST", "system_number": "000000123"}
@@ -151,12 +154,12 @@ class TestTasks:
         db_session: DatabaseSession,
         lock_server_client,
         user,
-        aleph_client_registry: AlephClientRegistry,
+        aleph_client_registry: type[AlephClientRegistry],
         fake_task: Task,
     ):
         test_record_1 = load_test_record("MZK01-001217709.mrc")
         test_record_2 = load_test_record("MZK01-001217729.mrc")
-        client = aleph_client_registry.get("TEST")
+        client = cast(Mock, aleph_client_registry.get("TEST"))
         client.OAI.is_available.return_value = True
         client.OAI.list_records.return_value = [
             ListRecordResponse(
@@ -201,7 +204,7 @@ class TestTasks:
         db_session: DatabaseSession,
         lock_server_client,
         user,
-        aleph_client_registry: AlephClientRegistry,
+        aleph_client_registry: type[AlephClientRegistry],
         fake_task: Task,
     ):
         """Syncing a deleted record that exists locally should mark it deleted."""
@@ -211,7 +214,7 @@ class TestTasks:
         existing = create_catalog_record(db_session, "TEST", "000000123", test_record)
         assert existing.deleted is False
 
-        client = aleph_client_registry.get("TEST")
+        client = cast(Mock, aleph_client_registry.get("TEST"))
         client.OAI.is_available.return_value = True
         client.OAI.list_records.return_value = [
             ListRecordResponse("TEST", "000000123", RecordStatus.Deleted, None),
@@ -234,11 +237,11 @@ class TestTasks:
         db_session: DatabaseSession,
         lock_server_client,
         user,
-        aleph_client_registry: AlephClientRegistry,
+        aleph_client_registry: type[AlephClientRegistry],
         fake_task: Task,
     ):
         """Sync with a from_date should pass the formatted date to OAI."""
-        client = aleph_client_registry.get("TEST")
+        client = cast(Mock, aleph_client_registry.get("TEST"))
         client.OAI.is_available.return_value = True
         client.OAI.list_records.return_value = []
 
@@ -260,10 +263,10 @@ class TestTasks:
         db_session: DatabaseSession,
         lock_server_client,
         user,
-        aleph_client_registry: AlephClientRegistry,
+        aleph_client_registry: type[AlephClientRegistry],
         fake_task: Task,
     ):
-        client = aleph_client_registry.get("TEST")
+        client = cast(Mock, aleph_client_registry.get("TEST"))
         client.OAI.is_available.return_value = False
 
         fake_task.data = {"base": "TEST"}
@@ -282,17 +285,17 @@ class TestTasks:
         db_session: DatabaseSession,
         lock_server_client,
         user,
-        aleph_client_registry: AlephClientRegistry,
+        aleph_client_registry: type[AlephClientRegistry],
         fake_task: Task,
     ):
         test_record_1 = load_test_record("MZK01-001217709.mrc")
         test_record_2 = load_test_record("MZK01-001217729.mrc")
 
-        client = aleph_client_registry.get("TEST")
+        client = cast(Mock, aleph_client_registry.get("TEST"))
         client.OAI.is_available.return_value = True
         client.OAI.get_record.side_effect = [test_record_1, test_record_2]
 
-        fake_task.type = "FetchBatchOfRecords"
+        fake_task.type = TaskType.FetchBatchOfRecords
         fake_task.data = {
             "per_base": [
                 {"base": "TEST", "system_numbers": ["111", "222"]},
@@ -318,19 +321,19 @@ class TestTasks:
         db_session: DatabaseSession,
         lock_server_client,
         user,
-        aleph_client_registry: AlephClientRegistry,
+        aleph_client_registry: type[AlephClientRegistry],
         fake_task: Task,
     ):
         """Batch fetch where one record is None should skip it gracefully."""
         test_record = load_test_record("MZK01-001217709.mrc")
-        client = aleph_client_registry.get("TEST")
+        client = cast(Mock, aleph_client_registry.get("TEST"))
         client.OAI.is_available.return_value = True
         client.OAI.get_record.side_effect = [
             test_record,
             None,  # second record not found
         ]
 
-        fake_task.type = "FetchBatchOfRecords"
+        fake_task.type = TaskType.FetchBatchOfRecords
         fake_task.data = {
             "per_base": [
                 {"base": "TEST", "system_numbers": ["111", "222"]},
@@ -351,14 +354,14 @@ class TestTasks:
         db_session: DatabaseSession,
         lock_server_client,
         user,
-        aleph_client_registry: AlephClientRegistry,
+        aleph_client_registry: type[AlephClientRegistry],
         fake_task: Task,
     ):
         """Batch fetch when OAI is unavailable should skip that base."""
-        client = aleph_client_registry.get("TEST")
+        client = cast(Mock, aleph_client_registry.get("TEST"))
         client.OAI.is_available.return_value = False
 
-        fake_task.type = "FetchBatchOfRecords"
+        fake_task.type = TaskType.FetchBatchOfRecords
         fake_task.data = {
             "per_base": [
                 {"base": "TEST", "system_numbers": ["111"]},
@@ -378,15 +381,15 @@ class TestTasks:
         db_session: DatabaseSession,
         lock_server_client,
         user,
-        aleph_client_registry: AlephClientRegistry,
+        aleph_client_registry: type[AlephClientRegistry],
         fake_task: Task,
     ):
         """Batch fetch should handle per-record exceptions gracefully."""
-        client = aleph_client_registry.get("TEST")
+        client = cast(Mock, aleph_client_registry.get("TEST"))
         client.OAI.is_available.return_value = True
         client.OAI.get_record.side_effect = RuntimeError("Network error")
 
-        fake_task.type = "FetchBatchOfRecords"
+        fake_task.type = TaskType.FetchBatchOfRecords
         fake_task.data = {
             "per_base": [
                 {"base": "TEST", "system_numbers": ["111"]},

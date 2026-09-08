@@ -10,7 +10,7 @@ from .exceptions import (
     ProtectedRoleDeletionException,
     ProtectedRoleRenameException,
 )
-from .models import RoleSchema, UsersRequestParams
+from .models import EditRole, RoleSchema, UsersRequestParams
 
 
 def get_roles(params: PageRequestParams, db_session: DatabaseSession) -> Page[RoleSchema]:
@@ -26,7 +26,7 @@ def get_roles(params: PageRequestParams, db_session: DatabaseSession) -> Page[Ro
     )
 
 
-def create_role(role: RoleSchema, db_session: DatabaseSession) -> Role:
+def create_role(role: EditRole, db_session: DatabaseSession) -> Role:
     db_role = Role(
         name=role.name,
         permissions=resolve_permissions(role.permissions),
@@ -34,7 +34,7 @@ def create_role(role: RoleSchema, db_session: DatabaseSession) -> Role:
     return db_role.save(db_session)
 
 
-def update_role(role_id: int, role: RoleSchema, db_session: DatabaseSession) -> Role:
+def update_role(role_id: int, role: EditRole, db_session: DatabaseSession) -> Role:
     db_role = Role.get(db_session, role_id)
 
     if db_role.immutable:
@@ -67,7 +67,7 @@ def get_users(params: UsersRequestParams, db_session: DatabaseSession) -> Page[U
 
     return Page[UserSchema](
         items=[
-            UserSchema.model_validate(u, from_attributes=True).model_dump(mode="json")
+            UserSchema.model_validate(u, from_attributes=True)
             for u in query_base.offset((params.page - 1) * params.page_size)
             .limit(params.page_size)
             .all()

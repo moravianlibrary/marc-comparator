@@ -1,21 +1,21 @@
-import { useTranslation } from "react-i18next";
-import { useSettingsForm } from "./use-settings-form";
-import { maintenanceSettingsSchema } from "./schemas";
-import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useTranslation } from 'react-i18next';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
-  FormDescription,
   FormMessage,
-} from "@/components/ui/form";
-import { HelpDialog } from "./help-dialog";
-import { MaintenanceHelp } from "./help-content";
-import type { MaintenanceSettings } from "@/types/settings";
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { Switch } from '@/components/ui/switch';
+import type { MaintenanceSettings } from '@/types/settings';
+import { MaintenanceHelp } from './help-content';
+import { HelpDialog } from './help-dialog';
+import { maintenanceSettingsSchema } from './schemas';
+import { useSettingsForm } from './use-settings-form';
 
 interface Props {
   data: MaintenanceSettings;
@@ -25,7 +25,7 @@ interface Props {
 }
 
 export function MaintenanceSettingsForm({ data, onDirtyChange, onFormRef, onSubmit }: Props) {
-  const { t } = useTranslation("settings");
+  const { t } = useTranslation('settings');
 
   const form = useSettingsForm({
     schema: maintenanceSettingsSchema,
@@ -40,14 +40,14 @@ export function MaintenanceSettingsForm({ data, onDirtyChange, onFormRef, onSubm
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <Card>
           <CardHeader className="flex flex-row items-center gap-2">
-            <CardTitle className="text-base">{t("types.maintenance")}</CardTitle>
+            <CardTitle className="text-base">{t('types.maintenance')}</CardTitle>
             <HelpDialog titleKey="types.maintenance">
               <MaintenanceHelp />
             </HelpDialog>
           </CardHeader>
           <CardContent className="max-w-md space-y-6">
             <div className="space-y-4">
-              <h3 className="text-sm font-medium">{t("maintenance.task-cleanup.title")}</h3>
+              <h3 className="text-sm font-medium">{t('maintenance.task-cleanup.title')}</h3>
 
               <FormField
                 control={form.control}
@@ -57,7 +57,7 @@ export function MaintenanceSettingsForm({ data, onDirtyChange, onFormRef, onSubm
                     <FormControl>
                       <Switch checked={field.value} onCheckedChange={field.onChange} />
                     </FormControl>
-                    <FormLabel>{t("maintenance.enabled")}</FormLabel>
+                    <FormLabel>{t('maintenance.enabled')}</FormLabel>
                   </FormItem>
                 )}
               />
@@ -67,13 +67,13 @@ export function MaintenanceSettingsForm({ data, onDirtyChange, onFormRef, onSubm
                 name="task_cleanup.interval_hours"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{t("maintenance.interval-hours")}</FormLabel>
-                    <FormDescription>{t("maintenance.interval-hours-description")}</FormDescription>
+                    <FormLabel>{t('maintenance.interval-hours')}</FormLabel>
+                    <FormDescription>{t('maintenance.interval-hours-description')}</FormDescription>
                     <FormControl>
                       <Input
                         type="number"
                         {...field}
-                        onChange={(e) => field.onChange(Number(e.target.value))}
+                        onChange={e => field.onChange(Number(e.target.value))}
                       />
                     </FormControl>
                     <FormMessage />
@@ -86,13 +86,13 @@ export function MaintenanceSettingsForm({ data, onDirtyChange, onFormRef, onSubm
                 name="task_cleanup_max_age_days"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{t("maintenance.max-age-days")}</FormLabel>
-                    <FormDescription>{t("maintenance.max-age-days-description")}</FormDescription>
+                    <FormLabel>{t('maintenance.max-age-days')}</FormLabel>
+                    <FormDescription>{t('maintenance.max-age-days-description')}</FormDescription>
                     <FormControl>
                       <Input
                         type="number"
                         {...field}
-                        onChange={(e) => field.onChange(Number(e.target.value))}
+                        onChange={e => field.onChange(Number(e.target.value))}
                       />
                     </FormControl>
                     <FormMessage />
@@ -102,7 +102,7 @@ export function MaintenanceSettingsForm({ data, onDirtyChange, onFormRef, onSubm
             </div>
 
             <div className="space-y-4">
-              <h3 className="text-sm font-medium">{t("maintenance.sector-compaction.title")}</h3>
+              <h3 className="text-sm font-medium">{t('maintenance.sector-compaction.title')}</h3>
 
               <FormField
                 control={form.control}
@@ -112,7 +112,7 @@ export function MaintenanceSettingsForm({ data, onDirtyChange, onFormRef, onSubm
                     <FormControl>
                       <Switch checked={field.value} onCheckedChange={field.onChange} />
                     </FormControl>
-                    <FormLabel>{t("maintenance.enabled")}</FormLabel>
+                    <FormLabel>{t('maintenance.enabled')}</FormLabel>
                   </FormItem>
                 )}
               />
@@ -122,13 +122,13 @@ export function MaintenanceSettingsForm({ data, onDirtyChange, onFormRef, onSubm
                 name="sector_compaction.interval_hours"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{t("maintenance.interval-hours")}</FormLabel>
-                    <FormDescription>{t("maintenance.interval-hours-description")}</FormDescription>
+                    <FormLabel>{t('maintenance.interval-hours')}</FormLabel>
+                    <FormDescription>{t('maintenance.interval-hours-description')}</FormDescription>
                     <FormControl>
                       <Input
                         type="number"
                         {...field}
-                        onChange={(e) => field.onChange(Number(e.target.value))}
+                        onChange={e => field.onChange(Number(e.target.value))}
                       />
                     </FormControl>
                     <FormMessage />
@@ -138,7 +138,7 @@ export function MaintenanceSettingsForm({ data, onDirtyChange, onFormRef, onSubm
             </div>
 
             <div className="space-y-4">
-              <h3 className="text-sm font-medium">{t("maintenance.orphan-reaper.title")}</h3>
+              <h3 className="text-sm font-medium">{t('maintenance.orphan-reaper.title')}</h3>
 
               <FormField
                 control={form.control}
@@ -148,7 +148,7 @@ export function MaintenanceSettingsForm({ data, onDirtyChange, onFormRef, onSubm
                     <FormControl>
                       <Switch checked={field.value} onCheckedChange={field.onChange} />
                     </FormControl>
-                    <FormLabel>{t("maintenance.enabled")}</FormLabel>
+                    <FormLabel>{t('maintenance.enabled')}</FormLabel>
                   </FormItem>
                 )}
               />
@@ -158,13 +158,13 @@ export function MaintenanceSettingsForm({ data, onDirtyChange, onFormRef, onSubm
                 name="orphan_reaper.interval_hours"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{t("maintenance.interval-hours")}</FormLabel>
-                    <FormDescription>{t("maintenance.interval-hours-description")}</FormDescription>
+                    <FormLabel>{t('maintenance.interval-hours')}</FormLabel>
+                    <FormDescription>{t('maintenance.interval-hours-description')}</FormDescription>
                     <FormControl>
                       <Input
                         type="number"
                         {...field}
-                        onChange={(e) => field.onChange(Number(e.target.value))}
+                        onChange={e => field.onChange(Number(e.target.value))}
                       />
                     </FormControl>
                     <FormMessage />

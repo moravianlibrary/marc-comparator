@@ -1,17 +1,17 @@
-import { useMemo } from "react";
-import { useTranslation } from "react-i18next";
-import { PieChart, Pie, Cell } from "recharts";
-import { ChartContainer, ChartTooltip, type ChartConfig } from "@/components/ui/chart";
-import { FacetTooltip } from "./facet-tooltip";
-import { cn } from "@/lib/utils";
-import type { FacetBucket } from "../types";
+import { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
+import { Cell, Pie, PieChart } from 'recharts';
+import { type ChartConfig, ChartContainer, ChartTooltip } from '@/components/ui/chart';
+import { cn } from '@/lib/utils';
+import type { FacetBucket } from '../types';
+import { FacetTooltip } from './facet-tooltip';
 
 const COLORS = [
-  "var(--chart-1)",
-  "var(--chart-2)",
-  "var(--chart-3)",
-  "var(--chart-4)",
-  "var(--chart-5)",
+  'var(--chart-1)',
+  'var(--chart-2)',
+  'var(--chart-3)',
+  'var(--chart-4)',
+  'var(--chart-5)',
 ];
 
 interface DonutFacetProps {
@@ -36,7 +36,7 @@ export function DonutFacet({
   const { t } = useTranslation();
   const chartConfig = useMemo<ChartConfig>(
     () => ({
-      count: { label: t("common:chart.count") },
+      count: { label: t('common:chart.count') },
     }),
     [t],
   );
@@ -46,7 +46,7 @@ export function DonutFacet({
   const fmt = formatLabel ?? ((k: string) => k);
 
   const chartData = data.map((bucket, index) => {
-    const previewCount = previewData?.find((p) => p.key === bucket.key)?.count ?? 0;
+    const previewCount = previewData?.find(p => p.key === bucket.key)?.count ?? 0;
     return {
       key: bucket.key,
       name: fmt(bucket.key),
@@ -56,13 +56,15 @@ export function DonutFacet({
     };
   });
 
+  type ChartDatum = (typeof chartData)[number];
+
   const total = chartData.reduce((sum, d) => sum + d.count, 0);
   const previewTotal = isShowingPreview ? previewData.reduce((sum, b) => sum + b.count, 0) : 0;
 
   // Scale preview values relative to previewTotal so shadow tracks fill proportionally
   const previewChartData = isShowingPreview
     ? data.map((bucket, index) => {
-        const previewCount = previewData.find((p) => p.key === bucket.key)?.count ?? 0;
+        const previewCount = previewData.find(p => p.key === bucket.key)?.count ?? 0;
         const scaledValue = previewTotal > 0 ? (previewCount / previewTotal) * total : previewCount;
         return {
           key: bucket.key,
@@ -98,7 +100,7 @@ export function DonutFacet({
                 outerRadius={105}
                 isAnimationActive={false}
               >
-                {previewChartData.map((entry) => (
+                {previewChartData.map(entry => (
                   <Cell
                     key={`bg-${entry.name}`}
                     fill="color-mix(in oklch, var(--muted-foreground) 15%, transparent)"
@@ -116,14 +118,17 @@ export function DonutFacet({
               innerRadius={68}
               outerRadius={105}
               cursor="pointer"
-              onClick={(entry) => {
-                if (isShowingPreview && (entry as any).preview === 0) return;
-                onToggle((entry as any).key);
+              onClick={entry => {
+                const datum = entry as unknown as ChartDatum;
+                if (isShowingPreview && datum.preview === 0) {
+                  return;
+                }
+                onToggle(datum.key);
               }}
               onMouseEnter={(_, index) => onHover(chartData[index]!.key)}
               onMouseLeave={onLeave}
             >
-              {chartData.map((entry) => {
+              {chartData.map(entry => {
                 const isDisabledSegment =
                   isShowingPreview && !activeValues.includes(entry.key) && entry.preview === 0;
                 return (
@@ -137,7 +142,7 @@ export function DonutFacet({
                           ? 1
                           : 0.3
                     }
-                    cursor={isDisabledSegment ? "default" : "pointer"}
+                    cursor={isDisabledSegment ? 'default' : 'pointer'}
                   />
                 );
               })}
@@ -168,13 +173,14 @@ export function DonutFacet({
           const isDisabled = isShowingPreview && !isActive && entry.preview === 0;
           return (
             <button
+              type="button"
               key={entry.key}
               disabled={isDisabled}
               className={cn(
-                "flex items-center gap-2 transition-opacity text-left",
+                'flex items-center gap-2 transition-opacity text-left',
                 isDisabled
-                  ? "opacity-30 cursor-not-allowed"
-                  : activeValues.length > 0 && !isActive && "opacity-40",
+                  ? 'opacity-30 cursor-not-allowed'
+                  : activeValues.length > 0 && !isActive && 'opacity-40',
               )}
               onClick={() => onToggle(entry.key)}
               onMouseEnter={() => onHover(entry.key)}
@@ -186,13 +192,13 @@ export function DonutFacet({
               />
               <span className="whitespace-nowrap">{entry.name}</span>
               <span className="tabular-nums text-foreground">
-                {entry.count.toLocaleString("cs-CZ")}
+                {entry.count.toLocaleString('cs-CZ')}
               </span>
               <span
                 className="tabular-nums text-muted-foreground fade-toggle"
                 data-visible={isShowingPreview}
               >
-                {entry.preview.toLocaleString("cs-CZ")}
+                {entry.preview.toLocaleString('cs-CZ')}
               </span>
             </button>
           );

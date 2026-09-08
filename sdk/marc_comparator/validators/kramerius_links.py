@@ -399,26 +399,25 @@ class KrameriusLinksValidator(BaseValidator):
             field_index = result.target.field_index
 
             if reason == "missing_link_in_marc":
-                changes["additions"].append(
-                    {"u": self._make_url(params), "y": STANDARD_LINK_TEXT}
-                )
+                changes["additions"].append({"u": self._make_url(params), "y": STANDARD_LINK_TEXT})
             elif reason == "wrong_server_found":
                 if field_index is not None:
                     changes["removals"].add(field_index)
-                changes["additions"].append(
-                    {"u": self._make_url(params), "y": STANDARD_LINK_TEXT}
-                )
+                changes["additions"].append({"u": self._make_url(params), "y": STANDARD_LINK_TEXT})
             elif reason in ("wrong_path_found", "wrong_path_not_found"):
                 changes["modifications"].append(
-                    {"field_index": field_index, "action": "replace_u", "new_u": self._make_url(params)}
+                    {
+                        "field_index": field_index,
+                        "action": "replace_u",
+                        "new_u": self._make_url(params),
+                    }
                 )
             elif reason == "missing_link_text":
                 changes["modifications"].append(
                     {"field_index": field_index, "action": "add_y", "new_y": STANDARD_LINK_TEXT}
                 )
-            elif reason == "link_not_found":
-                if field_index is not None:
-                    changes["removals"].add(field_index)
+            elif reason == "link_not_found" and field_index is not None:
+                changes["removals"].add(field_index)
             # other reasons are not auto-repairable — leave the field as-is
         return changes
 
@@ -470,9 +469,7 @@ class KrameriusLinksValidator(BaseValidator):
         ind1 = field.ind1 or " "
         ind2 = field.ind2 or " "
         subfields = "".join(
-            f"$${code}{value}"
-            for code, values in field.subfields.items()
-            for value in values
+            f"$${code}{value}" for code, values in field.subfields.items() for value in values
         )
         return f"{sysno} {VALIDATION_FIELD.tag}{ind1}{ind2} L {subfields}"
 
@@ -488,9 +485,7 @@ class KrameriusLinksValidator(BaseValidator):
                 sysno = doc_number.zfill(9)
 
                 changes = self._build_changes(record.results)
-                if not (
-                    changes["modifications"] or changes["removals"] or changes["additions"]
-                ):
+                if not (changes["modifications"] or changes["removals"] or changes["additions"]):
                     # No repairable results for this record — leave it alone.
                     continue
 
@@ -501,16 +496,12 @@ class KrameriusLinksValidator(BaseValidator):
 
                 if final_fields:
                     for field in final_fields:
-                        seq_lines_by_base[record.base].append(
-                            self._field_to_seq_line(sysno, field)
-                        )
+                        seq_lines_by_base[record.base].append(self._field_to_seq_line(sysno, field))
                 else:
                     # Every 856 removed, none added — needs deletion.
                     delete_sysnos_by_base[record.base].append(sysno)
             except Exception as exc:  # noqa: BLE001 - report, don't abort the batch
-                errors.append(
-                    {"catalog_record_id": record.catalog_record_id, "error": str(exc)}
-                )
+                errors.append({"catalog_record_id": record.catalog_record_id, "error": str(exc)})
 
         report_files: list[ReportFile] = []
         for base, lines in sorted(seq_lines_by_base.items()):

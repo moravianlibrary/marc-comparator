@@ -1,13 +1,13 @@
-import { useTranslation } from "react-i18next";
-import { Trash2, BarChart3, Unlock, HardDrive, Search } from "lucide-react";
-import { MaintenanceActionCard } from "./maintenance-action-card";
+import { BarChart3, HardDrive, Search, Trash2, Unlock } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
+import { MaintenanceActionCard } from './maintenance-action-card';
 
 export function MaintenancePage() {
-  const { t } = useTranslation("maintenance");
+  const { t } = useTranslation('maintenance');
 
   return (
     <div className="space-y-6 animate-fade-in">
-      <h1 className="text-2xl font-semibold">{t("title")}</h1>
+      <h1 className="text-2xl font-semibold">{t('title')}</h1>
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
         <MaintenanceActionCard
           icon={Trash2}

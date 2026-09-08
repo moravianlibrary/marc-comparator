@@ -1,12 +1,12 @@
-import { useState } from "react";
-import { useTranslation } from "react-i18next";
-import { FacetChart } from "./facet-chart";
-import { BarFacet } from "./bar-facet";
-import { HistogramFacet } from "./histogram-facet";
-import { RadialQuality } from "./radial-quality";
-import { ScoreRangeInputs } from "./score-range-inputs";
-import type { FacetBucket, HistogramBucket } from "../types";
-import type { ChartId } from "./use-section-visibility";
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import type { FacetBucket, HistogramBucket } from '../types';
+import { BarFacet } from './bar-facet';
+import { FacetChart } from './facet-chart';
+import { HistogramFacet } from './histogram-facet';
+import { RadialQuality } from './radial-quality';
+import { ScoreRangeInputs } from './score-range-inputs';
+import type { ChartId } from './use-section-visibility';
 
 interface ComparisonSectionProps {
   isVisible: (chart: ChartId) => boolean;
@@ -39,7 +39,7 @@ export function ComparisonSection({
   scoreMax,
   onScoreRangeChange,
 }: ComparisonSectionProps) {
-  const { t } = useTranslation("records");
+  const { t } = useTranslation('records');
   const [showAllExplanations, setShowAllExplanations] = useState(false);
 
   const visibleExplanations = showAllExplanations
@@ -49,25 +49,25 @@ export function ComparisonSection({
   return (
     <section className="space-y-2">
       <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
-        {t("plots.sections.comparison")}
+        {t('plots.sections.comparison')}
       </h3>
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {isVisible("match_quality") && getBuckets("match_qualities").length > 0 && (
+        {isVisible('match_quality') && getBuckets('match_qualities').length > 0 && (
           <FacetChart
-            title={t("facet-fields.match_qualities")}
+            title={t('facet-fields.match_qualities')}
             facetField="match_qualities"
-            data={getBuckets("match_qualities")}
-            previewData={getPreviewBuckets("match_qualities")}
-            activeValues={getActiveValues("match_qualities")}
-            {...makeChartHandlers("match_qualities")}
+            data={getBuckets('match_qualities')}
+            previewData={getPreviewBuckets('match_qualities')}
+            activeValues={getActiveValues('match_qualities')}
+            {...makeChartHandlers('match_qualities')}
           >
-            {(chartProps) => <RadialQuality {...chartProps} />}
+            {chartProps => <RadialQuality {...chartProps} />}
           </FacetChart>
         )}
 
-        {isVisible("overall_score") && scoreHistogramBuckets.length > 0 && (
+        {isVisible('overall_score') && scoreHistogramBuckets.length > 0 && (
           <FacetChart
-            title={t("facet-fields.overall_score")}
+            title={t('facet-fields.overall_score')}
             facetField="overall_score"
             data={[]}
             activeValues={[]}
@@ -85,31 +85,31 @@ export function ComparisonSection({
             {() => (
               <HistogramFacet
                 data={scoreHistogramBuckets}
-                previewData={getPreviewHistogramBuckets("overall_score")}
+                previewData={getPreviewHistogramBuckets('overall_score')}
               />
             )}
           </FacetChart>
         )}
 
-        {isVisible("field_explanations") && explanationBuckets.length > 0 && (
+        {isVisible('field_explanations') && explanationBuckets.length > 0 && (
           <FacetChart
-            title={t("facet-fields.field_explanations")}
+            title={t('facet-fields.field_explanations')}
             facetField="field_explanations"
             className="md:col-span-2 xl:col-span-1"
             data={visibleExplanations}
-            previewData={getPreviewBuckets("field_explanations")}
-            activeValues={getActiveValues("field_explanations")}
-            {...makeChartHandlers("field_explanations")}
+            previewData={getPreviewBuckets('field_explanations')}
+            activeValues={getActiveValues('field_explanations')}
+            {...makeChartHandlers('field_explanations')}
           >
-            {(chartProps) => {
+            {chartProps => {
               const rawByTranslated = new Map(
-                chartProps.data.map((b) => [t(`field-explanation.${b.key}`, b.key), b.key]),
+                chartProps.data.map(b => [t(`field-explanation.${b.key}`, b.key), b.key]),
               );
-              const translatedData = chartProps.data.map((b) => ({
+              const translatedData = chartProps.data.map(b => ({
                 ...b,
                 key: t(`field-explanation.${b.key}`, b.key),
               }));
-              const translatedPreview = chartProps.previewData?.map((b) => ({
+              const translatedPreview = chartProps.previewData?.map(b => ({
                 ...b,
                 key: t(`field-explanation.${b.key}`, b.key),
               }));
@@ -118,13 +118,11 @@ export function ComparisonSection({
                   <BarFacet
                     data={translatedData}
                     previewData={translatedPreview}
-                    activeValues={chartProps.activeValues.map((v) =>
-                      t(`field-explanation.${v}`, v),
-                    )}
-                    onToggle={(translated) =>
+                    activeValues={chartProps.activeValues.map(v => t(`field-explanation.${v}`, v))}
+                    onToggle={translated =>
                       chartProps.onToggle(rawByTranslated.get(translated) ?? translated)
                     }
-                    onHover={(translated) =>
+                    onHover={translated =>
                       chartProps.onHover(rawByTranslated.get(translated) ?? translated)
                     }
                     onLeave={chartProps.onLeave}
@@ -132,10 +130,11 @@ export function ComparisonSection({
                   />
                   {explanationBuckets.length > 10 && (
                     <button
+                      type="button"
                       className="text-xs text-muted-foreground hover:text-foreground mt-2"
                       onClick={() => setShowAllExplanations(!showAllExplanations)}
                     >
-                      {showAllExplanations ? t("plots.show-less") : t("plots.show-all")}
+                      {showAllExplanations ? t('plots.show-less') : t('plots.show-all')}
                     </button>
                   )}
                 </div>

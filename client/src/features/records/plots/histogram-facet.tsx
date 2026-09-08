@@ -1,7 +1,11 @@
-import { BarChart, Bar, XAxis, YAxis, Rectangle } from "recharts";
-import { ChartContainer, ChartTooltip, type ChartConfig } from "@/components/ui/chart";
-import { FacetTooltip } from "./facet-tooltip";
-import type { HistogramBucket } from "../types";
+import { Bar, BarChart, Rectangle, type RectangleProps, XAxis, YAxis } from 'recharts';
+
+/** Bar `shape` render prop — recharts passes the bound datum along as `payload`. */
+type ScoreBarProps = RectangleProps & { payload?: { min: number } };
+
+import { type ChartConfig, ChartContainer, ChartTooltip } from '@/components/ui/chart';
+import type { HistogramBucket } from '../types';
+import { FacetTooltip } from './facet-tooltip';
 
 interface HistogramFacetProps {
   data: HistogramBucket[];
@@ -9,14 +13,18 @@ interface HistogramFacetProps {
 }
 
 const chartConfig = {
-  preview: { label: "Preview", color: "var(--chart-1)" },
-  remainder: { label: "Remainder", color: "var(--chart-1)" },
+  preview: { label: 'Preview', color: 'var(--chart-1)' },
+  remainder: { label: 'Remainder', color: 'var(--chart-1)' },
 } satisfies ChartConfig;
 
 function getScoreColor(min: number): string {
-  if (min >= 0.9) return "var(--status-success)";
-  if (min >= 0.7) return "var(--status-warning)";
-  return "var(--status-danger)";
+  if (min >= 0.9) {
+    return 'var(--status-success)';
+  }
+  if (min >= 0.7) {
+    return 'var(--status-warning)';
+  }
+  return 'var(--status-danger)';
 }
 
 function normalizeBuckets(raw: HistogramBucket[]): HistogramBucket[] {
@@ -50,9 +58,9 @@ export function HistogramFacet({ data, previewData }: HistogramFacetProps) {
   const chartData = normalized.map((bucket, index) => {
     let range: string;
     if (bucket.min === 1.0) {
-      range = "100%";
+      range = '100%';
     } else if (bucket.min === 0.95) {
-      range = "95–<100%";
+      range = '95–<100%';
     } else {
       range = `${(bucket.min * 100).toFixed(0)}–${(bucket.max * 100).toFixed(0)}%`;
     }
@@ -83,16 +91,18 @@ export function HistogramFacet({ data, previewData }: HistogramFacetProps) {
           dataKey="preview"
           stackId="score"
           radius={isShowingPreview ? [0, 0, 0, 0] : [4, 4, 0, 0]}
-          shape={(props: any) => <Rectangle {...props} fill={getScoreColor(props.payload.min)} />}
+          shape={(props: ScoreBarProps) => (
+            <Rectangle {...props} fill={getScoreColor(props.payload!.min)} />
+          )}
         />
         <Bar
           dataKey="remainder"
           stackId="score"
           radius={[4, 4, 0, 0]}
-          shape={(props: any) => (
+          shape={(props: ScoreBarProps) => (
             <Rectangle
               {...props}
-              fill={getScoreColor(props.payload.min)}
+              fill={getScoreColor(props.payload!.min)}
               opacity={isShowingPreview ? 0.3 : 1}
             />
           )}

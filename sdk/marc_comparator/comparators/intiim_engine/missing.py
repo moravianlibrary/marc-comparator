@@ -24,6 +24,4 @@ def is_missing_tracked(tag: str, code: str | None) -> bool:
     key = (tag, code)
     if key in TRACK_MISSING_SUBFIELDS:
         return True
-    if (tag, None) in TRACK_MISSING_SUBFIELDS:
-        return True
-    return False
+    return (tag, None) in TRACK_MISSING_SUBFIELDS

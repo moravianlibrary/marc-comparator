@@ -1,4 +1,4 @@
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 from httpx import AsyncClient
@@ -112,7 +112,7 @@ class TestSystemInfoEndpoint:
                 }
             ]
         }
-        Settings.save(
+        Settings.upsert(
             db_session,
             SettingsScope.Catalog,
             CatalogSettings.model_validate(catalog_data),
@@ -135,7 +135,7 @@ class TestSystemInfoEndpoint:
         from validation.models import ValidationSettings
 
         test_settings = load_test_json("validation_settings.json")
-        Settings.save(
+        Settings.upsert(
             db_session,
             SettingsScope.Validation,
             ValidationSettings.model_validate(test_settings),
@@ -189,7 +189,7 @@ class TestSystemServiceUnit:
         from system.service import get_enabled_authority_linkers
 
         test_settings = load_test_json("authority_linking_settings.json")
-        Settings.save(
+        Settings.upsert(
             db_session,
             SettingsScope.AuthorityLinking,
             AuthorityLinkingSettings.model_validate(test_settings),
@@ -200,6 +200,9 @@ class TestSystemServiceUnit:
         with patch("system.service.AUTHORITY_LINKER_DISPATCHER") as mock_dispatcher:
             mock_linker_cls = AsyncMock()
             mock_linker_cls.get_target_bases = AsyncMock(return_value=["MZK01", "MZK03"])
+            # config_model.model_validate is sync — as an AsyncMock child it would
+            # return an un-awaited coroutine and that would be passed as the config.
+            mock_linker_cls.config_model = MagicMock()
             mock_linker_cls.config_model.model_validate.return_value = object()
             mock_dispatcher.get.return_value = mock_linker_cls
 
@@ -213,7 +216,7 @@ class TestSystemServiceUnit:
         from validation.models import ValidationSettings
 
         test_settings = load_test_json("validation_settings.json")
-        Settings.save(
+        Settings.upsert(
             db_session,
             SettingsScope.Validation,
             ValidationSettings.model_validate(test_settings),

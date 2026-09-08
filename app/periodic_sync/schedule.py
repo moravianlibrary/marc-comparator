@@ -34,9 +34,7 @@ def sync_periodic_sync_schedule(settings: PeriodicSyncSettings) -> None:
                 app=tasks_client,
             )
             entry.save()
-            logger.info(
-                f"Periodic sync '{name}' set to every {base_config.interval_hours}h"
-            )
+            logger.info(f"Periodic sync '{name}' set to every {base_config.interval_hours}h")
         else:
             try:
                 RedBeatSchedulerEntry.from_key(name, app=tasks_client).delete()

@@ -7,7 +7,7 @@ from . import UsedComparatorConfig
 
 
 class ComparisonSettings(SettingsSchema):
-    comparator: UsedComparatorConfig | None = Field(UsedComparatorConfig())
+    comparator: UsedComparatorConfig | None = Field(default=UsedComparatorConfig())
 
 
 class ComparisonTaskData(BaseModel):

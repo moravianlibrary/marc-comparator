@@ -1,3 +1,4 @@
+from typing import cast
 from unittest.mock import AsyncMock
 
 import pytest
@@ -12,13 +13,18 @@ from entities.role import Permission
 from ws.manager import Connection, ConnectionManager
 
 
-def make_connection(user_id: str, permissions: set = None) -> Connection:
+def make_connection(user_id: str, permissions: set[Permission] | None = None) -> Connection:
     ws = AsyncMock()
     return Connection(
         websocket=ws,
         user_id=user_id,
         permissions=permissions or set(),
     )
+
+
+def ws_of(connection: Connection) -> AsyncMock:
+    """The websocket on a test Connection is always the AsyncMock make_connection built."""
+    return cast(AsyncMock, connection.websocket)
 
 
 class TestConnectionManager:
@@ -56,8 +62,8 @@ class TestConnectionManager:
         )
         await manager.broadcast(event)
 
-        owner.websocket.send_text.assert_called_once()
-        other.websocket.send_text.assert_not_called()
+        ws_of(owner).send_text.assert_called_once()
+        ws_of(other).send_text.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_broadcast_task_status_to_admin(self):
@@ -75,7 +81,7 @@ class TestConnectionManager:
         )
         await manager.broadcast(event)
 
-        admin.websocket.send_text.assert_called_once()
+        ws_of(admin).send_text.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_broadcast_task_progress_to_owner_only(self):
@@ -88,8 +94,8 @@ class TestConnectionManager:
         event = TaskProgressEvent(task_id="t1", progress=0.5, created_by="user-1")
         await manager.broadcast(event)
 
-        owner.websocket.send_text.assert_called_once()
-        other.websocket.send_text.assert_not_called()
+        ws_of(owner).send_text.assert_called_once()
+        ws_of(other).send_text.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_broadcast_lock_event_to_all(self):
@@ -102,8 +108,8 @@ class TestConnectionManager:
         event = LockAcquiredEvent(lock_name="catalog_sync_MZK01")
         await manager.broadcast(event)
 
-        conn1.websocket.send_text.assert_called_once()
-        conn2.websocket.send_text.assert_called_once()
+        ws_of(conn1).send_text.assert_called_once()
+        ws_of(conn2).send_text.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_broadcast_lock_released_to_all(self):
@@ -114,13 +120,13 @@ class TestConnectionManager:
         event = LockReleasedEvent(lock_name="recreate-indexes")
         await manager.broadcast(event)
 
-        conn1.websocket.send_text.assert_called_once()
+        ws_of(conn1).send_text.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_dead_connection_removed_on_send_failure(self):
         manager = ConnectionManager()
         dead = make_connection("user-1")
-        dead.websocket.send_text.side_effect = Exception("connection closed")
+        ws_of(dead).send_text.side_effect = Exception("connection closed")
         alive = make_connection("user-2")
         manager.connect(dead)
         manager.connect(alive)

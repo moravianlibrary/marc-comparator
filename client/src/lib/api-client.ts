@@ -1,8 +1,8 @@
-import axios from "axios";
+import axios from 'axios';
 
 const apiClient = axios.create({
-  baseURL: "/api",
-  headers: { "Content-Type": "application/json" },
+  baseURL: '/api',
+  headers: { 'Content-Type': 'application/json' },
   withCredentials: true,
 });
 
@@ -25,7 +25,7 @@ function processQueue(error: unknown) {
 
 function dispatchApiError(status: number, url: string, message: string) {
   window.dispatchEvent(
-    new CustomEvent("api-error", {
+    new CustomEvent('api-error', {
       detail: {
         status,
         url,
@@ -38,7 +38,7 @@ function dispatchApiError(status: number, url: string, message: string) {
 
 async function isBackendHealthy(): Promise<boolean> {
   try {
-    const response = await axios.get("/api/system/health", { timeout: 3000 });
+    const response = await axios.get('/api/system/health', { timeout: 3000 });
     return response.status === 200;
   } catch {
     return false;
@@ -46,14 +46,14 @@ async function isBackendHealthy(): Promise<boolean> {
 }
 
 apiClient.interceptors.response.use(
-  (response) => response,
-  async (error) => {
+  response => response,
+  async error => {
     const originalRequest = error.config;
 
     if (
       error.response?.status === 401 &&
       !originalRequest._retry &&
-      !originalRequest.url?.endsWith("/auth/refresh")
+      !originalRequest.url?.endsWith('/auth/refresh')
     ) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
@@ -65,14 +65,14 @@ apiClient.interceptors.response.use(
       isRefreshing = true;
 
       try {
-        await apiClient.post("/auth/refresh");
+        await apiClient.post('/auth/refresh');
         processQueue(null);
         return apiClient(originalRequest);
       } catch (refreshError) {
         processQueue(refreshError);
         const currentPath = window.location.pathname;
-        if (currentPath !== "/login" && currentPath !== "/signup") {
-          window.location.href = "/login?redirect=" + encodeURIComponent(currentPath);
+        if (currentPath !== '/login' && currentPath !== '/signup') {
+          window.location.href = `/login?redirect=${encodeURIComponent(currentPath)}`;
         }
         return Promise.reject(refreshError);
       } finally {
@@ -82,8 +82,8 @@ apiClient.interceptors.response.use(
 
     if (error.response?.status === 401) {
       const currentPath = window.location.pathname;
-      if (currentPath !== "/login" && currentPath !== "/signup") {
-        window.location.href = "/login?redirect=" + encodeURIComponent(currentPath);
+      if (currentPath !== '/login' && currentPath !== '/signup') {
+        window.location.href = `/login?redirect=${encodeURIComponent(currentPath)}`;
       }
       return Promise.reject(error);
     }
@@ -92,12 +92,12 @@ apiClient.interceptors.response.use(
     const status = error.response?.status;
     if (status && status >= 400) {
       // Skip health check if the failing request is the health endpoint itself
-      const url = originalRequest.url || "";
-      if (!url.endsWith("/system/health")) {
+      const url = originalRequest.url || '';
+      if (!url.endsWith('/system/health')) {
         const healthy = await isBackendHealthy();
         if (!healthy) {
           const redirect = window.location.pathname + window.location.search;
-          window.location.href = "/service-unavailable?redirect=" + encodeURIComponent(redirect);
+          window.location.href = `/service-unavailable?redirect=${encodeURIComponent(redirect)}`;
           return Promise.reject(error);
         }
       }
@@ -106,7 +106,7 @@ apiClient.interceptors.response.use(
       // Skip 409 Conflict — these are business logic errors handled by the caller
       if (status !== 409) {
         const message =
-          error.response?.data?.detail || error.response?.statusText || "Unknown error";
+          error.response?.data?.detail || error.response?.statusText || 'Unknown error';
         dispatchApiError(status, url, message);
       }
     }

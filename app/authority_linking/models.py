@@ -10,7 +10,7 @@ from entities.settings import SettingsSchema
 
 class AuthorityLinkingSettings(SettingsSchema):
     knihovny_cz: KnihovnyCZLinkerConfig | None = Field(
-        KnihovnyCZLinkerConfig(), alias="knihovny-cz"
+        default=KnihovnyCZLinkerConfig(), alias="knihovny-cz"
     )
 
 

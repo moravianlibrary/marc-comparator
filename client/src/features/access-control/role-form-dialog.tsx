@@ -1,19 +1,16 @@
-import { useEffect } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useTranslation } from "react-i18next";
-import { roleSchema, type RoleFormValues } from "./schemas";
-import { Permission, togglePermission } from "@/types/permission";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Checkbox } from "@/components/ui/checkbox";
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
+import { Button } from '@/components/ui/button';
+import { Checkbox } from '@/components/ui/checkbox';
 import {
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
-} from "@/components/ui/dialog";
+} from '@/components/ui/dialog';
 import {
   Form,
   FormControl,
@@ -21,8 +18,11 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form";
-import type { Role } from "@/types/role";
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { Permission, togglePermission } from '@/types/permission';
+import type { Role } from '@/types/role';
+import { type RoleFormValues, roleSchema } from './schemas';
 
 interface RoleFormDialogProps {
   open: boolean;
@@ -34,28 +34,28 @@ interface RoleFormDialogProps {
 const ALL_PERMISSIONS = Object.values(Permission);
 
 export function RoleFormDialog({ open, onClose, onSubmit, role }: RoleFormDialogProps) {
-  const { t } = useTranslation("access-control");
+  const { t } = useTranslation('access-control');
 
   const form = useForm<RoleFormValues>({
     resolver: zodResolver(roleSchema),
     defaultValues: role
       ? { name: role.name, permissions: role.permissions }
-      : { name: "", permissions: [] },
+      : { name: '', permissions: [] },
   });
 
   useEffect(() => {
     if (open) {
       form.reset(
-        role ? { name: role.name, permissions: role.permissions } : { name: "", permissions: [] },
+        role ? { name: role.name, permissions: role.permissions } : { name: '', permissions: [] },
       );
     }
   }, [open, role, form]);
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+    <Dialog open={open} onOpenChange={o => !o && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{role ? t("roles.edit") : t("roles.create")}</DialogTitle>
+          <DialogTitle>{role ? t('roles.edit') : t('roles.create')}</DialogTitle>
         </DialogHeader>
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
@@ -64,7 +64,7 @@ export function RoleFormDialog({ open, onClose, onSubmit, role }: RoleFormDialog
               name="name"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("roles.fields.name")}</FormLabel>
+                  <FormLabel>{t('roles.fields.name')}</FormLabel>
                   <FormControl>
                     <Input {...field} disabled={role?.immutable} />
                   </FormControl>
@@ -77,15 +77,17 @@ export function RoleFormDialog({ open, onClose, onSubmit, role }: RoleFormDialog
               name="permissions"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("roles.fields.permissions")}</FormLabel>
+                  <FormLabel>{t('roles.fields.permissions')}</FormLabel>
                   <div className="grid grid-cols-2 gap-2">
-                    {ALL_PERMISSIONS.map((perm) => (
+                    {ALL_PERMISSIONS.map(perm => (
                       <label key={perm} className="flex items-center gap-2">
                         <Checkbox
                           checked={field.value.includes(perm)}
                           disabled={role?.immutable}
-                          onCheckedChange={(checked) => {
-                            field.onChange(togglePermission(field.value as Permission[], perm, !!checked));
+                          onCheckedChange={checked => {
+                            field.onChange(
+                              togglePermission(field.value as Permission[], perm, !!checked),
+                            );
                           }}
                         />
                         <span className="text-sm">{t(`permissions.${perm}`)}</span>
@@ -98,10 +100,10 @@ export function RoleFormDialog({ open, onClose, onSubmit, role }: RoleFormDialog
             />
             <DialogFooter>
               <Button type="button" variant="outline" onClick={onClose}>
-                {t("common:cancel")}
+                {t('common:cancel')}
               </Button>
               <Button type="submit" disabled={role?.immutable}>
-                {t("common:save")}
+                {t('common:save')}
               </Button>
             </DialogFooter>
           </form>

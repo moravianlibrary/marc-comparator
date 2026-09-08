@@ -46,9 +46,7 @@ def _count_total(db: Session, conditions: list[FilterCondition], query) -> int:
         return query.count()
 
     where, params = compile_conditions(conditions)
-    return (
-        db.execute(text(f"SELECT count(*) FROM {ANALYTICS_TABLE} {where}"), params).scalar() or 0
-    )
+    return db.execute(text(f"SELECT count(*) FROM {ANALYTICS_TABLE} {where}"), params).scalar() or 0
 
 
 def search_records(request: SearchRecordsRequest, db: Session) -> SearchRecordsResponse:

@@ -80,6 +80,6 @@ async def revoke_task(
 async def delete_tasks(
     current_user: CurrentUser,
     db_session: DatabaseSessionDep,
-    request: Annotated[DeleteTasksRequest, Body()] = DeleteTasksRequest(),
+    request: Annotated[DeleteTasksRequest, Body(default_factory=DeleteTasksRequest)],
 ):
     return await service.delete_tasks(current_user.user_id, db_session, request.max_age_days)

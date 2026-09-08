@@ -30,10 +30,10 @@ class ConnectionManager:
         self.connections.append(connection)
 
     def disconnect(self, connection: Connection) -> None:
-        try:
-            self.connections.remove(connection)
-        except ValueError:
-            pass
+        if connection not in self.connections:
+            return
+
+        self.connections.remove(connection)
 
     def _get_recipients(self, event: Event) -> list[Connection]:
         if isinstance(event, (TaskStatusEvent, TaskProgressEvent)):

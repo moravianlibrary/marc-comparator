@@ -1,10 +1,12 @@
+from datetime import datetime
 from enum import StrEnum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Self
+from uuid import UUID as StdUUID
 from uuid import uuid4
 
-from sqlalchemy import TIMESTAMP, Column, ForeignKey, Index, String, Text, func
+from sqlalchemy import TIMESTAMP, ForeignKey, Index, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import Mapped, relationship
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from adapters.database import Base, DatabaseSession
 
@@ -25,13 +27,15 @@ if TYPE_CHECKING:
 class RecordReview(Base, BaseOperationsMixin):
     __tablename__ = "record_reviews"
 
-    id = Column(UUID(as_uuid=True), primary_key=True, default=uuid4)
-    record_id = Column(String, ForeignKey("catalog_records.id"), nullable=False)
-    aspect_name = Column(String, nullable=False)
-    note = Column(Text, nullable=True)
-    reviewed_by = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
-    reviewed_at = Column(TIMESTAMP, nullable=False, default=func.now())
-    status = Column(String, nullable=False, default=ReviewStatus.Current)
+    id: Mapped[StdUUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid4)
+    record_id: Mapped[str] = mapped_column(String, ForeignKey("catalog_records.id"))
+    aspect_name: Mapped[str] = mapped_column(String)
+    note: Mapped[str | None] = mapped_column(Text)
+    reviewed_by: Mapped[StdUUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"))
+    reviewed_at: Mapped[datetime] = mapped_column(TIMESTAMP, default=func.now())
+
+    # Plain String column — ReviewStatus is only its default, so reads come back as str.
+    status: Mapped[str] = mapped_column(String, default=ReviewStatus.Current)
 
     __table_args__ = (
         Index(
@@ -61,7 +65,7 @@ class RecordReview(Base, BaseOperationsMixin):
         db_session: DatabaseSession,
         record_id: str,
         aspect_name: str,
-    ) -> "RecordReview | None":
+    ) -> Self | None:
         return (
             db_session.query(cls)
             .filter_by(
@@ -77,7 +81,7 @@ class RecordReview(Base, BaseOperationsMixin):
         cls,
         db_session: DatabaseSession,
         record_id: str,
-    ) -> list["RecordReview"]:
+    ) -> list[Self]:
         return (
             db_session.query(cls).filter_by(record_id=record_id, status=ReviewStatus.Current).all()
         )

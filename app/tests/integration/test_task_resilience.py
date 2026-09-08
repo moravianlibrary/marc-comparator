@@ -46,6 +46,7 @@ class TestPoisonGuard:
 
         db_session.expire_all()
         reloaded = db_session.get(Task, task_id)
+        assert reloaded is not None
         assert reloaded.status == TaskStatus.Failure
         assert reloaded.attempts == MAX_TASK_ATTEMPTS + 1
         assert "Poison message" in (reloaded.traceback or "")
@@ -62,6 +63,7 @@ class TestPoisonGuard:
 
         db_session.expire_all()
         reloaded = db_session.get(Task, task_id)
+        assert reloaded is not None
         assert reloaded.status == TaskStatus.Success
         assert reloaded.attempts == 1
 
@@ -80,8 +82,11 @@ class TestOrphanReaper:
 
     def test_stale_started_task_is_reaped(self, db_session, user, mocker):
         task = _make_task(
-            db_session, user, status=TaskStatus.Started,
-            started_at=self._stale(), heartbeat=self._stale(),
+            db_session,
+            user,
+            status=TaskStatus.Started,
+            started_at=self._stale(),
+            heartbeat=self._stale(),
         )
         task_id = task.task_id
         self._patch(mocker, db_session, active=None)  # no live workers
@@ -90,13 +95,17 @@ class TestOrphanReaper:
 
         db_session.expire_all()
         reloaded = db_session.get(Task, task_id)
+        assert reloaded is not None
         assert reloaded.status == TaskStatus.Failure
         assert "no heartbeat" in (reloaded.traceback or "")
 
     def test_fresh_heartbeat_task_is_not_reaped(self, db_session, user, mocker):
         task = _make_task(
-            db_session, user, status=TaskStatus.Started,
-            started_at=self._stale(), heartbeat=config.timestamp,
+            db_session,
+            user,
+            status=TaskStatus.Started,
+            started_at=self._stale(),
+            heartbeat=config.timestamp,
         )
         task_id = task.task_id
         self._patch(mocker, db_session, active=None)
@@ -110,8 +119,11 @@ class TestOrphanReaper:
         # Stale heartbeat but still executing on a worker -> both conditions
         # not met, so it must survive.
         task = _make_task(
-            db_session, user, status=TaskStatus.Started,
-            started_at=self._stale(), heartbeat=self._stale(),
+            db_session,
+            user,
+            status=TaskStatus.Started,
+            started_at=self._stale(),
+            heartbeat=self._stale(),
         )
         task_id = task.task_id
         active = {"worker@host": [{"id": str(task_id)}]}

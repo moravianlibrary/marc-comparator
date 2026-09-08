@@ -33,8 +33,10 @@ def get_marc_record(base: str, system_number: str, db_session: DatabaseSession) 
 
     try:
         return catalog_record.get_record(db_session)
-    except ValueError:
-        raise CatalogRecordNotFoundException(base, system_number)
+    except ValueError as e:
+        # `from e` keeps "record body will not decode" distinguishable from
+        # "no such record" in logs — both surface as the same 404 to the client.
+        raise CatalogRecordNotFoundException(base, system_number) from e
 
 
 def get_comparisons(base: str, system_number: str, db_session: DatabaseSession) -> list[dict]:

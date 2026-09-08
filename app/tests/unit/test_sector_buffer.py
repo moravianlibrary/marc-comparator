@@ -9,7 +9,9 @@ class TestSectorBufferSessionGetter:
         session_a = MagicMock()
         session_b = MagicMock()
         sessions = iter([session_a, session_b])
-        getter = lambda: next(sessions)
+
+        def getter():
+            return next(sessions)
 
         buffer = SectorBuffer(getter)
 

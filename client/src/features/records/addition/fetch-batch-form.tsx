@@ -1,15 +1,12 @@
-import { useEffect } from "react";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { z } from "zod";
-import { useMutation } from "@tanstack/react-query";
-import { useTranslation } from "react-i18next";
-import { toast } from "sonner";
-import apiClient from "@/lib/api-client";
-import { useConfiguredBases } from "@/hooks/use-system-info";
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { zodResolver } from '@hookform/resolvers/zod';
+import { useMutation } from '@tanstack/react-query';
+import { useEffect } from 'react';
+import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
+import { toast } from 'sonner';
+import { z } from 'zod';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Form,
   FormControl,
@@ -17,14 +14,17 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form";
+} from '@/components/ui/form';
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select";
+} from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
+import { useConfiguredBases } from '@/hooks/use-system-info';
+import apiClient from '@/lib/api-client';
 
 const schema = z.object({
   base: z.string().min(1),
@@ -34,46 +34,46 @@ const schema = z.object({
 type FormValues = z.infer<typeof schema>;
 
 export function FetchBatchForm() {
-  const { t } = useTranslation("records");
+  const { t } = useTranslation('records');
 
   const configuredBases = useConfiguredBases();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
-    defaultValues: { base: configuredBases[0] ?? "", system_numbers_text: "" },
+    defaultValues: { base: configuredBases[0] ?? '', system_numbers_text: '' },
   });
 
   useEffect(() => {
-    if (configuredBases.length > 0 && !form.getValues("base")) {
-      form.reset({ base: configuredBases[0], system_numbers_text: "" });
+    if (configuredBases.length > 0 && !form.getValues('base')) {
+      form.reset({ base: configuredBases[0], system_numbers_text: '' });
     }
   }, [configuredBases, form]);
 
   const mutation = useMutation({
     mutationFn: (values: FormValues) => {
       const systemNumbers = values.system_numbers_text
-        .split("\n")
-        .map((s) => s.trim())
+        .split('\n')
+        .map(s => s.trim())
         .filter(Boolean);
 
-      return apiClient.post("/catalog-records/fetch-batch", {
+      return apiClient.post('/catalog-records/fetch-batch', {
         per_base: [{ base: values.base, system_numbers: systemNumbers }],
       });
     },
-    onSuccess: () => form.reset({ base: configuredBases[0] ?? "", system_numbers_text: "" }),
-    onError: () => toast.error(t("common:error")),
+    onSuccess: () => form.reset({ base: configuredBases[0] ?? '', system_numbers_text: '' }),
+    onError: () => toast.error(t('common:error')),
   });
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle className="text-base">{t("addition.fetch-batch.title")}</CardTitle>
-        <CardDescription>{t("addition.fetch-batch.description")}</CardDescription>
+        <CardTitle className="text-base">{t('addition.fetch-batch.title')}</CardTitle>
+        <CardDescription>{t('addition.fetch-batch.description')}</CardDescription>
       </CardHeader>
       <CardContent>
         <Form {...form}>
           <form
-            onSubmit={form.handleSubmit((v) => mutation.mutate(v))}
+            onSubmit={form.handleSubmit(v => mutation.mutate(v))}
             className="max-w-md space-y-4"
           >
             <FormField
@@ -81,7 +81,7 @@ export function FetchBatchForm() {
               name="base"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("addition.fetch-batch.base")}</FormLabel>
+                  <FormLabel>{t('addition.fetch-batch.base')}</FormLabel>
                   <Select onValueChange={field.onChange} value={field.value}>
                     <FormControl>
                       <SelectTrigger>
@@ -89,7 +89,7 @@ export function FetchBatchForm() {
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {configuredBases.map((base) => (
+                      {configuredBases.map(base => (
                         <SelectItem key={base} value={base}>
                           {base}
                         </SelectItem>
@@ -105,7 +105,7 @@ export function FetchBatchForm() {
               name="system_numbers_text"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t("addition.fetch-batch.system-numbers")}</FormLabel>
+                  <FormLabel>{t('addition.fetch-batch.system-numbers')}</FormLabel>
                   <FormControl>
                     <Textarea {...field} rows={8} className="font-mono text-sm" />
                   </FormControl>
@@ -114,7 +114,7 @@ export function FetchBatchForm() {
               )}
             />
             <Button type="submit" disabled={mutation.isPending}>
-              {t("addition.fetch-batch.submit")}
+              {t('addition.fetch-batch.submit')}
             </Button>
           </form>
         </Form>

@@ -15,6 +15,9 @@ from marc_comparator.validators import VALIDATOR_DISPATCHER, Validator
 
 app = typer.Typer(help="MARC Comparator CLI tool")
 
+# Default for --validator: a module-level snapshot, not a live dict_keys view.
+_ALL_VALIDATORS = list(VALIDATOR_DISPATCHER.keys())
+
 
 def _print_marc_record(record: MarcRecord):
     typer.echo(f"Leader: {record.leader}")
@@ -111,7 +114,7 @@ def init_validator(validator: Validator, config_path: Path | None):
 def validate(
     mrc_file_paths: list[Path] = typer.Argument(..., help="Paths to MARC record files"),
     validators: list[Validator] = typer.Option(
-        VALIDATOR_DISPATCHER.keys(),
+        _ALL_VALIDATORS,
         "--validator",
         "-v",
         help="Names of validators to apply",

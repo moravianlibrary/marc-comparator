@@ -89,18 +89,34 @@ def _field_overall_cap(weights: dict[str, int], tag: str) -> int | None:
     return int(weights[k]) if k in weights and weights[k] > 0 else None
 
 
+def _as_weight(value: object) -> int | None:
+    """Parse a configured weight, returning None when it is not an integer.
+
+    The declared value type is ``int``, but configured weights are read from user
+    supplied JSON/YAML, so anything can turn up here at runtime.
+    """
+    if not isinstance(value, int | float | str):
+        return None
+
+    try:
+        return int(value)
+    except (ValueError, OverflowError):
+        return None
+
+
 def _field_max_weight(weights: dict[str, int], tag: str) -> int:
     prefix = f"field_{tag}_"
     max_w = 0
-    for k, v in weights.items():
-        if not k.startswith(prefix):
+    for key, value in weights.items():
+        if not key.startswith(prefix) or key == f"field_{tag}_overall":
             continue
-        if k == f"field_{tag}_overall":
+
+        weight = _as_weight(value)
+        if weight is None:
             continue
-        try:
-            max_w = max(max_w, int(v))
-        except Exception:
-            pass
+
+        max_w = max(max_w, weight)
+
     return max_w if max_w > 0 else 1
 
 

@@ -1,16 +1,13 @@
-import { useNavigate, Link } from "react-router-dom";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { useTranslation } from "react-i18next";
-import { AxiosError } from "axios";
-import { toast } from "sonner";
-import { ThemeToggle } from "@/components/theme-toggle";
-import { AppLogo } from "@/components/app-logo";
-import { useSignUp } from "@/hooks/use-auth";
-import { signupSchema, type SignupFormValues } from "./schemas";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { zodResolver } from '@hookform/resolvers/zod';
+import { AxiosError } from 'axios';
+import { useForm } from 'react-hook-form';
+import { useTranslation } from 'react-i18next';
+import { Link, useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
+import { AppLogo } from '@/components/app-logo';
+import { ThemeToggle } from '@/components/theme-toggle';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Form,
   FormControl,
@@ -18,20 +15,23 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
-} from "@/components/ui/form";
+} from '@/components/ui/form';
+import { Input } from '@/components/ui/input';
+import { useSignUp } from '@/hooks/use-auth';
+import { type SignupFormValues, signupSchema } from './schemas';
 
 export function SignupPage() {
-  const { t } = useTranslation("auth");
+  const { t } = useTranslation('auth');
   const navigate = useNavigate();
   const signUp = useSignUp();
   const form = useForm<SignupFormValues>({
     resolver: zodResolver(signupSchema),
     defaultValues: {
-      email: "",
-      first_name: "",
-      last_name: "",
-      password: "",
-      confirm_password: "",
+      email: '',
+      first_name: '',
+      last_name: '',
+      password: '',
+      confirm_password: '',
     },
   });
 
@@ -43,12 +43,12 @@ export function SignupPage() {
         last_name: values.last_name,
         password: values.password,
       });
-      toast.success(t("signup.success"));
-      navigate("/login", { replace: true });
+      toast.success(t('signup.success'));
+      navigate('/login', { replace: true });
     } catch (error) {
       const detail = error instanceof AxiosError ? error.response?.data?.detail : undefined;
-      form.setError("root", {
-        message: detail ?? t("common:error"),
+      form.setError('root', {
+        message: detail ?? t('common:error'),
       });
     }
   }
@@ -59,8 +59,8 @@ export function SignupPage() {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <AppLogo />
-          <CardTitle>{t("signup.title")}</CardTitle>
-          <CardDescription>{t("signup.subtitle")}</CardDescription>
+          <CardTitle>{t('signup.title')}</CardTitle>
+          <CardDescription>{t('signup.subtitle')}</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -75,7 +75,7 @@ export function SignupPage() {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{t("signup.form.email")}</FormLabel>
+                    <FormLabel>{t('signup.form.email')}</FormLabel>
                     <FormControl>
                       <Input type="email" {...field} />
                     </FormControl>
@@ -88,7 +88,7 @@ export function SignupPage() {
                 name="first_name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{t("signup.form.first-name")}</FormLabel>
+                    <FormLabel>{t('signup.form.first-name')}</FormLabel>
                     <FormControl>
                       <Input {...field} />
                     </FormControl>
@@ -101,7 +101,7 @@ export function SignupPage() {
                 name="last_name"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{t("signup.form.last-name")}</FormLabel>
+                    <FormLabel>{t('signup.form.last-name')}</FormLabel>
                     <FormControl>
                       <Input {...field} />
                     </FormControl>
@@ -114,7 +114,7 @@ export function SignupPage() {
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{t("signup.form.password")}</FormLabel>
+                    <FormLabel>{t('signup.form.password')}</FormLabel>
                     <FormControl>
                       <Input type="password" {...field} />
                     </FormControl>
@@ -127,7 +127,7 @@ export function SignupPage() {
                 name="confirm_password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>{t("signup.form.confirm-password")}</FormLabel>
+                    <FormLabel>{t('signup.form.confirm-password')}</FormLabel>
                     <FormControl>
                       <Input type="password" {...field} />
                     </FormControl>
@@ -136,14 +136,14 @@ export function SignupPage() {
                 )}
               />
               <Button type="submit" className="w-full" disabled={signUp.isPending}>
-                {t("signup.form.submit")}
+                {t('signup.form.submit')}
               </Button>
             </form>
           </Form>
           <p className="mt-4 text-center text-sm text-muted-foreground">
-            {t("signup.login-message")}{" "}
+            {t('signup.login-message')}{' '}
             <Link to="/login" className="text-primary hover:underline">
-              {t("signup.login-link")}
+              {t('signup.login-link')}
             </Link>
           </p>
         </CardContent>

@@ -57,8 +57,14 @@ class AdminConfig(BaseSettings):
     password: str = Field(default="replaceMe")
 
 
+# Placeholder signing key used when SECRET_KEY is unset. Startup warns when it is
+# still in effect (see app_lifespan.lifespan). Kept at >= 32 bytes so HS256 does not
+# also emit a key-length warning on top of the insecure-default one.
+INSECURE_DEFAULT_SECRET_KEY = "insecure-default-change-me-in-production"
+
+
 class AuthConfig(BaseSettings):
-    secret_key: str = Field(default="your-secret-key")
+    secret_key: str = Field(default=INSECURE_DEFAULT_SECRET_KEY)
     algorithm: str = Field(default="HS256")
     access_token_expire_minutes: int = Field(default=15)
     refresh_token_expire_days: int = Field(default=7)

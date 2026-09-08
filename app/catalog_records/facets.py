@@ -1,6 +1,7 @@
+from collections.abc import Sequence
 from concurrent.futures import ThreadPoolExecutor
 
-from sqlalchemy import text
+from sqlalchemy import RowMapping, text
 from sqlalchemy.orm import Session
 
 from .analytics import CUBE_HIST_TABLE, CUBE_TABLE
@@ -158,7 +159,8 @@ def _facets_live(where: str, params: dict, db: Session) -> FacetsResponse:
         f"{where} GROUP BY bucket_min, bucket_max ORDER BY bucket_min"
     )
 
-    engine = db.get_bind()
+    # get_bind() may hand back a Connection; .engine normalises both to an Engine.
+    engine = db.get_bind().engine
 
     def _run(sql):
         with engine.connect() as conn:
@@ -334,7 +336,8 @@ def _preview_live_grouped(
         f"GROUP BY {target_col}, bucket_min, bucket_max ORDER BY bucket_min"
     )
 
-    engine = db.get_bind()
+    # get_bind() may hand back a Connection; .engine normalises both to an Engine.
+    engine = db.get_bind().engine
 
     def _run(sql):
         with engine.connect() as conn:
@@ -430,7 +433,8 @@ def _preview_live_per_value(
 
     # Q2+Q3 per target value: WHERE :tv = ANY(target) — single unnest only
     where_any = f"{where} AND :_tv = ANY({target})"
-    engine = db.get_bind()
+    # get_bind() may hand back a Connection; .engine normalises both to an Engine.
+    engine = db.get_bind().engine
 
     def _run_for_value(tv: str):
         tv_params = {**params, "_tv": tv}
@@ -518,7 +522,7 @@ def _preview_live_per_value(
 
 
 def _extract_totals_and_targets(
-    rows: list, gs_columns: list[str]
+    rows: Sequence[RowMapping], gs_columns: list[str]
 ) -> tuple[dict[str, int], set[str]]:
     """Extract per-target totals (from the empty grouping set) and all target values."""
     total_by_target: dict[str, int] = {}
@@ -534,7 +538,7 @@ def _extract_totals_and_targets(
     return total_by_target, target_values
 
 
-def _parse_grouping_sets_rows(rows: list) -> list[FacetResult]:
+def _parse_grouping_sets_rows(rows: Sequence[RowMapping]) -> list[FacetResult]:
     """Parse GROUPING SETS result rows into FacetResult list.
 
     Each row has exactly one non-NULL dimension column (the one being grouped).
@@ -573,7 +577,7 @@ def _parse_grouping_sets_rows(rows: list) -> list[FacetResult]:
 
 
 def _parse_preview_grouping_rows(
-    rows: list, target_value: str, gs_columns: list[str]
+    rows: Sequence[RowMapping], target_value: str, gs_columns: list[str]
 ) -> list[FacetResult]:
     """Extract facets for a specific target_value from GROUPING SETS preview rows."""
     buckets_by_field: dict[str, list[FacetBucket]] = {}

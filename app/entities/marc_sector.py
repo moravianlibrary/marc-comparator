@@ -1,5 +1,4 @@
 from sqlalchemy import (
-    Column,
     ForeignKeyConstraint,
     Index,
     Integer,
@@ -7,6 +6,7 @@ from sqlalchemy import (
     SmallInteger,
     String,
 )
+from sqlalchemy.orm import Mapped, mapped_column
 
 from adapters.database import Base
 
@@ -16,20 +16,20 @@ SECTOR_SIZE = 1000
 class MarcSector(Base):
     __tablename__ = "marc_sectors"
 
-    base = Column(String, primary_key=True)
-    sector_id = Column(Integer, primary_key=True)
-    data = Column(LargeBinary, nullable=False)  # zstd compressed blob
-    record_count = Column(SmallInteger, nullable=False, default=0)
+    base: Mapped[str] = mapped_column(String, primary_key=True)
+    sector_id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    data: Mapped[bytes] = mapped_column(LargeBinary)  # zstd compressed blob
+    record_count: Mapped[int] = mapped_column(SmallInteger, default=0)
 
 
 class MarcRecordIndex(Base):
     __tablename__ = "marc_record_index"
 
-    base = Column(String, primary_key=True)
-    system_number = Column(String, primary_key=True)
-    sector_id = Column(Integer, nullable=False)
-    offset_in_sector = Column(Integer, nullable=False)
-    record_length = Column(Integer, nullable=False)
+    base: Mapped[str] = mapped_column(String, primary_key=True)
+    system_number: Mapped[str] = mapped_column(String, primary_key=True)
+    sector_id: Mapped[int] = mapped_column(Integer)
+    offset_in_sector: Mapped[int] = mapped_column(Integer)
+    record_length: Mapped[int] = mapped_column(Integer)
 
     __table_args__ = (
         ForeignKeyConstraint(

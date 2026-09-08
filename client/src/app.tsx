@@ -1,11 +1,11 @@
-import { RouterProvider } from "react-router-dom";
-import { QueryClientProvider } from "@tanstack/react-query";
-import { ThemeProvider } from "next-themes";
-import { NuqsAdapter } from "nuqs/adapters/react-router/v7";
-import { Toaster } from "@/components/ui/sonner";
-import { ApiErrorListener } from "@/components/api-error-listener";
-import { queryClient } from "@/lib/query-client";
-import { router } from "@/router";
+import { QueryClientProvider } from '@tanstack/react-query';
+import { ThemeProvider } from 'next-themes';
+import { NuqsAdapter } from 'nuqs/adapters/react-router/v7';
+import { RouterProvider } from 'react-router-dom';
+import { ApiErrorListener } from '@/components/api-error-listener';
+import { Toaster } from '@/components/ui/sonner';
+import { queryClient } from '@/lib/query-client';
+import { router } from '@/router';
 
 export function App() {
   return (

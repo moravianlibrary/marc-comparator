@@ -1,20 +1,20 @@
-import { skipToken, useQuery, useQueryClient, keepPreviousData } from "@tanstack/react-query";
-import apiClient from "@/lib/api-client";
-import { useRecordFilters } from "../use-record-filters";
-import type { FacetBucket, FacetsResponse, FacetsPreviewResponse } from "../types";
+import { keepPreviousData, skipToken, useQuery, useQueryClient } from '@tanstack/react-query';
+import apiClient from '@/lib/api-client';
+import type { FacetBucket, FacetsPreviewResponse, FacetsResponse } from '../types';
+import { useRecordFilters } from '../use-record-filters';
 
 export function useFacets() {
   const { buildRecordFilter } = useRecordFilters();
   const recordFilter = buildRecordFilter();
 
   return useQuery<FacetsResponse>({
-    queryKey: ["catalog-records", "facets", recordFilter],
+    queryKey: ['catalog-records', 'facets', recordFilter],
     queryFn: () =>
       apiClient
-        .post<FacetsResponse>("/catalog-records/facets", {
+        .post<FacetsResponse>('/catalog-records/facets', {
           filters: recordFilter,
         })
-        .then((r) => r.data),
+        .then(r => r.data),
     placeholderData: keepPreviousData,
   });
 }
@@ -24,14 +24,14 @@ export function useFacetPreview(targetField: string) {
   const recordFilter = buildRecordFilter();
 
   return useQuery<FacetsPreviewResponse>({
-    queryKey: ["catalog-records", "facets-preview", targetField, recordFilter],
+    queryKey: ['catalog-records', 'facets-preview', targetField, recordFilter],
     queryFn: () =>
       apiClient
-        .post<FacetsPreviewResponse>("/catalog-records/facets-preview", {
+        .post<FacetsPreviewResponse>('/catalog-records/facets-preview', {
           filters: recordFilter,
           target_field: targetField,
         })
-        .then((r) => r.data),
+        .then(r => r.data),
     enabled: false,
     staleTime: 30_000,
   });
@@ -44,14 +44,14 @@ export function usePrefetchFacetPreview() {
   return (targetField: string) => {
     const recordFilter = buildRecordFilter();
     queryClient.prefetchQuery({
-      queryKey: ["catalog-records", "facets-preview", targetField, recordFilter],
+      queryKey: ['catalog-records', 'facets-preview', targetField, recordFilter],
       queryFn: () =>
         apiClient
-          .post<FacetsPreviewResponse>("/catalog-records/facets-preview", {
+          .post<FacetsPreviewResponse>('/catalog-records/facets-preview', {
             filters: recordFilter,
             target_field: targetField,
           })
-          .then((r) => r.data),
+          .then(r => r.data),
       staleTime: 30_000,
     });
   };
@@ -65,15 +65,19 @@ export function usePreviewForValue(
   const recordFilter = buildRecordFilter();
 
   const { data } = useQuery({
-    queryKey: ["catalog-records", "facets-preview", targetField, recordFilter] as const,
+    queryKey: ['catalog-records', 'facets-preview', targetField, recordFilter] as const,
     queryFn: skipToken,
   });
 
   const preview = data as FacetsPreviewResponse | undefined;
-  if (!preview || !targetValue) return undefined;
+  if (!preview || !targetValue) {
+    return undefined;
+  }
 
-  const entry = preview.previews.find((p) => p.target_value === targetValue);
-  if (!entry) return undefined;
+  const entry = preview.previews.find(p => p.target_value === targetValue);
+  if (!entry) {
+    return undefined;
+  }
 
   return {
     facets: entry.facets,
@@ -97,23 +101,25 @@ export function usePerValidatorData():
   const recordFilter = buildRecordFilter();
 
   const { data } = useQuery<FacetsPreviewResponse>({
-    queryKey: ["catalog-records", "facets-preview", "validators", recordFilter],
+    queryKey: ['catalog-records', 'facets-preview', 'validators', recordFilter],
     queryFn: () =>
       apiClient
-        .post<FacetsPreviewResponse>("/catalog-records/facets-preview", {
+        .post<FacetsPreviewResponse>('/catalog-records/facets-preview', {
           filters: recordFilter,
-          target_field: "validators",
+          target_field: 'validators',
         })
-        .then((r) => r.data),
+        .then(r => r.data),
     staleTime: 30_000,
     placeholderData: keepPreviousData,
   });
 
-  if (!data) return undefined;
+  if (!data) {
+    return undefined;
+  }
 
-  return data.previews.map((p) => ({
+  return data.previews.map(p => ({
     validator: p.target_value,
-    statuses: p.facets.find((f) => f.field === "validation_statuses")?.buckets ?? [],
-    reasons: p.facets.find((f) => f.field === "validation_reasons")?.buckets ?? [],
+    statuses: p.facets.find(f => f.field === 'validation_statuses')?.buckets ?? [],
+    reasons: p.facets.find(f => f.field === 'validation_reasons')?.buckets ?? [],
   }));
 }

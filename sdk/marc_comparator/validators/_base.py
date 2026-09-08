@@ -58,6 +58,11 @@ class BaseValidator(ABC):
     #: ``generate_report`` set this True.
     can_generate_report: bool = False
 
+    def __init__(self, config: BaseModel | None = None) -> None:
+        #: Validators declaring a ``config_model`` are constructed with an
+        #: instance of it; the rest take no config at all.
+        self.config = config
+
     @abstractmethod
     async def run(self, record: MarcRecord) -> list[ValidationResult]:
         """

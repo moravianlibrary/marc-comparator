@@ -4,14 +4,18 @@ Builds synthetic MARC records + validation results (no DB, no network) and
 asserts the Aleph sequential output for each reason -> action mapping.
 """
 
-from marcdantic import MarcRecord
-
-from marc_comparator.validators import ReportInput, ValidationResult, ValidationTarget, ValidityStatus
+from marc_comparator.validators import (
+    ReportInput,
+    ValidationResult,
+    ValidationTarget,
+    ValidityStatus,
+)
 from marc_comparator.validators.kramerius_links import (
     STANDARD_LINK_TEXT,
     KrameriusLinksValidator,
     KrameriusLinksValidatorConfig,
 )
+from marcdantic import MarcRecord
 
 LEADER = "00000nam a2200000 a 4500"
 CID = "MZK01-000042660"
@@ -182,8 +186,12 @@ def test_out_of_range_field_index_recorded_in_errors():
         base="MZK01",
         marc=record,
         results=[
-            result("wrong_path_found", field_index=5, params={"pid": "uuid:oor"},
-                   status=ValidityStatus.AdditionalInfo)
+            result(
+                "wrong_path_found",
+                field_index=5,
+                params={"pid": "uuid:oor"},
+                status=ValidityStatus.AdditionalInfo,
+            )
         ],
     )
 

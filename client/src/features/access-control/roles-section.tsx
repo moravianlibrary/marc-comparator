@@ -1,18 +1,8 @@
-import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { useTranslation } from "react-i18next";
-import { Plus, Pencil, Trash2 } from "lucide-react";
-import apiClient from "@/lib/api-client";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { SkeletonTable } from '@/components/skeletons/skeleton-table';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -22,35 +12,45 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
-import { RoleFormDialog } from "./role-form-dialog";
-import type { Role } from "@/types/role";
-import type { RoleFormValues } from "./schemas";
-import { SkeletonTable } from "@/components/skeletons/skeleton-table";
+} from '@/components/ui/alert-dialog';
+import { Badge } from '@/components/ui/badge';
+import { Button } from '@/components/ui/button';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import apiClient from '@/lib/api-client';
+import type { Role } from '@/types/role';
+import { RoleFormDialog } from './role-form-dialog';
+import type { RoleFormValues } from './schemas';
 
 export function RolesSection() {
-  const { t } = useTranslation("access-control");
+  const { t } = useTranslation('access-control');
   const queryClient = useQueryClient();
   const [editingRole, setEditingRole] = useState<Role | undefined>();
   const [dialogOpen, setDialogOpen] = useState(false);
   const [deletingRole, setDeletingRole] = useState<Role | null>(null);
 
   const { data: rolesData, isLoading } = useQuery<{ items: Role[]; num_found: number }>({
-    queryKey: ["access-control", "roles"],
+    queryKey: ['access-control', 'roles'],
     queryFn: () =>
       apiClient
-        .get<{ items: Role[]; num_found: number }>("/access-control/roles", {
+        .get<{ items: Role[]; num_found: number }>('/access-control/roles', {
           params: { page: 1, page_size: 100 },
         })
-        .then((r) => r.data),
+        .then(r => r.data),
   });
 
   const roles = rolesData?.items ?? [];
 
   const createMutation = useMutation({
-    mutationFn: (data: RoleFormValues) => apiClient.post("/access-control/roles", data),
+    mutationFn: (data: RoleFormValues) => apiClient.post('/access-control/roles', data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["access-control", "roles"] });
+      queryClient.invalidateQueries({ queryKey: ['access-control', 'roles'] });
       setDialogOpen(false);
     },
   });
@@ -59,7 +59,7 @@ export function RolesSection() {
     mutationFn: ({ id, data }: { id: number; data: RoleFormValues }) =>
       apiClient.put(`/access-control/roles/${id}`, data),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["access-control", "roles"] });
+      queryClient.invalidateQueries({ queryKey: ['access-control', 'roles'] });
       setDialogOpen(false);
       setEditingRole(undefined);
     },
@@ -68,7 +68,7 @@ export function RolesSection() {
   const deleteMutation = useMutation({
     mutationFn: (id: number) => apiClient.delete(`/access-control/roles/${id}`),
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["access-control", "roles"] });
+      queryClient.invalidateQueries({ queryKey: ['access-control', 'roles'] });
       setDeletingRole(null);
     },
   });
@@ -84,7 +84,7 @@ export function RolesSection() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-medium">{t("roles.title")}</h2>
+        <h2 className="text-lg font-medium">{t('roles.title')}</h2>
         <Button
           onClick={() => {
             setEditingRole(undefined);
@@ -92,7 +92,7 @@ export function RolesSection() {
           }}
         >
           <Plus className="mr-2 h-4 w-4" />
-          {t("roles.create")}
+          {t('roles.create')}
         </Button>
       </div>
 
@@ -102,18 +102,18 @@ export function RolesSection() {
         <Table className="animate-fade-in">
           <TableHeader>
             <TableRow>
-              <TableHead>{t("roles.fields.name")}</TableHead>
-              <TableHead>{t("roles.fields.permissions")}</TableHead>
-              <TableHead>{t("roles.fields.actions")}</TableHead>
+              <TableHead>{t('roles.fields.name')}</TableHead>
+              <TableHead>{t('roles.fields.permissions')}</TableHead>
+              <TableHead>{t('roles.fields.actions')}</TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
-            {roles.map((role) => (
+            {roles.map(role => (
               <TableRow key={role.id}>
                 <TableCell className="font-medium">{role.name}</TableCell>
                 <TableCell>
                   <div className="flex flex-wrap gap-1">
-                    {role.permissions.map((p) => (
+                    {role.permissions.map(p => (
                       <Badge key={p} variant="outline">
                         {t(`permissions.${p}`)}
                       </Badge>
@@ -161,21 +161,21 @@ export function RolesSection() {
 
       <AlertDialog
         open={deletingRole !== null}
-        onOpenChange={(open) => !open && setDeletingRole(null)}
+        onOpenChange={open => !open && setDeletingRole(null)}
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t("common:confirm")}</AlertDialogTitle>
+            <AlertDialogTitle>{t('common:confirm')}</AlertDialogTitle>
             <AlertDialogDescription>
-              {t("roles.delete-confirm", { name: deletingRole?.name })}
+              {t('roles.delete-confirm', { name: deletingRole?.name })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t("common:cancel")}</AlertDialogCancel>
+            <AlertDialogCancel>{t('common:cancel')}</AlertDialogCancel>
             <AlertDialogAction
               onClick={() => deletingRole && deleteMutation.mutate(deletingRole.id)}
             >
-              {t("common:delete")}
+              {t('common:delete')}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

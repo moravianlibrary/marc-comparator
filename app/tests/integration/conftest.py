@@ -1,3 +1,5 @@
+from collections.abc import AsyncGenerator, Generator
+
 import pytest
 import pytest_asyncio
 from aleph_nought import AlephClient
@@ -23,7 +25,7 @@ from tests.conftest import FAKE_USER_ID, truncate_all_tables
 # Function-scoped DB session (same pattern as tests/db/)
 # --------------------------------------------------------------------------
 @pytest_asyncio.fixture(scope="function")
-async def db_session(db_engine, mocker) -> DatabaseSession:
+async def db_session(db_engine, mocker) -> AsyncGenerator[DatabaseSession, None]:
     SessionLocal = sessionmaker(bind=db_engine)
     session = SessionLocal()
 
@@ -52,7 +54,7 @@ async def client():
 # Function-scoped user fixture
 # --------------------------------------------------------------------------
 @pytest.fixture(scope="function")
-def user(db_session: DatabaseSession) -> TokenData:
+def user(db_session: DatabaseSession) -> Generator[TokenData, None, None]:
     user = User(
         id=FAKE_USER_ID,
         first_name="Admin",
@@ -114,7 +116,7 @@ def lock_server_client(redis_container, mocker) -> Redis:
 # Function-scoped marc cache client (no decode_responses — returns raw bytes)
 # --------------------------------------------------------------------------
 @pytest.fixture(scope="function")
-def marc_cache_client(redis_container, mocker) -> Redis:
+def marc_cache_client(redis_container, mocker) -> Generator[Redis, None, None]:
     redis_client = Redis(
         host=redis_container.get_container_host_ip(),
         port=redis_container.get_exposed_port(6379),
@@ -131,7 +133,7 @@ def marc_cache_client(redis_container, mocker) -> Redis:
 # Function-scoped Aleph client registry
 # --------------------------------------------------------------------------
 @pytest.fixture(scope="function")
-def aleph_client_registry(mocker) -> AlephClientRegistry:
+def aleph_client_registry(mocker) -> type[AlephClientRegistry]:
     fake_client = mocker.Mock(spec=AlephClient)
     fake_client_map = {"TEST": fake_client}
 

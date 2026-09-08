@@ -87,13 +87,14 @@ Each `__init__.py` exports:
 class MyValidator(BaseValidator):
     config_model = MyValidatorConfig  # or None
 
-    async def run(self, record: MarcRecord) -> List[ValidationResult]:
-        ...
+    async def run(self, record: MarcRecord) -> List[ValidationResult]: ...
+
 
 # 2. Register in validators/__init__.py
 class Validator(StrEnum):
     KrameriusLinks = "kramerius-links"
-    MyValidator = "my-validator"         # add
+    MyValidator = "my-validator"  # add
+
 
 VALIDATOR_DISPATCHER[Validator.MyValidator] = MyValidator  # add
 ```
@@ -115,8 +116,8 @@ class DefaultComparatorConfig(BaseModel):
     ollama_url: str = "http://localhost:11434"
     llm_enabled: bool = False
     nonstandard_llm_enabled: bool = False
-    excellent_threshold: int = 6       # score below this -> Excellent (0.9-1.0)
-    moderate_threshold: int = 12       # score below this -> Moderate (0.7-0.9)
+    excellent_threshold: int = 6  # score below this -> Excellent (0.9-1.0)
+    moderate_threshold: int = 12  # score below this -> Moderate (0.7-0.9)
 ```
 
 #### Pipeline
@@ -235,8 +236,12 @@ Validates MARC field 856 (Electronic Location) for Kramerius digital library lin
 
 ```python
 class KrameriusLinksValidatorConfig(BaseModel):
-    url_to_pid_pattern: str = r"https?://(?:www\.)?digitalniknihovna\.cz/mzk/uuid/(?P<pid>uuid:[0-9a-fA-F-]+)(?:\?.*)?"
-    url_to_pid_wrong_path_pattern: str = r"https?://(?:www\.)?digitalniknihovna\.cz/mzk/[^/]+/(?P<pid>uuid:[0-9a-fA-F-]+)(?:\?.*)?"
+    url_to_pid_pattern: str = (
+        r"https?://(?:www\.)?digitalniknihovna\.cz/mzk/uuid/(?P<pid>uuid:[0-9a-fA-F-]+)(?:\?.*)?"
+    )
+    url_to_pid_wrong_path_pattern: str = (
+        r"https?://(?:www\.)?digitalniknihovna\.cz/mzk/[^/]+/(?P<pid>uuid:[0-9a-fA-F-]+)(?:\?.*)?"
+    )
     url_to_pid_fallback_pattern: str = r"https?://[^/]+/.*?(?P<pid>uuid:[0-9a-fA-F-]+)(?:\?.*)?"
     link_text_pattern: str = r"Digitalizovaný dokument"
     kramerius_host: str = "https://api.kramerius.mzk.cz/search"

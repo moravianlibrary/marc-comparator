@@ -1,5 +1,7 @@
 import asyncio
 import json
+from collections.abc import AsyncGenerator
+from collections.abc import Set as AbstractSet
 from pathlib import Path
 from typing import Any
 
@@ -9,8 +11,8 @@ from marcdantic import MarcRecord
 from redis import Redis
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker
-from testcontainers.postgres import PostgresContainer
-from testcontainers.redis import RedisContainer
+from testcontainers.community.postgres import PostgresContainer
+from testcontainers.community.redis import RedisContainer
 
 from adapters.database import Base, DatabaseSession
 
@@ -110,7 +112,7 @@ async def db_engine(postgres_container):
 # Session-scoped Redis client
 # --------------------------------------------------------------------------
 @pytest_asyncio.fixture(scope="session")
-async def redis_client(redis_container) -> Redis:
+async def redis_client(redis_container) -> AsyncGenerator[Redis, None]:
     client = Redis(
         host=redis_container.get_container_host_ip(),
         port=redis_container.get_exposed_port(6379),
@@ -155,7 +157,7 @@ def create_catalog_record(
     **kwargs,
 ):
     """Create a CatalogRecord and store its MARC in sector storage."""
-    from adapters.marc_sectors import upsert_record_in_sector
+    from adapters.marc_sectors import marc_bytes_of, upsert_record_in_sector
     from entities.catalog_record import CatalogRecord
 
     record = CatalogRecord(base=base, system_number=system_number, **kwargs)
@@ -164,7 +166,7 @@ def create_catalog_record(
     record.update_search_text_from(marc_record)
     record.save(db_session)
 
-    upsert_record_in_sector(db_session, base, system_number, marc_record._marc)
+    upsert_record_in_sector(db_session, base, system_number, marc_bytes_of(marc_record))
     db_session.flush()
 
     return record
@@ -177,7 +179,7 @@ def assert_response(
     response: Response,
     expected_status: int,
     expected_body: dict[str, Any] | None = None,
-    exclude_field_paths: set[tuple[str, ...]] = frozenset(),
+    exclude_field_paths: AbstractSet[tuple[str, ...]] = frozenset(),
 ):
     assert response.status_code == expected_status, (
         f"Expected status {expected_status}, got {response.status_code} and body: {response.text}"

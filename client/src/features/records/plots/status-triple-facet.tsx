@@ -1,7 +1,7 @@
-import { useState, useRef, useCallback } from "react";
-import { createPortal } from "react-dom";
-import { useTranslation } from "react-i18next";
-import type { FacetBucket } from "../types";
+import { useCallback, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
+import { useTranslation } from 'react-i18next';
+import type { FacetBucket } from '../types';
 
 interface HoveredSegment {
   facetField: string;
@@ -32,7 +32,7 @@ function SegmentTooltip({ segment }: { segment: HoveredSegment }) {
               style={{ backgroundColor: segment.color }}
             />
             <div className="flex flex-1 justify-between items-center leading-none">
-              <span className="text-muted-foreground">{t("common:chart.count")}</span>
+              <span className="text-muted-foreground">{t('common:chart.count')}</span>
               <span className="font-mono font-medium text-foreground tabular-nums">
                 {segment.count.toLocaleString()}
               </span>
@@ -43,11 +43,11 @@ function SegmentTooltip({ segment }: { segment: HoveredSegment }) {
               <div
                 className="shrink-0 rounded-[2px] w-1"
                 style={{
-                  backgroundColor: "color-mix(in oklch, var(--muted-foreground) 15%, transparent)",
+                  backgroundColor: 'color-mix(in oklch, var(--muted-foreground) 15%, transparent)',
                 }}
               />
               <div className="flex flex-1 justify-between items-center leading-none">
-                <span className="text-muted-foreground">{t("common:chart.preview")}</span>
+                <span className="text-muted-foreground">{t('common:chart.preview')}</span>
                 <span className="font-mono font-medium text-foreground tabular-nums">
                   {segment.preview.toLocaleString()}
                 </span>
@@ -89,7 +89,7 @@ export function StatusTripleFacet({
   onHover,
   onLeave,
 }: StatusTripleFacetProps) {
-  const { t } = useTranslation("records");
+  const { t } = useTranslation('records');
   const [hovered, setHovered] = useState<HoveredSegment | null>(null);
   const buttonRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
 
@@ -119,7 +119,7 @@ export function StatusTripleFacet({
 
   return (
     <div className="space-y-4">
-      {rows.map((row) => {
+      {rows.map(row => {
         const total = row.buckets.reduce((sum, b) => sum + b.count, 0);
         const active = activeValues[row.facetField] ?? [];
         const isShowingPreview = row.previewBuckets != null;
@@ -128,27 +128,34 @@ export function StatusTripleFacet({
           <div key={row.facetField} className="space-y-1">
             <div className="flex items-center justify-between text-sm">
               <span className="font-medium">{row.label}</span>
-              <span className="text-muted-foreground text-xs">{total.toLocaleString("cs-CZ")}</span>
+              <span className="text-muted-foreground text-xs">{total.toLocaleString('cs-CZ')}</span>
             </div>
             <div className="flex h-8 w-full rounded-md overflow-hidden text-xs font-semibold cursor-pointer">
-              {row.segments.map((seg) => {
-                const bucket = row.buckets.find((b) => b.key === seg.key);
+              {row.segments.map(seg => {
+                const bucket = row.buckets.find(b => b.key === seg.key);
                 const count = bucket?.count ?? 0;
-                if (count === 0) return null;
+                if (count === 0) {
+                  return null;
+                }
                 const percent = total > 0 ? Math.round((count / total) * 100) : 0;
-                const previewCount = row.previewBuckets?.find((b) => b.key === seg.key)?.count ?? 0;
+                const previewCount = row.previewBuckets?.find(b => b.key === seg.key)?.count ?? 0;
                 const previewPercent = count > 0 ? Math.round((previewCount / count) * 100) : 0;
 
                 return (
                   <button
+                    type="button"
                     key={seg.key}
-                    ref={(el) => {
-                      if (el) buttonRefs.current.set(`${row.facetField}-${seg.key}`, el);
+                    ref={el => {
+                      if (el) {
+                        buttonRefs.current.set(`${row.facetField}-${seg.key}`, el);
+                      }
                     }}
                     className="relative flex items-center justify-center px-2 overflow-hidden bar-segment-text"
                     style={{ width: `${percent}%` }}
                     onClick={() => {
-                      if (isShowingPreview && previewCount === 0) return;
+                      if (isShowingPreview && previewCount === 0) {
+                        return;
+                      }
                       onToggle(row.facetField, seg.key);
                     }}
                     onMouseEnter={() =>
