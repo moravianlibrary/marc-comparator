@@ -1,13 +1,13 @@
-"""Unit tests for KrameriusLinksValidator.find_kramerius_links (identifier matching).
+"""Unit tests for Kramerius identifier matching (no network — the Solr client is stubbed).
 
-Stubs the Solr client so no network is involved. The numbers here come from the
-July 2026 incident, where a ČNB number shared by dozens of unrelated documents turned
-into dozens of bogus 856 links per record.
+The numbers come from the July 2026 incident, where ČNB numbers shared by unrelated
+Kramerius documents turned into dozens of bogus 856 links per record.
 """
 
 import pytest
 from kramerius import Model
 from kramerius.schemas import KrameriusDocument
+from marc_comparator.validators import ValidityStatus
 from marc_comparator.validators.kramerius_links import (
     KrameriusLinksValidator,
     KrameriusLinksValidatorConfig,
@@ -15,6 +15,7 @@ from marc_comparator.validators.kramerius_links import (
 from marcdantic import MarcRecord
 
 LEADER = "00000nam a2200000 a 4500"
+REVIEW_REASON = "identifier_matches_multiple_documents"
 
 # MZK01-001450171, "LibreOffice Writer: praktický průvodce"
 OWN_PID = "uuid:27055693-9413-43d3-8e61-d5048b14dd16"
@@ -70,54 +71,72 @@ def make_validator(docs, **config):
     return validator
 
 
+def polluted_nbn_docs(extra: int = 40):
+    """The real shape: the record's own document plus N unrelated ones sharing its ČNB."""
+    return [doc(OWN_PID, isbn=[ISBN], nbn=[NBN])] + [
+        doc(f"uuid:unrelated-{i}", nbn=[NBN]) for i in range(extra)
+    ]
+
+
 @pytest.mark.asyncio
-async def test_polluted_nbn_is_dropped_but_exact_isbn_hit_survives():
-    """The real incident: one ČNB matched 41 unrelated documents.
-
-    Only the document that also matches the ISBN should survive.
-    """
-    docs = [doc(OWN_PID, isbn=[ISBN], nbn=[NBN])]
-    docs += [doc(f"uuid:unrelated-{i}", nbn=[NBN]) for i in range(40)]
-
-    links = await make_validator(docs).find_kramerius_links(make_record(), [])
+async def test_single_match_is_linked():
+    links, ambiguous = await make_validator(
+        [doc(OWN_PID, isbn=[ISBN], nbn=[NBN])]
+    ).find_kramerius_links(make_record(), [])
 
     assert [link.pid for link in links] == [OWN_PID]
+    assert ambiguous == []
 
 
 @pytest.mark.asyncio
-async def test_identifier_under_the_cap_is_kept():
-    """A record legitimately split into a few documents keeps all of them."""
+async def test_identifier_matching_several_documents_is_withheld_for_review():
+    links, ambiguous = await make_validator(
+        [doc(f"uuid:volume-{i}", nbn=[NBN]) for i in range(3)]
+    ).find_kramerius_links(make_record(), [])
+
+    assert links == []
+    assert len(ambiguous) == 1
+    assert ambiguous[0].values == [NBN]
+    assert ambiguous[0].pids == ["uuid:volume-0", "uuid:volume-1", "uuid:volume-2"]
+
+
+@pytest.mark.asyncio
+async def test_threshold_is_configurable():
     docs = [doc(f"uuid:volume-{i}", nbn=[NBN]) for i in range(3)]
 
-    links = await make_validator(docs).find_kramerius_links(make_record(), [])
+    links, ambiguous = await make_validator(
+        docs, max_documents_per_identifier=3
+    ).find_kramerius_links(make_record(), [])
 
     assert sorted(link.pid for link in links) == [
         "uuid:volume-0",
         "uuid:volume-1",
         "uuid:volume-2",
     ]
+    assert ambiguous == []
 
 
 @pytest.mark.asyncio
-async def test_cap_is_configurable():
-    docs = [doc(f"uuid:volume-{i}", nbn=[NBN]) for i in range(3)]
-
-    links = await make_validator(docs, max_roots_per_identifier=2).find_kramerius_links(
+async def test_one_bad_identifier_does_not_withhold_another_identifiers_hit():
+    """The record's own document is found via ISBN, so the polluted ČNB cannot bury it."""
+    links, ambiguous = await make_validator(polluted_nbn_docs()).find_kramerius_links(
         make_record(), []
     )
 
-    assert links == []
+    assert [link.pid for link in links] == [OWN_PID]
+    assert [a.field.value for a in ambiguous if a.field] == ["id_ccnb"]
 
 
 @pytest.mark.asyncio
-async def test_pollution_in_one_identifier_does_not_discard_another():
-    """Dropping ČNB must not take the ISBN's own hits with it."""
-    isbn_hit = doc("uuid:from-isbn", isbn=[ISBN])
-    docs = [isbn_hit] + [doc(f"uuid:unrelated-{i}", nbn=[NBN]) for i in range(40)]
+async def test_unattributable_hits_are_reviewed_too():
+    """Hits matching no searched value verbatim get the same plausibility check."""
+    links, ambiguous = await make_validator(
+        [doc(f"uuid:mystery-{i}") for i in range(40)]
+    ).find_kramerius_links(make_record(), [])
 
-    links = await make_validator(docs).find_kramerius_links(make_record(), [])
-
-    assert [link.pid for link in links] == ["uuid:from-isbn"]
+    assert links == []
+    assert len(ambiguous) == 1
+    assert ambiguous[0].field is None
 
 
 @pytest.mark.asyncio
@@ -128,16 +147,16 @@ async def test_root_model_comes_from_the_root_not_the_leaf():
     the leaf's model wrongly marked every such parent non-linkable.
     """
     root = "uuid:parent-monograph"
-    docs = [
-        doc(
-            "uuid:child-unit",
-            isbn=[ISBN],
-            own_pid_path=f"{root}/uuid:child-unit",
-            model_path="monograph/monographunit",
-        )
-    ]
-
-    links = await make_validator(docs).find_kramerius_links(make_record(), [])
+    links, _ = await make_validator(
+        [
+            doc(
+                "uuid:child-unit",
+                isbn=[ISBN],
+                own_pid_path=f"{root}/uuid:child-unit",
+                model_path="monograph/monographunit",
+            )
+        ]
+    ).find_kramerius_links(make_record(), [])
 
     assert len(links) == 1
     assert links[0].pid == root
@@ -145,11 +164,30 @@ async def test_root_model_comes_from_the_root_not_the_leaf():
     assert links[0].has_wrong_model is False
 
 
+# ── the review result as the curator sees it ──────────────────────────────────
+
+
 @pytest.mark.asyncio
-async def test_unattributable_hits_are_capped_too():
-    """Hits matching no searched value verbatim get the same plausibility check."""
-    docs = [doc(f"uuid:mystery-{i}") for i in range(40)]
+async def test_run_reports_the_bad_identifier_for_review():
+    results = await make_validator(polluted_nbn_docs()).run(make_record())
 
-    links = await make_validator(docs).find_kramerius_links(make_record(), [])
+    review = [r for r in results if r.reason == REVIEW_REASON]
+    assert len(review) == 1
+    assert review[0].status is ValidityStatus.ForReview
 
-    assert links == []
+    params = review[0].params or {}
+    assert params["identifier"] == "id_ccnb"
+    assert params["values"] == NBN
+    # 40 unrelated documents plus the record's own, which carries the ČNB too.
+    assert params["count"] == "41"
+    # A sample only — the identifier is reported so the full set stays one query away.
+    assert len(params["pids"].split(", ")) == 10
+
+
+@pytest.mark.asyncio
+async def test_run_proposes_only_the_identifier_backed_link():
+    """41 candidates, but only the ISBN-backed one becomes a proposed 856."""
+    results = await make_validator(polluted_nbn_docs()).run(make_record())
+
+    additions = [r for r in results if r.reason == "missing_link_in_marc"]
+    assert [(r.params or {})["pid"] for r in additions] == [OWN_PID]

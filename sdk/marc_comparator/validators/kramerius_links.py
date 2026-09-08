@@ -38,11 +38,11 @@ class KrameriusLinksValidatorConfig(BaseModel):
     solr_cloud: bool = True
     search_page_size: int = 10
 
-    #: A bibliographic record maps to a handful of digitised documents at most, so an
-    #: identifier matching more than this is not identifying anything and its hits are
-    #: discarded. MZK's Kramerius has ČNB numbers shared by dozens to hundreds of
-    #: unrelated documents; without this cap every one of them became a proposed link.
-    max_roots_per_identifier: int = 10
+    #: An identifier should resolve to one document. When it resolves to more, the
+    #: extra matches are almost always wrong metadata in Kramerius — MZK's index has
+    #: ČNB numbers shared by dozens to hundreds of unrelated documents. Those hits are
+    #: not turned into links; they are reported for review instead.
+    max_documents_per_identifier: int = 1
 
 
 VALIDATION_FIELD = ValidationTarget(tag="856", codes=["u", "y"])
@@ -95,6 +95,10 @@ IDENTIFIER_DOC_ATTR = {
     KrameriusField.Nbn: "nbn",
 }
 
+#: How many candidate PIDs to name in a review result. The identifier is reported
+#: alongside them, so the full set stays one Solr query away.
+PIDS_IN_REVIEW_SAMPLE = 10
+
 logger = logging.getLogger(__name__)
 
 #: Standard 856 $y link text written for added/replaced links.
@@ -107,6 +111,22 @@ class FoundKrameriusLink:
     model: Model
     has_wrong_model: bool = False
     level: int = 0
+
+
+@dataclass
+class AmbiguousIdentifier:
+    """
+    An identifier that resolved to more Kramerius documents than a record can have.
+
+    Its hits are withheld rather than proposed as links: one identifier pointing at
+    several unrelated documents is a metadata error on the Kramerius side, and which
+    (if any) of them belongs to the record is a judgement call for a curator.
+    """
+
+    #: None when the hits matched no searched value verbatim.
+    field: KrameriusField | None
+    values: list[str]
+    pids: list[str]
 
 
 class KrameriusLinksValidator(BaseValidator):
@@ -135,7 +155,7 @@ class KrameriusLinksValidator(BaseValidator):
 
     async def find_kramerius_links(
         self, record: MarcRecord, current_kramerius_pids: list[str]
-    ) -> list[FoundKrameriusLink]:
+    ) -> tuple[list[FoundKrameriusLink], list[AmbiguousIdentifier]]:
         links: dict[str, FoundKrameriusLink] = {}
 
         raw_fields = [
@@ -198,15 +218,20 @@ class KrameriusLinksValidator(BaseValidator):
                 for field in matched or [None]:
                     roots_by_identifier[field][root_pid] = link
 
+        ambiguous: list[AmbiguousIdentifier] = []
         for field, roots in roots_by_identifier.items():
-            if len(roots) > self.config.max_roots_per_identifier:
+            if len(roots) > self.config.max_documents_per_identifier:
+                values = sorted(searched_values.get(field, set())) if field else []
                 logger.warning(
-                    "Ignoring %s: matched %d distinct documents for %s, which is more "
-                    "than a single record can plausibly have — the identifier is not "
-                    "discriminating and its hits would become bogus links",
-                    field.value if field else "unattributed hits",
+                    "%s matched %d Kramerius documents for %s — withholding them for "
+                    "review; an identifier shared by several documents is a metadata "
+                    "error on the Kramerius side",
+                    field.value if field else "Unattributed hits",
                     len(roots),
-                    sorted(searched_values.get(field, set())) if field else "-",
+                    values or "-",
+                )
+                ambiguous.append(
+                    AmbiguousIdentifier(field=field, values=values, pids=sorted(roots))
                 )
                 continue
 
@@ -238,7 +263,7 @@ class KrameriusLinksValidator(BaseValidator):
 
             links[root_pid] = FoundKrameriusLink(root_pid, root_model, has_wrong_model)
 
-        return list(links.values())
+        return list(links.values()), ambiguous
 
     async def run(self, record: MarcRecord) -> list[ValidationResult]:
         current_kramerius_pids: list[str] = []
@@ -322,7 +347,21 @@ class KrameriusLinksValidator(BaseValidator):
                     field_index=field_idx,
                 )
 
-        found_kramerius_links = await self.find_kramerius_links(record, current_kramerius_pids)
+        found_kramerius_links, ambiguous_identifiers = await self.find_kramerius_links(
+            record, current_kramerius_pids
+        )
+
+        for ambiguous in ambiguous_identifiers:
+            add_result(
+                status=ValidityStatus.ForReview,
+                reason="identifier_matches_multiple_documents",
+                params={
+                    "identifier": ambiguous.field.value if ambiguous.field else "-",
+                    "values": ", ".join(ambiguous.values) or "-",
+                    "count": str(len(ambiguous.pids)),
+                    "pids": ", ".join(ambiguous.pids[:PIDS_IN_REVIEW_SAMPLE]),
+                },
+            )
 
         if not current_kramerius_pids and not found_kramerius_links:
             if not results:
@@ -443,7 +482,8 @@ class KrameriusLinksValidator(BaseValidator):
     #   missing_link_text     → add $y (standard link text) at field_index
     #   link_not_found        → remove the broken field at field_index
     # Non-repairable reasons (invalid_link_format, wrong_server_not_found,
-    # non_linkable_model, non_top_level_document) are left untouched.
+    # non_linkable_model, non_top_level_document,
+    # identifier_matches_multiple_documents) are left untouched.
 
     def _make_url(self, params: dict[str, str]) -> str:
         pid = params.get("pid", "")

@@ -14,16 +14,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   identifier invented dozens of links per record. MZK's Kramerius has ČNB numbers shared
   by unrelated documents — `cnb002657972` matches 41, `cnb002860278` matches 210 — which
   is what produced the bad Aleph batch of July 2026. Hits are now attributed back to the
-  identifier that matched them, and an identifier resolving to more documents than a
-  record can plausibly have (`max_roots_per_identifier`, default 10) is discarded with a
-  warning instead of being trusted. Verified against the live index: the two reported
-  records go from 41 and 210 proposed links to 1 (the correct one) and 0.
+  identifier that matched them, and an identifier resolving to more than
+  `max_documents_per_identifier` (default 1) documents has its hits withheld from the
+  repair batch. Verified against the live index: the two reported records go from 41 and
+  210 proposed links to 1 (the correct one) and 0, with the second record's three
+  genuine links still validating as `Valid`.
 - Root model was read from the end of `own_model_path` (the leaf) while the root pid came
   from the start of `own_pid_path`. Any parent reached via a hit on its child — a
   monograph unit or periodical volume — was therefore reported as `non_linkable_model`
   and silently skipped.
 
 ### Added
+
+- New `kramerius-links` review category `identifier_matches_multiple_documents`. When one
+  identifier resolves to several Kramerius documents the extra matches are almost always
+  wrong metadata on the Kramerius side, so rather than guessing, the validator reports the
+  identifier, the match count and a sample of the candidate PIDs for a curator to judge —
+  and to pass back to the digitisation team.
 
 - `make check` quality gate (`format-check` + `lint` + `typecheck`) and the supporting
   `format` / `lint-fix` targets.
