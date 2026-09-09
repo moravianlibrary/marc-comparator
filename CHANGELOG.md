@@ -7,6 +7,41 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- New `kramerius-links` review category `identifier_matches_multiple_documents`. When one
+  identifier resolves to several Kramerius documents the extra matches are almost always
+  wrong metadata on the Kramerius side, so rather than guessing, the validator reports the
+  identifier, the match count and a sample of the candidate PIDs for a curator to judge —
+  and to pass back to the digitisation team.
+- `make check` quality gate (`format-check` + `lint` + `typecheck`) and the supporting
+  `format` / `lint-fix` targets.
+- Release targets: `set-version`, `tag-version`, `tag-latest`, `release`.
+- Local Helm testing against a k3s cluster via k3d (`k3d-*` and `helm-*` targets).
+- `deploy/docker-compose/app.env.example` documenting every environment key.
+
+### Changed
+
+- Ruff lint selection extended with `B` (bugbear) and `SIM` (simplify).
+- Client tooling migrated from npm to Bun, and from ESLint + Prettier to Biome.
+- Python dependencies migrated from `requirements*.txt` to PEP 621 with `uv`.
+- All entities converted from legacy `Column` to `Mapped` / `mapped_column`; nullability
+  now comes from the annotation. DDL verified unchanged.
+- `Settings.get` / `Settings.upsert` are generic in the schema type, so callers get the
+  concrete settings model back instead of the `SettingsSchema` base. `Settings.save` was
+  renamed to `Settings.upsert` — it is a classmethod upsert, not the mixin's instance
+  `save`, and sharing the name made it an incompatible override.
+- `TokenData.user_id` is `str` rather than `str | None`; it is always populated.
+- Pydantic `Field(<value>, ...)` defaults changed to `Field(default=<value>, ...)` —
+  pyright only recognises the keyword form, so every such model looked all-required.
+- `BaseValidator`, `BaseComparator`, and `BaseAuthorityLinker` declare
+  `__init__(self, config=None)`, making the config contract explicit.
+
+### Removed
+
+- `deploy/docker-compose/app.env` and `app.oidc.env` are no longer tracked; copy them
+  from `app.env.example` instead.
+
 ### Fixed
 
 - **Kramerius link discovery proposed links to unrelated documents.** Identifiers were
@@ -21,37 +56,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   genuine links still validating as `Valid`.
 - A wrong-server 856 was repaired by deleting the field and adding a replacement, which
   silently discarded the cataloguer's `$x` (digitisation project) and `$z` (volume).
-  All three URL repairs now rewrite `$u` in place, so the other subfields survive. `$x`
-  is still never written for a *new* link — the project is not recorded anywhere in the
-  Kramerius index, and Tomáš Prachař's instruction was to omit the subfield rather than
-  guess.
+  All three URL repairs now rewrite `$u` in place, so the other subfields survive.
+  Neither subfield is written for a *new* link: the digitisation project is recorded
+  nowhere in the Kramerius index, and a volume designation exists only inside the
+  document title, where parsing it would risk writing a wrong `$z` into the catalogue.
 - Root model was read from the end of `own_model_path` (the leaf) while the root pid came
   from the start of `own_pid_path`. Any parent reached via a hit on its child — a
   monograph unit or periodical volume — was therefore reported as `non_linkable_model`
   and silently skipped.
-
-### Added
-
-- 856 `$z` on newly proposed Kramerius links, so a volume of a multi-part work says which
-  volume it is (`$$zDíl 1`), as requested by Věra Mynářová. The designation is read from
-  the linked document's title via configurable `part_number_patterns`; Kramerius' own
-  `part.number.str` is unusable here because it is empty on every top-level document
-  (0 of 314 169) and populated only on `monographunit` children, which are never link
-  targets. No designation is written when none is found.
-- New `kramerius-links` review category `identifier_matches_multiple_documents`. When one
-  identifier resolves to several Kramerius documents the extra matches are almost always
-  wrong metadata on the Kramerius side, so rather than guessing, the validator reports the
-  identifier, the match count and a sample of the candidate PIDs for a curator to judge —
-  and to pass back to the digitisation team.
-
-- `make check` quality gate (`format-check` + `lint` + `typecheck`) and the supporting
-  `format` / `lint-fix` targets.
-- Release targets: `set-version`, `tag-version`, `tag-latest`, `release`.
-- Local Helm testing against a k3s cluster via k3d (`k3d-*` and `helm-*` targets).
-- `deploy/docker-compose/app.env.example` documenting every environment key.
-
-### Fixed
-
 - Both container images were missing `periodic_sync/` and `reports/` from their COPY
   lists, so the API and the worker both died at import with
   `ModuleNotFoundError: No module named 'periodic_sync'`. The packages were added with
@@ -82,28 +94,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `dispatch_task` no longer subscripts `task.data` unguarded for `SyncRecords`.
 - `Settings.get` referenced a possibly-unbound local when validation failed.
 - `authors` on `CatalogRecord` used a shared mutable `default=[]`.
-
-### Changed
-
-- Ruff lint selection extended with `B` (bugbear) and `SIM` (simplify).
-- Client tooling migrated from npm to Bun, and from ESLint + Prettier to Biome.
-- Python dependencies migrated from `requirements*.txt` to PEP 621 with `uv`.
-- All entities converted from legacy `Column` to `Mapped` / `mapped_column`; nullability
-  now comes from the annotation. DDL verified unchanged.
-- `Settings.get` / `Settings.upsert` are generic in the schema type, so callers get the
-  concrete settings model back instead of the `SettingsSchema` base. `Settings.save` was
-  renamed to `Settings.upsert` — it is a classmethod upsert, not the mixin's instance
-  `save`, and sharing the name made it an incompatible override.
-- `TokenData.user_id` is `str` rather than `str | None`; it is always populated.
-- Pydantic `Field(<value>, ...)` defaults changed to `Field(default=<value>, ...)` —
-  pyright only recognises the keyword form, so every such model looked all-required.
-- `BaseValidator`, `BaseComparator`, and `BaseAuthorityLinker` declare
-  `__init__(self, config=None)`, making the config contract explicit.
-
-### Removed
-
-- `deploy/docker-compose/app.env` and `app.oidc.env` are no longer tracked; copy them
-  from `app.env.example` instead.
 
 ## [1.0.0-rc6]
 

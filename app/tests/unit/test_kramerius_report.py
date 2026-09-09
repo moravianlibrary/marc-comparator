@@ -200,38 +200,10 @@ def test_out_of_range_field_index_recorded_in_errors():
     assert "out of range" in files["errors.json"]
 
 
-# ── $z / $x handling (Věra Mynářová's request, 24.07.2026) ────────────────────
-
-
-def test_addition_carries_part_number_as_z():
-    """A volume of a multi-part work says which volume it is."""
-    inp = ReportInput(
-        catalog_record_id=CID,
-        base="MZK01",
-        marc=make_record([]),
-        results=[
-            result(
-                "missing_link_in_marc",
-                params={"pid": "uuid:vol1", "part": "Díl 1"},
-            )
-        ],
-    )
-    line = seq_files(make_validator().generate_report([inp]))["aleph_seq_MZK01.seq"].strip()
-
-    assert line.endswith("$$yDigitalizovaný dokument$$zDíl 1")
-    assert line.startswith(f"{SYSNO} 85641 L $$uhttps://")
-
-
-def test_addition_without_part_number_has_no_z():
-    inp = ReportInput(
-        catalog_record_id=CID,
-        base="MZK01",
-        marc=make_record([]),
-        results=[result("missing_link_in_marc", params={"pid": "uuid:only"})],
-    )
-    line = seq_files(make_validator().generate_report([inp]))["aleph_seq_MZK01.seq"].strip()
-
-    assert "$$z" not in line
+# ── $x / $z preservation ─────────────────────────────────────────────────────
+#
+# Neither is invented for a new link, but a repair must never destroy what a
+# cataloguer wrote — it cannot be reconstructed from Kramerius.
 
 
 def test_url_repair_preserves_existing_x_and_z():

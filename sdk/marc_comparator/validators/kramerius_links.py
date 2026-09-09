@@ -44,22 +44,6 @@ class KrameriusLinksValidatorConfig(BaseModel):
     #: not turned into links; they are reported for review instead.
     max_documents_per_identifier: int = 1
 
-    #: Patterns pulling a part designation out of a linked document's title, mapped to
-    #: the $z text to write. Matched case-insensitively, in order, first match wins.
-    #:
-    #: The structured `part.number.str` field would be the obvious source, but it is
-    #: empty on every top-level document (0 of 314 169 checked) — it is only populated
-    #: on monographunit children, which are never link targets. The title is therefore
-    #: the only place a part designation exists for a document we link to.
-    part_number_patterns: dict[str, str] = {
-        r"\[Díl\]\s*(?P<number>\d+)": "Díl {number}",
-        r"(?P<number>\d+)\.\s*díl\b": "Díl {number}",
-        r"\bDíl\s+(?P<number>\d+)": "Díl {number}",
-        r"\[Svazek\]\s*(?P<number>\d+)": "Sv. {number}",
-        r"(?P<number>\d+)\.\s*svazek\b": "Sv. {number}",
-        r"\bSv\.\s*(?P<number>\d+)": "Sv. {number}",
-    }
-
 
 VALIDATION_FIELD = ValidationTarget(tag="856", codes=["u", "y"])
 
@@ -99,8 +83,6 @@ FL = [
         KrameriusField.Isbn,
         KrameriusField.Issn,
         KrameriusField.Nbn,
-        # Source of the 856 $z part designation, see part_number_patterns.
-        KrameriusField.Title,
     ]
 ]
 MAX_QUERY_PARTS = 50
@@ -129,8 +111,6 @@ class FoundKrameriusLink:
     model: Model
     has_wrong_model: bool = False
     level: int = 0
-    #: 856 $z text for a volume of a multi-part work, when the title names one.
-    part_number: str | None = None
 
 
 @dataclass
@@ -164,10 +144,6 @@ class KrameriusLinksValidator(BaseValidator):
         self.url_to_pid_wrong_path_regex = re.compile(config.url_to_pid_wrong_path_pattern)
         self.url_to_pid_fallback_regex = re.compile(config.url_to_pid_fallback_pattern)
         self.link_text_regex = re.compile(config.link_text_pattern)
-        self.part_number_regexes = [
-            (re.compile(pattern, re.IGNORECASE), template)
-            for pattern, template in config.part_number_patterns.items()
-        ]
 
         self.client = KrameriusClient(
             KrameriusConfig(
@@ -176,18 +152,6 @@ class KrameriusLinksValidator(BaseValidator):
                 search_page_size=config.search_page_size,
             )
         )
-
-    def _part_number(self, title: str | None) -> str | None:
-        """The 856 $z text for a title naming a part, e.g. 'Jalna. [Díl] 15' -> 'Díl 15'."""
-        if not title:
-            return None
-
-        for regex, template in self.part_number_regexes:
-            match = regex.search(title)
-            if match:
-                return template.format(**match.groupdict())
-
-        return None
 
     async def find_kramerius_links(
         self, record: MarcRecord, current_kramerius_pids: list[str]
@@ -238,24 +202,13 @@ class KrameriusLinksValidator(BaseValidator):
             query = G(query) & F(KrameriusField.Model, TARGET_MODELS)
 
             for doc in await asyncio.to_thread(self.client.Search.search, query, fl=FL):
-                pid_path = doc.own_pid_path.split("/")
-                root_pid = pid_path[0]
-                is_root = len(pid_path) == 1
+                root_pid = doc.own_pid_path.split("/")[0]
                 # Both paths run root -> leaf, so the root's model is the first element.
                 # Taking the last one named the leaf, which wrongly flagged every parent
                 # reached via a child hit as non-linkable.
                 root_model = Model(doc.model_path.split("/")[0])
                 has_wrong_model = root_model not in VALID_TOP_LEVEL_MODELS
-                link = FoundKrameriusLink(
-                    root_pid,
-                    root_model,
-                    has_wrong_model,
-                    # Only the root's own title describes the root. A hit on a child
-                    # carries the child's title, which names a different part. A
-                    # single-segment path means the document is its own root; pid is
-                    # not requested in FL, so it cannot be compared directly.
-                    part_number=self._part_number(doc.title) if is_root else None,
-                )
+                link = FoundKrameriusLink(root_pid, root_model, has_wrong_model)
 
                 matched = [
                     field
@@ -308,14 +261,7 @@ class KrameriusLinksValidator(BaseValidator):
             root_model = Model(doc.model_path.split("/")[0])
             has_wrong_model = root_model not in VALID_TOP_LEVEL_MODELS
 
-            links[root_pid] = FoundKrameriusLink(
-                root_pid,
-                root_model,
-                has_wrong_model,
-                part_number=(
-                    self._part_number(doc.title) if len(doc.own_pid_path.split("/")) == 1 else None
-                ),
-            )
+            links[root_pid] = FoundKrameriusLink(root_pid, root_model, has_wrong_model)
 
         return list(links.values()), ambiguous
 
@@ -512,16 +458,8 @@ class KrameriusLinksValidator(BaseValidator):
                     field_index=pid_field_index.get(pid),
                 )
 
-        part_numbers = {
-            link.pid: link.part_number for link in found_kramerius_links if link.part_number
-        }
         for pid in valid_set - current_set:
-            params = {"pid": pid}
-            # $z, so a volume of a multi-part work says which volume it is.
-            if pid in part_numbers:
-                params["part"] = part_numbers[pid]
-
-            add_result(reason="missing_link_in_marc", params=params)
+            add_result(reason="missing_link_in_marc", params={"pid": pid})
 
         return results
 
@@ -534,8 +472,7 @@ class KrameriusLinksValidator(BaseValidator):
     # conflicting edits to the same 856 set do not overwrite each other.
     #
     # reason → action:
-    #   missing_link_in_marc  → add a new correct 856 (with $z when the linked
-    #                           document's title names a part)
+    #   missing_link_in_marc  → add a new correct 856
     #   wrong_server_found    → replace $u at field_index with the correct URL
     #   wrong_path_found      → replace $u at field_index with the correct URL
     #   wrong_path_not_found  → replace $u at field_index with the correct URL
@@ -544,9 +481,9 @@ class KrameriusLinksValidator(BaseValidator):
     #
     # The URL fixes rewrite $u in place rather than dropping the field and adding a
     # replacement, so a cataloguer's $x (digitisation project) and $z (volume) survive
-    # the repair. $x is never written for a *new* link: the project is not recorded
-    # anywhere in the Kramerius index, and Tomáš Prachař's instruction was to leave the
-    # subfield out rather than guess at it.
+    # the repair. Neither is written for a *new* link: the project is recorded nowhere in
+    # the Kramerius index, and a volume designation exists only inside the document title,
+    # where parsing it would risk writing a wrong $z into the catalogue.
     # Non-repairable reasons (invalid_link_format, wrong_server_not_found,
     # non_linkable_model, non_top_level_document,
     # identifier_matches_multiple_documents) are left untouched.
@@ -564,10 +501,7 @@ class KrameriusLinksValidator(BaseValidator):
             field_index = result.target.field_index
 
             if reason == "missing_link_in_marc":
-                addition = {"u": self._make_url(params), "y": STANDARD_LINK_TEXT}
-                if params.get("part"):
-                    addition["z"] = params["part"]
-                changes["additions"].append(addition)
+                changes["additions"].append({"u": self._make_url(params), "y": STANDARD_LINK_TEXT})
             elif reason in ("wrong_server_found", "wrong_path_found", "wrong_path_not_found"):
                 changes["modifications"].append(
                     {
@@ -621,11 +555,9 @@ class KrameriusLinksValidator(BaseValidator):
         for add in changes["additions"]:
             if add["u"] in existing_us:
                 continue
-            # Insertion order is the subfield order in the .seq line: $u $y then $z.
-            subfields = {"u": [add["u"]], "y": [add["y"]]}
-            if add.get("z"):
-                subfields["z"] = [add["z"]]
-            kept.append(VariableField(ind1="4", ind2="1", subfields=subfields))
+            kept.append(
+                VariableField(ind1="4", ind2="1", subfields={"u": [add["u"]], "y": [add["y"]]})
+            )
             existing_us.add(add["u"])
 
         return kept
