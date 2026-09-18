@@ -24,6 +24,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useInvalidateTasks } from '@/hooks/use-invalidate-tasks';
 import { useConfiguredBases } from '@/hooks/use-system-info';
 import apiClient from '@/lib/api-client';
 
@@ -59,6 +60,7 @@ export function SyncForm() {
   const isBaseLocked = locks.includes(`catalog_sync_${selectedBase}`);
 
   const queryClient = useQueryClient();
+  const invalidateTasks = useInvalidateTasks();
 
   const mutation = useMutation({
     mutationFn: (values: FormValues) =>
@@ -66,7 +68,10 @@ export function SyncForm() {
         base: values.base,
         from_date: values.from_date || null,
       }),
-    onSuccess: () => form.reset({ base: configuredBases[0] ?? '', from_date: '' }),
+    onSuccess: () => {
+      form.reset({ base: configuredBases[0] ?? '', from_date: '' });
+      invalidateTasks();
+    },
     onError: (error: AxiosError) => {
       if (error.response?.status === 409) {
         queryClient.invalidateQueries({ queryKey: ['system', 'locks'] });

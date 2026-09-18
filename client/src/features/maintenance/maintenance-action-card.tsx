@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import { useInvalidateTasks } from '@/hooks/use-invalidate-tasks';
 import apiClient from '@/lib/api-client';
 
 interface MaintenanceActionCardProps {
@@ -27,6 +28,7 @@ export function MaintenanceActionCard({
 }: MaintenanceActionCardProps) {
   const { t } = useTranslation('maintenance');
   const [maxAgeDays, setMaxAgeDays] = useState<string>('');
+  const invalidateTasks = useInvalidateTasks();
 
   const mutation = useMutation({
     mutationFn: async () => {
@@ -37,6 +39,7 @@ export function MaintenanceActionCard({
     },
     onSuccess: () => {
       toast.success(t('started'));
+      invalidateTasks();
     },
     onError: () => {
       toast.error(t('common:error'));

@@ -23,6 +23,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useInvalidateTasks } from '@/hooks/use-invalidate-tasks';
 import { useConfiguredBases } from '@/hooks/use-system-info';
 import apiClient from '@/lib/api-client';
 
@@ -49,9 +50,14 @@ export function FetchSingleForm() {
     }
   }, [configuredBases, form]);
 
+  const invalidateTasks = useInvalidateTasks();
+
   const mutation = useMutation({
     mutationFn: (data: FormValues) => apiClient.post('/catalog-records/fetch', data),
-    onSuccess: () => form.reset({ base: configuredBases[0] ?? '', system_number: '' }),
+    onSuccess: () => {
+      form.reset({ base: configuredBases[0] ?? '', system_number: '' });
+      invalidateTasks();
+    },
     onError: () => toast.error(t('common:error')),
   });
 

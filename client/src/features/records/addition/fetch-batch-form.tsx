@@ -23,6 +23,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
+import { useInvalidateTasks } from '@/hooks/use-invalidate-tasks';
 import { useConfiguredBases } from '@/hooks/use-system-info';
 import apiClient from '@/lib/api-client';
 
@@ -37,6 +38,8 @@ export function FetchBatchForm() {
   const { t } = useTranslation('records');
 
   const configuredBases = useConfiguredBases();
+
+  const invalidateTasks = useInvalidateTasks();
 
   const form = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -60,7 +63,10 @@ export function FetchBatchForm() {
         per_base: [{ base: values.base, system_numbers: systemNumbers }],
       });
     },
-    onSuccess: () => form.reset({ base: configuredBases[0] ?? '', system_numbers_text: '' }),
+    onSuccess: () => {
+      form.reset({ base: configuredBases[0] ?? '', system_numbers_text: '' });
+      invalidateTasks();
+    },
     onError: () => toast.error(t('common:error')),
   });
 
