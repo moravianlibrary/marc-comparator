@@ -21,7 +21,10 @@ from entities.validation import Validation  # noqa: F401
 alembic_config = context.config
 
 if alembic_config.config_file_name is not None:
-    fileConfig(alembic_config.config_file_name)
+    # Migrations also run in-process on app startup, where the default
+    # disable_existing_loggers=True would permanently silence uvicorn's and the
+    # app's already-created loggers — including the startup-failure traceback.
+    fileConfig(alembic_config.config_file_name, disable_existing_loggers=False)
 
 target_metadata = Base.metadata
 

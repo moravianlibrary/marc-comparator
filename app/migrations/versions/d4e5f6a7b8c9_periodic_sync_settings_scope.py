@@ -18,10 +18,12 @@ depends_on: str | Sequence[str] | None = None
 
 
 def upgrade() -> None:
+    # The enum labels are the SettingsScope *member names* ('Catalog', 'Tasks', …),
+    # not their values — that is what SQLAlchemy's Enum() persists and queries by.
     with op.get_context().autocommit_block():
-        op.execute("ALTER TYPE settingsscope ADD VALUE IF NOT EXISTS 'periodic-sync'")
+        op.execute("ALTER TYPE settingsscope ADD VALUE IF NOT EXISTS 'PeriodicSync'")
 
 
 def downgrade() -> None:
-    # Postgres cannot drop a single enum value; 'periodic-sync' is left in place.
+    # Postgres cannot drop a single enum value; 'PeriodicSync' is left in place.
     pass
