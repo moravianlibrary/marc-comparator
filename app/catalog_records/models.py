@@ -10,17 +10,22 @@ from pydantic import BaseModel, Field
 from entities.settings import SettingsSchema
 
 
+def _mzk_oai_client(base: str) -> AlephOAIConfig:
+    """MZK's Aleph bases are served by one OAI endpoint and differ only in the
+    base code and the name of its digitised-documents set."""
+    return AlephOAIConfig(
+        base=base,
+        host="https://aleph.mzk.cz",
+        endpoint="OAI",
+        system_number_pattern=r"\d{9}",
+        oai_sets=[f"{base}-VDK"],
+        # {base} and {doc_number} are filled in per record, not here.
+        oai_identifier_template="oai:aleph.mzk.cz:{base}-{doc_number}",
+    )
+
+
 class CatalogSettings(SettingsSchema):
-    clients: list[AlephOAIConfig] = [
-        AlephOAIConfig(
-            base="MZK01",
-            host="https://aleph.mzk.cz",
-            endpoint="OAI",
-            system_number_pattern=r"\d{9}",
-            oai_sets=["MZK01-VDK"],
-            oai_identifier_template="oai:aleph.mzk.cz:{base}-{doc_number}",
-        )
-    ]
+    clients: list[AlephOAIConfig] = [_mzk_oai_client("MZK01"), _mzk_oai_client("MZK03")]
     kramerius_client_urls: dict[str, str] = {}
 
 
@@ -97,7 +102,9 @@ class RecordReviewsResponse(BaseModel):
 
 
 class ProcessRecordsSettings(SettingsSchema):
-    target_bases: list[str] = Field(default=["MZK01"], min_length=1)
+    # SKC is the only base the enabled linker advertises as a target — linking
+    # MZK01 against itself is rejected by the same-base guard anyway.
+    target_bases: list[str] = Field(default=["SKC"], min_length=1)
     authority_linkers: list[AuthorityLinker] = Field(
         default=[AuthorityLinker.KnihovnyCz], min_length=1
     )

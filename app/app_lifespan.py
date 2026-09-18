@@ -82,16 +82,24 @@ async def lifespan(app: FastAPI):
         Role.create_default_roles(db_session)
 
         # Create the system user that owns scheduler-created tasks (never logs in)
-        if db_session.get(User, SYSTEM_USER_ID) is None:
-            db_session.add(
-                User(
-                    id=SYSTEM_USER_ID,
-                    email=SYSTEM_USER_EMAIL,
-                    first_name="System",
-                    last_name="Scheduler",
-                    password_hash="!disabled",
-                )
+        system_user = db_session.get(User, SYSTEM_USER_ID)
+        if system_user is None:
+            system_user = User(
+                id=SYSTEM_USER_ID,
+                email=SYSTEM_USER_EMAIL,
+                first_name="System",
+                last_name="Scheduler",
+                password_hash="!disabled",
             )
+            db_session.add(system_user)
+            db_session.commit()
+
+        # The scheduler runs every kind of task on this user's behalf, so it
+        # needs every permission. Re-checked on each start so deployments
+        # created before this got the role too.
+        system_admin_role = Role.get_by_name(db_session, "Admin")
+        if system_admin_role not in system_user.roles:
+            system_user.roles.append(system_admin_role)
             db_session.commit()
 
         # Create admin user if not exists
