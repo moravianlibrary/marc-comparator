@@ -13,13 +13,24 @@ function formatLockName(
   return lock;
 }
 
+/**
+ * Every task run takes a `task-run-<id>` mutex of its own. That is an internal
+ * guard against double execution, not a resource the user is locked out of —
+ * the running task is already visible on the tasks page.
+ */
+function isInternalLock(lock: string): boolean {
+  return lock.startsWith('task-run-');
+}
+
 export function LockBanner() {
   const { t } = useTranslation();
 
-  const { data: locks = [] } = useQuery<string[]>({
+  const { data: allLocks = [] } = useQuery<string[]>({
     queryKey: ['system', 'locks'],
     queryFn: () => apiClient.get<string[]>('/system/locks').then(r => r.data),
   });
+
+  const locks = allLocks.filter(lock => !isInternalLock(lock));
 
   if (locks.length === 0) {
     return null;

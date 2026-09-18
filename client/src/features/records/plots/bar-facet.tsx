@@ -169,7 +169,13 @@ export function BarFacet({
             dataKey="name"
             type="category"
             tickLine={false}
-            tickMargin={8}
+            // recharts offsets the tick's x by tickSize + tickMargin even with the
+            // tick line hidden. The label box below is drawn `width` to the left of
+            // that x, so any offset pushes it off the left edge of the chart and
+            // clips the start of long labels — keep both at zero and use the
+            // button's own padding for the gap to the bars.
+            tickSize={0}
+            tickMargin={0}
             axisLine={false}
             width={resolvedLabelWidth}
             tick={({ x, y, payload, width: tickWidth }: YAxisTickContentProps) => {
