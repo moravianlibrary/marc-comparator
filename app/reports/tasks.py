@@ -135,7 +135,14 @@ async def create_report(task_id: str) -> None:
                 archive.writestr(report_file.filename, report_file.content)
         blob = buffer.getvalue()
 
-        filename = f"{data.tool}_{config.timestamp:%Y-%m-%d}.zip"
+        # There is one comparator and it is called "default", so its name adds
+        # nothing to "comparator". Validators are plural — theirs identifies it.
+        stem = (
+            data.kind.value
+            if data.kind is ReportToolKind.Comparator
+            else f"{data.kind.value}_{data.tool}"
+        )
+        filename = f"{stem}_{config.timestamp:%Y-%m-%d}.zip"
         ReportArtifact(
             task_id=ctx.task.task_id,
             tool=data.tool,

@@ -1,4 +1,4 @@
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useMutation } from '@tanstack/react-query';
 import { MoreHorizontal } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -37,6 +37,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Separator } from '@/components/ui/separator';
+import { useInvalidateTasks } from '@/hooks/use-invalidate-tasks';
 import { useSystemInfo } from '@/hooks/use-system-info';
 import apiClient from '@/lib/api-client';
 import type { RecordFilter } from './types';
@@ -50,10 +52,9 @@ interface RecordTaskActionsProps {
 
 export function RecordTaskActions({ filters, totalCount }: RecordTaskActionsProps) {
   const { t } = useTranslation('records');
-  const queryClient = useQueryClient();
   const [pendingAction, setPendingAction] = useState<'process' | null>(null);
 
-  const onTaskCreated = () => queryClient.invalidateQueries({ queryKey: ['tasks'] });
+  const onTaskCreated = useInvalidateTasks();
   const onError = () => toast.error(t('common:error'));
 
   const processMutation = useMutation({
@@ -121,7 +122,6 @@ interface AdvancedTaskActionsProps {
 
 export function AdvancedTaskActions({ filters, totalCount }: AdvancedTaskActionsProps) {
   const { t } = useTranslation('records');
-  const queryClient = useQueryClient();
   const [pendingDialog, setPendingDialog] = useState<DialogAction | null>(null);
 
   // -- Authority linking dialog state --
@@ -136,6 +136,7 @@ export function AdvancedTaskActions({ filters, totalCount }: AdvancedTaskActions
 
   // -- Report dialog state --
   const [selectedReportValidators, setSelectedReportValidators] = useState<Set<string>>(new Set());
+  const [reportComparatorSelected, setReportComparatorSelected] = useState(false);
 
   const { data: systemInfo } = useSystemInfo();
 
@@ -146,7 +147,7 @@ export function AdvancedTaskActions({ filters, totalCount }: AdvancedTaskActions
   const reportValidators = systemInfo?.report_capable_validators ?? [];
   const reportComparator = systemInfo?.report_capable_comparator ?? null;
 
-  const onTaskCreated = () => queryClient.invalidateQueries({ queryKey: ['tasks'] });
+  const onTaskCreated = useInvalidateTasks();
   const onError = () => toast.error(t('common:error'));
 
   const linkAuthoritiesMutation = useMutation({
@@ -184,21 +185,30 @@ export function AdvancedTaskActions({ filters, totalCount }: AdvancedTaskActions
     onError,
   });
 
-  const reportValidatorMutation = useMutation({
-    mutationFn: async (validators: string[]) => {
-      await Promise.all(
-        validators.map(tool =>
+  // One task per selected tool: each produces its own archive, and the backend
+  // takes a single tool per request.
+  const reportMutation = useMutation({
+    mutationFn: async ({
+      validators,
+      comparator,
+    }: {
+      validators: string[];
+      comparator: boolean;
+    }) => {
+      await Promise.all([
+        ...validators.map(tool =>
           apiClient.post('/reports/task', { kind: 'validator', tool, filters }),
         ),
-      );
-    },
-    onSuccess: onTaskCreated,
-    onError,
-  });
-
-  const reportComparatorMutation = useMutation({
-    mutationFn: async (tool: string) => {
-      await apiClient.post('/reports/task', { kind: 'comparator', tool, filters });
+        ...(comparator && reportComparator
+          ? [
+              apiClient.post('/reports/task', {
+                kind: 'comparator',
+                tool: reportComparator,
+                filters,
+              }),
+            ]
+          : []),
+      ]);
     },
     onSuccess: onTaskCreated,
     onError,
@@ -271,14 +281,20 @@ export function AdvancedTaskActions({ filters, totalCount }: AdvancedTaskActions
         ? new Set([reportValidators[0]])
         : new Set(),
     );
+    // Deliberately not pre-checked, unlike a lone validator: the comparison
+    // report is a separate kind of output, not the obvious default.
+    setReportComparatorSelected(false);
     setPendingDialog('report');
   }
 
   function confirmReport() {
-    if (selectedReportValidators.size === 0) {
+    if (reportTaskCount === 0) {
       return;
     }
-    reportValidatorMutation.mutate(Array.from(selectedReportValidators));
+    reportMutation.mutate({
+      validators: Array.from(selectedReportValidators),
+      comparator: reportComparatorSelected,
+    });
     setPendingDialog(null);
   }
 
@@ -295,11 +311,20 @@ export function AdvancedTaskActions({ filters, totalCount }: AdvancedTaskActions
     linkAuthoritiesMutation.isPending ||
     compareMutation.isPending ||
     validateMutation.isPending ||
-    reportValidatorMutation.isPending ||
-    reportComparatorMutation.isPending;
+    reportMutation.isPending;
+
+  const hasReportTools = reportValidators.length > 0 || reportComparator != null;
+  const reportTaskCount =
+    selectedReportValidators.size + (reportComparatorSelected && reportComparator ? 1 : 0);
 
   return (
     <>
+      {hasReportTools && (
+        <Button variant="outline" size="sm" onClick={openReport} disabled={isBusy}>
+          {t('table.actions.report')}
+        </Button>
+      )}
+
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" size="icon" className="h-8 w-8" disabled={isBusy}>
@@ -314,16 +339,6 @@ export function AdvancedTaskActions({ filters, totalCount }: AdvancedTaskActions
             {t('table.actions.compare')}
           </DropdownMenuItem>
           <DropdownMenuItem onSelect={openValidate}>{t('table.actions.validate')}</DropdownMenuItem>
-          {reportValidators.length > 0 && (
-            <DropdownMenuItem onSelect={openReport}>
-              {t('table.actions.report-validator')}
-            </DropdownMenuItem>
-          )}
-          {reportComparator != null && (
-            <DropdownMenuItem onSelect={() => reportComparatorMutation.mutate(reportComparator)}>
-              {t('table.actions.report-comparator')}
-            </DropdownMenuItem>
-          )}
         </DropdownMenuContent>
       </DropdownMenu>
 
@@ -553,48 +568,72 @@ export function AdvancedTaskActions({ filters, totalCount }: AdvancedTaskActions
             <DialogDescription>{t('table.actions.report-description')}</DialogDescription>
           </DialogHeader>
 
-          {reportValidators.length === 0 ? (
-            <p className="text-sm text-muted-foreground">
-              {t('table.actions.no-report-validators')}
-            </p>
-          ) : (
-            <div className="space-y-2">
-              <Label>{t('table.actions.select-validators')}</Label>
+          <div className="space-y-4">
+            {reportValidators.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                {t('table.actions.no-report-validators')}
+              </p>
+            ) : (
               <div className="space-y-2">
-                {reportValidators.map(v => (
-                  <div key={v} className="flex items-center gap-2">
-                    <Checkbox
-                      id={`report-validator-${v}`}
-                      checked={selectedReportValidators.has(v)}
-                      onCheckedChange={checked => {
-                        setSelectedReportValidators(prev => {
-                          const next = new Set(prev);
-                          if (checked) {
-                            next.add(v);
-                          } else {
-                            next.delete(v);
-                          }
-                          return next;
-                        });
-                      }}
-                    />
-                    <Label htmlFor={`report-validator-${v}`}>
-                      {t(`validator-name.${v}`, { defaultValue: v })}
-                    </Label>
-                  </div>
-                ))}
+                <Label>{t('table.actions.report-validators-section')}</Label>
+                <div className="space-y-2">
+                  {reportValidators.map(v => (
+                    <div key={v} className="flex items-center gap-2">
+                      <Checkbox
+                        id={`report-validator-${v}`}
+                        checked={selectedReportValidators.has(v)}
+                        onCheckedChange={checked => {
+                          setSelectedReportValidators(prev => {
+                            const next = new Set(prev);
+                            if (checked) {
+                              next.add(v);
+                            } else {
+                              next.delete(v);
+                            }
+                            return next;
+                          });
+                        }}
+                      />
+                      <Label htmlFor={`report-validator-${v}`}>
+                        {t(`validator-name.${v}`, { defaultValue: v })}
+                      </Label>
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
+
+            {reportComparator != null && (
+              <div className="space-y-2">
+                <Separator />
+                {/* There is only ever one comparator and it is named "default",
+                    so the checkbox stands on its own — naming the tool would
+                    show that useless label. */}
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="report-comparator"
+                    checked={reportComparatorSelected}
+                    onCheckedChange={checked => setReportComparatorSelected(checked === true)}
+                  />
+                  <Label htmlFor="report-comparator">
+                    {t('table.actions.report-comparator-option')}
+                  </Label>
+                </div>
+              </div>
+            )}
+
+            {/* Each tool is reported on separately, so the count is worth saying
+                out loud before the user commits to it. */}
+            <p className="text-sm text-muted-foreground">
+              {t('table.actions.report-task-count', { count: reportTaskCount })}
+            </p>
+          </div>
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setPendingDialog(null)}>
               {t('common:cancel')}
             </Button>
-            <Button
-              onClick={confirmReport}
-              disabled={selectedReportValidators.size === 0 || reportValidators.length === 0}
-            >
+            <Button onClick={confirmReport} disabled={reportTaskCount === 0}>
               {t('common:confirm')}
             </Button>
           </DialogFooter>
