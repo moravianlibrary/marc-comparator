@@ -2,8 +2,9 @@
 MAKEFLAGS += --no-print-directory
 
 COMPOSE_FILE := deploy/docker-compose/docker-compose.yml
-COMPOSE := docker compose -f $(COMPOSE_FILE)
-DOCKER ?= $(shell command -v podman 2>/dev/null || command -v docker 2>/dev/null)
+DOCKER ?= docker
+# DOCKER ?= podman
+COMPOSE := $(DOCKER) compose -f $(COMPOSE_FILE)
 VERSION := $(shell cat VERSION)
 
 # PEP 440 form of VERSION for Python manifests (1.0.0-rc6 -> 1.0.0rc6)
@@ -42,6 +43,19 @@ K3D_CLUSTER ?= marc-comparator
 HELM_RELEASE ?= marc-comparator
 HELM_NAMESPACE ?= marc-comparator
 
+# k3d gets its own kubeconfig so creating the local cluster never rewrites (or
+# switches the context of) a real cluster's kubeconfig via $KUBECONFIG
+K3D_KUBECONFIG := $(CURDIR)/.k3d-kubeconfig.yaml
+
+# PID/log files for the background port-forwards
+PF_DIR := $(CURDIR)/.k3d-port-forward
+PF_APP_PORT ?= 8000
+PF_CLIENT_PORT ?= 8080
+
+# CloudNativePG operator — provides the postgresql.cnpg.io CRDs the chart needs
+CNPG_VERSION ?= 1.30.0
+CNPG_MANIFEST := https://github.com/cloudnative-pg/cloudnative-pg/releases/download/v$(CNPG_VERSION)/cnpg-$(CNPG_VERSION).yaml
+
 .PHONY: help \
         build push build-push \
         up down restart logs \
@@ -54,7 +68,9 @@ HELM_NAMESPACE ?= marc-comparator
         deps-export deps-check \
         format format-check lint lint-fix typecheck version-check check \
         set-version tag-version tag-latest release \
-        k3d-up k3d-down k3d-load \
+        k3d-up k3d-down k3d-load k3d-env \
+        k3d-port-forward-up k3d-port-forward-down \
+        cnpg-install cnpg-uninstall \
         helm-lint helm-template helm-install helm-uninstall helm-test \
         test test-integration test-integration-verbose coverage-report \
         dev-sdk dev-app dev-worker dev-beat \
@@ -184,14 +200,89 @@ logs-db: ## Tail database logs
 
 # ─── Local Helm testing (k3s via k3d) ────────────────────────────────────────
 
-k3d-up: ## Create the local k3s cluster for Helm testing
-	k3d cluster create $(K3D_CLUSTER) --agents 1 --wait
+# Cluster-mutating targets talk to the local k3d cluster and ignore the caller's
+# $KUBECONFIG, which otherwise silently aims them at whatever real cluster the
+# shell is pointed at — and `kubectl apply` of the CNPG manifest does not merely
+# install the operator there, it upgrades the one already running.
+# ALLOW_REMOTE=1 opts out and uses the caller's context instead.
+KUBE := $(if $(ALLOW_REMOTE),,env KUBECONFIG=$(K3D_KUBECONFIG))
+
+define require_cluster
+	@if [ -n "$(ALLOW_REMOTE)" ]; then \
+		echo "→ ALLOW_REMOTE set — target context: $$(kubectl config current-context)"; \
+	elif [ ! -f "$(K3D_KUBECONFIG)" ]; then \
+		echo "REFUSING: no local cluster at $(K3D_KUBECONFIG)"; \
+		echo "  create it first:          make k3d-up   (or: make helm-test)"; \
+		echo "  deliberate remote change: ALLOW_REMOTE=1 make <target>"; \
+		exit 1; \
+	else \
+		echo "→ target context: $$($(KUBE) kubectl config current-context) (local k3d cluster)"; \
+	fi
+endef
+
+k3d-up: ## Create the local k3s cluster for Helm testing (reuses an existing one)
+	@if k3d cluster list $(K3D_CLUSTER) >/dev/null 2>&1; then \
+		echo "→ cluster '$(K3D_CLUSTER)' already exists — reusing it"; \
+	else \
+		k3d cluster create $(K3D_CLUSTER) --agents 1 --wait \
+			--kubeconfig-update-default=false --kubeconfig-switch-context=false; \
+	fi
+	k3d kubeconfig get $(K3D_CLUSTER) > $(K3D_KUBECONFIG)
+	@echo "→ cluster kubeconfig: $(K3D_KUBECONFIG)"
+	@echo "  point a shell at it — fish: set -x KUBECONFIG (make k3d-env)"
+	@echo "                    bash/zsh: export KUBECONFIG=\$$(make k3d-env)"
 
 k3d-down: ## Delete the local k3s cluster
 	k3d cluster delete $(K3D_CLUSTER)
+	rm -f $(K3D_KUBECONFIG)
+
+k3d-env: ## Print the local cluster's kubeconfig path (for $KUBECONFIG)
+	@echo "$(K3D_KUBECONFIG)"
 
 k3d-load: build ## Build images and import them into the k3d cluster
 	k3d image import -c $(K3D_CLUSTER) $(APP_IMAGE) $(WORKER_IMAGE) $(CLIENT_IMAGE)
+
+# $(call pf_start,name,service,local port,remote port) — backgrounded, PID recorded
+define pf_start
+	if [ -f $(PF_DIR)/$(1).pid ] && kill -0 $$(cat $(PF_DIR)/$(1).pid) 2>/dev/null; then \
+		echo "→ $(1): already forwarded (pid $$(cat $(PF_DIR)/$(1).pid))"; \
+	else \
+		nohup $(KUBE) kubectl --namespace $(HELM_NAMESPACE) port-forward \
+			svc/$(2) $(3):$(4) >$(PF_DIR)/$(1).log 2>&1 & \
+		echo $$! >$(PF_DIR)/$(1).pid; \
+		echo "→ $(1): http://localhost:$(3) → svc/$(2):$(4)"; \
+	fi
+endef
+
+k3d-port-forward-up: ## Forward the app and client from the local cluster to localhost
+	$(require_cluster)
+	@mkdir -p $(PF_DIR)
+	@$(call pf_start,app,$(HELM_RELEASE)-app,$(PF_APP_PORT),8000)
+	@$(call pf_start,client,$(HELM_RELEASE)-client,$(PF_CLIENT_PORT),80)
+	@echo "  logs in $(PF_DIR); stop with: make k3d-port-forward-down"
+
+k3d-port-forward-down: ## Stop the port-forwards started by k3d-port-forward-up
+	@for name in app client; do \
+		pidfile=$(PF_DIR)/$$name.pid; \
+		if [ ! -f $$pidfile ]; then \
+			echo "→ $$name: nothing recorded"; \
+		elif kill $$(cat $$pidfile) 2>/dev/null; then \
+			echo "→ $$name: stopped (pid $$(cat $$pidfile))"; \
+		else \
+			echo "→ $$name: not running (stale pid $$(cat $$pidfile))"; \
+		fi; \
+		rm -f $$pidfile; \
+	done
+
+cnpg-install: ## Install the CloudNativePG operator into the local cluster
+	$(require_cluster)
+	$(KUBE) kubectl apply --server-side -f $(CNPG_MANIFEST)
+	$(KUBE) kubectl wait --for=condition=Available deployment/cnpg-controller-manager \
+		--namespace cnpg-system --timeout 5m
+
+cnpg-uninstall: ## Remove the CloudNativePG operator
+	$(require_cluster)
+	$(KUBE) kubectl delete -f $(CNPG_MANIFEST) --ignore-not-found
 
 helm-lint: ## Lint the Helm chart
 	helm lint $(CHART_DIR)
@@ -199,15 +290,18 @@ helm-lint: ## Lint the Helm chart
 helm-template: ## Render the chart templates locally (no cluster needed)
 	helm template $(HELM_RELEASE) $(CHART_DIR)
 
-helm-install: ## Install/upgrade the chart into the current kube context
-	helm upgrade --install $(HELM_RELEASE) $(CHART_DIR) \
+helm-install: ## Install/upgrade the chart into the local cluster (ALLOW_REMOTE=1 for yours)
+	$(require_cluster)
+	$(KUBE) helm upgrade --install $(HELM_RELEASE) $(CHART_DIR) \
 		--namespace $(HELM_NAMESPACE) --create-namespace \
+		--set image.tag=$(VERSION) \
 		--wait --timeout 10m
 
 helm-uninstall: ## Remove the release from the cluster
-	helm uninstall $(HELM_RELEASE) --namespace $(HELM_NAMESPACE)
+	$(require_cluster)
+	$(KUBE) helm uninstall $(HELM_RELEASE) --namespace $(HELM_NAMESPACE)
 
-helm-test: k3d-up k3d-load helm-install ## Full local test: cluster + images + install
+helm-test: k3d-up k3d-load cnpg-install helm-install ## Full local test: cluster + operator + images + install
 
 # ─── Dev mode (backend in Docker, client local with HMR) ─────────────────────
 

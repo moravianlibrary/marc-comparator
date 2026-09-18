@@ -422,3 +422,7 @@ docs/superpowers/
 
 # Local working notes — not part of the repo
 CONTINUATION.md
+
+# Kubeconfig and port-forward state for the local k3d test cluster
+.k3d-kubeconfig.yaml
+.k3d-port-forward/
