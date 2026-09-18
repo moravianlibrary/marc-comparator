@@ -172,9 +172,13 @@ class TaskHandler(logging.Handler):
         if severity_changed or self._pending >= self.FLUSH_INTERVAL:
             self._flush_traceback()
 
-    def close(self):
-        if self._pending > 0:
+    def flush(self):
+        """Persist whatever is still buffered onto the task row."""
+        if self._buffer:
             self._flush_traceback()
+
+    def close(self):
+        self.flush()
         super().close()
 
 
@@ -464,6 +468,12 @@ class ManagedTask:
                 except Exception as e:
                     logging.warning(f"Analytics rebuild failed: {e}")
 
+            # The handler only writes to the row every FLUSH_INTERVAL entries,
+            # so without this the tail of every traceback — the final status
+            # line, and the exception on a failure — is dropped.
+            if self._handler:
+                self._handler.flush()
+
             if self.before_commit:
                 self.before_commit()
             self.db_session.commit()
@@ -488,6 +498,18 @@ class ManagedTask:
             )
         finally:
             # --- Release resources ---
+            # `logging.getLogger(f"task-{id}")` is cached process-wide, so an
+            # attached handler outlives the run and would keep writing through
+            # a closed session if the same task id is retried on this worker.
+            if self._handler:
+                if self._logger:
+                    self._logger.removeHandler(self._handler)
+                try:
+                    self._handler.close()
+                except Exception:
+                    logging.warning("Failed to close task log handler", exc_info=True)
+                self._handler = None
+
             if self.lock:
                 self.lock.__exit__(None, None, None)
 

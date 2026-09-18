@@ -10,6 +10,7 @@ import { Permission } from '@/types/permission';
 import type { Task } from '@/types/task';
 import type { User } from '@/types/user';
 import { TaskDetail } from './task-detail';
+import { isTaskInFlight, RUNNING_POLL_MS } from './task-status';
 import { TaskTable } from './task-table';
 
 const XL_QUERY = '(min-width: 1280px)';
@@ -52,6 +53,10 @@ export function TasksPage() {
   const { data, isLoading } = useQuery<{ items: Task[]; total: number }>({
     queryKey: ['tasks', 'list', searchEndpoint, page],
     queryFn: () => apiClient.post(searchEndpoint, { page, page_size: pageSize }).then(r => r.data),
+    // WS events carry progress but not the rest of the row (severity, counts,
+    // finished_at), so poll while anything is in flight. Idle pages stay quiet.
+    refetchInterval: query =>
+      (query.state.data?.items ?? []).some(isTaskInFlight) ? RUNNING_POLL_MS : false,
   });
 
   const { data: usersData } = useQuery<{ items: User[] }>({
@@ -137,7 +142,7 @@ export function TasksPage() {
           <div className="xl:sticky xl:top-20 xl:self-start">
             <TaskDetail
               taskId={selectedTaskId}
-              isRunning={selectedTask?.status === 'Started' || selectedTask?.status === 'Pending'}
+              isRunning={selectedTask ? isTaskInFlight(selectedTask) : false}
               progress={selectedTask?.progress}
             />
           </div>

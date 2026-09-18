@@ -7,6 +7,14 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import apiClient from '@/lib/api-client';
 import type { ReportArtifact } from '@/types/task';
+import { RUNNING_POLL_MS } from './task-status';
+
+/**
+ * A run over a large base logs a line per progress step — tens of thousands of
+ * them. The end is what anyone actually reads (progress, and the failure), so
+ * the panel asks for a window instead of the whole log on every poll.
+ */
+const TRACEBACK_TAIL_LINES = 2000;
 
 interface TaskDetailProps {
   taskId: string;
@@ -21,8 +29,14 @@ export function TaskDetail({ taskId, isRunning, progress }: TaskDetailProps) {
 
   const { data: traceback, isLoading } = useQuery<string>({
     queryKey: ['tasks', taskId, 'traceback'],
-    queryFn: () => apiClient.get<string>(`/tasks/${taskId}/traceback`).then(r => r.data),
-    refetchInterval: isRunning ? 5000 : false,
+    queryFn: () =>
+      apiClient
+        .get<string>(`/tasks/${taskId}/traceback`, { params: { tail: TRACEBACK_TAIL_LINES } })
+        .then(r => r.data),
+    // The log is what you watch a running task through — keep it in step with
+    // the task row rather than a slower cadence of its own.
+    refetchInterval: isRunning ? RUNNING_POLL_MS : false,
+    staleTime: 0,
   });
 
   const { data: reports } = useQuery<ReportArtifact[]>({
@@ -31,6 +45,7 @@ export function TaskDetail({ taskId, isRunning, progress }: TaskDetailProps) {
       apiClient
         .get<ReportArtifact[]>('/reports', { params: { task_id: taskId } })
         .then(r => r.data),
+    // Artifacts only appear at the very end, so a slower poll is enough.
     refetchInterval: isRunning ? 5000 : false,
   });
 

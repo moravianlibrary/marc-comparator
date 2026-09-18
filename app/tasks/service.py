@@ -26,10 +26,15 @@ def get_traceback_lines(
         )
 
     lines = task.traceback.splitlines() if task.traceback else []
-    start = params.start_line or 0
-    end = params.end_line or len(lines)
 
-    return PlainTextResponse("\n".join(lines[start:end]), media_type="text/plain")
+    if params.tail is not None:
+        selected = lines[-params.tail :]
+    else:
+        start = params.start_line or 0
+        end = params.end_line or len(lines)
+        selected = lines[start:end]
+
+    return PlainTextResponse("\n".join(selected), media_type="text/plain")
 
 
 async def revoke_task(task_id: str, user_id: str, db_session: DatabaseSession) -> TaskSchema:

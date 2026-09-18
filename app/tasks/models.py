@@ -32,6 +32,10 @@ class TaskSettings(SettingsSchema):
 class TracebackLinesRequestParams(BaseModel):
     start_line: int | None = Field(default=None, alias="from", ge=0)
     end_line: int | None = Field(default=None, alias="to", ge=0)
+    #: Return only the last N lines. A task over a large base logs tens of
+    #: thousands of them, and a poller watching it live wants the end, not
+    #: megabytes of history on every refresh. Takes precedence over from/to.
+    tail: int | None = Field(default=None, ge=1)
 
 
 class TaskFilter(BaseModel):
