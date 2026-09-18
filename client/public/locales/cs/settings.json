@@ -9,12 +9,20 @@
     "validators": "Nastavení validátorů",
     "process-records": "Nastavení zpracování záznamů",
     "maintenance": "Nastavení údržby",
-    "periodic-sync": "Plánovaná synchronizace"
+    "periodic-sync": "Plánované úkoly nad záznamy"
   },
   "periodic-sync": {
     "enabled": "Aktivní",
     "interval-hours": "Interval (hodiny)",
-    "no-bases": "Nejsou nakonfigurovány žádné báze katalogu."
+    "no-bases": "Nejsou nakonfigurovány žádné báze katalogu.",
+    "harvest": {
+      "title": "Plánovaná synchronizace bází",
+      "description": "Pravidelně stáhne změny z katalogu pro vybrané báze."
+    },
+    "processing": {
+      "title": "Plánované zpracování záznamů",
+      "description": "Pravidelně spustí zpracování záznamů, které dosud nebyly zpracovány. Synchronizace označí každý změněný záznam jako nezpracovaný, takže se zpracují nové i změněné záznamy. Pokud zpracování stále běží, další spuštění se přeskočí."
+    }
   },
   "catalog": {
     "clients": "Nastavení Aleph katalogů",

@@ -99,8 +99,14 @@ export interface PeriodicSyncBaseConfig {
   interval_hours: number;
 }
 
+export interface PeriodicProcessingConfig {
+  enabled: boolean;
+  interval_hours: number;
+}
+
 export interface PeriodicSyncSettings {
   bases: PeriodicSyncBaseConfig[];
+  processing: PeriodicProcessingConfig;
 }
 
 export type SettingsScope =

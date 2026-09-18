@@ -1,15 +1,9 @@
-import logging
-
-from celery.schedules import schedule
-from redbeat import RedBeatSchedulerEntry
-
-from adapters.tasks import tasks_client
+from adapters.redbeat_schedule import sync_entry
 
 from .models import PeriodicSyncSettings
 
-logger = logging.getLogger(__name__)
-
 ENTRY_PREFIX = "redbeat:periodic-sync-"
+PROCESSING_ENTRY = "redbeat:periodic-process-records"
 
 
 def entry_name(base: str) -> str:
@@ -17,27 +11,26 @@ def entry_name(base: str) -> str:
 
 
 def sync_periodic_sync_schedule(settings: PeriodicSyncSettings) -> None:
-    """Reconcile one redbeat entry per configured base.
+    """Reconcile one redbeat entry per configured base, plus the processing entry.
 
     An enabled base gets/updates ``redbeat:periodic-sync-{base}`` running
-    ``periodic_sync_records`` with the base as its argument; a disabled base
-    has its entry removed. Called on periodic-sync settings save and on startup.
+    ``periodic_sync_records`` with the base as its argument; a disabled base has
+    its entry removed. Processing is not per-base — it runs over whatever is
+    unprocessed — so it gets a single entry reconciled alongside them. Called on
+    periodic-sync settings save and on startup.
     """
     for base_config in settings.bases:
-        name = entry_name(base_config.base)
-        if base_config.enabled:
-            entry = RedBeatSchedulerEntry(
-                name=name,
-                task="periodic_sync_records",
-                schedule=schedule(run_every=base_config.interval_hours * 3600),
-                args=[base_config.base],
-                app=tasks_client,
-            )
-            entry.save()
-            logger.info(f"Periodic sync '{name}' set to every {base_config.interval_hours}h")
-        else:
-            try:
-                RedBeatSchedulerEntry.from_key(name, app=tasks_client).delete()
-                logger.info(f"Periodic sync '{name}' removed (disabled)")
-            except KeyError:
-                pass
+        sync_entry(
+            name=entry_name(base_config.base),
+            task_name="periodic_sync_records",
+            enabled=base_config.enabled,
+            interval_hours=base_config.interval_hours,
+            args=[base_config.base],
+        )
+
+    sync_entry(
+        name=PROCESSING_ENTRY,
+        task_name="periodic_process_records",
+        enabled=settings.processing.enabled,
+        interval_hours=settings.processing.interval_hours,
+    )

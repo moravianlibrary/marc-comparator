@@ -110,8 +110,14 @@ export const periodicSyncBaseConfigSchema = z.object({
   interval_hours: z.number().int().min(1).max(720),
 });
 
+export const periodicProcessingConfigSchema = z.object({
+  enabled: z.boolean(),
+  interval_hours: z.number().int().min(1).max(720),
+});
+
 export const periodicSyncSettingsSchema = z.object({
   bases: z.array(periodicSyncBaseConfigSchema),
+  processing: periodicProcessingConfigSchema,
 });
 
 export type PeriodicSyncSettingsFormValues = z.infer<typeof periodicSyncSettingsSchema>;

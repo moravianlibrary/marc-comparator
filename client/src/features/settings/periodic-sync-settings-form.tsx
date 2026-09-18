@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useFieldArray } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Form,
   FormControl,
@@ -37,6 +37,7 @@ export function PeriodicSyncSettingsForm({ data, onDirtyChange, onFormRef, onSub
       bases: configured.map(
         base => existing.get(base) ?? { base, enabled: false, interval_hours: 24 },
       ),
+      processing: data?.processing ?? { enabled: false, interval_hours: 24 },
     };
   }, [data, systemInfo]);
 
@@ -55,7 +56,8 @@ export function PeriodicSyncSettingsForm({ data, onDirtyChange, onFormRef, onSub
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">{t('types.periodic-sync')}</CardTitle>
+            <CardTitle className="text-base">{t('periodic-sync.harvest.title')}</CardTitle>
+            <CardDescription>{t('periodic-sync.harvest.description')}</CardDescription>
           </CardHeader>
           <CardContent className="max-w-md space-y-6">
             {fields.length === 0 ? (
@@ -96,6 +98,44 @@ export function PeriodicSyncSettingsForm({ data, onDirtyChange, onFormRef, onSub
                 </div>
               ))
             )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">{t('periodic-sync.processing.title')}</CardTitle>
+            <CardDescription>{t('periodic-sync.processing.description')}</CardDescription>
+          </CardHeader>
+          <CardContent className="max-w-md space-y-3">
+            <FormField
+              control={form.control}
+              name="processing.enabled"
+              render={({ field: f }) => (
+                <FormItem className="flex items-center gap-3 space-y-0">
+                  <FormControl>
+                    <Switch checked={f.value} onCheckedChange={f.onChange} />
+                  </FormControl>
+                  <FormLabel>{t('periodic-sync.enabled')}</FormLabel>
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="processing.interval_hours"
+              render={({ field: f }) => (
+                <FormItem>
+                  <FormLabel>{t('periodic-sync.interval-hours')}</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      {...f}
+                      onChange={e => f.onChange(Number(e.target.value))}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
           </CardContent>
         </Card>
       </form>

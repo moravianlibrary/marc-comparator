@@ -770,6 +770,52 @@ def periodic_sync_records(base: str) -> None:
         db.close()
 
 
+@shared_task(name="periodic_process_records")
+def periodic_process_records() -> None:
+    """Called by redbeat. Processes records nothing has processed yet.
+
+    A sync clears ``processed_at`` on every record it touches, so the filter
+    picks up new and changed records alike and never reprocesses settled ones.
+    """
+    from adapters.database import SessionLocal
+    from catalog_records.models import RecordFilter
+    from entities.user import SYSTEM_USER_ID
+
+    db = SessionLocal()
+    try:
+        # Processing a large backlog can easily outrun the interval. Stacking
+        # runs would have them fight over the same records, so skip this tick
+        # instead — the next one picks up whatever is still unprocessed.
+        in_flight = (
+            db.query(Task)
+            .filter(
+                Task.type == TaskType.ProcessRecords,
+                Task.status.in_([TaskStatus.Pending, TaskStatus.Started]),
+            )
+            .first()
+        )
+        if in_flight is not None:
+            logging.info(
+                f"Skipping scheduled processing: task {in_flight.task_id} is already "
+                f"{in_flight.status.value}"
+            )
+            return
+
+        data = RecordFilter(processed=False)
+        task = Task(
+            name="Scheduled processing of unprocessed records",
+            type=TaskType.ProcessRecords,
+            data=data.model_dump(mode="json"),
+            created_by=SYSTEM_USER_ID,
+        )
+        db.add(task)
+        db.commit()
+        db.refresh(task)
+        dispatch_task(task)
+    finally:
+        db.close()
+
+
 @shared_task(name="reap_orphaned_tasks")
 def reap_orphaned_tasks() -> None:
     """Fail tasks left stuck in ``Started`` after their worker died.
