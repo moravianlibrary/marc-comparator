@@ -9,7 +9,25 @@
     "validators": "Nastavení validátorů",
     "process-records": "Nastavení zpracování záznamů",
     "maintenance": "Nastavení údržby",
-    "periodic-sync": "Plánované úkoly nad záznamy"
+    "periodic-sync": "Plánované úkoly nad záznamy",
+    "plugin-harvest": "Lokální kopie dat pro rozšíření"
+  },
+  "plugin-harvest": {
+    "description": "Některá rozšíření se při zpracování ptají vzdálené služby na každý záznam zvlášť. Takové rozšíření si může data stáhnout do lokální kopie a odpovídat z ní. Netýká se to synchronizace záznamů z Aleph katalogů.",
+    "no-plugins": "Žádné rozšíření nepodporuje stahování dat.",
+    "enabled": "Stahovat pravidelně",
+    "interval-hours": "Interval (hodiny)",
+    "ready": "Lokální kopie je připravena",
+    "not-ready": "Lokální kopie není k dispozici",
+    "fallback-note": "Dokud kopie není připravena, rozšíření se dotazuje vzdálené služby. Zpracování funguje dál, jen je pomalejší.",
+    "last-harvest": "Poslední úspěšné stažení",
+    "last-records": "Záznamů v posledním běhu",
+    "never": "Zatím neproběhlo",
+    "running": "Probíhá stahování",
+    "run": "Stáhnout změny",
+    "full-rebuild": "Stáhnout vše znovu",
+    "full-rebuild-warning": "Zahodí lokální kopii rozšíření {{plugin}} a stáhne celý zdroj znovu. Používejte, když byly ve zdroji záznamy smazány — běžné stahování změn smazání nepozná. Dokud nové stahování neskončí, zůstává v platnosti ta předchozí kopie.",
+    "started": "Stahování bylo naplánováno"
   },
   "periodic-sync": {
     "enabled": "Aktivní",
@@ -179,6 +197,17 @@
       "target-bases": "Báze katalogů, pro které se spustí zpracování. Vybrané báze musí mít nakonfigurovaného klienta v nastavení katalogu.",
       "authority-linkers": "Služby pro automatické propojení záznamů s autoritními záznamy. Spouští se před porovnáváním.",
       "validators": "Validační pravidla aplikovaná na záznamy po zpracování. Výsledky validace se zobrazují u každého záznamu."
+    },
+    "plugin-harvest": {
+      "intro": "Rozšíření, která se běžně ptají vzdálené služby na každý zpracovávaný záznam, si mohou zdroj stáhnout do lokální kopie. Zpracování se pak ptá lokální kopie, což je řádově rychlejší. Kopii vlastní samo rozšíření a aplikace do jejích dat nevidí.",
+      "not-catalog-sync": "Nejde o synchronizaci záznamů z Aleph katalogů. Ta se nastavuje v sekci „Plánované úkoly nad záznamy“ a stahuje samotné bibliografické záznamy.",
+      "fields-title": "Popis polí",
+      "enabled": "Zapne pravidelné stahování změn pro dané rozšíření.",
+      "interval-hours": "Jak často se má stahování spouštět (v hodinách).",
+      "ready": "Lokální kopie existuje a odpovídá současnému nastavení rozšíření. Při změně nastavení zdroje se kopie automaticky stáhne znovu.",
+      "last-records": "Počet záznamů zpracovaných při posledním úspěšném běhu. Není to velikost celé lokální kopie — po stažení změn jde jen o počet změněných záznamů.",
+      "run": "Stáhne změny od posledního úspěšného běhu. Pokud kopie zatím neexistuje, stáhne celý zdroj.",
+      "full-rebuild": "Zahodí kopii a stáhne celý zdroj znovu. Smazané záznamy jdou ze zdroje poznat jen takto — stahování změn o nich neví. Při selhání zůstává v platnosti předchozí kopie."
     }
   }
 }

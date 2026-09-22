@@ -121,3 +121,14 @@ export const periodicSyncSettingsSchema = z.object({
 });
 
 export type PeriodicSyncSettingsFormValues = z.infer<typeof periodicSyncSettingsSchema>;
+
+export const pluginHarvestScheduleSchema = z.object({
+  enabled: z.boolean(),
+  interval_hours: z.number().int().min(1).max(720),
+});
+
+export const pluginHarvestSettingsSchema = z.object({
+  plugins: z.record(z.string(), pluginHarvestScheduleSchema),
+});
+
+export type PluginHarvestSettingsFormValues = z.infer<typeof pluginHarvestSettingsSchema>;

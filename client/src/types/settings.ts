@@ -109,6 +109,16 @@ export interface PeriodicSyncSettings {
   processing: PeriodicProcessingConfig;
 }
 
+export interface PluginHarvestSchedule {
+  enabled: boolean;
+  interval_hours: number;
+}
+
+/** Keyed by plugin name; the server fills in a default for every discovered plugin. */
+export interface PluginHarvestSettings {
+  plugins: Record<string, PluginHarvestSchedule>;
+}
+
 export type SettingsScope =
   | 'catalog'
   | 'tasks'
@@ -117,7 +127,8 @@ export type SettingsScope =
   | 'validators'
   | 'process-records'
   | 'maintenance'
-  | 'periodic-sync';
+  | 'periodic-sync'
+  | 'plugin-harvest';
 
 export interface SystemInfo {
   system_version: string;

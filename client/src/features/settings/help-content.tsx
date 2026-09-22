@@ -236,3 +236,37 @@ export function ProcessRecordsHelp() {
     </>
   );
 }
+
+export function PluginHarvestHelp() {
+  const { t } = useTranslation('settings');
+  return (
+    <>
+      <TypographyP>{t('help.plugin-harvest.intro')}</TypographyP>
+      <TypographyP>{t('help.plugin-harvest.not-catalog-sync')}</TypographyP>
+      <TypographyH3>{t('help.plugin-harvest.fields-title')}</TypographyH3>
+      <TypographyList>
+        <li>
+          <strong>{t('plugin-harvest.enabled')}</strong> — {t('help.plugin-harvest.enabled')}
+        </li>
+        <li>
+          <strong>{t('plugin-harvest.interval-hours')}</strong> —{' '}
+          {t('help.plugin-harvest.interval-hours')}
+        </li>
+        <li>
+          <strong>{t('plugin-harvest.ready')}</strong> — {t('help.plugin-harvest.ready')}
+        </li>
+        <li>
+          <strong>{t('plugin-harvest.last-records')}</strong> —{' '}
+          {t('help.plugin-harvest.last-records')}
+        </li>
+        <li>
+          <strong>{t('plugin-harvest.run')}</strong> — {t('help.plugin-harvest.run')}
+        </li>
+        <li>
+          <strong>{t('plugin-harvest.full-rebuild')}</strong> —{' '}
+          {t('help.plugin-harvest.full-rebuild')}
+        </li>
+      </TypographyList>
+    </>
+  );
+}

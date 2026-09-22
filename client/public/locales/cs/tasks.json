@@ -31,7 +31,8 @@
     "CleanupStaleLocks": "Vyčištění neplatných zámků",
     "CompactSectors": "Kompakce sektorů",
     "RebuildSearchVectors": "Obnova vyhledávacích vektorů",
-    "CreateReport": "Vytvoření reportu"
+    "CreateReport": "Vytvoření reportu",
+    "HarvestPlugin": "Stažení dat pro rozšíření"
   },
   "status": {
     "Pending": "Naplánováno",

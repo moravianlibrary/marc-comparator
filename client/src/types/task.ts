@@ -10,6 +10,7 @@ export const TaskType = {
   ProcessRecords: 'ProcessRecords',
   RebuildAnalyticalData: 'RebuildAnalyticalData',
   CreateReport: 'CreateReport',
+  HarvestPlugin: 'HarvestPlugin',
 } as const;
 
 export interface ReportArtifact {

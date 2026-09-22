@@ -28,6 +28,7 @@ import { CatalogSettingsForm } from './catalog-settings-form';
 import { ComparisonSettingsForm } from './comparison-settings-form';
 import { MaintenanceSettingsForm } from './maintenance-settings-form';
 import { PeriodicSyncSettingsForm } from './periodic-sync-settings-form';
+import { PluginHarvestSettingsForm } from './plugin-harvest-settings-form';
 import { ProcessRecordsSettingsForm } from './process-records-settings-form';
 import { TaskSettingsForm } from './task-settings-form';
 import { ValidationSettingsForm } from './validation-settings-form';
@@ -41,6 +42,7 @@ const SETTINGS_SCOPES: SettingsScope[] = [
   'process-records',
   'maintenance',
   'periodic-sync',
+  'plugin-harvest',
 ];
 
 const SETTINGS_ENDPOINTS: Record<SettingsScope, string> = {
@@ -52,6 +54,7 @@ const SETTINGS_ENDPOINTS: Record<SettingsScope, string> = {
   'process-records': '/settings/record-tools/process-records',
   maintenance: '/settings/system/maintenance',
   'periodic-sync': '/settings/system/periodic-sync',
+  'plugin-harvest': '/settings/system/plugin-harvest',
 };
 
 export function SettingsPage() {
@@ -147,6 +150,9 @@ export function SettingsPage() {
         break;
       case 'periodic-sync':
         form = <PeriodicSyncSettingsForm {...commonProps} />;
+        break;
+      case 'plugin-harvest':
+        form = <PluginHarvestSettingsForm {...commonProps} />;
         break;
     }
     return <div className="animate-fade-in">{form}</div>;

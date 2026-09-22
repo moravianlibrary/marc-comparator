@@ -65,6 +65,9 @@ export function useWsEvents() {
           taskId: data.task_id,
         });
         queryClient.invalidateQueries({ queryKey: ['catalog-records'] });
+        // A finished harvest changes readiness and the last-run figures, which
+        // only the harvest endpoint reports.
+        queryClient.invalidateQueries({ queryKey: ['harvest'] });
       } else if (data.status === 'Failure') {
         toast.error(t('toast.failed', { name: taskName }));
         addNotification({
@@ -75,6 +78,9 @@ export function useWsEvents() {
           taskId: data.task_id,
         });
         queryClient.invalidateQueries({ queryKey: ['catalog-records'] });
+        // A finished harvest changes readiness and the last-run figures, which
+        // only the harvest endpoint reports.
+        queryClient.invalidateQueries({ queryKey: ['harvest'] });
       }
     }
 
