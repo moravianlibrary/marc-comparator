@@ -5,6 +5,7 @@ from enum import StrEnum
 from marcdantic import MarcRecord
 from pydantic import BaseModel
 
+from ..harvest import HarvestCapable
 from ..reports import ReportFile
 
 
@@ -48,7 +49,7 @@ class ReportInput(BaseModel):
     results: list[ValidationResult]
 
 
-class BaseValidator(ABC):
+class BaseValidator(HarvestCapable, ABC):
     """Abstract base class for MARC record validators."""
 
     config_model: type[BaseModel] | None = None

@@ -27,6 +27,11 @@ dependencies = [
 ]
 dynamic = ["description", "readme"]
 
+[project.optional-dependencies]
+# Plugins that declare harvest tables need SQLAlchemy to describe them. The rest
+# of the SDK — including the CLI, which runs against files — does not.
+storage = ["sqlalchemy>=2"]
+
 [project.scripts]
 marc-comparator = "marc_comparator.cli:main"
 

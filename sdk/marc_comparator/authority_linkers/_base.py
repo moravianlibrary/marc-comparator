@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from marcdantic import MarcRecord
 from pydantic import BaseModel
 
+from ..harvest import HarvestCapable
+
 
 @dataclass(slots=True)
 class AuthorityLink:
@@ -29,7 +31,7 @@ class AuthorityLink:
     confidence: float | None = None
 
 
-class BaseAuthorityLinker(ABC):
+class BaseAuthorityLinker(HarvestCapable, ABC):
     """
     Abstract base class for MARC authority linkers.
 
