@@ -20,6 +20,7 @@ class SettingsScope(StrEnum):
     ProcessRecords = "process-records"
     Maintenance = "maintenance"
     PeriodicSync = "periodic-sync"
+    PluginHarvest = "plugin-harvest"
 
 
 type SystemSettingsScope = Literal[
@@ -27,6 +28,7 @@ type SystemSettingsScope = Literal[
     SettingsScope.Tasks,
     SettingsScope.Maintenance,
     SettingsScope.PeriodicSync,
+    SettingsScope.PluginHarvest,
 ]
 type RecordToolsSettingsScope = Literal[
     SettingsScope.Validation,

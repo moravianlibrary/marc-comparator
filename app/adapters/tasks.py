@@ -6,6 +6,7 @@ from typing import Any
 from celery import Celery, shared_task
 from celery import Task as CeleryTask
 from celery.signals import worker_process_init
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from adapters.database import DatabaseSession, get_db_session
@@ -449,6 +450,17 @@ class ManagedTask:
     async def __aexit__(self, exc_type, exc_value, traceback):
         # --- Set final task status ---
         try:
+            # Cancellation is committed by a different session while a worker
+            # owns this task's logging/progress session. Do not let its stale
+            # identity-map row overwrite Revoked during finalisation.
+            with self.db_session.no_autoflush:
+                current_status = self.db_session.execute(
+                    select(Task.status).where(Task.task_id == self.task.task_id)
+                ).scalar_one_or_none()
+            if current_status == TaskStatus.Revoked:
+                self.db_session.rollback()
+                return False
+
             if exc_type is None:
                 self.task.status = TaskStatus.Success
                 self.task.progress = 1.0
@@ -689,6 +701,15 @@ def rebuild_search_vectors_task(self: CeleryTask) -> None:
     return async_to_sync(rebuild_search_vectors)(str(self.request.id))
 
 
+@shared_task(name="harvest_plugin_task", bind=True)
+def harvest_plugin_task(self: CeleryTask) -> None:
+    from asgiref.sync import async_to_sync
+
+    from harvest.tasks import harvest_plugin
+
+    return async_to_sync(harvest_plugin)(str(self.request.id))
+
+
 @shared_task(name="periodic_task_cleanup")
 def periodic_task_cleanup(max_age_days: int = 30) -> None:
     """Called by redbeat. Creates a Task DB row and dispatches delete_tasks."""
@@ -816,6 +837,36 @@ def periodic_process_records() -> None:
         db.close()
 
 
+@shared_task(name="periodic_harvest_plugin")
+def periodic_harvest_plugin(plugin_name: str) -> None:
+    """Recheck this plugin's enabled preference, then enqueue its harvest."""
+    from asgiref.sync import async_to_sync
+
+    from adapters.database import SessionLocal
+    from entities.user import SYSTEM_USER_ID
+    from harvest.dispatch import enqueue_harvest, get_harvest_settings
+    from harvest.registry import find_plugin
+
+    db = SessionLocal()
+    try:
+        plugin = find_plugin(plugin_name)
+        settings = get_harvest_settings(db)
+        if plugin is None or not settings.plugins.get(plugin_name, None):
+            logging.info("Skipping schedule for removed harvest plugin %r", plugin_name)
+            return
+        if not settings.plugins[plugin_name].enabled:
+            logging.info("Skipping disabled scheduled harvest for plugin %r", plugin_name)
+            return
+        async_to_sync(enqueue_harvest)(
+            plugin_name,
+            str(SYSTEM_USER_ID),
+            db,
+            scheduled=True,
+        )
+    finally:
+        db.close()
+
+
 @shared_task(name="reap_orphaned_tasks")
 def reap_orphaned_tasks() -> None:
     """Fail tasks left stuck in ``Started`` after their worker died.
@@ -905,6 +956,7 @@ TASK_DISPATCH: dict[TaskType, Any] = {
     TaskType.CompactSectors: compact_sectors_task,
     TaskType.RebuildSearchVectors: rebuild_search_vectors_task,
     TaskType.CreateReport: create_report_task,
+    TaskType.HarvestPlugin: harvest_plugin_task,
 }
 
 

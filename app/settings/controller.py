@@ -6,6 +6,7 @@ from adapters.dependencies import DatabaseSessionDep, WithPermission
 from catalog_records.models import ProcessRecordsSettings
 from entities.role import Permission
 from entities.settings import SettingsScope
+from harvest.models import PluginHarvestSettings
 from maintenance.models import MaintenanceSettings
 from periodic_sync.models import PeriodicSyncSettings
 from settings.models import (
@@ -158,6 +159,23 @@ def set_periodic_sync_settings(
 
     sync_periodic_sync_schedule(settings)
     return saved
+
+
+@system_settings_router.get("/plugin-harvest", response_model=PluginHarvestSettings)
+def get_plugin_harvest_settings(db_session: DatabaseSessionDep):
+    from harvest.dispatch import get_harvest_settings
+
+    return get_harvest_settings(db_session)
+
+
+@system_settings_router.post("/plugin-harvest", response_model=PluginHarvestSettings)
+def set_plugin_harvest_settings(
+    settings: Annotated[PluginHarvestSettings, Body()],
+    db_session: DatabaseSessionDep,
+):
+    from harvest.dispatch import set_harvest_settings
+
+    return set_harvest_settings(settings, db_session)
 
 
 router.include_router(system_settings_router)

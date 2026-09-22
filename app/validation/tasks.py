@@ -37,6 +37,10 @@ def load_validators(
     if not settings:
         return None
     result = init_validators(settings, validators, logger)
+    from harvest.storage import bind_plugin_storage
+
+    for validator in result:
+        bind_plugin_storage(validator.type.value, validator.instance, db_session, logger)
     return result or None
 
 

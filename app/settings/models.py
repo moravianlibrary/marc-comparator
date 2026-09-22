@@ -2,6 +2,7 @@ from authority_linking.models import AuthorityLinkingSettings
 from catalog_records.models import CatalogSettings, ProcessRecordsSettings
 from comparison.models import ComparisonSettings
 from entities.settings import SettingsSchema, SettingsScope
+from harvest.models import PluginHarvestSettings
 from maintenance.models import MaintenanceSettings
 from periodic_sync.models import PeriodicSyncSettings
 from tasks.models import TaskSettings
@@ -16,10 +17,17 @@ SETTINGS_MODEL_DISPATCHER: dict[SettingsScope, type[SettingsSchema]] = {
     SettingsScope.ProcessRecords: ProcessRecordsSettings,
     SettingsScope.Maintenance: MaintenanceSettings,
     SettingsScope.PeriodicSync: PeriodicSyncSettings,
+    SettingsScope.PluginHarvest: PluginHarvestSettings,
 }
 
 
-AppSettingsSchemas = CatalogSettings | TaskSettings | MaintenanceSettings | PeriodicSyncSettings
+AppSettingsSchemas = (
+    CatalogSettings
+    | TaskSettings
+    | MaintenanceSettings
+    | PeriodicSyncSettings
+    | PluginHarvestSettings
+)
 TaskSettingsSchemas = (
     ValidationSettings | AuthorityLinkingSettings | ComparisonSettings | ProcessRecordsSettings
 )

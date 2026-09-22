@@ -39,6 +39,7 @@ class TaskType(StrEnum):
     CompactSectors = "CompactSectors"
     RebuildSearchVectors = "RebuildSearchVectors"
     CreateReport = "CreateReport"
+    HarvestPlugin = "HarvestPlugin"
 
 
 class TaskStatus(StrEnum):

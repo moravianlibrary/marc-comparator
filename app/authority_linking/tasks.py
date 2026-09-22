@@ -52,6 +52,12 @@ def load_authority_linkers(
     if not settings:
         return None
     result = init_authority_linkers(settings, linkers)
+    from harvest.storage import bind_plugin_storage
+
+    for linker in result:
+        bind_plugin_storage(
+            linker.linker.value, linker.instance, db_session, logging.getLogger(__name__)
+        )
     return result or None
 
 

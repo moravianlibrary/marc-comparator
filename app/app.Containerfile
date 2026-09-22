@@ -44,6 +44,7 @@ COPY app/catalog_records/ catalog_records/
 COPY app/common/ common/
 COPY app/comparison/ comparison/
 COPY app/entities/ entities/
+COPY app/harvest/ harvest/
 COPY app/maintenance/ maintenance/
 COPY app/periodic_sync/ periodic_sync/
 COPY app/reports/ reports/
@@ -62,6 +63,7 @@ COPY app/migrations/ migrations/
 RUN rm authority_linking/tasks.py \
     && rm catalog_records/tasks.py \
     && rm comparison/tasks.py \
+    && rm harvest/tasks.py \
     && rm maintenance/tasks.py \
     && rm validation/tasks.py
 

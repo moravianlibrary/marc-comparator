@@ -38,6 +38,7 @@ COPY app/catalog_records/ catalog_records/
 COPY app/common/ common/
 COPY app/comparison/ comparison/
 COPY app/entities/ entities/
+COPY app/harvest/ harvest/
 COPY app/maintenance/ maintenance/
 COPY app/periodic_sync/ periodic_sync/
 COPY app/reports/ reports/

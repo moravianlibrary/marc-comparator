@@ -23,6 +23,7 @@ FAKE_USER_ID = "12345678-1234-4678-9abc-1234567890ab"
 
 # All table names in dependency order (children first for TRUNCATE CASCADE)
 ALL_TABLES = [
+    "plugin_harvest_state",
     "facet_cube",
     "facet_cube_histogram",
     "catalog_records_analytics",
@@ -83,6 +84,7 @@ async def db_engine(postgres_container):
     from entities.catalog_record import CatalogRecord  # noqa: F401
     from entities.comparison import Comparison  # noqa: F401
     from entities.marc_sector import MarcRecordIndex, MarcSector  # noqa: F401
+    from entities.plugin_harvest import PluginHarvestState  # noqa: F401
     from entities.record_review import RecordReview  # noqa: F401
     from entities.result_snapshot import ResultSnapshot  # noqa: F401
     from entities.validation import Validation  # noqa: F401

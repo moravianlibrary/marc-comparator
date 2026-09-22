@@ -153,6 +153,10 @@ async def lifespan(app: FastAPI):
                 or PeriodicSyncSettings()
             )
             sync_periodic_sync_schedule(periodic_sync_settings)
+
+            from harvest.dispatch import reconcile_harvest_schedule
+
+            reconcile_harvest_schedule(db_session)
         except Exception:
             logger.warning("Failed to reconcile redbeat schedule on startup", exc_info=True)
 

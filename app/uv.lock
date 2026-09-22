@@ -920,8 +920,10 @@ requires-dist = [
     { name = "python-stdnum" },
     { name = "rapidfuzz" },
     { name = "solrify", git = "https://github.com/moravianlibrary/solrify.git?rev=v0.1.1" },
+    { name = "sqlalchemy", marker = "extra == 'storage'", specifier = ">=2" },
     { name = "typer" },
 ]
+provides-extras = ["storage"]
 
 [[package]]
 name = "marcdantic"
