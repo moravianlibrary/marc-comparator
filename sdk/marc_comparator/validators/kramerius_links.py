@@ -1,18 +1,23 @@
 import asyncio
+import hashlib
 import json
 import logging
 import re
 from collections import defaultdict
 from collections.abc import Iterable
 from dataclasses import dataclass
+from datetime import UTC, datetime
+from typing import Any
 
 from kramerius import KrameriusClient, KrameriusConfig, KrameriusField, Model
+from kramerius.schemas import KrameriusDocument
 from marcdantic import MarcRecord
 from marcdantic.fields import VariableField
 from marcdantic.selectors import IsbnActiveJq, IssnActiveJq, NbnActiveJq
 from pydantic import BaseModel
 from solrify import F, G
 
+from ..harvest import HarvestContext, HarvestResult, HarvestStorageUnavailable
 from ..reports import ReportFile
 from ._base import (
     BaseValidator,
@@ -85,7 +90,20 @@ FL = [
         KrameriusField.Nbn,
     ]
 ]
+HARVEST_FL = [
+    "compositeId",
+    KrameriusField.Pid.value,
+    KrameriusField.Model.value,
+    *FL,
+    "indexed",
+]
 MAX_QUERY_PARTS = 50
+HARVEST_PAGE_SIZE = 1000
+
+DOCUMENTS_TABLE = "documents"
+IDENTIFIERS_TABLE = "identifiers"
+INDEXED_FIELD = "indexed"
+TARGET_MODEL_VALUES = frozenset(model.value for model in TARGET_MODELS)
 
 #: The KrameriusDocument attribute carrying each identifier we search on.
 IDENTIFIER_DOC_ATTR = {
@@ -103,6 +121,71 @@ logger = logging.getLogger(__name__)
 
 #: Standard 856 $y link text written for added/replaced links.
 STANDARD_LINK_TEXT = "Digitalizovaný dokument"
+
+
+def _solr_timestamp(value: datetime) -> str:
+    return value.astimezone(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
+
+
+def _harvest_query(watermark: str | None, upper: str) -> str:
+    timestamp_pattern = re.compile(r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$")
+    if watermark is not None and not timestamp_pattern.fullmatch(watermark):
+        raise ValueError(f"Invalid Kramerius harvest watermark: {watermark!r}")
+    if not timestamp_pattern.fullmatch(upper):
+        raise ValueError(f"Invalid Kramerius harvest upper bound: {upper!r}")
+    lower = watermark or "*"
+    # Solr date ranges accept their ISO-8601 endpoints directly; square brackets
+    # make both sides inclusive, which deliberately overlaps the prior watermark.
+    indexed_range = f"{INDEXED_FIELD}:[{lower} TO {upper}]"
+    if watermark is not None:
+        # Do not filter incremental pages by model: an object that changed from a
+        # stored model to page (or any excluded model) must remove its old row.
+        return indexed_range
+    return f"{indexed_range} AND {F(KrameriusField.Model, TARGET_MODELS)}"
+
+
+def _required_scalar(document: dict[str, Any], field: str) -> str:
+    value = document.get(field)
+    if not isinstance(value, str) or not value:
+        raise ValueError(f"Kramerius document has no usable {field!r}: {value!r}")
+    return value
+
+
+def _string_values(value: Any) -> list[str]:
+    if value is None:
+        return []
+    if isinstance(value, str):
+        return [value]
+    return [item for item in value if isinstance(item, str)]
+
+
+def _load_local_documents(connection, documents, identifiers, rows) -> list[KrameriusDocument]:
+    from sqlalchemy import select
+
+    if not rows:
+        return []
+    values_by_document: dict[str, dict[str, list[str]]] = defaultdict(lambda: defaultdict(list))
+    composite_ids = [row["composite_id"] for row in rows]
+    for row in connection.execute(
+        select(identifiers.c.composite_id, identifiers.c.kind, identifiers.c.value).where(
+            identifiers.c.composite_id.in_(composite_ids)
+        )
+    ).mappings():
+        values_by_document[row["composite_id"]][row["kind"]].append(row["value"])
+
+    result: list[KrameriusDocument] = []
+    for row in rows:
+        data: dict[str, Any] = {
+            "pid": row["pid"],
+            "own_pid_path": row["own_pid_path"],
+            "model": row["model"],
+            "own_model_path": row["model_path"],
+            "level": row["level"],
+        }
+        for field in IDENTIFIER_DOC_ATTR:
+            data[field.value] = values_by_document[row["composite_id"]].get(field.value, [])
+        result.append(KrameriusDocument.model_validate(data))
+    return result
 
 
 @dataclass
@@ -136,6 +219,8 @@ class KrameriusLinksValidator(BaseValidator):
 
     config_model = KrameriusLinksValidatorConfig
     can_generate_report = True
+    needs_harvest = True
+    harvest_schema_version = 1
 
     def __init__(self, config: KrameriusLinksValidatorConfig):
         self.config = config
@@ -152,6 +237,259 @@ class KrameriusLinksValidator(BaseValidator):
                 search_page_size=config.search_page_size,
             )
         )
+
+    def harvest_source_identity(self) -> str:
+        """Fingerprint only settings that change the Solr dataset being copied."""
+
+        source = json.dumps(
+            {
+                "host": str(self.config.kramerius_host).rstrip("/"),
+                "solr_cloud": self.config.solr_cloud,
+                "search_endpoint": "api/client/v7.0/search",
+            },
+            sort_keys=True,
+            separators=(",", ":"),
+        )
+        return hashlib.sha256(source.encode()).hexdigest()
+
+    @classmethod
+    def harvest_metadata(cls, schema: str):
+        """Declare the plugin-owned lookup tables.
+
+        SQLAlchemy stays an optional dependency for ordinary SDK and CLI use: it is
+        imported only when the host asks for storage metadata or binds storage.
+        """
+
+        from sqlalchemy import (
+            Column,
+            ForeignKey,
+            Index,
+            Integer,
+            MetaData,
+            String,
+            Table,
+            Text,
+        )
+
+        metadata = MetaData(schema=schema)
+        documents = Table(
+            DOCUMENTS_TABLE,
+            metadata,
+            Column("composite_id", Text, primary_key=True),
+            Column("pid", Text, nullable=False),
+            Column("root_pid", Text, nullable=False),
+            Column("own_pid_path", Text, nullable=False),
+            Column("root_model", String(32), nullable=False),
+            Column("model", String(32), nullable=False),
+            Column("model_path", Text, nullable=False),
+            Column("level", Integer, nullable=False),
+            Column("indexed", String(32), nullable=False),
+        )
+        Index("ix_kramerius_documents_pid", documents.c.pid)
+
+        identifiers = Table(
+            IDENTIFIERS_TABLE,
+            metadata,
+            Column(
+                "composite_id",
+                Text,
+                ForeignKey(f"{schema}.{DOCUMENTS_TABLE}.composite_id", ondelete="CASCADE"),
+                primary_key=True,
+            ),
+            Column("kind", String(16), primary_key=True),
+            Column("value", Text, primary_key=True),
+        )
+        Index(
+            "ix_kramerius_identifiers_kind_value",
+            identifiers.c.kind,
+            identifiers.c.value,
+        )
+        return metadata
+
+    async def harvest(self, ctx: HarvestContext) -> HarvestResult:
+        """Stream one bounded Solr snapshot into the host-owned transaction."""
+
+        upper = _solr_timestamp(datetime.now(UTC))
+        query = _harvest_query(ctx.watermark, upper)
+        processed = 0
+
+        async for documents, total in self._solr_cursor_pages(query):
+            stored = [doc for doc in documents if doc.get("model") in TARGET_MODEL_VALUES]
+            self._replace_harvest_page(
+                ctx.connection,
+                ctx.schema,
+                documents,
+                stored,
+            )
+            processed += len(documents)
+            ctx.progress(processed, total)
+
+        # An empty successful run is meaningful and advances the bounded watermark.
+        if processed == 0:
+            ctx.progress(0, 0)
+        return HarvestResult(watermark=upper, records=processed)
+
+    async def _solr_cursor_pages(self, query: str):
+        """Yield raw pages because KrameriusDocument drops cursor/update fields."""
+
+        search = self.client.Search
+        cursor = "*"
+        seen_cursors = {cursor}
+        estimated_total = 0
+        received = 0
+        while True:
+            response = await asyncio.to_thread(
+                search._session.get,
+                f"{search._config.host}/{search._config.endpoint}",
+                params={
+                    "q": query,
+                    "rows": HARVEST_PAGE_SIZE,
+                    "fl": HARVEST_FL,
+                    "sort": "compositeId asc",
+                    "cursorMark": cursor,
+                },
+                timeout=search._timeout,
+            )
+            response.raise_for_status()
+            payload = response.json()
+            header = payload.get("responseHeader", {})
+            if header.get("partialResults") in {True, "true"}:
+                raise RuntimeError("Kramerius Solr returned partial cursor results")
+            result = payload["response"]
+            documents = result["docs"]
+            next_cursor = payload.get("nextCursorMark")
+            if not isinstance(documents, list):
+                raise RuntimeError("Kramerius Solr cursor response has invalid documents")
+            if not isinstance(next_cursor, str) or not next_cursor:
+                raise RuntimeError("Kramerius Solr cursor response has invalid nextCursorMark")
+            # numFound is an estimate here, not a contract. Kramerius keeps
+            # indexing while a walk of this size is in flight, so the count
+            # drifts even for a bounded `indexed` range, and a harvest must not
+            # fail because of that. cursorMark is what guarantees a complete,
+            # duplicate-free walk; the count only drives the progress bar, so
+            # keep it monotonic and never below what has already been read.
+            received += len(documents)
+            estimated_total = max(estimated_total, int(result["numFound"]), received)
+
+            if documents:
+                yield documents, estimated_total
+            if next_cursor == cursor:
+                break
+            if next_cursor in seen_cursors:
+                raise RuntimeError("Kramerius Solr cursor entered a cycle")
+            seen_cursors.add(next_cursor)
+            cursor = next_cursor
+
+    @classmethod
+    def _replace_harvest_page(
+        cls,
+        connection,
+        schema: str,
+        changed_documents: list[dict[str, Any]],
+        stored_documents: list[dict[str, Any]],
+    ) -> None:
+        """Replace changed documents and their identifiers without retaining a page."""
+
+        from sqlalchemy import delete, insert
+
+        metadata = cls.harvest_metadata(schema)
+        documents = metadata.tables[f"{schema}.{DOCUMENTS_TABLE}"]
+        identifiers = metadata.tables[f"{schema}.{IDENTIFIERS_TABLE}"]
+
+        composite_ids = [_required_scalar(doc, "compositeId") for doc in changed_documents]
+        if composite_ids:
+            # FK cascade removes mappings even if the document changed out of the
+            # harvested model set.
+            connection.execute(delete(documents).where(documents.c.composite_id.in_(composite_ids)))
+
+        document_rows: list[dict[str, Any]] = []
+        identifier_rows: list[dict[str, str]] = []
+        for raw in stored_documents:
+            composite_id = _required_scalar(raw, "compositeId")
+            pid = _required_scalar(raw, KrameriusField.Pid.value)
+            model = _required_scalar(raw, KrameriusField.Model.value)
+            own_pid_path = _required_scalar(raw, KrameriusField.OwnPidPath.value)
+            model_path = _required_scalar(raw, KrameriusField.ModelPath.value)
+            indexed = _required_scalar(raw, INDEXED_FIELD)
+            level = int(raw.get(KrameriusField.Level.value) or 0)
+            document_rows.append(
+                {
+                    "composite_id": composite_id,
+                    "pid": pid,
+                    "root_pid": own_pid_path.split("/")[0],
+                    "own_pid_path": own_pid_path,
+                    "root_model": model_path.split("/")[0],
+                    "model": model,
+                    "model_path": model_path,
+                    "level": level,
+                    "indexed": indexed,
+                }
+            )
+            for field in IDENTIFIER_DOC_ATTR:
+                for value in _string_values(raw.get(field.value)):
+                    identifier_rows.append(
+                        {
+                            "composite_id": composite_id,
+                            "kind": field.value,
+                            "value": value,
+                        }
+                    )
+
+        if document_rows:
+            connection.execute(insert(documents), document_rows)
+        if identifier_rows:
+            # Duplicate values within one Solr array are irrelevant to lookup and
+            # would violate the normalized table's primary key.
+            unique_rows = list(
+                {
+                    (row["composite_id"], row["kind"], row["value"]): row for row in identifier_rows
+                }.values()
+            )
+            connection.execute(insert(identifiers), unique_rows)
+
+    def _local_documents_by_identifiers(
+        self, searched_values: dict[KrameriusField, set[str]]
+    ) -> list[KrameriusDocument]:
+        from sqlalchemy import and_, or_, select
+
+        storage = self.harvest_storage
+        if storage is None:
+            return []
+        metadata = self.harvest_metadata(storage.schema)
+        documents = metadata.tables[f"{storage.schema}.{DOCUMENTS_TABLE}"]
+        identifiers = metadata.tables[f"{storage.schema}.{IDENTIFIERS_TABLE}"]
+        clauses = [
+            and_(identifiers.c.kind == field.value, identifiers.c.value.in_(values))
+            for field, values in searched_values.items()
+            if values
+        ]
+        if not clauses:
+            return []
+
+        with storage.connection() as connection:
+            rows = connection.execute(
+                select(documents)
+                .join(identifiers, identifiers.c.composite_id == documents.c.composite_id)
+                .where(or_(*clauses))
+                .distinct()
+            ).mappings()
+            return _load_local_documents(connection, documents, identifiers, list(rows))
+
+    def _local_documents_by_pid(self, pid: str) -> list[KrameriusDocument]:
+        from sqlalchemy import select
+
+        storage = self.harvest_storage
+        if storage is None:
+            return []
+        metadata = self.harvest_metadata(storage.schema)
+        documents = metadata.tables[f"{storage.schema}.{DOCUMENTS_TABLE}"]
+        identifiers = metadata.tables[f"{storage.schema}.{IDENTIFIERS_TABLE}"]
+        with storage.connection() as connection:
+            rows = connection.execute(select(documents).where(documents.c.pid == pid)).mappings()
+            return _load_local_documents(connection, documents, identifiers, list(rows))
+
+    def _remote_documents(self, query) -> list[KrameriusDocument]:
+        return list(self.client.Search.search(query, fl=FL))
 
     async def find_kramerius_links(
         self, record: MarcRecord, current_kramerius_pids: list[str]
@@ -183,29 +521,14 @@ class KrameriusLinksValidator(BaseValidator):
             defaultdict(dict)
         )
 
-        for i in range(0, len(field_query_parts), MAX_QUERY_PARTS):
-            upper = min(i + MAX_QUERY_PARTS, len(field_query_parts))
-            field_query_parts_chunk = field_query_parts[i:upper]
-
-            query = None
-
-            for field, values in field_query_parts_chunk:
-                if query is None:
-                    query = F(field, values)
+        def collect_documents(documents: Iterable[KrameriusDocument]) -> None:
+            for doc in documents:
+                if not doc.own_pid_path or not doc.model_path:
                     continue
-
-                query |= F(field, values)
-
-            if query is None:
-                break
-
-            query = G(query) & F(KrameriusField.Model, TARGET_MODELS)
-
-            for doc in await asyncio.to_thread(self.client.Search.search, query, fl=FL):
                 root_pid = doc.own_pid_path.split("/")[0]
                 # Both paths run root -> leaf, so the root's model is the first element.
-                # Taking the last one named the leaf, which wrongly flagged every parent
-                # reached via a child hit as non-linkable.
+                # Taking the last one named the leaf wrongly flags parents reached via
+                # child hits as non-linkable.
                 root_model = Model(doc.model_path.split("/")[0])
                 has_wrong_model = root_model not in VALID_TOP_LEVEL_MODELS
                 link = FoundKrameriusLink(root_pid, root_model, has_wrong_model)
@@ -217,6 +540,37 @@ class KrameriusLinksValidator(BaseValidator):
                 ]
                 for field in matched or [None]:
                     roots_by_identifier[field][root_pid] = link
+
+        use_remote = not self.harvest_ready
+        if self.harvest_ready:
+            try:
+                local_documents = await asyncio.to_thread(
+                    self._local_documents_by_identifiers, searched_values
+                )
+                collect_documents(local_documents)
+            except HarvestStorageUnavailable:
+                logger.info("Harvested Kramerius data became unavailable; using Solr")
+                use_remote = True
+
+        if use_remote:
+            for i in range(0, len(field_query_parts), MAX_QUERY_PARTS):
+                upper = min(i + MAX_QUERY_PARTS, len(field_query_parts))
+                field_query_parts_chunk = field_query_parts[i:upper]
+
+                query = None
+
+                for field, values in field_query_parts_chunk:
+                    if query is None:
+                        query = F(field, values)
+                        continue
+
+                    query |= F(field, values)
+
+                if query is None:
+                    break
+
+                query = G(query) & F(KrameriusField.Model, TARGET_MODELS)
+                collect_documents(await asyncio.to_thread(self._remote_documents, query))
 
         ambiguous: list[AmbiguousIdentifier] = []
         for field, roots in roots_by_identifier.items():
@@ -238,11 +592,24 @@ class KrameriusLinksValidator(BaseValidator):
             links.update(roots)
 
         for pid in current_kramerius_pids:
-            docs = list(
-                await asyncio.to_thread(
-                    self.client.Search.search, F(KrameriusField.Pid, pid), fl=FL
-                ),
-            )
+            local_available = self.harvest_ready
+            try:
+                docs = (
+                    await asyncio.to_thread(self._local_documents_by_pid, pid)
+                    if local_available
+                    else []
+                )
+            except HarvestStorageUnavailable:
+                logger.info("Harvested Kramerius data became unavailable; using Solr")
+                local_available = False
+                docs = []
+            if local_available and not docs:
+                # Full harvests intentionally omit pages and other irrelevant models.
+                # A MARC record may still contain such a PID, so absence is unknown and
+                # needs one targeted Solr check to preserve existing-link validation.
+                logger.debug("PID %s is absent from harvested models; checking Solr", pid)
+            if not local_available or not docs:
+                docs = await asyncio.to_thread(self._remote_documents, F(KrameriusField.Pid, pid))
             if not docs:
                 continue
 
