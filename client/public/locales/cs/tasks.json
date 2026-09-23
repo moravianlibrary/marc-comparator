@@ -32,7 +32,7 @@
     "CompactSectors": "Kompakce sektorů",
     "RebuildSearchVectors": "Obnova vyhledávacích vektorů",
     "CreateReport": "Vytvoření reportu",
-    "HarvestPlugin": "Stažení dat pro rozšíření"
+    "HarvestPlugin": "Stažení dat"
   },
   "status": {
     "Pending": "Naplánováno",
@@ -52,5 +52,11 @@
     "started": "Úkol \"{{name}}\" byl spuštěn",
     "completed": "Úkol \"{{name}}\" byl úspěšně dokončen",
     "failed": "Úkol \"{{name}}\" selhal"
+  },
+  "type-with-target": "{{type}} — {{target}}",
+  "target": {
+    "marcxml-dump": "Katalog z dávky MARCXML",
+    "kramerius-links": "Odkazy na Kramerius",
+    "knihovny-cz": "Knihovny.cz"
   }
 }

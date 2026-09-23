@@ -10,6 +10,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import type { Task } from '@/types/task';
+import { taskLabel } from './task-label';
 
 interface TaskTableProps {
   tasks: Task[];
@@ -57,9 +58,7 @@ export function TaskTable({
             className={`cursor-pointer ${selectedTaskId === task.task_id ? 'bg-muted' : ''}`}
             onClick={() => onSelectTask(task.task_id)}
           >
-            <TableCell className="font-medium">
-              {t(`type.${task.type}`, { defaultValue: task.type })}
-            </TableCell>
+            <TableCell className="font-medium">{taskLabel(task, t)}</TableCell>
             <TableCell>
               <Badge variant={statusVariantMap[task.status] ?? 'outline'}>
                 {t(`status.${task.status}`)}

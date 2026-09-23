@@ -50,6 +50,7 @@ def _to_summary(task: Task) -> TaskSummary:
         task_id=task.task_id,
         name=task.name,
         type=task.type.value,
+        target=task.target,
         status=task.status.value,
         severity=task.severity.value,
         created_by=task.created_by,

@@ -57,6 +57,9 @@ class TaskSummary(BaseModel):
     task_id: UUID
     name: str
     type: str
+    #: What the task acts on, when its type names one thing. Lets the UI tell
+    #: two runs of the same task type apart.
+    target: str | None = None
     status: str
     severity: str
     created_by: UUID

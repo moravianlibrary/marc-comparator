@@ -15,6 +15,8 @@ class TaskStatusEvent(BaseModel):
     type: Literal["task_status"] = "task_status"
     task_id: str
     task_type: str
+    #: What the task acts on, so a toast can name the plugin or base.
+    target: str | None = None
     name: str
     status: str
     severity: str

@@ -3,14 +3,11 @@ import { useNavigate } from 'react-router-dom';
 import { Badge } from '@/components/ui/badge';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Progress } from '@/components/ui/progress';
+import { taskLabel } from '@/features/tasks/task-label';
 import type { Task } from '@/types/task';
 
 interface TaskProgressProps {
   runningTasks: Task[];
-}
-
-function taskLabel(task: Task, t: (key: string, opts?: Record<string, string>) => string): string {
-  return t(`tasks:type.${task.type}`, { defaultValue: task.type });
 }
 
 export function TaskProgress({ runningTasks }: TaskProgressProps) {

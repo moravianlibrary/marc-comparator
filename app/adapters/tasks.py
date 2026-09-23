@@ -334,6 +334,7 @@ class ManagedTask:
             TaskStatusEvent(
                 task_id=str(self.task.task_id),
                 task_type=self.task.type.value,
+                target=self.task.target,
                 name=self.task.name,
                 status=self.task.status.value,
                 severity=self.task.severity.value,
@@ -502,6 +503,7 @@ class ManagedTask:
                 TaskStatusEvent(
                     task_id=str(self.task.task_id),
                     task_type=self.task.type.value,
+                    target=self.task.target,
                     name=self.task.name,
                     status=self.task.status.value,
                     severity=self.task.severity.value,
@@ -926,6 +928,7 @@ def reap_orphaned_tasks() -> None:
                 TaskStatusEvent(
                     task_id=str(task.task_id),
                     task_type=task.type.value,
+                    target=task.target,
                     name=task.name,
                     status=task.status.value,
                     severity=task.severity.value,
@@ -995,6 +998,7 @@ async def enqueue_task(task: Task, db_session: DatabaseSession) -> TaskSchema:
             TaskStatusEvent(
                 task_id=str(task.task_id),
                 task_type=task.type.value,
+                target=task.target,
                 name=task.name,
                 status=task.status.value,
                 severity=task.severity.value,
@@ -1007,6 +1011,7 @@ async def enqueue_task(task: Task, db_session: DatabaseSession) -> TaskSchema:
         TaskStatusEvent(
             task_id=str(task.task_id),
             task_type=task.type.value,
+            target=task.target,
             name=task.name,
             status=task.status.value,
             severity=task.severity.value,
@@ -1035,6 +1040,7 @@ async def revoke_task(task: Task, db_session: DatabaseSession) -> TaskSchema:
         TaskStatusEvent(
             task_id=str(task.task_id),
             task_type=task.type.value,
+            target=task.target,
             name=task.name,
             status=task.status.value,
             severity=task.severity.value,

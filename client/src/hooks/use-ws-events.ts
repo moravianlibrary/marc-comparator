@@ -3,11 +3,13 @@ import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { toast } from 'sonner';
 import { addNotification } from '@/layout/toast-history';
+import { taskLabel } from '@/features/tasks/task-label';
 import { wsClient } from '@/lib/ws-client';
 
 interface TaskStatusMessage {
   task_id: string;
   task_type?: string;
+  target?: string | null;
   name?: string;
   status: 'Pending' | 'Started' | 'Success' | 'Failure';
 }
@@ -34,7 +36,7 @@ export function useWsEvents() {
       queryClient.invalidateQueries({ queryKey: ['tasks'] });
 
       const taskName = data.task_type
-        ? t(`type.${data.task_type}`, { defaultValue: data.task_type })
+        ? taskLabel({ type: data.task_type, target: data.target }, t)
         : data.task_id;
 
       if (data.status === 'Pending') {

@@ -58,12 +58,23 @@ class TaskSeverity(StrEnum):
     Critical = "Critical"
 
 
+#: Which key of ``Task.data`` names the subject of each task type. Types absent
+#: here act on a filtered selection rather than one named thing.
+TASK_TARGET_KEYS: dict[TaskType, str] = {
+    TaskType.HarvestPlugin: "plugin",
+    TaskType.SyncRecords: "base",
+    TaskType.CompareRecords: "target_base",
+    TaskType.LinkRecordsToAuthorities: "target_base",
+}
+
+
 class TaskSchema(BaseModel):
     """Pydantic response model for Task API endpoints (replaces ES IndexerSchema)."""
 
     task_id: UUID4
     name: str
     type: TaskType
+    target: str | None = None
     status: TaskStatus
     severity: TaskSeverity
 
@@ -118,6 +129,25 @@ class Task(
         kwargs.setdefault("created_at", datetime.now())
         kwargs.setdefault("attempts", 0)
         super().__init__(**kwargs)
+
+    @property
+    def target(self) -> str | None:
+        """What this task acts on, for a label that distinguishes one run from another.
+
+        Every plugin harvest is otherwise "Stažení dat pro rozšíření" no matter
+        which plugin it is, and the same goes for a sync of one base among
+        several. The parameter is already in ``data``; this only says which key
+        names the subject, per task type. Tasks acting on a whole selection
+        rather than a single subject have none, and their plain label stands.
+        """
+
+        if not isinstance(self.data, dict):
+            return None
+        key = TASK_TARGET_KEYS.get(self.type)
+        if key is None:
+            return None
+        value = self.data.get(key)
+        return value if isinstance(value, str) and value else None
 
     @property
     def traceback_lines(self) -> int:

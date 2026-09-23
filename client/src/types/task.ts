@@ -47,6 +47,8 @@ export type TaskSeverity = (typeof TaskSeverity)[keyof typeof TaskSeverity];
 export interface Task {
   task_id: string;
   type: TaskType;
+  /** What the task acts on (plugin, base); null when its type names nothing. */
+  target?: string | null;
   status: TaskStatus;
   severity: TaskSeverity;
   progress: number | null;
