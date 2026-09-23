@@ -96,13 +96,22 @@ export function TaskTable({
   );
 }
 
+/**
+ * A run time, carried up to hours.
+ *
+ * A harvest or a processing pass runs for hours, and without the larger unit
+ * the cell reads "115m 47s" and leaves the reader dividing. Seconds stay at
+ * every scale so nothing looks rounded.
+ */
 function formatDuration(start: string, end: string): string {
-  const ms = new Date(end).getTime() - new Date(start).getTime();
-  const seconds = Math.floor(ms / 1000);
+  const seconds = Math.floor((new Date(end).getTime() - new Date(start).getTime()) / 1000);
   if (seconds < 60) {
     return `${seconds}s`;
   }
-  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(seconds / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
   const remainingSeconds = seconds % 60;
-  return `${minutes}m ${remainingSeconds}s`;
+  return hours > 0
+    ? `${hours}h ${minutes}m ${remainingSeconds}s`
+    : `${minutes}m ${remainingSeconds}s`;
 }
