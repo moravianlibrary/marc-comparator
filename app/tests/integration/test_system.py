@@ -207,9 +207,10 @@ class TestSystemServiceUnit:
             mock_dispatcher.get.return_value = mock_linker_cls
 
             result = await get_enabled_authority_linkers(db_session)
-            assert len(result) == 1
-            assert result[0].name == "knihovny-cz"
-            assert result[0].target_bases == ["MZK01", "MZK03"]
+            # Every configured linker is reported, in the order settings define
+            # them; the stub stands in for each one's real target bases.
+            assert [linker.name for linker in result] == ["knihovny-cz", "marcxml-dump"]
+            assert all(linker.target_bases == ["MZK01", "MZK03"] for linker in result)
 
     def test_get_enabled_validators_with_settings(self, db_session: DatabaseSession, user):
         from system.service import get_enabled_validators

@@ -72,9 +72,14 @@ async def get_enabled_authority_linkers(
     if not settings:
         return []
 
+    # The scope also carries settings that are not a linker configuration, such
+    # as the threshold deciding between the two linking stages. Only fields
+    # named after a known linker describe one.
+    linker_names = {linker.value for linker in AuthorityLinker}
+
     linkers = []
     for name, config_obj in settings.model_dump(by_alias=True).items():
-        if config_obj is None:
+        if config_obj is None or name not in linker_names:
             continue
 
         linker_enum = AuthorityLinker(name)

@@ -26,6 +26,8 @@ export interface AuthorityLinkSummary {
   linker: string;
   base: string;
   authority_record_id: string;
+  /** How sure the linker was; null for linkers that report nothing. */
+  confidence: number | null;
 }
 
 export interface ComparisonSummary {

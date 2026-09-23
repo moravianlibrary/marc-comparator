@@ -105,6 +105,8 @@ class ProcessRecordsSettings(SettingsSchema):
     # SKC is the only base the enabled linker advertises as a target — linking
     # MZK01 against itself is rejected by the same-base guard anyway.
     target_bases: list[str] = Field(default=["SKC"], min_length=1)
+    #: Order is priority: linking asks these in turn and stops at the first
+    #: answer confident enough, so the list is a sequence and not a set.
     authority_linkers: list[AuthorityLinker] = Field(
         default=[AuthorityLinker.KnihovnyCz], min_length=1
     )
@@ -125,6 +127,10 @@ class AuthorityLinkSummary(BaseModel):
     linker: str
     base: str
     authority_record_id: str
+    #: How sure the linker was. Linkers that resolve an identifier report 1.0;
+    #: ones that score a match report what they measured, and anything below
+    #: certainty is worth showing rather than hiding behind an ordinary link.
+    confidence: float | None = None
 
 
 class ComparisonSummary(BaseModel):

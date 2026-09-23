@@ -1,6 +1,7 @@
 {
     "knihovny-cz": {
         "api_url": "https://api.knihovny.cz/v1/",
+        "minimum_confidence": 0.7,
         "mappings": [
             {
                 "base": "MZK01",
@@ -21,5 +22,16 @@
                 "is_target": false
             }
         ]
-    }
+    },
+    "marcxml-dump": {
+        "dump_url": "https://aleph.nkp.cz/data/skc.xml.gz",
+        "target_base": "SKC",
+        "system_number_tag": "998",
+        "system_number_subfield": "a",
+        "system_number_pattern": "doc_number=(\\d+)",
+        "system_number_padding": 9,
+        "minimum_confidence": 0.7,
+        "candidate_limit": 10
+    },
+    "confident_threshold": 0.9
 }

@@ -12,7 +12,7 @@ The SDK provides three core processing pipelines for MARC records, each built on
 
 All three follow the same pattern: an abstract base class, a concrete implementation, a string enum for dispatch, and a dispatcher dict that maps enum values to classes.
 
-> **SDK vs App**: The SDK supports registering multiple comparators, validators, and linkers. The web app hard-codes which ones to use (currently: Default comparator, Kramerius Links validator, Knihovny.cz linker). The SDK is the reusable library; the app is the opinionated deployment.
+> **SDK vs App**: The SDK supports registering multiple comparators, validators, and linkers. The web app hard-codes which ones to use (currently: Default comparator, Kramerius Links validator, Knihovny.cz and MARCXML dump linkers). The SDK is the reusable library; the app is the opinionated deployment.
 
 ```
 marc_comparator/
@@ -50,7 +50,8 @@ marc_comparator/
 └── authority_linkers/
     ├── __init__.py                   # AuthorityLinker enum + dispatcher
     ├── _base.py                      # BaseAuthorityLinker ABC, result model
-    └── knihovny_cz_linker.py         # Knihovny.cz authority linker
+    ├── knihovny_cz_linker.py         # Knihovny.cz authority linker
+    └── marcxml_dump_linker.py        # Published MARCXML dump linker (harvest-backed)
 ```
 
 ---
@@ -279,6 +280,7 @@ Links catalog records to authority records via the knihovny.cz deduplication API
 ```python
 class KnihovnyCZLinkerConfig(BaseModel):
     api_url: str = "https://www.knihovny.cz/api/v1"
+    minimum_confidence: float = 0.7  # lowest comparator score worth reporting
     base_mappings: dict  # Maps source bases to target base patterns
 ```
 
@@ -286,12 +288,57 @@ class KnihovnyCZLinkerConfig(BaseModel):
 
 1. Resolve source base to knihovny.cz record via configured base mappings
 2. Query knihovny.cz deduplication API
-3. Retrieve the matching authority MARC record
-4. Return `AuthorityLink` with base, system number, record, and confidence
+3. Retrieve the MARC record of every dedup group member in the target base
+4. Compare each against the source record; the best-scoring one wins
+5. Return `AuthorityLink` carrying that score as its confidence, or `None` when
+   it falls below `minimum_confidence`
+
+A dedup group is another system's judgement about our record. It decides which
+records are worth comparing; the comparator decides whether they match.
 
 #### get_target_bases
 
 Class method that returns the list of authority bases this linker can target, derived from the configuration's base mappings.
+
+### MARCXML Dump Linker
+
+Links catalog records directly to another catalogue, without relying on a third party's deduplication. Works with any catalogue that publishes its entire contents as one MARC21 slim XML (MARCXML) file, gzipped or not; the defaults point at the Czech union catalogue (Souborný katalog ČR), which publishes under CC0.
+
+#### Configuration
+
+```python
+class MarcXmlDumpLinkerConfig(BaseModel):
+    dump_url: str = "https://aleph.nkp.cz/data/skc.xml.gz"
+    target_base: str = "SKC"
+    # Where a record carries its own system number — the one thing that
+    # differs between publishers. Aleph dumps use a deep link in 998$a;
+    # a catalogue publishing its control number sets tag "001", pattern None.
+    system_number_tag: str = "998"
+    system_number_subfield: str = "a"
+    system_number_pattern: str | None = r"doc_number=(\d+)"
+    system_number_padding: int = 9  # 0 stores the number verbatim
+    minimum_confidence: float = 0.7  # bottom of the comparator's Moderate band
+    candidate_limit: int = 10
+```
+
+Everything else the linker reads is standard MARC21 — identifiers in 015/020/022/035/856, title in 245$a, author in 100/110$a, year from 008 — so no other field needs configuring.
+
+#### Process
+
+1. Retrieve candidates by hard identifier — ČNB (015), digital-library UUID (856$u), OCLC (035), ISBN (020), ISSN (022)
+2. Fall back to an identical normalized title (245$a) when no identifier matches, ordered by agreeing year and author
+3. Compare each candidate against the source record with the default comparator
+4. Return an `AuthorityLink` for the best-scoring candidate, if it reaches `minimum_confidence`; its `confidence` is that score
+
+Retrieval never decides a link on its own — it only proposes candidates for the comparator to judge. The score is reported rather than reduced to a yes/no, so a caller weighing several linkers can tell a certain match from a plausible one.
+
+#### Harvesting
+
+This linker is harvest-only: it answers from a local copy of the published dump and has no remote lookup. Without a harvested dataset `run()` raises `HarvestStorageUnavailable` rather than reporting "no link", because the application treats an absent link as evidence that an existing one is obsolete.
+
+The system-number settings are part of the harvest fingerprint, since they decide what every stored row is keyed by: changing one discards the local copy and harvests again rather than serving rows keyed the old way.
+
+The dump is a full snapshot with no incremental form, so each harvest replaces everything — unless the published edition (ETag, else Last-Modified) is unchanged, in which case the run keeps the existing copy and does no work.
 
 ---
 

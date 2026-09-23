@@ -30,11 +30,32 @@ export interface KnihovnyCZBaseMapping {
 
 export interface KnihovnyCZLinkerConfig {
   api_url: string;
+  /** Lowest comparator score this linker will report at all. */
+  minimum_confidence: number;
   mappings: KnihovnyCZBaseMapping[];
+}
+
+export interface MarcXmlDumpLinkerConfig {
+  dump_url: string;
+  target_base: string;
+  /** Which field of the dump carries a record's own system number. */
+  system_number_tag: string;
+  system_number_subfield: string;
+  /** Extracts the number from that field; null when it holds nothing else. */
+  system_number_pattern: string | null;
+  /** Left-pad the number to this width; 0 stores it verbatim. */
+  system_number_padding: number;
+  /** Lowest comparator score this linker will report at all. */
+  minimum_confidence: number;
+  /** How many retrieved records are compared per catalog record. */
+  candidate_limit: number;
 }
 
 export interface AuthorityLinkingSettings {
   'knihovny-cz': KnihovnyCZLinkerConfig | null;
+  'marcxml-dump': MarcXmlDumpLinkerConfig | null;
+  /** Confidence at which linking stops consulting further linkers. */
+  confident_threshold: number;
 }
 
 export interface ComparatorConfig {
@@ -65,6 +86,7 @@ export interface ValidationSettings {
 
 export const AuthorityLinker = {
   KnihovnyCz: 'knihovny-cz',
+  MarcXmlDump: 'marcxml-dump',
 } as const;
 
 export type AuthorityLinker = (typeof AuthorityLinker)[keyof typeof AuthorityLinker];

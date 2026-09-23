@@ -16,6 +16,7 @@ from authority_linking.tasks import (
     find_best_link_for_record,
     handle_catalog_record_link_action,
     load_authority_linkers,
+    load_confident_threshold,
 )
 from catalog_records.models import (
     FetchBatchOfRecordsData,
@@ -326,6 +327,7 @@ async def process_records(task_id: str) -> None:
         if not authority_linkers:
             ctx.logger.error("Authority linkers could not be initialized")
             return
+        confident_threshold = load_confident_threshold(ctx.db_session)
 
         comparator = load_comparator(ctx.db_session)
         if not comparator:
@@ -373,6 +375,7 @@ async def process_records(task_id: str) -> None:
                         target_base,
                         marc_record,
                         ctx.logger,
+                        confident_threshold,
                     )
                     results = handle_catalog_record_link_action(
                         ctx.db_session,

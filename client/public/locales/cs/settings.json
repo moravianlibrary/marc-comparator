@@ -2,7 +2,7 @@
   "title": "Nastavení",
   "unsaved-warning": "Máte neuložené změny. Uložte nebo zahoďte změny před přepnutím.",
   "types": {
-    "catalog": "Nastavení Aleph katalogů",
+    "catalog": "Nastavení katalogů",
     "tasks": "Nastavení úkolů",
     "authority-linkers": "Nastavení propojení autorit",
     "comparators": "Nastavení porovnávání",
@@ -41,7 +41,7 @@
     }
   },
   "catalog": {
-    "clients": "Nastavení Aleph katalogů",
+    "clients": "Nastavení katalogů",
     "add-client": "Přidat katalog",
     "base": "Báze",
     "host": "Adresa serveru",
@@ -112,7 +112,10 @@
   "process-records": {
     "target-bases": "Cílové báze",
     "authority-linkers": "Propojení s autoritami",
-    "validators": "Validátory"
+    "validators": "Validátory",
+    "authority-linkers-order": "Pořadí určuje prioritu — služby se dotazují shora dolů.",
+    "move-up": "Posunout nahoru",
+    "move-down": "Posunout dolů"
   },
   "maintenance": {
     "task-cleanup": {
@@ -151,14 +154,34 @@
     },
     "authority-linkers": {
       "knihovny-cz": {
-        "intro": "Propojení autorit přes službu Knihovny.cz. Při zpracování záznamů se automaticky dohledávají a přiřazují autoritní záznamy.",
+        "intro": "Propojení autorit přes deduplikaci služby Knihovny.cz. Při zpracování záznamů se automaticky dohledávají a přiřazují autoritní záznamy.",
+        "how-it-matches": "Deduplikační skupina Knihovny.cz říká, které záznamy popisují totéž — je to ale úsudek cizího systému o našem záznamu. Nalezený záznam se proto ještě porovná s naším a služba nabídne ten nejlepší i s naměřenou jistotou. O tom, zda se propojení přijme, rozhoduje práh jistoty v sekci „Rozhodování o propojení“.",
         "fields-title": "Popis polí",
         "api-url": "Adresa REST API služby Knihovny.cz pro vyhledávání autorit.",
+        "minimum-confidence": "Hranice, pod kterou se nález nenabídne. Chrání před propojeními, kde se naše katalogizace s cizí deduplikací neshoduje.",
         "mappings": "Pravidla pro mapování záznamů na autority. Každé mapování definuje, jak se pro danou bázi sestaví identifikátor a kde v záznamu hledat autoritu.",
         "mapping-fields": "Každé mapování obsahuje:",
         "mapping-base": "Báze katalogu, pro kterou platí toto mapování.",
         "mapping-id-template": "Šablona pro sestavení identifikátoru záznamu, který se odešle do API Knihovny.cz.",
         "mapping-pattern": "Regulární výraz pro vyhledání a extrakci autority v MARC záznamu."
+      },
+      "decision": {
+        "intro": "Určuje, jak se z nálezů jednotlivých služeb vybere ten, který se zapíše k záznamu.",
+        "two-stages": "Propojování probíhá ve dvou krocích. Nejdřív se služby obcházejí popořadě a hledá se nález s jistotou na úrovni prahu nebo vyšší; jakmile se takový objeví, přijme se a zbylé služby se už nedotazují. Pokud tak jistý nález nenajde žádná služba, porovnají se všechny nabídnuté nálezy a vybere se ten s nejvyšší jistotou.",
+        "fields-title": "Popis polí",
+        "confident-threshold": "Jistota, při které se hledání zastaví u prvního nálezu. Vyšší hodnota znamená, že se častěji dotazují všechny služby a vybírá se to nejlepší — přesnější, ale pomalejší. Nižší hodnota přijme první dost dobrý nález."
+      },
+      "marcxml-dump": {
+        "intro": "Propojení s katalogem, který zveřejňuje všechny své záznamy jako jeden soubor ve formátu MARC21 slim XML (MARCXML), obvykle zabalený gzipem. Ve výchozím nastavení míří na Souborný katalog ČR, ale pracovat umí s kterýmkoli katalogem publikovaným stejným způsobem — stačí změnit adresu dávky, bázi a způsob čtení systémového čísla.",
+        "how-it-matches": "Nejdřív se hledá podle tvrdých identifikátorů (ČNB, ISBN, ISSN, OCLC, odkaz do digitální knihovny). Když žádný nesedí, hledá se podle názvu. Nalezené záznamy jsou ale jen kandidáti: porovnají se s naším záznamem a služba nabídne ten nejlepší i s naměřenou jistotou. O tom, zda se propojení přijme, rozhoduje práh jistoty v sekci „Rozhodování o propojení“.",
+        "needs-harvest": "Vyhledává se výhradně v lokální kopii katalogu. Dokud není pořízená, úkol propojení skončí chybou — raději než aby nenalezené shody smazaly existující propojení. Kopii pořídíte v nastavení „Lokální kopie dat pro rozšíření“.",
+        "fields-title": "Popis polí",
+        "dump-url": "Adresa zveřejněné dávky. Mění-li se obsah, pořídí se lokální kopie znovu od začátku.",
+        "target-base": "Báze, pod kterou se nalezené autoritní záznamy ukládají.",
+        "minimum-confidence": "Hranice, pod kterou se kandidát vůbec nenabídne. Nižší hodnota nabídne víc záznamů a přinese víc chybných propojení.",
+        "candidate-limit": "Horní hranice počtu porovnání na jeden záznam. Chrání běh úkolu u obecných názvů, které odpovídají mnoha záznamům.",
+        "system-number": "Kde má záznam v dávce své systémové číslo — tedy číslo, kterým ho identifikuje katalog, ze kterého pochází, a pod kterým se zapíše propojení. Je to jediná věc, která se mezi vydavateli dávek liší. Dávky z Alephu mají v poli 998, podpoli $a odkaz tvaru „doc_number=123456“, proto výchozí vzor vytahuje číslo z něj. Katalog, který zveřejňuje vlastní kontrolní číslo v poli 001, nastaví pole na „001“ a vzor nechá prázdný — pak se použije celý obsah pole. „Doplnit na délku“ zarovná číslo nulami zleva, aby „123“ a „000000123“ neznamenaly dva různé záznamy; 0 vypne doplňování, což potřebují katalogy s nečíselnými čísly.",
+        "format-note": "Na formátu záleží: dávka musí být MARCXML. Řada katalogů zveřejňuje vedle ní i binární podobu ISO 2709 (soubory .mrc) — tu tato služba číst neumí a stahování skončí chybou, která to řekne. V takovém případě zadejte adresu XML varianty téže dávky."
       }
     },
     "comparator": {

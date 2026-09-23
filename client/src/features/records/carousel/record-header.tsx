@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button';
 import { useHasPermission } from '@/hooks/use-permissions';
 import { cn } from '@/lib/utils';
 import { Permission } from '@/types/permission';
+import { confidenceLabel } from '../authority-links';
 import { AdvancedTaskActions, RecordTaskActions } from '../record-task-actions';
 import { type RecordSummary, STATE_COLORS } from '../types';
 import { COMPARISON_BADGE_CLASS, groupValidations, VALIDATION_BADGE_CLASS } from '../utils';
@@ -88,7 +89,9 @@ export function RecordHeader({ record, onSelectView }: RecordHeaderProps) {
               className={cn('text-xs', onSelectView && 'cursor-pointer hover:bg-accent')}
               onClick={onSelectView ? () => onSelectView(viewKey) : undefined}
             >
-              {t('carousel.authority-linked', { base: al.base })}
+              {[t('carousel.authority-linked', { base: al.base }), confidenceLabel(al)]
+                .filter(Boolean)
+                .join(' ')}
             </Badge>
           );
         })}

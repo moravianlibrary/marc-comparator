@@ -43,6 +43,27 @@ class AuthorityLinkerInstance:
     instance: BaseAuthorityLinker
 
 
+class AuthorityLinkingFailed(RuntimeError):
+    """No linker produced a result and at least one of them failed."""
+
+
+#: Confidence at which the first stage stops looking. Matches the bottom of the
+#: comparator's "Excellent" band, which is what scoring linkers report against.
+DEFAULT_CONFIDENT_THRESHOLD = 0.9
+
+
+def _confidence_of(link: SdkAuthorityLink) -> float:
+    """A linker that reports no confidence is treated as the least certain.
+
+    Confidences are not comparable across linkers in general: one may measure a
+    match while another asserts a constant for every hit. Ranking them is only
+    meaningful as a tie-break of last resort, which is all the second stage
+    uses it for.
+    """
+
+    return link.confidence if link.confidence is not None else 0.0
+
+
 def load_authority_linkers(
     db_session: DatabaseSession,
     linkers: list[AuthorityLinker],
@@ -59,6 +80,13 @@ def load_authority_linkers(
             linker.linker.value, linker.instance, db_session, logging.getLogger(__name__)
         )
     return result or None
+
+
+def load_confident_threshold(db_session: DatabaseSession) -> float:
+    """The configured first-stage bar, or the default when nothing is stored."""
+
+    settings = Settings.get(db_session, SettingsScope.AuthorityLinking, AuthorityLinkingSettings)
+    return settings.confident_threshold if settings else DEFAULT_CONFIDENT_THRESHOLD
 
 
 def init_authority_linkers(
@@ -97,12 +125,26 @@ async def find_best_link_for_record(
     target_base: str,
     marc_record: MarcRecord,
     logger: logging.Logger,
+    confident_threshold: float = DEFAULT_CONFIDENT_THRESHOLD,
 ) -> tuple[SdkAuthorityLink | None, AuthorityLinkerInstance | None]:
     """
-    Run all linkers for a catalog record and return the link with highest
-    confidence.
+    Link a record in two stages.
+
+    The first stage stops at the first linker confident enough to decide, in the
+    order they are configured, so the rest are never asked. Only when no linker
+    is confident does the second stage weigh every proposal and keep the best
+    one — worth the extra work exactly because it is rare.
+
+    A linker that reports a link is trusted about its own floor: its confidence
+    is what it measured, and nothing here re-judges it beyond ranking.
+
+    Raises ``AuthorityLinkingFailed`` when nothing was found and a linker
+    failed. The caller treats "no link" as evidence that an existing link is
+    obsolete and deletes it, so a lookup that never completed must not be
+    reported as an empty result.
     """
     candidates: list[tuple[SdkAuthorityLink, AuthorityLinkerInstance]] = []
+    failures: list[Exception] = []
 
     for authority_linker in authority_linkers:
         try:
@@ -112,25 +154,38 @@ async def find_best_link_for_record(
                 marc_record,
                 target_base,
             )
-            if link is not None:
-                candidates.append((link, authority_linker))
         except Exception as e:
+            failures.append(e)
             logger.error(
                 f"Failed linking with {authority_linker.linker.value} "
                 f"for record {catalog_record.id}: {e}"
             )
+            continue
+
+        if link is None:
+            continue
+        candidates.append((link, authority_linker))
+        if _confidence_of(link) >= confident_threshold:
+            # Confident and first in configured order: asking the remaining
+            # linkers could only produce a rival to the same answer.
+            return link, authority_linker
 
     if not candidates:
+        if failures:
+            raise AuthorityLinkingFailed(
+                f"Every linker failed for record {catalog_record.id}"
+            ) from failures[0]
         return None, None
 
-    def confidence_key(
-        item: tuple[SdkAuthorityLink, AuthorityLinkerInstance],
-    ) -> float:
-        c = item[0].confidence
-        return c if c is not None else 0.0
-
-    best = max(candidates, key=confidence_key)
-    return best[0], best[1]
+    best_link, best_linker = max(candidates, key=lambda item: _confidence_of(item[0]))
+    logger.info(
+        "No confident link for record %s; keeping the best of %d proposals (%s, confidence %.2f)",
+        catalog_record.id,
+        len(candidates),
+        best_linker.linker.value,
+        _confidence_of(best_link),
+    )
+    return best_link, best_linker
 
 
 def get_existing_link(
@@ -308,6 +363,7 @@ async def authority_linking(task_id: str) -> None:
         if not authority_linkers:
             ctx.logger.error("Authority linkers could not be initialized")
             return
+        confident_threshold = load_confident_threshold(ctx.db_session)
 
         counters: defaultdict[LinkActionResult, int] = defaultdict(int)
 
@@ -339,6 +395,7 @@ async def authority_linking(task_id: str) -> None:
                     data.target_base,
                     marc_record,
                     ctx.logger,
+                    confident_threshold,
                 )
 
                 results = handle_catalog_record_link_action(

@@ -142,6 +142,41 @@ export function AuthorityLinkersHelp() {
   );
 }
 
+export function MarcXmlDumpLinkerHelp() {
+  const { t } = useTranslation('settings');
+  return (
+    <>
+      <TypographyP>{t('help.authority-linkers.marcxml-dump.intro')}</TypographyP>
+      <TypographyP>{t('help.authority-linkers.marcxml-dump.format-note')}</TypographyP>
+      <TypographyP>{t('help.authority-linkers.marcxml-dump.how-it-matches')}</TypographyP>
+      <TypographyP>{t('help.authority-linkers.marcxml-dump.needs-harvest')}</TypographyP>
+      <TypographyH3>{t('help.authority-linkers.marcxml-dump.fields-title')}</TypographyH3>
+      <TypographyList>
+        <li>
+          <strong>{t('authority-linkers.marcxml-dump.dump-url')}</strong> —{' '}
+          {t('help.authority-linkers.marcxml-dump.dump-url')}
+        </li>
+        <li>
+          <strong>{t('authority-linkers.marcxml-dump.target-base')}</strong> —{' '}
+          {t('help.authority-linkers.marcxml-dump.target-base')}
+        </li>
+        <li>
+          <strong>{t('authority-linkers.marcxml-dump.system-number-tag')}</strong> —{' '}
+          {t('help.authority-linkers.marcxml-dump.system-number')}
+        </li>
+        <li>
+          <strong>{t('authority-linkers.marcxml-dump.minimum-confidence')}</strong> —{' '}
+          {t('help.authority-linkers.marcxml-dump.minimum-confidence')}
+        </li>
+        <li>
+          <strong>{t('authority-linkers.marcxml-dump.candidate-limit')}</strong> —{' '}
+          {t('help.authority-linkers.marcxml-dump.candidate-limit')}
+        </li>
+      </TypographyList>
+    </>
+  );
+}
+
 export function ComparatorsHelp() {
   const { t } = useTranslation('settings');
   return (
@@ -263,10 +298,6 @@ export function ProcessRecordsHelp() {
         <li>
           <strong>{t('process-records.authority-linkers')}</strong> —{' '}
           {t('help.process-records.authority-linkers')}
-        </li>
-        <li>
-          <strong>{t('process-records.comparator')}</strong> —{' '}
-          {t('help.process-records.comparator')}
         </li>
         <li>
           <strong>{t('process-records.validators')}</strong> —{' '}

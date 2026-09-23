@@ -1,6 +1,7 @@
 import type { ColumnDef } from '@tanstack/react-table';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { confidenceLabel } from '../authority-links';
 import { type RecordSummary, STATE_COLORS } from '../types';
 import { COMPARISON_BADGE_CLASS, groupValidations, VALIDATION_BADGE_CLASS } from '../utils';
 
@@ -92,7 +93,7 @@ export function createColumns(
                       : undefined
                   }
                 >
-                  {al.base}
+                  {[al.base, confidenceLabel(al)].filter(Boolean).join(' ')}
                 </Badge>
               );
             })}

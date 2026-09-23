@@ -3,7 +3,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -51,9 +50,6 @@ export function TaskSettingsForm({ data, onDirtyChange, onFormRef, onSubmit }: P
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>{t('tasks-settings.progress-update-interval')}</FormLabel>
-                  <FormDescription>
-                    {t('tasks-settings.progress-update-interval-description')}
-                  </FormDescription>
                   <FormControl>
                     <Input
                       type="number"
@@ -71,9 +67,6 @@ export function TaskSettingsForm({ data, onDirtyChange, onFormRef, onSubmit }: P
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>{t('tasks-settings.commit-interval')}</FormLabel>
-                  <FormDescription>
-                    {t('tasks-settings.commit-interval-description')}
-                  </FormDescription>
                   <FormControl>
                     <Input
                       type="number"
@@ -91,9 +84,6 @@ export function TaskSettingsForm({ data, onDirtyChange, onFormRef, onSubmit }: P
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>{t('tasks-settings.analytics-rebuild-interval')}</FormLabel>
-                  <FormDescription>
-                    {t('tasks-settings.analytics-rebuild-interval-description')}
-                  </FormDescription>
                   <FormControl>
                     <Input
                       type="number"

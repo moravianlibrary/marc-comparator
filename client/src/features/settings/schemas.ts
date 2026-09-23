@@ -45,11 +45,25 @@ export const knihovnyCZMappingSchema = z.object({
 
 export const knihovnyCZLinkerConfigSchema = z.object({
   api_url: z.url(),
+  minimum_confidence: z.number().min(0).max(1),
   mappings: z.array(knihovnyCZMappingSchema).min(1),
+});
+
+export const marcDumpLinkerConfigSchema = z.object({
+  dump_url: z.url(),
+  target_base: z.string().min(1),
+  system_number_tag: z.string().length(3),
+  system_number_subfield: z.string().length(1),
+  system_number_pattern: z.string().nullable(),
+  system_number_padding: z.number().int().min(0).max(16),
+  minimum_confidence: z.number().min(0).max(1),
+  candidate_limit: z.number().int().min(1).max(100),
 });
 
 export const authorityLinkingSettingsSchema = z.object({
   'knihovny-cz': knihovnyCZLinkerConfigSchema.nullable(),
+  'marcxml-dump': marcDumpLinkerConfigSchema.nullable(),
+  confident_threshold: z.number().min(0).max(1),
 });
 
 export type AuthorityLinkingSettingsFormValues = z.infer<typeof authorityLinkingSettingsSchema>;
