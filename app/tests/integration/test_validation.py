@@ -153,6 +153,7 @@ class TestValidationEndpoints:
                 "task_id": "IGNORE",
                 "name": "Validating records using 1 validators",
                 "type": "ValidateRecords",
+                "target": None,
                 "status": "Pending",
                 "severity": "Info",
                 "created_by": "12345678-1234-4678-9abc-1234567890ab",

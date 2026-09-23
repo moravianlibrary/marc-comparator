@@ -62,6 +62,7 @@ class TestAuthorityLinkingEndpoints:
                 "task_id": "IGNORE",
                 "name": "Authority linking for base 'SKC'",
                 "type": "LinkRecordsToAuthorities",
+                "target": "SKC",
                 "status": "Pending",
                 "severity": "Info",
                 "created_by": "12345678-1234-4678-9abc-1234567890ab",

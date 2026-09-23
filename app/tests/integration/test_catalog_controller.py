@@ -39,6 +39,7 @@ class TestEndpointsRO:
                 "task_id": "IGNORE",
                 "name": "Fetch catalog record TEST-000000123",
                 "type": "FetchRecord",
+                "target": None,
                 "status": "Pending",
                 "severity": "Info",
                 "created_by": "12345678-1234-4678-9abc-1234567890ab",
@@ -68,6 +69,7 @@ class TestEndpointsRO:
                 "task_id": "IGNORE",
                 "name": "Sync records from catalog for base TEST",
                 "type": "SyncRecords",
+                "target": "TEST",
                 "status": "Pending",
                 "severity": "Info",
                 "created_by": "12345678-1234-4678-9abc-1234567890ab",
@@ -470,6 +472,7 @@ class TestCatalogEndpoints:
             {
                 "name": "Fetching batch of 2 catalog records from 1 bases",
                 "type": "FetchBatchOfRecords",
+                "target": None,
                 "status": "Pending",
             },
             exclude_field_paths={
