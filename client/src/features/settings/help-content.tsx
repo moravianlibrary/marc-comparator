@@ -66,16 +66,57 @@ export function TasksHelp() {
   );
 }
 
+export function LinkingDecisionHelp() {
+  const { t } = useTranslation('settings');
+  return (
+    <>
+      <TypographyP>{t('help.authority-linkers.decision.intro')}</TypographyP>
+      <TypographyP>{t('help.authority-linkers.decision.two-stages')}</TypographyP>
+      <TypographyH3>{t('help.authority-linkers.decision.fields-title')}</TypographyH3>
+      <TypographyList>
+        <li>
+          <strong>{t('authority-linkers.decision.confident-threshold')}</strong> —{' '}
+          {t('help.authority-linkers.decision.confident-threshold')}
+        </li>
+      </TypographyList>
+    </>
+  );
+}
+
+export function PeriodicSyncHelp() {
+  const { t } = useTranslation('settings');
+  return (
+    <>
+      <TypographyP>{t('help.periodic-sync.intro')}</TypographyP>
+      <TypographyP>{t('help.periodic-sync.processing-follows')}</TypographyP>
+      <TypographyH3>{t('help.periodic-sync.fields-title')}</TypographyH3>
+      <TypographyList>
+        <li>
+          <strong>{t('periodic-sync.enabled')}</strong> — {t('help.periodic-sync.enabled')}
+        </li>
+        <li>
+          <strong>{t('cron.label')}</strong> — {t('help.periodic-sync.cron')}
+        </li>
+      </TypographyList>
+    </>
+  );
+}
+
 export function AuthorityLinkersHelp() {
   const { t } = useTranslation('settings');
   return (
     <>
       <TypographyP>{t('help.authority-linkers.knihovny-cz.intro')}</TypographyP>
+      <TypographyP>{t('help.authority-linkers.knihovny-cz.how-it-matches')}</TypographyP>
       <TypographyH3>{t('help.authority-linkers.knihovny-cz.fields-title')}</TypographyH3>
       <TypographyList>
         <li>
           <strong>{t('authority-linkers.knihovny-cz.api-url')}</strong> —{' '}
           {t('help.authority-linkers.knihovny-cz.api-url')}
+        </li>
+        <li>
+          <strong>{t('authority-linkers.knihovny-cz.minimum-confidence')}</strong> —{' '}
+          {t('help.authority-linkers.knihovny-cz.minimum-confidence')}
         </li>
         <li>
           <strong>{t('authority-linkers.knihovny-cz.mappings')}</strong> —{' '}
@@ -198,8 +239,7 @@ export function MaintenanceHelp() {
           <strong>{t('maintenance.enabled')}</strong> — {t('help.maintenance.enabled')}
         </li>
         <li>
-          <strong>{t('maintenance.interval-hours')}</strong> —{' '}
-          {t('help.maintenance.interval-hours')}
+          <strong>{t('cron.label')}</strong> — {t('help.maintenance.cron')}
         </li>
         <li>
           <strong>{t('maintenance.max-age-days')}</strong> — {t('help.maintenance.max-age-days')}
@@ -249,8 +289,7 @@ export function PluginHarvestHelp() {
           <strong>{t('plugin-harvest.enabled')}</strong> — {t('help.plugin-harvest.enabled')}
         </li>
         <li>
-          <strong>{t('plugin-harvest.interval-hours')}</strong> —{' '}
-          {t('help.plugin-harvest.interval-hours')}
+          <strong>{t('cron.label')}</strong> — {t('help.plugin-harvest.cron')}
         </li>
         <li>
           <strong>{t('plugin-harvest.ready')}</strong> — {t('help.plugin-harvest.ready')}

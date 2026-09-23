@@ -83,7 +83,8 @@ export interface ProcessRecordsSettings {
 
 export interface PeriodicTaskConfig {
   enabled: boolean;
-  interval_hours: number;
+  /** Five-field cron expression, e.g. `0 2 * * *`. */
+  cron: string;
 }
 
 export interface MaintenanceSettings {
@@ -96,12 +97,14 @@ export interface MaintenanceSettings {
 export interface PeriodicSyncBaseConfig {
   base: string;
   enabled: boolean;
-  interval_hours: number;
+  /** Five-field cron expression, e.g. `0 2 * * *`. */
+  cron: string;
 }
 
 export interface PeriodicProcessingConfig {
   enabled: boolean;
-  interval_hours: number;
+  /** Five-field cron expression, e.g. `0 2 * * *`. */
+  cron: string;
 }
 
 export interface PeriodicSyncSettings {
@@ -111,7 +114,8 @@ export interface PeriodicSyncSettings {
 
 export interface PluginHarvestSchedule {
   enabled: boolean;
-  interval_hours: number;
+  /** Five-field cron expression, e.g. `0 2 * * *`. */
+  cron: string;
 }
 
 /** Keyed by plugin name; the server fills in a default for every discovered plugin. */

@@ -12,7 +12,8 @@ export interface HarvestPluginStatus {
   /** Settings scope the plugin is configured under, e.g. `validators`. */
   scope: string;
   enabled: boolean;
-  interval_hours: number;
+  /** Five-field cron expression, e.g. `0 2 * * *`. */
+  cron: string;
   /** A local dataset exists and matches the current configuration. */
   ready: boolean;
   compatible: boolean;

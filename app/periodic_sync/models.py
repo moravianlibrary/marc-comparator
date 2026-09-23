@@ -1,10 +1,11 @@
+from adapters.cron import DAILY, CronExpression
 from entities.settings import SettingsSchema
 
 
 class PeriodicSyncBaseConfig(SettingsSchema):
     base: str
     enabled: bool = False
-    interval_hours: int = 24
+    cron: CronExpression = DAILY
 
 
 class PeriodicProcessingConfig(SettingsSchema):
@@ -16,7 +17,7 @@ class PeriodicProcessingConfig(SettingsSchema):
     """
 
     enabled: bool = False
-    interval_hours: int = 24
+    cron: CronExpression = DAILY
 
 
 class PeriodicSyncSettings(SettingsSchema):

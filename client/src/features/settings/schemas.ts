@@ -1,3 +1,5 @@
+import { AuthorityLinker, Validator } from '@/types/settings';
+import { isValidCron } from '@/lib/cron';
 import { z } from 'zod';
 
 // looseObject: the server stores extra keys the form does not edit
@@ -84,15 +86,22 @@ export type ValidationSettingsFormValues = z.infer<typeof validationSettingsSche
 
 export const processRecordsSettingsSchema = z.object({
   target_bases: z.array(z.string().min(1)).min(1),
-  authority_linkers: z.array(z.enum(['knihovny-cz'])).min(1),
-  validators: z.array(z.enum(['kramerius-links'])).min(1),
+  authority_linkers: z.array(z.enum(Object.values(AuthorityLinker))).min(1),
+  validators: z.array(z.enum(Object.values(Validator))).min(1),
 });
 
 export type ProcessRecordsSettingsFormValues = z.infer<typeof processRecordsSettingsSchema>;
 
+// The backend validates the expression too and is the authority; this keeps a
+// typo in the form instead of letting it reach a scheduler nobody is watching.
+export const cronExpressionSchema = z
+  .string()
+  .trim()
+  .refine(isValidCron, { message: 'invalid-cron' });
+
 export const periodicTaskConfigSchema = z.object({
   enabled: z.boolean(),
-  interval_hours: z.number().int().min(1).max(720),
+  cron: cronExpressionSchema,
 });
 
 export const maintenanceSettingsSchema = z.object({
@@ -107,12 +116,12 @@ export type MaintenanceSettingsFormValues = z.infer<typeof maintenanceSettingsSc
 export const periodicSyncBaseConfigSchema = z.object({
   base: z.string(),
   enabled: z.boolean(),
-  interval_hours: z.number().int().min(1).max(720),
+  cron: cronExpressionSchema,
 });
 
 export const periodicProcessingConfigSchema = z.object({
   enabled: z.boolean(),
-  interval_hours: z.number().int().min(1).max(720),
+  cron: cronExpressionSchema,
 });
 
 export const periodicSyncSettingsSchema = z.object({
@@ -124,7 +133,7 @@ export type PeriodicSyncSettingsFormValues = z.infer<typeof periodicSyncSettings
 
 export const pluginHarvestScheduleSchema = z.object({
   enabled: z.boolean(),
-  interval_hours: z.number().int().min(1).max(720),
+  cron: cronExpressionSchema,
 });
 
 export const pluginHarvestSettingsSchema = z.object({

@@ -24,7 +24,7 @@ def sync_periodic_sync_schedule(settings: PeriodicSyncSettings) -> None:
             name=entry_name(base_config.base),
             task_name="periodic_sync_records",
             enabled=base_config.enabled,
-            interval_hours=base_config.interval_hours,
+            cron=base_config.cron,
             args=[base_config.base],
         )
 
@@ -32,5 +32,5 @@ def sync_periodic_sync_schedule(settings: PeriodicSyncSettings) -> None:
         name=PROCESSING_ENTRY,
         task_name="periodic_process_records",
         enabled=settings.processing.enabled,
-        interval_hours=settings.processing.interval_hours,
+        cron=settings.processing.cron,
     )

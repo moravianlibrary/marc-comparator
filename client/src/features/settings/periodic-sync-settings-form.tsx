@@ -2,18 +2,14 @@ import { useMemo } from 'react';
 import { useFieldArray } from 'react-hook-form';
 import { useTranslation } from 'react-i18next';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
+import { Form, FormControl, FormField, FormItem, FormLabel } from '@/components/ui/form';
 import { Switch } from '@/components/ui/switch';
 import { useSystemInfo } from '@/hooks/use-system-info';
 import type { PeriodicSyncSettings } from '@/types/settings';
+import { DAILY_CRON } from '@/lib/cron';
+import { CronField } from './cron-field';
+import { PeriodicSyncHelp } from './help-content';
+import { HelpDialog } from './help-dialog';
 import { periodicSyncSettingsSchema } from './schemas';
 import { useSettingsForm } from './use-settings-form';
 
@@ -35,9 +31,9 @@ export function PeriodicSyncSettingsForm({ data, onDirtyChange, onFormRef, onSub
     const existing = new Map((data?.bases ?? []).map(b => [b.base, b]));
     return {
       bases: configured.map(
-        base => existing.get(base) ?? { base, enabled: false, interval_hours: 24 },
+        base => existing.get(base) ?? { base, enabled: false, cron: DAILY_CRON },
       ),
-      processing: data?.processing ?? { enabled: false, interval_hours: 24 },
+      processing: data?.processing ?? { enabled: false, cron: DAILY_CRON },
     };
   }, [data, systemInfo]);
 
@@ -56,7 +52,12 @@ export function PeriodicSyncSettingsForm({ data, onDirtyChange, onFormRef, onSub
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">{t('periodic-sync.harvest.title')}</CardTitle>
+            <div className="flex flex-row items-center gap-2">
+              <CardTitle className="text-base">{t('periodic-sync.harvest.title')}</CardTitle>
+              <HelpDialog titleKey="periodic-sync.harvest.title">
+                <PeriodicSyncHelp />
+              </HelpDialog>
+            </div>
             <CardDescription>{t('periodic-sync.harvest.description')}</CardDescription>
           </CardHeader>
           <CardContent className="max-w-md space-y-6">
@@ -78,23 +79,7 @@ export function PeriodicSyncSettingsForm({ data, onDirtyChange, onFormRef, onSub
                       </FormItem>
                     )}
                   />
-                  <FormField
-                    control={form.control}
-                    name={`bases.${index}.interval_hours`}
-                    render={({ field: f }) => (
-                      <FormItem>
-                        <FormLabel>{t('periodic-sync.interval-hours')}</FormLabel>
-                        <FormControl>
-                          <Input
-                            type="number"
-                            {...f}
-                            onChange={e => f.onChange(Number(e.target.value))}
-                          />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
+                  <CronField control={form.control} name={`bases.${index}.cron`} />
                 </div>
               ))
             )}
@@ -103,7 +88,12 @@ export function PeriodicSyncSettingsForm({ data, onDirtyChange, onFormRef, onSub
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">{t('periodic-sync.processing.title')}</CardTitle>
+            <div className="flex flex-row items-center gap-2">
+              <CardTitle className="text-base">{t('periodic-sync.processing.title')}</CardTitle>
+              <HelpDialog titleKey="periodic-sync.processing.title">
+                <PeriodicSyncHelp />
+              </HelpDialog>
+            </div>
             <CardDescription>{t('periodic-sync.processing.description')}</CardDescription>
           </CardHeader>
           <CardContent className="max-w-md space-y-3">
@@ -119,23 +109,7 @@ export function PeriodicSyncSettingsForm({ data, onDirtyChange, onFormRef, onSub
                 </FormItem>
               )}
             />
-            <FormField
-              control={form.control}
-              name="processing.interval_hours"
-              render={({ field: f }) => (
-                <FormItem>
-                  <FormLabel>{t('periodic-sync.interval-hours')}</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      {...f}
-                      onChange={e => f.onChange(Number(e.target.value))}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
+            <CronField control={form.control} name="processing.cron" />
           </CardContent>
         </Card>
       </form>

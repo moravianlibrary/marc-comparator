@@ -41,7 +41,7 @@ def list_plugins(db_session: DatabaseSession) -> list[HarvestPluginStatus]:
                 name=plugin.name,
                 scope=plugin.scope.value,
                 enabled=schedule.enabled,
-                interval_hours=schedule.interval_hours,
+                cron=schedule.cron,
                 ready=compatible,
                 schema_version=plugin.schema_version,
                 source_identity=source_identity,

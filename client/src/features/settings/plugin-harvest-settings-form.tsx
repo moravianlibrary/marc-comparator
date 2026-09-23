@@ -18,21 +18,14 @@ import {
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/components/ui/form';
-import { Input } from '@/components/ui/input';
+import { Form, FormControl, FormField, FormItem, FormLabel } from '@/components/ui/form';
 import { Progress } from '@/components/ui/progress';
 import { Switch } from '@/components/ui/switch';
 import { useInvalidateTasks } from '@/hooks/use-invalidate-tasks';
 import apiClient from '@/lib/api-client';
 import type { HarvestPluginStatus } from '@/types/harvest';
 import type { PluginHarvestSettings } from '@/types/settings';
+import { CronField } from './cron-field';
 import { isTaskInFlight } from '../tasks/task-status';
 import { PluginHarvestHelp } from './help-content';
 import { HelpDialog } from './help-dialog';
@@ -170,23 +163,7 @@ function PluginHarvestCard({ name, status }: { name: string; status?: HarvestPlu
               </FormItem>
             )}
           />
-          <FormField
-            control={form.control}
-            name={`plugins.${name}.interval_hours`}
-            render={({ field }) => (
-              <FormItem>
-                <FormLabel>{t('plugin-harvest.interval-hours')}</FormLabel>
-                <FormControl>
-                  <Input
-                    type="number"
-                    {...field}
-                    onChange={e => field.onChange(Number(e.target.value))}
-                  />
-                </FormControl>
-                <FormMessage />
-              </FormItem>
-            )}
-          />
+          <CronField control={form.control} name={`plugins.${name}.cron`} />
         </div>
 
         {running && task && (

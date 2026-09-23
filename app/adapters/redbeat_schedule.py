@@ -1,8 +1,8 @@
 import logging
 
-from celery.schedules import schedule
 from redbeat import RedBeatSchedulerEntry
 
+from adapters.cron import parse_cron
 from adapters.tasks import tasks_client
 
 logger = logging.getLogger(__name__)
@@ -12,21 +12,21 @@ def sync_entry(
     name: str,
     task_name: str,
     enabled: bool,
-    interval_hours: int,
+    cron: str,
     args: list | None = None,
 ) -> None:
     """Create/update a redbeat entry if enabled, delete it if disabled."""
     entry = RedBeatSchedulerEntry(
         name=name,
         task=task_name,
-        schedule=schedule(run_every=interval_hours * 3600),
+        schedule=parse_cron(cron),
         args=args or [],
         app=tasks_client,
     )
 
     if enabled:
         entry.save()
-        logger.info(f"Redbeat schedule '{name}' set to every {interval_hours}h")
+        logger.info(f"Redbeat schedule '{name}' set to cron '{cron}'")
         return
 
     # Delete through the entry rather than RedBeatSchedulerEntry.from_key(name).

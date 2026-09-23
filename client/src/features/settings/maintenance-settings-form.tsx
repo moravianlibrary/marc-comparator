@@ -3,7 +3,6 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -12,6 +11,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Switch } from '@/components/ui/switch';
 import type { MaintenanceSettings } from '@/types/settings';
+import { CronField } from './cron-field';
 import { MaintenanceHelp } from './help-content';
 import { HelpDialog } from './help-dialog';
 import { maintenanceSettingsSchema } from './schemas';
@@ -62,24 +62,7 @@ export function MaintenanceSettingsForm({ data, onDirtyChange, onFormRef, onSubm
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="task_cleanup.interval_hours"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t('maintenance.interval-hours')}</FormLabel>
-                    <FormDescription>{t('maintenance.interval-hours-description')}</FormDescription>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        {...field}
-                        onChange={e => field.onChange(Number(e.target.value))}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <CronField control={form.control} name="task_cleanup.cron" />
 
               <FormField
                 control={form.control}
@@ -87,7 +70,6 @@ export function MaintenanceSettingsForm({ data, onDirtyChange, onFormRef, onSubm
                 render={({ field }) => (
                   <FormItem>
                     <FormLabel>{t('maintenance.max-age-days')}</FormLabel>
-                    <FormDescription>{t('maintenance.max-age-days-description')}</FormDescription>
                     <FormControl>
                       <Input
                         type="number"
@@ -117,24 +99,7 @@ export function MaintenanceSettingsForm({ data, onDirtyChange, onFormRef, onSubm
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="sector_compaction.interval_hours"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t('maintenance.interval-hours')}</FormLabel>
-                    <FormDescription>{t('maintenance.interval-hours-description')}</FormDescription>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        {...field}
-                        onChange={e => field.onChange(Number(e.target.value))}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <CronField control={form.control} name="sector_compaction.cron" />
             </div>
 
             <div className="space-y-4">
@@ -153,24 +118,7 @@ export function MaintenanceSettingsForm({ data, onDirtyChange, onFormRef, onSubm
                 )}
               />
 
-              <FormField
-                control={form.control}
-                name="orphan_reaper.interval_hours"
-                render={({ field }) => (
-                  <FormItem>
-                    <FormLabel>{t('maintenance.interval-hours')}</FormLabel>
-                    <FormDescription>{t('maintenance.interval-hours-description')}</FormDescription>
-                    <FormControl>
-                      <Input
-                        type="number"
-                        {...field}
-                        onChange={e => field.onChange(Number(e.target.value))}
-                      />
-                    </FormControl>
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
+              <CronField control={form.control} name="orphan_reaper.cron" />
             </div>
           </CardContent>
         </Card>

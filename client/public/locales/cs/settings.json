@@ -13,10 +13,9 @@
     "plugin-harvest": "Lokální kopie dat pro rozšíření"
   },
   "plugin-harvest": {
-    "description": "Některá rozšíření se při zpracování ptají vzdálené služby na každý záznam zvlášť. Takové rozšíření si může data stáhnout do lokální kopie a odpovídat z ní. Netýká se to synchronizace záznamů z Aleph katalogů.",
+    "description": "Některá rozšíření se při zpracování ptají vzdálené služby na každý záznam zvlášť. Takové rozšíření si může data stáhnout do lokální kopie a odpovídat z ní. Netýká se to synchronizace záznamů z katalogů.",
     "no-plugins": "Žádné rozšíření nepodporuje stahování dat.",
     "enabled": "Stahovat pravidelně",
-    "interval-hours": "Interval (hodiny)",
     "ready": "Lokální kopie je připravena",
     "not-ready": "Lokální kopie není k dispozici",
     "fallback-note": "Dokud kopie není připravena, rozšíření se dotazuje vzdálené služby. Zpracování funguje dál, jen je pomalejší.",
@@ -31,7 +30,6 @@
   },
   "periodic-sync": {
     "enabled": "Aktivní",
-    "interval-hours": "Interval (hodiny)",
     "no-bases": "Nejsou nakonfigurovány žádné báze katalogu.",
     "harvest": {
       "title": "Plánovaná synchronizace bází",
@@ -57,23 +55,36 @@
   },
   "tasks-settings": {
     "progress-update-interval": "Interval aktualizace průběhu",
-    "progress-update-interval-description": "Počet záznamů mezi aktualizacemi průběhu",
     "commit-interval": "Interval ukládání do databáze",
-    "commit-interval-description": "Počet záznamů mezi uloženími změn do databáze",
-    "analytics-rebuild-interval": "Interval přebudování analytiky",
-    "analytics-rebuild-interval-description": "Počet záznamů mezi přebudováním analytiky během běhu úkolu. 0 pro vypnutí."
+    "analytics-rebuild-interval": "Interval přebudování analytiky"
   },
   "authority-linkers": {
+    "decision": {
+      "title": "Rozhodování o propojení",
+      "confident-threshold": "Práh jistoty"
+    },
     "knihovny-cz": {
       "title": "Knihovny.cz",
       "enabled": "Aktivní",
       "api-url": "URL API",
+      "minimum-confidence": "Nejnižší použitelná shoda",
       "mappings": "Mapování",
       "add-mapping": "Přidat mapování",
       "mapping-base": "Báze",
       "mapping-id-template": "Šablona ID",
       "mapping-pattern": "Vzor",
       "mapping-is-target": "Autoritativní báze"
+    },
+    "marcxml-dump": {
+      "title": "Katalog z dávky MARCXML",
+      "dump-url": "Adresa dávky katalogu (MARCXML)",
+      "target-base": "Báze autorit",
+      "minimum-confidence": "Nejnižší použitelná shoda",
+      "candidate-limit": "Počet porovnávaných záznamů",
+      "system-number-tag": "Pole čísla",
+      "system-number-subfield": "Podpole",
+      "system-number-pattern": "Vzor pro vytažení čísla",
+      "system-number-padding": "Doplnit na délku"
     }
   },
   "comparator": {
@@ -114,15 +125,12 @@
       "title": "Uvolnění zaseknutých úkolů"
     },
     "enabled": "Aktivní",
-    "interval-hours": "Interval (hodiny)",
-    "interval-hours-description": "Jak často se má úkol spouštět (v hodinách).",
-    "max-age-days": "Maximální stáří (dny)",
-    "max-age-days-description": "Smazat úkoly starší než zadaný počet dní."
+    "max-age-days": "Maximální stáří (dny)"
   },
   "help": {
     "title": "Nápověda",
     "catalog": {
-      "intro": "Nastavení připojení k Aleph katalogům přes OAI-PMH protokol. Každý klient představuje jednu bázi katalogu, ze které se sklízejí záznamy.",
+      "intro": "Nastavení připojení ke katalogům přes OAI-PMH protokol. Každý klient představuje jednu bázi katalogu, ze které se sklízejí záznamy.",
       "fields-title": "Popis polí",
       "base": "Název báze katalogu (např. MZK01, MZK03). Slouží jako identifikátor v celé aplikaci.",
       "host": "Adresa serveru OAI poskytovatele, ze kterého se stahují záznamy.",
@@ -188,26 +196,58 @@
       "intro": "Nastavení automatických údržbových úkolů, které se spouštějí periodicky na pozadí.",
       "fields-title": "Popis polí",
       "enabled": "Zapne nebo vypne automatické spouštění daného údržbového úkolu.",
-      "interval-hours": "Jak často se má údržbový úkol spouštět (v hodinách).",
-      "max-age-days": "Maximální stáří úkolů v dnech. Starší úkoly budou automaticky smazány."
+      "max-age-days": "Maximální stáří úkolů v dnech. Starší úkoly budou automaticky smazány.",
+      "cron": "Kdy se má úkol spouštět. Zadává se jako cron výraz, takže lze zvolit i konkrétní hodinu — například úklid v noci, kdy se s katalogem nepracuje."
     },
     "process-records": {
       "intro": "Nastavení hromadného zpracování záznamů. Definuje, které báze se zpracují a jaké nástroje se při zpracování použijí.",
       "fields-title": "Popis polí",
       "target-bases": "Báze katalogů, pro které se spustí zpracování. Vybrané báze musí mít nakonfigurovaného klienta v nastavení katalogu.",
-      "authority-linkers": "Služby pro automatické propojení záznamů s autoritními záznamy. Spouští se před porovnáváním.",
+      "authority-linkers": "Které služby se použijí pro vyhledání autoritního záznamu. Na pořadí záleží: dotazují se shora dolů a hledání se zastaví u první, která nabídne nález s jistotou na úrovni prahu v sekci „Rozhodování o propojení“. Nahoru proto patří ta, které nejvíc věříte, nebo ta nejlevnější. Když žádná tak jistý nález nenajde, porovnají se nálezy všech a vybere se ten nejlepší — tam už pořadí nerozhoduje.",
       "validators": "Validační pravidla aplikovaná na záznamy po zpracování. Výsledky validace se zobrazují u každého záznamu."
     },
     "plugin-harvest": {
       "intro": "Rozšíření, která se běžně ptají vzdálené služby na každý zpracovávaný záznam, si mohou zdroj stáhnout do lokální kopie. Zpracování se pak ptá lokální kopie, což je řádově rychlejší. Kopii vlastní samo rozšíření a aplikace do jejích dat nevidí.",
-      "not-catalog-sync": "Nejde o synchronizaci záznamů z Aleph katalogů. Ta se nastavuje v sekci „Plánované úkoly nad záznamy“ a stahuje samotné bibliografické záznamy.",
+      "not-catalog-sync": "Nejde o synchronizaci záznamů z katalogů. Ta se nastavuje v sekci „Plánované úkoly nad záznamy“ a stahuje samotné bibliografické záznamy.",
       "fields-title": "Popis polí",
       "enabled": "Zapne pravidelné stahování změn pro dané rozšíření.",
-      "interval-hours": "Jak často se má stahování spouštět (v hodinách).",
       "ready": "Lokální kopie existuje a odpovídá současnému nastavení rozšíření. Při změně nastavení zdroje se kopie automaticky stáhne znovu.",
       "last-records": "Počet záznamů zpracovaných při posledním úspěšném běhu. Není to velikost celé lokální kopie — po stažení změn jde jen o počet změněných záznamů.",
       "run": "Stáhne změny od posledního úspěšného běhu. Pokud kopie zatím neexistuje, stáhne celý zdroj.",
-      "full-rebuild": "Zahodí kopii a stáhne celý zdroj znovu. Smazané záznamy jdou ze zdroje poznat jen takto — stahování změn o nich neví. Při selhání zůstává v platnosti předchozí kopie."
+      "full-rebuild": "Zahodí kopii a stáhne celý zdroj znovu. Smazané záznamy jdou ze zdroje poznat jen takto — stahování změn o nich neví. Při selhání zůstává v platnosti předchozí kopie.",
+      "cron": "Kdy se má lokální kopie obnovovat. Zadává se jako cron výraz; stahování bývá dlouhé, proto se hodí načasovat je mimo pracovní dobu."
+    },
+    "periodic-sync": {
+      "intro": "Pravidelné úkoly nad záznamy: stažení změn z katalogu pro jednotlivé báze a následné zpracování záznamů.",
+      "processing-follows": "Synchronizace označí každý změněný záznam jako nezpracovaný, takže zpracování navazuje právě na ni — projde nové a změněné záznamy, ne celý katalog. Proto se hodí naplánovat je s odstupem po synchronizaci. Pokud předchozí zpracování ještě běží, další spuštění se přeskočí.",
+      "fields-title": "Popis polí",
+      "enabled": "Zda se má úkol spouštět podle plánu. Vypnuté se z plánovače odstraní; ručně jej lze spustit dál.",
+      "cron": "Kdy se má úkol spouštět, jako cron výraz. Stahování i zpracování zatěžují katalog, takže se obvykle plánují na noc."
+    }
+  },
+  "cron": {
+    "label": "Plán spouštění (cron)",
+    "invalid": "Neplatný cron výraz. Očekává se pět polí: minuta, hodina, den v měsíci, měsíc, den v týdnu.",
+    "preset": {
+      "hourly": "Každou hodinu",
+      "every-6-hours": "Každých 6 hodin",
+      "nightly": "Každou noc ve 2:00",
+      "weekly": "Každou neděli ve 3:00"
+    },
+    "describe": {
+      "daily": "Spustí se každý den v {{time}}.",
+      "hourly": "Spustí se každou hodinu, vždy v {{minute}}. minutu.",
+      "every-n-hours": "Spustí se každých {{hours}} h, vždy v {{minute}}. minutu.",
+      "weekly": "Spustí se každou {{day}} v {{time}}."
+    },
+    "weekday": {
+      "0": "neděli",
+      "1": "pondělí",
+      "2": "úterý",
+      "3": "středu",
+      "4": "čtvrtek",
+      "5": "pátek",
+      "6": "sobotu"
     }
   }
 }

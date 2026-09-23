@@ -2,6 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, Field
 
+from adapters.cron import DAILY, CronExpression
 from entities.settings import SettingsSchema
 from entities.task import TaskSchema
 
@@ -10,7 +11,7 @@ class PluginHarvestSchedule(SettingsSchema):
     """Scheduling preference for one discovered harvest plugin."""
 
     enabled: bool = False
-    interval_hours: int = Field(default=24, gt=0)
+    cron: CronExpression = DAILY
 
 
 class PluginHarvestSettings(SettingsSchema):
@@ -27,7 +28,7 @@ class HarvestPluginStatus(BaseModel):
     name: str
     scope: str
     enabled: bool
-    interval_hours: int
+    cron: str
     ready: bool
     schema_version: int
     source_identity: str | None = None

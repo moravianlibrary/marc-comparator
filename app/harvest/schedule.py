@@ -1,5 +1,6 @@
 """RedBeat reconciliation for per-plugin harvesting."""
 
+from adapters.cron import DAILY
 from adapters.redbeat_schedule import sync_entry
 
 from .models import PluginHarvestSettings
@@ -24,7 +25,7 @@ def sync_harvest_schedule(
         if name not in plugins:
             # The placeholder values are irrelevant when disabled, but keep the
             # call valid even if an old malformed settings row is encountered.
-            sync_entry(entry_name(name), "periodic_harvest_plugin", False, 24, args=[name])
+            sync_entry(entry_name(name), "periodic_harvest_plugin", False, DAILY, args=[name])
 
     for name in plugins:
         config = settings.plugins.get(name)
@@ -32,6 +33,6 @@ def sync_harvest_schedule(
             entry_name(name),
             "periodic_harvest_plugin",
             config.enabled if config else False,
-            config.interval_hours if config else 24,
+            config.cron if config else DAILY,
             args=[name],
         )

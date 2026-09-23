@@ -15,18 +15,18 @@ def sync_redbeat_schedule(settings: MaintenanceSettings) -> None:
         name=TASK_CLEANUP_ENTRY,
         task_name="periodic_task_cleanup",
         enabled=settings.task_cleanup.enabled,
-        interval_hours=settings.task_cleanup.interval_hours,
+        cron=settings.task_cleanup.cron,
         args=[settings.task_cleanup_max_age_days],
     )
     sync_entry(
         name=SECTOR_COMPACTION_ENTRY,
         task_name="periodic_sector_compaction",
         enabled=settings.sector_compaction.enabled,
-        interval_hours=settings.sector_compaction.interval_hours,
+        cron=settings.sector_compaction.cron,
     )
     sync_entry(
         name=ORPHAN_REAPER_ENTRY,
         task_name="reap_orphaned_tasks",
         enabled=settings.orphan_reaper.enabled,
-        interval_hours=settings.orphan_reaper.interval_hours,
+        cron=settings.orphan_reaper.cron,
     )
