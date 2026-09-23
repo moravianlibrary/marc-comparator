@@ -7,7 +7,16 @@ import { FacetChart } from './facet-chart';
 import { RadialValidation, STATUS_COLORS } from './radial-validation';
 import type { ChartId } from './use-section-visibility';
 
+/**
+ * The dot colour beside each reason in the chart.
+ *
+ * The facet buckets are keyed by validator and reason only, so the status has
+ * to be restated here. That makes this a copy of what the validator decides:
+ * a reason missing from the map silently renders without a dot rather than
+ * failing, so it has to be extended whenever the validator gains a reason.
+ */
 const REASON_TO_STATUS: Record<string, string> = {
+  identifier_matches_multiple_documents: 'ForReview',
   missing_link_text: 'ForReview',
   invalid_link_format: 'Invalid',
   no_links_found_or_expected: 'Valid',
