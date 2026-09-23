@@ -13,15 +13,24 @@ router = APIRouter()
 
 @router.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
+    # Closing before accepting denies the upgrade, which reaches the browser as
+    # an HTTP 403 and a 1006 "abnormal closure" — the 4001 never arrives, so a
+    # client that means to stop retrying on auth failure cannot tell one from a
+    # dropped network and reconnects forever. Accept first, then close with the
+    # code, which is the only way to deliver one.
+    async def reject(reason: str) -> None:
+        await websocket.accept()
+        await websocket.close(code=4001, reason=reason)
+
     token = websocket.cookies.get("access_token")
     if not token:
-        await websocket.close(code=4001, reason="Missing token")
+        await reject("Missing token")
         return
 
     try:
         token_data = verify_access_token(token)
     except Exception:
-        await websocket.close(code=4001, reason="Invalid token")
+        await reject("Invalid token")
         return
 
     db_session = get_db_session()

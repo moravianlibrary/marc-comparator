@@ -67,6 +67,11 @@ apiClient.interceptors.response.use(
       try {
         await apiClient.post('/auth/refresh');
         processQueue(null);
+        // The WebSocket handshake carries the same cookie but never passes
+        // through this interceptor, so an expired token refuses it outright.
+        // Announce the new cookie so it can reconnect at once instead of
+        // waiting out a backoff that knows nothing about the refresh.
+        window.dispatchEvent(new CustomEvent('auth-refreshed'));
         return apiClient(originalRequest);
       } catch (refreshError) {
         processQueue(refreshError);

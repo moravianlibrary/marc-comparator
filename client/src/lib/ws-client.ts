@@ -45,8 +45,11 @@ class WSClient {
       if (this.closing) {
         return;
       }
-      // Don't reconnect on auth failures (server returns 4001)
+      // An auth failure is not something a retry fixes; the socket waits to be
+      // told the session is good again (see reconnectNow). Blind retries here
+      // only hammered the handshake with the same rejected cookie.
       if (event.code === 4001) {
+        console.debug('[ws] not authenticated; waiting for a refreshed session');
         return;
       }
       this.scheduleReconnect();
@@ -55,6 +58,25 @@ class WSClient {
     this.ws.onerror = () => {
       this.ws?.close();
     };
+  }
+
+  /**
+   * Reconnect immediately, discarding any pending backoff.
+   *
+   * Called when the session is known to be good again. The socket is the one
+   * request that cannot refresh its own credentials mid-flight, so it has to be
+   * told; otherwise it sits out the backoff with a cookie that would now work.
+   */
+  reconnectNow() {
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    this.reconnectDelay = 1000;
+    if (this.ws?.readyState === WebSocket.OPEN || this.ws?.readyState === WebSocket.CONNECTING) {
+      return;
+    }
+    this.connect();
   }
 
   disconnect() {

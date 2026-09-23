@@ -26,6 +26,11 @@ export function useWsEvents() {
   useEffect(() => {
     wsClient.connect();
 
+    // The handshake cannot refresh its own cookie, so a socket refused while
+    // the access token was expired stays down until the session is known good.
+    const onAuthRefreshed = () => wsClient.reconnectNow();
+    window.addEventListener('auth-refreshed', onAuthRefreshed);
+
     const pendingEvents = new Map<
       string,
       { data: TaskStatusMessage; timerId: ReturnType<typeof setTimeout> }
@@ -139,6 +144,7 @@ export function useWsEvents() {
     });
 
     return () => {
+      window.removeEventListener('auth-refreshed', onAuthRefreshed);
       // Clear all pending coalesced events on unmount
       for (const { timerId } of pendingEvents.values()) {
         clearTimeout(timerId);

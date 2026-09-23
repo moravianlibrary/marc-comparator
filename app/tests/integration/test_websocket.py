@@ -17,21 +17,26 @@ _ws_test_app.include_router(ws_router)
 class TestWebSocketAuth:
     @pytest.mark.asyncio
     async def test_connect_without_token_rejected(self, db_session):
+        # The close code has to reach the client: refused before accepting, the
+        # browser sees only an HTTP 403 and a 1006 abnormal closure, which is
+        # indistinguishable from a dropped network — so it reconnects forever.
         with (
             TestClient(_ws_test_app) as client,
-            pytest.raises(WebSocketDisconnect),
-            client.websocket_connect("/ws"),
+            pytest.raises(WebSocketDisconnect) as refused,
+            client.websocket_connect("/ws") as ws,
         ):
-            pass
+            ws.receive_text()
+        assert refused.value.code == 4001
 
     @pytest.mark.asyncio
     async def test_connect_with_invalid_token_rejected(self, db_session):
         with (
             TestClient(_ws_test_app) as client,
-            pytest.raises(WebSocketDisconnect),
-            client.websocket_connect("/ws", cookies={"access_token": "invalid"}),
+            pytest.raises(WebSocketDisconnect) as refused,
+            client.websocket_connect("/ws", cookies={"access_token": "invalid"}) as ws,
         ):
-            pass
+            ws.receive_text()
+        assert refused.value.code == 4001
 
     @pytest.mark.asyncio
     async def test_connect_with_valid_token(self, db_session, user):
