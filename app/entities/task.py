@@ -46,7 +46,6 @@ class TaskStatus(StrEnum):
     Pending = "Pending"
     Started = "Started"
     Success = "Success"
-    # Retry = "Retry"
     Failure = "Failure"
     Revoked = "Revoked"
 

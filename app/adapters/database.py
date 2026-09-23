@@ -1,4 +1,3 @@
-from contextlib import contextmanager
 from typing import TypeVar
 
 from sqlalchemy import create_engine
@@ -41,12 +40,3 @@ class Base(DeclarativeBase):
 DatabaseSession = Session
 
 AnyEntity = TypeVar("AnyEntity", bound=Base)
-
-
-@contextmanager
-def database_session():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()

@@ -12,8 +12,3 @@ export interface RoleSummary {
   id: number;
   name: string;
 }
-
-export interface EditRoleRequest {
-  name: string;
-  permissions: Permission[];
-}

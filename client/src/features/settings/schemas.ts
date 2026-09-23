@@ -26,15 +26,11 @@ export const catalogSettingsSchema = z.object({
   kramerius_client_urls: z.record(z.string(), z.string()).default({}),
 });
 
-export type CatalogSettingsFormValues = z.infer<typeof catalogSettingsSchema>;
-
 export const taskSettingsSchema = z.object({
   progress_update_interval: z.number().int().min(1),
   commit_interval: z.number().int().min(1),
   analytics_rebuild_interval: z.number().int().min(0),
 });
-
-export type TaskSettingsFormValues = z.infer<typeof taskSettingsSchema>;
 
 export const knihovnyCZMappingSchema = z.object({
   base: z.string().min(1),
@@ -104,8 +100,6 @@ export const processRecordsSettingsSchema = z.object({
   validators: z.array(z.enum(Object.values(Validator))).min(1),
 });
 
-export type ProcessRecordsSettingsFormValues = z.infer<typeof processRecordsSettingsSchema>;
-
 // The backend validates the expression too and is the authority; this keeps a
 // typo in the form instead of letting it reach a scheduler nobody is watching.
 export const cronExpressionSchema = z
@@ -125,8 +119,6 @@ export const maintenanceSettingsSchema = z.object({
   orphan_reaper: periodicTaskConfigSchema,
 });
 
-export type MaintenanceSettingsFormValues = z.infer<typeof maintenanceSettingsSchema>;
-
 export const periodicSyncBaseConfigSchema = z.object({
   base: z.string(),
   enabled: z.boolean(),
@@ -142,8 +134,6 @@ export const periodicSyncSettingsSchema = z.object({
   bases: z.array(periodicSyncBaseConfigSchema),
   processing: periodicProcessingConfigSchema,
 });
-
-export type PeriodicSyncSettingsFormValues = z.infer<typeof periodicSyncSettingsSchema>;
 
 export const pluginHarvestScheduleSchema = z.object({
   enabled: z.boolean(),
