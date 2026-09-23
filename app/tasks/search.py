@@ -42,6 +42,8 @@ def _apply_filters(query, filters: TaskFilter):
         query = query.filter(Task.severity.in_(filters.severity))
     if filters.created_by:
         query = query.filter(Task.created_by == filters.created_by)
+    if filters.task_id:
+        query = query.filter(Task.task_id.in_(filters.task_id))
     return query
 
 

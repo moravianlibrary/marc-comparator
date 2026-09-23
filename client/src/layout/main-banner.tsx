@@ -11,6 +11,7 @@ import { useHasPermission } from '@/hooks/use-permissions';
 import apiClient from '@/lib/api-client';
 import { Permission } from '@/types/permission';
 import type { Task } from '@/types/task';
+import { IDLE_POLL_MS, RUNNING_POLL_MS } from '@/features/tasks/task-status';
 import { HelpDialog } from './help-dialog';
 import { MenuPanel } from './menu-panel';
 import { TaskProgress } from './task-progress';
@@ -37,8 +38,14 @@ export function MainBanner() {
         })
         .then(r => r.data),
     enabled: canManageTasks === true,
+    // Same reasoning as the task list: "nothing is running" read from this very
+    // data cannot reveal a task that started since, so idle means slower rather
+    // than never. Otherwise the banner goes quiet for the rest of the session.
     refetchInterval: query =>
-      query.state.data?.items?.some(task => task.status === 'Started') ? 5000 : false,
+      query.state.data?.items?.some(task => task.status === 'Started')
+        ? RUNNING_POLL_MS
+        : IDLE_POLL_MS,
+    staleTime: 0,
   });
 
   const runningTasks = tasksData?.items ?? [];

@@ -10,7 +10,7 @@ import { Permission } from '@/types/permission';
 import type { Task } from '@/types/task';
 import type { User } from '@/types/user';
 import { TaskDetail } from './task-detail';
-import { isTaskInFlight, RUNNING_POLL_MS } from './task-status';
+import { IDLE_POLL_MS, isTaskInFlight, RUNNING_POLL_MS } from './task-status';
 import { TaskTable } from './task-table';
 
 const XL_QUERY = '(min-width: 1280px)';
@@ -54,9 +54,15 @@ export function TasksPage() {
     queryKey: ['tasks', 'list', searchEndpoint, page],
     queryFn: () => apiClient.post(searchEndpoint, { page, page_size: pageSize }).then(r => r.data),
     // WS events carry progress but not the rest of the row (severity, counts,
-    // finished_at), so poll while anything is in flight. Idle pages stay quiet.
+    // finished_at), so poll fast while anything is in flight. Slowly otherwise
+    // rather than not at all: a task started after the last fetch is precisely
+    // what this data cannot show, so stopping here would freeze the list for
+    // good whenever the WS invalidation does not arrive.
     refetchInterval: query =>
-      (query.state.data?.items ?? []).some(isTaskInFlight) ? RUNNING_POLL_MS : false,
+      (query.state.data?.items ?? []).some(isTaskInFlight) ? RUNNING_POLL_MS : IDLE_POLL_MS,
+    // The list is volatile by nature; the app-wide 5 minute staleTime would
+    // otherwise suppress the refetch on mount and on window focus.
+    staleTime: 0,
   });
 
   const { data: usersData } = useQuery<{ items: User[] }>({
@@ -140,11 +146,7 @@ export function TasksPage() {
         </div>
         {selectedTaskId && (
           <div className="xl:sticky xl:top-20 xl:self-start">
-            <TaskDetail
-              taskId={selectedTaskId}
-              isRunning={selectedTask ? isTaskInFlight(selectedTask) : false}
-              progress={selectedTask?.progress}
-            />
+            <TaskDetail taskId={selectedTaskId} task={selectedTask} />
           </div>
         )}
       </div>

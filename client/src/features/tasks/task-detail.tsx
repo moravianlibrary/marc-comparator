@@ -5,9 +5,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
+import { useHasPermission } from '@/hooks/use-permissions';
 import apiClient from '@/lib/api-client';
-import type { ReportArtifact } from '@/types/task';
-import { RUNNING_POLL_MS } from './task-status';
+import { Permission } from '@/types/permission';
+import type { ReportArtifact, Task } from '@/types/task';
+import { isTaskInFlight, RUNNING_POLL_MS } from './task-status';
 
 /**
  * A run over a large base logs a line per progress step — tens of thousands of
@@ -18,13 +20,38 @@ const TRACEBACK_TAIL_LINES = 2000;
 
 interface TaskDetailProps {
   taskId: string;
-  isRunning?: boolean;
-  progress?: number | null;
+  /** The row for this task, when the list beside the panel happens to hold it. */
+  task?: Task;
 }
 
-export function TaskDetail({ taskId, isRunning, progress }: TaskDetailProps) {
+export function TaskDetail({ taskId, task }: TaskDetailProps) {
   const { t } = useTranslation('tasks');
+  const { hasPermission } = useHasPermission();
 
+  // Opened from a link or a notification, this panel is regularly asked about a
+  // task the list beside it does not hold — a later page, another filter, or
+  // another user's run. Deciding "is it running" from that list alone left the
+  // log of a live task frozen at whatever it said when the panel opened, with
+  // no progress bar and nothing saying why. So ask about the task itself.
+  const searchEndpoint = hasPermission(Permission.ManageAllTasks)
+    ? '/tasks/search-all'
+    : '/tasks/search-own';
+  const { data: fetchedTask } = useQuery<Task | null>({
+    queryKey: ['tasks', 'by-id', searchEndpoint, taskId],
+    queryFn: () =>
+      apiClient
+        .post<{
+          items: Task[];
+        }>(searchEndpoint, { filters: { task_id: [taskId] }, page: 1, page_size: 1 })
+        .then(r => r.data.items[0] ?? null),
+    enabled: !task,
+    refetchInterval: query =>
+      query.state.data && isTaskInFlight(query.state.data) ? RUNNING_POLL_MS : false,
+  });
+
+  const current = task ?? fetchedTask ?? undefined;
+  const isRunning = current ? isTaskInFlight(current) : false;
+  const progress = current?.progress;
   const percent = progress != null ? Math.round(progress * 100) : null;
 
   const { data: traceback, isLoading } = useQuery<string>({

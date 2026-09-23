@@ -43,6 +43,10 @@ class TaskFilter(BaseModel):
     status: list[str] | None = None
     severity: list[str] | None = None
     created_by: str | None = None
+    #: Ask about specific tasks by id. A detail view opened from a link or a
+    #: notification has only an id, and the task it names is often not on the
+    #: page of the list the caller happens to be showing.
+    task_id: list[UUID] | None = None
 
 
 class SearchTasksRequest(BaseModel):
