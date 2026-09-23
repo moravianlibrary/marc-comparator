@@ -17,6 +17,7 @@ import type { ChartId } from './use-section-visibility';
  */
 const REASON_TO_STATUS: Record<string, string> = {
   identifier_matches_multiple_documents: 'ForReview',
+  foreign_digital_library: 'AdditionalInfo',
   missing_link_text: 'ForReview',
   invalid_link_format: 'Invalid',
   no_links_found_or_expected: 'Valid',

@@ -38,6 +38,16 @@ class KrameriusLinksValidatorConfig(BaseModel):
     url_to_pid_fallback_pattern: str = r"https?://[^/]+/.*?(?P<pid>uuid:[0-9a-fA-F-]+)(?:\?.*)?"
     link_text_pattern: str = r"Digitalizovaný dokument"
 
+    #: Which hosts are this library's own digital library, including any legacy
+    #: address still in circulation.
+    #:
+    #: A record may legitimately link to another institution's Kramerius — the
+    #: same document is often held by several — and such a link is not ours to
+    #: correct. Only a URL on one of these hosts is judged against our expected
+    #: format or looked up in our index; anything else is reported as an
+    #: observation and left alone.
+    own_host_pattern: str = r"^https?://(?:www\.)?(?:digitalniknihovna\.cz/mzk|kramerius\.mzk\.cz)"
+
     kramerius_host: str = "https://api.kramerius.mzk.cz/search"
     kramerius_client_url: str = "https://www.digitalniknihovna.cz/mzk/uuid/{pid}"
     solr_cloud: bool = True
@@ -194,6 +204,10 @@ class FoundKrameriusLink:
     model: Model
     has_wrong_model: bool = False
     level: int = 0
+    #: The top of this document's own hierarchy, when the link landed below it.
+    #: Carrying it is what lets the result name the PID the link should use, and
+    #: what makes the finding repairable instead of merely reported.
+    top_level_pid: str | None = None
 
 
 @dataclass
@@ -229,6 +243,7 @@ class KrameriusLinksValidator(BaseValidator):
         self.url_to_pid_wrong_path_regex = re.compile(config.url_to_pid_wrong_path_pattern)
         self.url_to_pid_fallback_regex = re.compile(config.url_to_pid_fallback_pattern)
         self.link_text_regex = re.compile(config.link_text_pattern)
+        self.own_host_regex = re.compile(config.own_host_pattern)
 
         self.client = KrameriusClient(
             KrameriusConfig(
@@ -620,6 +635,7 @@ class KrameriusLinksValidator(BaseValidator):
                     pid,
                     model=Model(doc.model_path.split("/")[-1]),
                     level=doc.level,
+                    top_level_pid=doc.own_pid_path.split("/")[0] if doc.own_pid_path else None,
                 )
                 continue
 
@@ -677,6 +693,19 @@ class KrameriusLinksValidator(BaseValidator):
                     pid = match.group("pid")
                     current_kramerius_pids.append(pid)
                     pid_field_index.setdefault(pid, field_idx)
+                    continue
+
+                if not self.own_host_regex.match(v.strip()):
+                    # Another institution's digital library. Its PID is not ours
+                    # to look up — the same uuid existing in our index does not
+                    # make their link wrong — and its URL format is their
+                    # business, so the link is recorded and left alone.
+                    add_result(
+                        status=ValidityStatus.AdditionalInfo,
+                        reason="foreign_digital_library",
+                        params={"value": v},
+                        field_index=field_idx,
+                    )
                     continue
 
                 wrong_path_match = self.url_to_pid_wrong_path_regex.search(v)
@@ -746,19 +775,24 @@ class KrameriusLinksValidator(BaseValidator):
             found_kramerius_pids.append(link.pid)
 
             if link.level > 0:
+                params = {
+                    "pid": link.pid,
+                    "model": link.model.value,
+                    "level": str(link.level),
+                }
+                if link.top_level_pid:
+                    params["top_level_pid"] = link.top_level_pid
                 add_result(
                     reason="non_top_level_document",
-                    params={
-                        "pid": link.pid,
-                        "model": link.model.value,
-                        "level": str(link.level),
-                    },
+                    params=params,
+                    field_index=pid_field_index.get(link.pid),
                 )
 
             elif link.has_wrong_model:
                 add_result(
                     status=ValidityStatus.AdditionalInfo,
                     reason="non_linkable_model",
+                    field_index=pid_field_index.get(link.pid),
                     params={
                         "pid": link.pid,
                         "model": link.model.value,
@@ -845,6 +879,7 @@ class KrameriusLinksValidator(BaseValidator):
     #   wrong_path_not_found  → replace $u at field_index with the correct URL
     #   missing_link_text     → add $y (standard link text) at field_index
     #   link_not_found        → remove the broken field at field_index
+    #   non_top_level_document → replace $u with the document's own top level
     #
     # The URL fixes rewrite $u in place rather than dropping the field and adding a
     # replacement, so a cataloguer's $x (digitisation project) and $z (volume) survive
@@ -852,8 +887,10 @@ class KrameriusLinksValidator(BaseValidator):
     # the Kramerius index, and a volume designation exists only inside the document title,
     # where parsing it would risk writing a wrong $z into the catalogue.
     # Non-repairable reasons (invalid_link_format, wrong_server_not_found,
-    # non_linkable_model, non_top_level_document,
-    # identifier_matches_multiple_documents) are left untouched.
+    # non_linkable_model, foreign_digital_library,
+    # identifier_matches_multiple_documents) are left untouched. A link into
+    # another institution's digital library is deliberately among them: it is
+    # not addressed to our Kramerius and is none of our business to rewrite.
 
     def _make_url(self, params: dict[str, str]) -> str:
         pid = params.get("pid", "")
@@ -875,6 +912,17 @@ class KrameriusLinksValidator(BaseValidator):
                         "field_index": field_index,
                         "action": "replace_u",
                         "new_u": self._make_url(params),
+                    }
+                )
+            elif reason == "non_top_level_document" and params.get("top_level_pid"):
+                # The link resolves, just to a page or a volume inside the
+                # document. Point it at the top of that same hierarchy rather
+                # than dropping it: the cataloguer found the right object.
+                changes["modifications"].append(
+                    {
+                        "field_index": field_index,
+                        "action": "replace_u",
+                        "new_u": self._make_url({**params, "pid": params["top_level_pid"]}),
                     }
                 )
             elif reason == "missing_link_text":
