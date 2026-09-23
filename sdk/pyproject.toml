@@ -19,7 +19,7 @@ dependencies = [
     "lxml",
     "marcdantic @ git+https://github.com/moravianlibrary/marcdantic.git@v0.3.10",
     "pydantic",
-    "pymarc",
+    "pymarc>=5",
     "python-stdnum",
     "rapidfuzz",
     "solrify @ git+https://github.com/moravianlibrary/solrify.git@v0.1.1",

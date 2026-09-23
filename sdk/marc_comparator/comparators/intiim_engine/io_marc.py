@@ -14,19 +14,7 @@ def _as_dict(rec: Record) -> dict:
         if f.is_control_field():
             d["fields"].append({f.tag: f.data})
         else:
-            subfields = []
-
-            if f.subfields and hasattr(f.subfields[0], "code") and hasattr(f.subfields[0], "value"):
-                for sf in f.subfields:
-                    subfields.append({sf.code: sf.value})
-            else:
-                # Legacy pymarc fallback: subfields is a flat [code, value, …] list.
-                # strict=True so an odd count raises instead of silently dropping the
-                # trailing code — a subfield vanishing from a comparison is worse than
-                # a per-record error, which the batch paths already report and skip.
-                it = iter(f.subfields)
-                for code, value in zip(it, it, strict=True):
-                    subfields.append({str(code): str(value)})
+            subfields = [{sf.code: sf.value} for sf in f.subfields]
 
             d["fields"].append(
                 {
