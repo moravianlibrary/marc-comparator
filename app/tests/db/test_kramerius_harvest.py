@@ -208,3 +208,16 @@ async def test_failed_later_page_rolls_back_earlier_replacement(harvest_engine):
             .all()
         )
     assert values == ["old"]
+
+
+@pytest.mark.asyncio
+async def test_a_successful_harvest_advances_the_watermark(harvest_engine):
+    plugin = KrameriusLinksValidator(KrameriusLinksValidatorConfig())
+    previous = "2026-09-18T09:00:00.000Z"
+
+    result = await harvest_pages(
+        plugin, harvest_engine, [[raw_document("first")]], watermark=previous
+    )
+
+    assert result.watermark is not None
+    assert result.watermark != previous
