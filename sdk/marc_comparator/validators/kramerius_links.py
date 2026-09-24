@@ -53,6 +53,15 @@ class KrameriusLinksValidatorConfig(BaseModel):
     solr_cloud: bool = True
     search_page_size: int = 10
 
+    #: Seconds to wait for one Solr response.
+    #:
+    #: The client library defaults to 30, which is tuned for the per-record
+    #: lookups the validator makes. A harvest page asks for a thousand documents
+    #: at once, and on a loaded Kramerius that does not come back inside half a
+    #: minute: every page times out, the retries exhaust, and an hours-long
+    #: harvest dies on its first request having reported no progress at all.
+    search_timeout: int = 180
+
     #: An identifier should resolve to one document. When it resolves to more, the
     #: extra matches are almost always wrong metadata in Kramerius — MZK's index has
     #: ČNB numbers shared by dozens to hundreds of unrelated documents. Those hits are
@@ -250,6 +259,7 @@ class KrameriusLinksValidator(BaseValidator):
                 host=config.kramerius_host,
                 solr_cloud=config.solr_cloud,
                 search_page_size=config.search_page_size,
+                timeout=config.search_timeout,
             )
         )
 
