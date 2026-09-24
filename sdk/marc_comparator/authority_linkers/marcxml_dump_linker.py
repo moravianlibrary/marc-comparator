@@ -31,7 +31,8 @@ import logging
 import re
 import unicodedata
 import zlib
-from collections.abc import Iterator
+from collections import defaultdict
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
@@ -44,7 +45,7 @@ from pydantic import BaseModel, Field
 
 from ..comparators.default import DefaultComparator, DefaultComparatorConfig
 from ..harvest import HarvestContext, HarvestResult, HarvestStorageUnavailable
-from ._base import AuthorityLink, BaseAuthorityLinker
+from ._base import AuthorityLink, BaseAuthorityLinker, LinkRequest
 
 if TYPE_CHECKING:
     from sqlalchemy import Connection, Index, MetaData, Table
@@ -434,6 +435,29 @@ def _release(element: etree._Element) -> None:
         del parent[0]
 
 
+def _title_probe(record: MarcRecord) -> tuple[str, int | None, str | None]:
+    """The normalized title to search on, and what orders its matches.
+
+    Year and author only rank: a generic title matches many records, and
+    narrowing on either would lose the right one whenever the two catalogues
+    disagree about it.
+    """
+
+    titles = record.variable_fields.query(TitleJq) or []
+    title_key = _fold(titles[0]) if titles else ""
+    if not title_key:
+        return "", None, None
+
+    year = _year_from_008(record.fixed_fields.root.get(_CONTROL_FIELD_008))
+    authors = [
+        value
+        for tag in ("100", "110")
+        for field in record.variable_fields.root.get(tag, [])
+        for value in field.subfields.get("a", [])
+    ]
+    return title_key, year, _fold(authors[0]) if authors else None
+
+
 def _record_identifiers(record: MarcRecord) -> dict[DumpIdentifier, set[str]]:
     """The hard identifiers of the record being linked, normalized like the dump."""
 
@@ -489,6 +513,12 @@ class MarcXmlDumpLinker(BaseAuthorityLinker):
                 nonstandard_llm_enabled=False,
             )
         )
+
+        #: Rows for the window the host last announced, keyed by the record
+        #: they belong to. Replaced wholesale by each prefetch, so it holds one
+        #: window and not a run. Rows rather than parsed candidates: the MARC
+        #: is kept compressed until the record it belongs to is reached.
+        self._rows_cache: dict[tuple[str, str], list[dict[str, Any]]] = {}
 
     @classmethod
     async def get_target_bases(cls, config: MarcXmlDumpLinkerConfig) -> list[str]:
@@ -743,21 +773,164 @@ class MarcXmlDumpLinker(BaseAuthorityLinker):
                 list(identifier_rows.values()),
             )
 
-    def _candidates(self, record: MarcRecord) -> list[_Candidate]:
-        """Retrieve comparable records: identifiers first, title as a fallback."""
+    async def prefetch(self, requests: Sequence[LinkRequest]) -> None:
+        """Retrieve the whole window's candidates in three queries.
+
+        Asked one record at a time, retrieval is three round trips per record
+        against a table of millions — and the round trips, not the scans, are
+        the cost: two hundred identifier lookups measured 1.77 s where the same
+        identifiers asked for together measured 14 ms. The queries here are the
+        same ones, widened to the window and attributed back by the identifier
+        or title that matched.
+        """
+
+        self._rows_cache = {}
+        if not requests or self.harvest_storage is None:
+            return
+        await asyncio.to_thread(self._load_window, requests)
+
+    def _load_window(self, requests: Sequence[LinkRequest]) -> None:
+        from sqlalchemy import and_, or_, select
 
         storage = self.harvest_storage
         if storage is None:
-            raise HarvestStorageUnavailable("Local dump data is no longer bound")
-
+            return
         metadata = self.harvest_metadata(storage.schema)
         records = metadata.tables[f"{storage.schema}.{RECORDS_TABLE}"]
         identifiers = metadata.tables[f"{storage.schema}.{IDENTIFIERS_TABLE}"]
 
+        wanted = {
+            (request.base, request.system_number): _record_identifiers(request.record)
+            for request in requests
+        }
+        by_kind: defaultdict[str, set[str]] = defaultdict(set)
+        for found in wanted.values():
+            for kind, values in found.items():
+                by_kind[kind.value].update(values)
+
+        chosen: dict[tuple[str, str], list[str]] = {}
+
         with storage.connection() as connection:
-            rows = self._rows_by_identifier(connection, records, identifiers, record)
-            if not rows:
-                rows = self._rows_by_title(connection, records, record)
+            # The value comes back alongside the sysno because it is what
+            # attributes a row to the record that asked for it; a single-record
+            # query can leave it out, a windowed one cannot.
+            hits: defaultdict[tuple[str, str], list[str]] = defaultdict(list)
+            clauses = [
+                and_(identifiers.c.kind == kind, identifiers.c.value.in_(sorted(values)))
+                for kind, values in by_kind.items()
+                if values
+            ]
+            if clauses:
+                rows = connection.execute(
+                    select(identifiers.c.sysno, identifiers.c.kind, identifiers.c.value).where(
+                        or_(*clauses)
+                    )
+                ).mappings()
+                for row in rows:
+                    hits[(row["kind"], row["value"])].append(row["sysno"])
+
+            for key, found in wanted.items():
+                # One record can match on several identifiers; rank it by its
+                # strongest, exactly as the per-record query does.
+                best: dict[str, int] = {}
+                for kind, values in found.items():
+                    priority = _IDENTIFIER_PRIORITY.get(kind, len(DumpIdentifier))
+                    for value in values:
+                        for sysno in hits.get((kind.value, value), ()):
+                            if priority < best.get(sysno, len(DumpIdentifier)):
+                                best[sysno] = priority
+                ranked = sorted(best.items(), key=lambda item: (item[1], item[0]))
+                if ranked:
+                    chosen[key] = [sysno for sysno, _ in ranked[: self.config.candidate_limit]]
+
+            self._load_window_titles(connection, records, requests, chosen)
+
+            # One read of the MARC for every survivor of both paths. Ranking
+            # first and reading blobs second is what keeps a placeholder ISBN
+            # shared by thousands of records from pulling thousands of blobs.
+            needed = sorted({sysno for sysnos in chosen.values() for sysno in sysnos})
+            marc_by_sysno: dict[str, bytes] = {}
+            if needed:
+                marc_by_sysno = dict(
+                    connection.execute(
+                        select(records.c.sysno, records.c.marc).where(records.c.sysno.in_(needed))
+                    ).all()
+                )
+
+        for key in wanted:
+            self._rows_cache[key] = [
+                {"sysno": sysno, "marc": marc_by_sysno[sysno]}
+                for sysno in chosen.get(key, ())
+                if sysno in marc_by_sysno
+            ]
+
+    def _load_window_titles(
+        self,
+        connection: Connection,
+        records: Table,
+        requests: Sequence[LinkRequest],
+        chosen: dict[tuple[str, str], list[str]],
+    ) -> None:
+        """Fill in the records no identifier matched, from their titles.
+
+        Ranking moves to Python because each record prefers its own year and
+        author, which one query cannot order by. Only the small columns are
+        read here; the MARC is fetched once for the survivors of both paths.
+        """
+
+        from sqlalchemy import select
+
+        probes = {}
+        for request in requests:
+            key = (request.base, request.system_number)
+            if key in chosen:
+                continue
+            title_key, year, author_key = _title_probe(request.record)
+            if title_key:
+                probes[key] = (title_key, year, author_key)
+        if not probes:
+            return
+
+        by_title: defaultdict[str, list[Any]] = defaultdict(list)
+        rows = connection.execute(
+            select(
+                records.c.sysno, records.c.title_key, records.c.year, records.c.author_key
+            ).where(records.c.title_key.in_(sorted({probe[0] for probe in probes.values()})))
+        ).mappings()
+        for row in rows:
+            by_title[row["title_key"]].append(row)
+
+        for key, (title_key, year, author_key) in probes.items():
+            ranked = sorted(
+                by_title.get(title_key, ()),
+                key=lambda row: (
+                    0 if year is not None and row["year"] == year else 1,
+                    0 if author_key and row["author_key"] == author_key else 1,
+                    row["sysno"],
+                ),
+            )
+            if ranked:
+                chosen[key] = [row["sysno"] for row in ranked[: self.config.candidate_limit]]
+
+    def _candidates(
+        self, record: MarcRecord, key: tuple[str, str] | None = None
+    ) -> list[_Candidate]:
+        """Retrieve comparable records: identifiers first, title as a fallback."""
+
+        rows = self._rows_cache.get(key) if key is not None else None
+        if rows is None:
+            storage = self.harvest_storage
+            if storage is None:
+                raise HarvestStorageUnavailable("Local dump data is no longer bound")
+
+            metadata = self.harvest_metadata(storage.schema)
+            records = metadata.tables[f"{storage.schema}.{RECORDS_TABLE}"]
+            identifiers = metadata.tables[f"{storage.schema}.{IDENTIFIERS_TABLE}"]
+
+            with storage.connection() as connection:
+                rows = self._rows_by_identifier(connection, records, identifiers, record)
+                if not rows:
+                    rows = self._rows_by_title(connection, records, record)
 
         candidates: list[_Candidate] = []
         for row in rows:
@@ -830,19 +1003,9 @@ class MarcXmlDumpLinker(BaseAuthorityLinker):
 
         from sqlalchemy import case, select
 
-        titles = record.variable_fields.query(TitleJq) or []
-        title_key = _fold(titles[0]) if titles else ""
+        title_key, year, author_key = _title_probe(record)
         if not title_key:
             return []
-
-        year = _year_from_008(record.fixed_fields.root.get(_CONTROL_FIELD_008))
-        authors = [
-            value
-            for tag in ("100", "110")
-            for field in record.variable_fields.root.get(tag, [])
-            for value in field.subfields.get("a", [])
-        ]
-        author_key = _fold(authors[0]) if authors else None
 
         preferences = []
         if year is not None:
@@ -875,7 +1038,7 @@ class MarcXmlDumpLinker(BaseAuthorityLinker):
                 "union catalogue; run the 'skc' harvest first"
             )
 
-        candidates = await asyncio.to_thread(self._candidates, record)
+        candidates = await asyncio.to_thread(self._candidates, record, (base, system_number))
         if not candidates:
             return None
 

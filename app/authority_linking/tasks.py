@@ -1,8 +1,9 @@
 import logging
 from collections import defaultdict
-from collections.abc import Iterator, Sequence
+from collections.abc import Callable, Iterator, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
+from typing import Any
 
 from marc_comparator.authority_linkers import (
     AUTHORITY_LINKER_DISPATCHER,
@@ -122,15 +123,29 @@ async def announce_link_window(
                 )
             )
 
-    for linker in linkers:
-        try:
-            await linker.instance.prefetch(requests)
-        except Exception as e:
-            # A linker that cannot warm its window still answers record by
-            # record. That is slower, not wrong, and not worth losing a batch.
-            logger.warning("Prefetch failed for %s: %s", linker.linker.value, e)
+    await announce_window(linkers, requests, logger, lambda linker: linker.linker.value)
 
     return marc_by_id
+
+
+async def announce_window(
+    plugins: Sequence[Any],
+    announcement: Sequence[Any],
+    logger: logging.Logger,
+    name_of: Callable[[Any], str],
+) -> None:
+    """Warm each plugin's window, and let one that cannot warm its own pass.
+
+    A prefetch is an optimisation: a plugin that fails here still answers
+    record by record, which is slower rather than wrong, and not worth losing
+    a batch over.
+    """
+
+    for plugin in plugins:
+        try:
+            await plugin.instance.prefetch(announcement)
+        except Exception as e:
+            logger.warning("Prefetch failed for %s: %s", name_of(plugin), e)
 
 
 def load_authority_linkers(

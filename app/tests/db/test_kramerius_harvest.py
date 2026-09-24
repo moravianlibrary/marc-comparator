@@ -221,3 +221,93 @@ async def test_a_successful_harvest_advances_the_watermark(harvest_engine):
 
     assert result.watermark is not None
     assert result.watermark != previous
+
+
+class TestWindowedLookup:
+    """A window must find exactly what one record at a time finds."""
+
+    @staticmethod
+    def records() -> list[MarcRecord]:
+        return [
+            marc_record(isbn="978-80-0000-000-1"),  # one document
+            marc_record(nbn="cnb000000002"),  # two, sharing a ČNB
+            marc_record(isbn="978-80-0000-000-1", nbn="cnb000000002"),  # both
+            marc_record(isbn="978-80-9999-999-9"),  # nothing holds it
+            marc_record(),  # nothing to search on
+        ]
+
+    @staticmethod
+    async def ready_validator(engine) -> KrameriusLinksValidator:
+        validator = KrameriusLinksValidator(KrameriusLinksValidatorConfig())
+        await harvest_pages(
+            validator,
+            engine,
+            [
+                [
+                    raw_document("book", isbn=["978-80-0000-000-1"]),
+                    raw_document("atlas", nbn=["cnb000000002"]),
+                    raw_document("guide", nbn=["cnb000000002"]),
+                ]
+            ],
+        )
+        validator.bind_harvest_storage(
+            HarvestStorage(
+                schema=SCHEMA,
+                source_identity=validator.harvest_source_identity(),
+                connection=engine.connect,
+            )
+        )
+        return validator
+
+    @pytest.mark.asyncio
+    async def test_window_agrees_with_one_record_at_a_time(self, harvest_engine):
+        records = self.records()
+
+        alone = await self.ready_validator(harvest_engine)
+        one_at_a_time = [comparable(await alone.find_kramerius_links(r, [])) for r in records]
+
+        windowed_validator = await self.ready_validator(harvest_engine)
+        await windowed_validator.prefetch(records)
+        windowed = [
+            comparable(await windowed_validator.find_kramerius_links(r, [])) for r in records
+        ]
+
+        assert windowed == one_at_a_time
+        # A record whose identifier nothing holds, and one with no identifier
+        # at all, both have to survive the window as empty answers.
+        assert one_at_a_time[3] == ([], [])
+        assert one_at_a_time[4] == ([], [])
+
+    @pytest.mark.asyncio
+    async def test_window_queries_once_not_once_per_record(self, harvest_engine):
+        validator = await self.ready_validator(harvest_engine)
+        records = self.records()
+
+        queries = 0
+        original = validator._query_documents_by_identifiers
+
+        def counted(searched_values):
+            nonlocal queries
+            queries += 1
+            return original(searched_values)
+
+        validator._query_documents_by_identifiers = counted
+
+        await validator.prefetch(records)
+        for record in records:
+            await validator.find_kramerius_links(record, [])
+
+        # The round trips, not the scans, are what a full pass pays for.
+        assert queries == 1
+
+    @pytest.mark.asyncio
+    async def test_record_outside_the_window_is_still_looked_up(self, harvest_engine):
+        # A window is a hint: a record never announced still has to resolve.
+        validator = await self.ready_validator(harvest_engine)
+        await validator.prefetch([])
+
+        links, _ambiguous = await validator.find_kramerius_links(
+            marc_record(isbn="978-80-0000-000-1"), []
+        )
+
+        assert [link.pid for link in links] == ["uuid:book"]

@@ -4,7 +4,7 @@ import json
 import logging
 import re
 from collections import defaultdict
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
@@ -207,6 +207,33 @@ def _load_local_documents(connection, documents, identifiers, rows) -> list[Kram
     return result
 
 
+def _identifier_parts(record: MarcRecord) -> list[tuple[KrameriusField, str]]:
+    """The (field, value) pairs a record is searched by, in a stable order."""
+
+    raw_fields = [
+        (
+            KrameriusField.Barcode,
+            [i.barcode for i in record.issues_selector.all if i.barcode],
+        ),
+        (KrameriusField.Isbn, record.variable_fields.query(IsbnActiveJq)),
+        (KrameriusField.Issn, record.variable_fields.query(IssnActiveJq)),
+        (KrameriusField.Nbn, record.variable_fields.query(NbnActiveJq)),
+    ]
+    return [(field, value) for field, values in raw_fields for value in (values or [])]
+
+
+def _window_key(searched_values: dict[KrameriusField, set[str]]) -> frozenset[tuple[str, str]]:
+    """What a record is asking about, as something that can key a cache.
+
+    A record asks the same question every time, so the values it searches by
+    identify its answer within a window without the host having to name it.
+    """
+
+    return frozenset(
+        (field.value, value) for field, values in searched_values.items() for value in values
+    )
+
+
 @dataclass
 class FoundKrameriusLink:
     pid: str
@@ -262,6 +289,11 @@ class KrameriusLinksValidator(BaseValidator):
                 timeout=config.search_timeout,
             )
         )
+
+        #: Documents for the window the host last announced, keyed by what each
+        #: record searches on. Replaced wholesale by each prefetch, so it holds
+        #: one window and not a run.
+        self._documents_cache: dict[frozenset[tuple[str, str]], list[KrameriusDocument]] = {}
 
     def harvest_source_identity(self) -> str:
         """Fingerprint only settings that change the Solr dataset being copied."""
@@ -480,7 +512,61 @@ class KrameriusLinksValidator(BaseValidator):
             )
             connection.execute(insert(identifiers), unique_rows)
 
+    async def prefetch(self, records: Sequence[MarcRecord]) -> None:
+        """Look the whole window up in one query rather than one per record.
+
+        Every record asks the same shape of question of the same two tables,
+        and asked one at a time that query was the single largest cost in a
+        pass — the round trip, not the scan. Answering the window together
+        leaves each record reading its own documents out of memory.
+        """
+
+        self._documents_cache = {}
+        if not records or not self.harvest_ready:
+            return
+        try:
+            await asyncio.to_thread(self._load_window, records)
+        except HarvestStorageUnavailable:
+            # Nothing is warmed and every record falls back to its own lookup,
+            # which is what would have happened without a window at all.
+            logger.info("Harvested Kramerius data became unavailable while prefetching")
+
+    def _load_window(self, records: Sequence[MarcRecord]) -> None:
+        wanted: list[tuple[frozenset[tuple[str, str]], dict[KrameriusField, set[str]]]] = []
+        combined: dict[KrameriusField, set[str]] = defaultdict(set)
+        for record in records:
+            searched: dict[KrameriusField, set[str]] = defaultdict(set)
+            for field, value in _identifier_parts(record):
+                searched[field].add(value)
+            wanted.append((_window_key(searched), searched))
+            for field, values in searched.items():
+                combined[field].update(values)
+
+        found = self._query_documents_by_identifiers(combined)
+
+        # A document answers a record when it carries one of the values that
+        # record searched on — the same test the caller applies to attribute a
+        # hit to an identifier. Kept in query order so a window returns what a
+        # single lookup would have returned, in the order it would have.
+        by_value: defaultdict[tuple[str, str], list[int]] = defaultdict(list)
+        for position, document in enumerate(found):
+            for field, attr in IDENTIFIER_DOC_ATTR.items():
+                for value in getattr(document, attr) or []:
+                    by_value[(field.value, value)].append(position)
+
+        for key, _searched in wanted:
+            positions = {position for pair in key for position in by_value.get(pair, ())}
+            self._documents_cache[key] = [found[position] for position in sorted(positions)]
+
     def _local_documents_by_identifiers(
+        self, searched_values: dict[KrameriusField, set[str]]
+    ) -> list[KrameriusDocument]:
+        cached = self._documents_cache.get(_window_key(searched_values))
+        if cached is not None:
+            return cached
+        return self._query_documents_by_identifiers(searched_values)
+
+    def _query_documents_by_identifiers(
         self, searched_values: dict[KrameriusField, set[str]]
     ) -> list[KrameriusDocument]:
         from sqlalchemy import and_, or_, select
@@ -529,19 +615,7 @@ class KrameriusLinksValidator(BaseValidator):
     ) -> tuple[list[FoundKrameriusLink], list[AmbiguousIdentifier]]:
         links: dict[str, FoundKrameriusLink] = {}
 
-        raw_fields = [
-            (
-                KrameriusField.Barcode,
-                [i.barcode for i in record.issues_selector.all if i.barcode],
-            ),
-            (KrameriusField.Isbn, record.variable_fields.query(IsbnActiveJq)),
-            (KrameriusField.Issn, record.variable_fields.query(IssnActiveJq)),
-            (KrameriusField.Nbn, record.variable_fields.query(NbnActiveJq)),
-        ]
-
-        field_query_parts = [
-            (field, value) for field, values in raw_fields for value in (values or [])
-        ]
+        field_query_parts = _identifier_parts(record)
 
         searched_values: dict[KrameriusField, set[str]] = defaultdict(set)
         for field, value in field_query_parts:

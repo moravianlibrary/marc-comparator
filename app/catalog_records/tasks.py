@@ -15,6 +15,7 @@ from authority_linking.tasks import (
     LINK_PREFETCH_WINDOW,
     LinkActionResult,
     announce_link_window,
+    announce_window,
     find_best_link_for_record,
     handle_catalog_record_link_action,
     load_authority_linkers,
@@ -360,6 +361,14 @@ async def process_records(task_id: str) -> None:
         for window in windows(record_ids, LINK_PREFETCH_WINDOW):
             window_marc = await announce_link_window(
                 ctx.db_session, window, settings.target_bases, authority_linkers, ctx.logger
+            )
+            # Validators read the same records straight after the linkers do,
+            # and answer the window from one query for the same reason.
+            await announce_window(
+                validator_instances,
+                list(window_marc.values()),
+                ctx.logger,
+                lambda instance: instance.type.value,
             )
 
             for record_id in window:

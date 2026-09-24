@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from enum import StrEnum
 
 from marcdantic import MarcRecord
@@ -63,6 +63,26 @@ class BaseValidator(HarvestCapable, ABC):
         #: Validators declaring a ``config_model`` are constructed with an
         #: instance of it; the rest take no config at all.
         self.config = config
+
+    async def prefetch(self, records: Sequence[MarcRecord]) -> None:
+        """Warm whatever ``run`` would otherwise look up one record at a time.
+
+        The host announces a window of upcoming records so a validator that
+        queries per record — its own harvested tables, or a remote service —
+        can answer the window in one request instead. Doing nothing is always
+        correct: ``run`` must still work for a record that was never
+        announced, and a validator that computes from the MARC alone has
+        nothing to gain here.
+
+        The window may be a superset of what ``run`` is finally asked about,
+        so a prefetch is a hint rather than a commitment, and must not be
+        where a validator records anything it would not have learned anyway.
+
+        Whatever a call warms replaces what the previous call warmed, so
+        memory stays bounded by one window rather than by the length of a run.
+        """
+
+        return None
 
     @abstractmethod
     async def run(self, record: MarcRecord) -> list[ValidationResult]:

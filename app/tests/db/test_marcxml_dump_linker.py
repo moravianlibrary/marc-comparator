@@ -7,6 +7,7 @@ from typing import cast
 import httpx
 import pytest
 from lxml import etree  # pyright: ignore[reportAttributeAccessIssue]  # lxml ships no stubs
+from marc_comparator.authority_linkers import LinkRequest
 from marc_comparator.authority_linkers.marcxml_dump_linker import (
     IDENTIFIERS_TABLE,
     RECORDS_TABLE,
@@ -333,3 +334,115 @@ async def test_records_straddling_a_parser_feed_boundary_survive(
             text(f"SELECT title_key FROM {SCHEMA}.{RECORDS_TABLE} ORDER BY sysno")
         ).scalars()
         assert list(titles) == [f"svazek {n}" for n in range(5)]
+
+
+class TestWindowedRetrieval:
+    """A window must find exactly what one record at a time finds."""
+
+    @staticmethod
+    def window() -> list[LinkRequest]:
+        return [
+            LinkRequest(
+                base="MZK01",
+                system_number=system_number,
+                record=query_record(isbn=isbn, cnb=cnb, title=title),
+                target_base="SKC",
+            )
+            for system_number, isbn, cnb, title in (
+                # Matched on an identifier.
+                ("000000101", "978-80-87186-82-4", None, "Elektromagnetické záření :"),
+                ("000000102", None, "cnb002370652", "Něco jiného"),
+                # No identifier at all, so the title has to carry it.
+                ("000000103", None, None, "Sborník prací"),
+                # Neither: nothing in the dump answers for this one.
+                ("000000104", None, None, "Nic takového tu není"),
+            )
+        ]
+
+    @pytest.mark.asyncio
+    async def test_window_agrees_with_one_record_at_a_time(self, harvest_engine, monkeypatch):
+        serve(
+            monkeypatch,
+            dump(
+                dump_record(
+                    "000000001", title="Elektromagnetické záření :", isbn="978-80-87186-82-4"
+                ),
+                dump_record("000000002", title="Něco jiného", cnb="cnb002370652"),
+                dump_record("000000003", title="Sborník prací", year="2012"),
+                dump_record("000000004", title="Sborník prací", year="1999"),
+            ),
+        )
+        await harvest(MarcXmlDumpLinker(MarcXmlDumpLinkerConfig()), harvest_engine)
+
+        requests = self.window()
+        one_at_a_time = {
+            (r.base, r.system_number): [
+                c.sysno for c in ready_linker(harvest_engine)._candidates(r.record)
+            ]
+            for r in requests
+        }
+
+        linker = ready_linker(harvest_engine)
+        await linker.prefetch(requests)
+        windowed = {
+            (r.base, r.system_number): [
+                c.sysno for c in linker._candidates(r.record, (r.base, r.system_number))
+            ]
+            for r in requests
+        }
+
+        assert windowed == one_at_a_time
+        # Both retrieval paths and the record that matches neither.
+        assert one_at_a_time[("MZK01", "000000101")] == ["000000001"]
+        assert one_at_a_time[("MZK01", "000000103")] == ["000000003", "000000004"]
+        assert one_at_a_time[("MZK01", "000000104")] == []
+
+    @pytest.mark.asyncio
+    async def test_window_opens_one_connection_not_one_per_record(
+        self, harvest_engine, monkeypatch
+    ):
+        serve(monkeypatch, dump(dump_record("000000001", title="Elektromagnetické záření :")))
+        await harvest(MarcXmlDumpLinker(MarcXmlDumpLinkerConfig()), harvest_engine)
+
+        linker = ready_linker(harvest_engine)
+        requests = self.window()
+        opens = 0
+        storage = linker.harvest_storage
+        assert storage is not None
+        original = storage.connection
+
+        def counted():
+            nonlocal opens
+            opens += 1
+            return original()
+
+        object.__setattr__(storage, "connection", counted)
+
+        await linker.prefetch(requests)
+        for request in requests:
+            linker._candidates(request.record, (request.base, request.system_number))
+
+        # The round trips, not the scans, are what a full pass pays for.
+        assert opens == 1
+
+    @pytest.mark.asyncio
+    async def test_record_outside_the_window_is_still_retrieved(self, harvest_engine, monkeypatch):
+        serve(
+            monkeypatch,
+            dump(
+                dump_record(
+                    "000000001", title="Elektromagnetické záření :", isbn="978-80-87186-82-4"
+                )
+            ),
+        )
+        await harvest(MarcXmlDumpLinker(MarcXmlDumpLinkerConfig()), harvest_engine)
+
+        # A window is a hint: a record never announced still has to resolve.
+        linker = ready_linker(harvest_engine)
+        await linker.prefetch([])
+        candidates = linker._candidates(
+            query_record(isbn="978-80-87186-82-4", title="Elektromagnetické záření :"),
+            ("MZK01", "000000999"),
+        )
+
+        assert [c.sysno for c in candidates] == ["000000001"]

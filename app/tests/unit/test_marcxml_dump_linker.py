@@ -91,7 +91,7 @@ def linker_with_candidates(
         type("Candidate", (), {"sysno": f"00000000{index}", "record": marc_record()})()
         for index in range(len(scores))
     ]
-    monkeypatch.setattr(MarcXmlDumpLinker, "_candidates", lambda self, record: candidates)
+    monkeypatch.setattr(MarcXmlDumpLinker, "_candidates", lambda self, record, key=None: candidates)
     return linker, comparator
 
 
