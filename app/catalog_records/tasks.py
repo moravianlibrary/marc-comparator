@@ -8,7 +8,7 @@ from marc_comparator.comparators import RecordComparisonResult
 from marcdantic import MarcRecord
 
 from adapters.aleph_client_registry import AlephClientRegistry
-from adapters.marc_sectors import read_marc_many
+from adapters.marc_sectors import SectorBuffer, read_marc_many
 from adapters.pipelining import chunks, read_ahead
 from adapters.tasks import (
     ManagedTask,
@@ -427,6 +427,12 @@ async def process_records(task_id: str) -> None:
 
         counters: defaultdict[LinkActionResult, int] = defaultdict(int)
 
+        # Authority records land here rather than each rewriting its own
+        # sector: one record written alone costs the whole sector, and a pass
+        # writes one per link it finds.
+        sectors = SectorBuffer(lambda: ctx.db_session)
+        ctx.before_commit = sectors.flush_all
+
         record_ids = [
             r.id
             for r in build_filtered_query(ctx.db_session, filters)
@@ -495,11 +501,25 @@ async def process_records(task_id: str) -> None:
                             found_link,
                             linker_instance,
                             target_base,
+                            sectors,
                         )
                         for result in results:
                             counters[result] += 1
 
                     ctx.db_session.refresh(catalog_record)
+
+                    # A comparison with nothing measured for it reads the
+                    # authority record back, and one still waiting in the
+                    # buffer reads as absent or as its previous self.
+                    if any(
+                        authority_link.base not in measured
+                        and sectors.holds(
+                            authority_link.authority_record.base,
+                            authority_link.authority_record.system_number,
+                        )
+                        for authority_link in catalog_record.authority_links
+                    ):
+                        sectors.flush_all()
 
                     for authority_link in catalog_record.authority_links:
                         await handle_catalog_record_comparison(

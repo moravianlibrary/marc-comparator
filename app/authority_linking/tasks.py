@@ -15,7 +15,7 @@ from marc_comparator.authority_linkers import AuthorityLink as SdkAuthorityLink
 from marcdantic import MarcRecord
 
 from adapters.database import DatabaseSession
-from adapters.marc_sectors import marc_bytes_of, upsert_record_in_sector
+from adapters.marc_sectors import SectorBuffer, marc_bytes_of, upsert_record_in_sector
 from adapters.tasks import (
     ManagedTask,
     handle_batch_progress_snippet,
@@ -302,11 +302,37 @@ def scenario_no_link_with_existing(
     return [LinkActionResult.DeletedLink]
 
 
+def store_authority_marc(
+    db_session: DatabaseSession,
+    base: str,
+    system_number: str,
+    marc: bytes,
+    sectors: SectorBuffer | None,
+) -> None:
+    """Put an authority record's MARC where the rest of the system reads it.
+
+    Written on its own, one record costs a whole sector: decompressed, merged,
+    recompressed and re-indexed, with every record it shares the sector with
+    dropped from the cache. That was measured at 189 ms a time and was the
+    largest thing a processing pass did.
+
+    Given a buffer the record waits there until its sector is written once for
+    everything that landed in it. The caller owns the flushing, and owes the
+    buffer a flush before anything reads the record back.
+    """
+
+    if sectors is None:
+        upsert_record_in_sector(db_session, base, system_number, marc)
+        return
+    sectors.add(base, system_number, marc)
+
+
 def scenario_found_link_update(
     db_session: DatabaseSession,
     found_link: SdkAuthorityLink,
     linker_instance: AuthorityLinkerInstance,
     current_link: AuthorityLink,
+    sectors: SectorBuffer | None = None,
 ) -> list[LinkActionResult]:
     """Found link matches existing link; update in place."""
     current_link.confidence = found_link.confidence
@@ -315,11 +341,12 @@ def scenario_found_link_update(
     authority_record.source_name = linker_instance.linker.value
     authority_record.update_search_text_from(found_link.record)
 
-    upsert_record_in_sector(
+    store_authority_marc(
         db_session,
         authority_record.base,
         authority_record.system_number,
         marc_bytes_of(found_link.record),
+        sectors,
     )
 
     current_link.save(db_session, commit=False)
@@ -335,6 +362,7 @@ def _upsert_authority_record_and_link(
     found_link: SdkAuthorityLink,
     linker_instance: AuthorityLinkerInstance,
     target_base: str,
+    sectors: SectorBuffer | None = None,
 ) -> tuple[CatalogRecord, LinkActionResult]:
     """Upsert the authority CatalogRecord, store its MARC, and create a new link."""
     authority_record = CatalogRecord.find_by_base_and_system_number(
@@ -356,11 +384,12 @@ def _upsert_authority_record_and_link(
 
     authority_record.update_search_text_from(found_link.record)
     authority_record.save(db_session, commit=False)
-    upsert_record_in_sector(
+    store_authority_marc(
         db_session,
         found_link.base,
         found_link.system_number,
         marc_bytes_of(found_link.record),
+        sectors,
     )
 
     new_link = AuthorityLink(
@@ -381,11 +410,12 @@ def scenario_found_link_replace(
     linker_instance: AuthorityLinkerInstance,
     existing_link: AuthorityLink,
     target_base: str,
+    sectors: SectorBuffer | None = None,
 ) -> list[LinkActionResult]:
     """Found link has different authority than existing; replace."""
     existing_link.delete(db_session, commit=False)
     _, record_result = _upsert_authority_record_and_link(
-        db_session, catalog_record, found_link, linker_instance, target_base
+        db_session, catalog_record, found_link, linker_instance, target_base, sectors
     )
     return [LinkActionResult.ReplacedLink, record_result]
 
@@ -396,10 +426,11 @@ def scenario_found_link_create(
     found_link: SdkAuthorityLink,
     linker_instance: AuthorityLinkerInstance,
     target_base: str,
+    sectors: SectorBuffer | None = None,
 ) -> list[LinkActionResult]:
     """Found new link; create it (no existing link for this base)."""
     _, record_result = _upsert_authority_record_and_link(
-        db_session, catalog_record, found_link, linker_instance, target_base
+        db_session, catalog_record, found_link, linker_instance, target_base, sectors
     )
     return [LinkActionResult.CreatedLink, record_result]
 
@@ -410,6 +441,7 @@ def handle_catalog_record_link_action(
     found_link: SdkAuthorityLink | None,
     linker_instance: AuthorityLinkerInstance | None,
     target_base: str,
+    sectors: SectorBuffer | None = None,
 ) -> list[LinkActionResult]:
     """
     Get existing link, determine scenario, and run the appropriate handler.
@@ -431,10 +463,13 @@ def handle_catalog_record_link_action(
             found_link,
             linker_instance,
             target_base,
+            sectors,
         )
 
     if existing_link.system_number == found_link.system_number:
-        return scenario_found_link_update(db_session, found_link, linker_instance, existing_link)
+        return scenario_found_link_update(
+            db_session, found_link, linker_instance, existing_link, sectors
+        )
 
     return scenario_found_link_replace(
         db_session,
@@ -443,6 +478,7 @@ def handle_catalog_record_link_action(
         linker_instance,
         existing_link,
         target_base,
+        sectors,
     )
 
 
@@ -457,6 +493,11 @@ async def authority_linking(task_id: str) -> None:
         confident_threshold = load_confident_threshold(ctx.db_session)
 
         counters: defaultdict[LinkActionResult, int] = defaultdict(int)
+
+        # One record written on its own costs the whole sector it lives in,
+        # and this task writes one per link it finds.
+        sectors = SectorBuffer(lambda: ctx.db_session)
+        ctx.before_commit = sectors.flush_all
 
         record_ids = [
             r.id
@@ -502,6 +543,7 @@ async def authority_linking(task_id: str) -> None:
                         found_link,
                         linker_instance,
                         data.target_base,
+                        sectors,
                     )
 
                     for result in results:

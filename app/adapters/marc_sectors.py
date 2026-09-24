@@ -260,6 +260,16 @@ class SectorBuffer:
         if len(self._buffers[key]) >= self.flush_threshold:
             self._flush_sector(key)
 
+    def holds(self, base: str, system_number: str) -> bool:
+        """Whether this record is waiting here rather than being in storage.
+
+        A buffered record is not readable through read_marc, and an updated one
+        still reads as its previous self until the sector is written. A caller
+        about to read one back has to flush first, and this is how it knows.
+        """
+
+        return system_number in self._buffers.get((base, sysno_to_sector_id(system_number)), {})
+
     def flush_all(self):
         for key in list(self._buffers):
             self._flush_sector(key)

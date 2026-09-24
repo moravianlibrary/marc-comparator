@@ -4,6 +4,7 @@ import pytest
 
 from adapters.marc_sectors import (
     CACHE_PREFIX,
+    SectorBuffer,
     _decompressor,
     read_marc,
     read_marc_many,
@@ -139,3 +140,61 @@ class TestBatchedRead:
 
     def test_asking_for_nothing_reads_nothing(self, db_session):
         assert read_marc_many(db_session, self.BASE, []) == {}
+
+
+@pytest.mark.db
+@pytest.mark.redis
+class TestSectorBufferHolds:
+    """A buffered record is not in storage, and must be known to be missing."""
+
+    BASE = "MZK04"
+
+    def test_a_buffered_record_is_held_not_stored(self, db_session, marc_cache_client):
+        buffer = SectorBuffer(lambda: db_session)
+        buffer.add(self.BASE, "000000001", b"waiting")
+
+        assert buffer.holds(self.BASE, "000000001")
+        # Reading it back would find nothing, which is why the caller must ask.
+        assert read_marc(db_session, self.BASE, "000000001") is None
+
+    def test_an_updated_record_still_reads_as_its_previous_self(
+        self, db_session, marc_cache_client
+    ):
+        upsert_record_in_sector(db_session, self.BASE, "000000002", b"before")
+        db_session.commit()
+
+        buffer = SectorBuffer(lambda: db_session)
+        buffer.add(self.BASE, "000000002", b"after")
+
+        assert buffer.holds(self.BASE, "000000002")
+        assert read_marc(db_session, self.BASE, "000000002") == b"before"
+
+        buffer.flush_all()
+        db_session.commit()
+        assert not buffer.holds(self.BASE, "000000002")
+        assert read_marc(db_session, self.BASE, "000000002") == b"after"
+
+    def test_a_record_it_never_saw_is_not_held(self, db_session):
+        buffer = SectorBuffer(lambda: db_session)
+        buffer.add(self.BASE, "000000003", b"x")
+
+        # Same sector, different record, and a different sector entirely.
+        assert not buffer.holds(self.BASE, "000000004")
+        assert not buffer.holds(self.BASE, "000009999")
+        assert not buffer.holds("SKC", "000000003")
+
+    def test_flushing_writes_one_sector_for_everything_in_it(
+        self, db_session, marc_cache_client
+    ):
+        buffer = SectorBuffer(lambda: db_session)
+        for n in range(1, 6):
+            buffer.add(self.BASE, f"00000000{n}", f"record-{n}".encode())
+
+        counter = CountingDecompressor()
+        with patch("adapters.marc_sectors._decompressor", counter):
+            buffer.flush_all()
+        db_session.commit()
+
+        # Five records sharing a sector, written once — the whole point.
+        assert counter.calls <= 1
+        assert read_marc(db_session, self.BASE, "000000003") == b"record-3"
