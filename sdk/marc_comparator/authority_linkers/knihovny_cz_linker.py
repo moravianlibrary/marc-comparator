@@ -7,6 +7,7 @@ here exactly as it does for the locally harvested linkers, so every link this
 plugin reports carries a measured confidence rather than an implied one.
 """
 
+import asyncio
 import re
 from collections.abc import Sequence
 from typing import Any
@@ -24,6 +25,12 @@ from ._base import AuthorityLink, BaseAuthorityLinker, LinkRequest
 #: costs about 12 ms against 196 ms asked for one at a time, and the URL stays
 #: well inside what the service accepts.
 _PREFETCH_BATCH_SIZE = 50
+
+#: Prefetch requests in flight at once. A window of two hundred is four
+#: requests; letting them overlap turns a window's wait from the sum of
+#: them into roughly the slowest, without asking the service for more at
+#: once than a person reading the catalogue would.
+_PREFETCH_CONCURRENCY = 4
 
 #: knihovny.cz answers a record it does not hold with this, under HTTP 400.
 _RECORD_NOT_FOUND_MESSAGE = "Error loading record"
@@ -166,17 +173,30 @@ class KnihovnyCZLinker(BaseAuthorityLinker):
         batch form of the 400 a single lookup gets for the same record.
         """
 
-        found: dict[str, Any] = {}
-        for start in range(0, len(ids), _PREFETCH_BATCH_SIZE):
-            chunk = ids[start : start + _PREFETCH_BATCH_SIZE]
-            response = await self.client.get(
-                f"{self.config.api_url}/record",
-                params=[("id[]", id) for id in chunk] + [("field[]", field), ("field[]", "id")],
-            )
+        chunks = [
+            ids[start : start + _PREFETCH_BATCH_SIZE]
+            for start in range(0, len(ids), _PREFETCH_BATCH_SIZE)
+        ]
+        # The chunks do not depend on each other, and the service answers a
+        # request in about half a second however small it is, so waiting for
+        # each in turn is most of what a window costs. Bounded because being
+        # able to ask for everything at once is not a reason to.
+        limit = asyncio.Semaphore(_PREFETCH_CONCURRENCY)
+
+        async def fetch(chunk: list[str]) -> list[dict[str, Any]]:
+            async with limit:
+                response = await self.client.get(
+                    f"{self.config.api_url}/record",
+                    params=[("id[]", id) for id in chunk] + [("field[]", field), ("field[]", "id")],
+                )
             if _is_record_not_found(response):
-                continue
+                return []
             response.raise_for_status()
-            for entry in response.json().get("records") or []:
+            return response.json().get("records") or []
+
+        found: dict[str, Any] = {}
+        for entries in await asyncio.gather(*(fetch(chunk) for chunk in chunks)):
+            for entry in entries:
                 id = entry.get("id")
                 if id is not None and field in entry:
                     found[id] = entry[field]

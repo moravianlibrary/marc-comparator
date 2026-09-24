@@ -375,3 +375,73 @@ class TestPrefetch:
         await linker.prefetch([])
         assert await linker._get_dedup_ids("mzk.MZK01-000000001") == ["caslin.SKC01-000000001"]
         assert len(calls) == 1
+
+
+class TestPrefetchConcurrency:
+    """Chunks of a window do not wait for each other."""
+
+    @pytest.mark.asyncio
+    async def test_chunks_overlap_instead_of_queueing(self, monkeypatch: pytest.MonkeyPatch):
+        import asyncio
+
+        linker = KnihovnyCZLinker(KnihovnyCZLinkerConfig())
+        in_flight = 0
+        peak = 0
+
+        async def slow_get(url: str, params, **kwargs: object):
+            nonlocal in_flight, peak
+            in_flight += 1
+            peak = max(peak, in_flight)
+            try:
+                await asyncio.sleep(0.05)
+            finally:
+                in_flight -= 1
+            asked = [value for key, value in params if key == "id[]"]
+            return httpx.Response(
+                200,
+                json={
+                    "resultCount": len(asked),
+                    "records": [{"id": id, "dedupIds": []} for id in asked],
+                    "status": "OK",
+                },
+                request=httpx.Request("GET", "https://www.knihovny.cz/api/v1/record"),
+            )
+
+        monkeypatch.setattr(linker.client, "get", slow_get)
+
+        # Three chunks' worth of ids, so there is something to overlap.
+        ids = [f"mzk.MZK01-{n:09}" for n in range(120)]
+        found = await linker._fetch_field(ids, "dedupIds")
+
+        assert len(found) == 120
+        assert peak > 1, "the chunks were fetched one after another"
+
+    @pytest.mark.asyncio
+    async def test_no_more_than_the_cap_are_in_flight(self, monkeypatch: pytest.MonkeyPatch):
+        import asyncio
+
+        from marc_comparator.authority_linkers.knihovny_cz_linker import _PREFETCH_CONCURRENCY
+
+        linker = KnihovnyCZLinker(KnihovnyCZLinkerConfig())
+        in_flight = 0
+        peak = 0
+
+        async def slow_get(url: str, params, **kwargs: object):
+            nonlocal in_flight, peak
+            in_flight += 1
+            peak = max(peak, in_flight)
+            try:
+                await asyncio.sleep(0.02)
+            finally:
+                in_flight -= 1
+            return httpx.Response(
+                200,
+                json={"resultCount": 0, "records": [], "status": "OK"},
+                request=httpx.Request("GET", "https://www.knihovny.cz/api/v1/record"),
+            )
+
+        monkeypatch.setattr(linker.client, "get", slow_get)
+
+        await linker._fetch_field([f"mzk.MZK01-{n:09}" for n in range(1000)], "dedupIds")
+
+        assert peak <= _PREFETCH_CONCURRENCY
