@@ -2,7 +2,7 @@
 #    uv export --no-dev --no-hashes --no-emit-project --no-emit-package marc-comparator-sdk --format requirements-txt --extra api
 alembic==1.19.0
     # via marc-comparator-app
-aleph-nought @ git+https://github.com/moravianlibrary/aleph-nought.git@e63438f4f1d7f47fff02b19b484d3c4e3081877b
+aleph-nought @ git+https://github.com/moravianlibrary/aleph-nought.git@232f9431b4f4c6280c593c478e88e81d49cb7e8e
     # via marc-comparator-sdk
 amqp==5.3.1
     # via kombu
@@ -93,7 +93,7 @@ lxml==6.0.0
     #   marcdantic
 mako==1.4.1
     # via alembic
-marcdantic @ git+https://github.com/moravianlibrary/marcdantic.git@7ca1b569706965d8ba89e124dd831f0f5a85d2da
+marcdantic @ git+https://github.com/moravianlibrary/marcdantic.git@fb872f2479541b106d062a0da46fc56dd2f3f53b
     # via
     #   aleph-nought
     #   marc-comparator-sdk
