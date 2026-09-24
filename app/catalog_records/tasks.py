@@ -7,6 +7,8 @@ from marc_comparator.comparators import RecordComparisonResult
 from marcdantic import MarcRecord
 
 from adapters.aleph_client_registry import AlephClientRegistry
+from adapters.marc_sectors import read_marc_many
+from adapters.pipelining import chunks, read_ahead
 from adapters.tasks import (
     ManagedTask,
     handle_batch_progress_snippet,
@@ -42,6 +44,17 @@ from entities.record_review import RecordReview
 from entities.result_snapshot import ResultSnapshot
 from entities.settings import Settings, SettingsScope
 from validation.tasks import handle_catalog_record_validation, load_validators
+
+#: Records held between the catalogue and the loop that stores them.
+#:
+#: The catalogue serves thirty per request and will not be persuaded to serve
+#: more, so this is a few pages: far enough ahead that a fetch is always in
+#: flight, near enough that a failure is noticed without a long backlog first.
+SYNC_READ_AHEAD = 120
+
+#: Records whose previous MARC is read in one go. Sized like the read-ahead,
+#: since a larger window only waits longer before doing any work.
+SYNC_WINDOW = 60
 
 
 class AlephError(Exception):
@@ -267,46 +280,69 @@ async def records_sync_task(task_id: str, lock_key: str, lock_blocking_timeout: 
         buffer = SectorBuffer(lambda: ctx.db_session)
         ctx.before_commit = buffer.flush_all
 
-        for base, system_number, status, record in client.OAI.list_records(from_date, None):
-            try:
-                if status == RecordStatus.Failed:
-                    ctx.logger.error(f"Failed fetching record {base}-{system_number}.")
-                    continue
+        # The catalogue serves thirty records per request and decides that
+        # itself — every page-size hint it was offered came back badArgument —
+        # so the fetching is put on its own thread to run under the writing
+        # rather than in front of it.
+        incoming = read_ahead(client.OAI.list_records(from_date, None), SYNC_READ_AHEAD)
 
-                catalog_record = CatalogRecord.find_by_base_and_system_number(
-                    ctx.db_session, base, system_number
-                )
+        for page in chunks(incoming, SYNC_WINDOW):
+            # One read of the previous MARC for the whole window: its only job
+            # is to spot a record that changed, and asked per record it was the
+            # largest thing the sync did after waiting for the catalogue. Keyed
+            # by the base each record reports rather than the one asked for, so
+            # this reads exactly what the per-record lookup read.
+            by_base: defaultdict[str, list[str]] = defaultdict(list)
+            for record_base, system_number, _status, _record in page:
+                by_base[record_base].append(system_number)
+            old_marcs = {
+                (record_base, system_number): marc
+                for record_base, system_numbers in by_base.items()
+                for system_number, marc in read_marc_many(
+                    ctx.db_session, record_base, system_numbers
+                ).items()
+            }
 
-                if status == RecordStatus.Deleted and catalog_record is None:
-                    pass
+            for record_base, system_number, status, record in page:
+                try:
+                    if status == RecordStatus.Failed:
+                        ctx.logger.error(f"Failed fetching record {record_base}-{system_number}.")
+                        continue
 
-                elif status == RecordStatus.Deleted and catalog_record:
-                    catalog_record.latest_sync = config.timestamp
-                    catalog_record.deleted = True
-                    ctx.logger.info(f"Marking record {base}-{system_number} as deleted.")
-
-                elif not record:
-                    ctx.logger.error(f"Record {base}-{system_number} has no MARC data.")
-
-                else:
-                    from adapters.marc_sectors import read_marc
-
-                    old_marc = (
-                        read_marc(ctx.db_session, base, system_number) if catalog_record else None
+                    catalog_record = CatalogRecord.find_by_base_and_system_number(
+                        ctx.db_session, record_base, system_number
                     )
-                    cr = save_record_metadata(ctx, base, system_number, record, catalog_record)
-                    buffer.add(base, system_number, marc_bytes_of(record))
 
-                    if old_marc is not None and old_marc != record._marc:
-                        cr.processed_at = None
-                        RecordReview.outdate_current(ctx.db_session, cr.id)
+                    if status == RecordStatus.Deleted and catalog_record is None:
+                        pass
 
-                handle_batch_progress_snippet(ctx)
+                    elif status == RecordStatus.Deleted and catalog_record:
+                        catalog_record.latest_sync = config.timestamp
+                        catalog_record.deleted = True
+                        ctx.logger.info(f"Marking record {record_base}-{system_number} as deleted.")
 
-            except Exception as e:
-                ctx.db_session.rollback()
-                ctx.logger.error(f"Failed processing record {system_number}:\n{e}")
-                handle_batch_progress_snippet(ctx)
+                    elif not record:
+                        ctx.logger.error(f"Record {record_base}-{system_number} has no MARC data.")
+
+                    else:
+                        old_marc = (
+                            old_marcs.get((record_base, system_number)) if catalog_record else None
+                        )
+                        cr = save_record_metadata(
+                            ctx, record_base, system_number, record, catalog_record
+                        )
+                        buffer.add(record_base, system_number, marc_bytes_of(record))
+
+                        if old_marc is not None and old_marc != record._marc:
+                            cr.processed_at = None
+                            RecordReview.outdate_current(ctx.db_session, cr.id)
+
+                    handle_batch_progress_snippet(ctx)
+
+                except Exception as e:
+                    ctx.db_session.rollback()
+                    ctx.logger.error(f"Failed processing record {system_number}:\n{e}")
+                    handle_batch_progress_snippet(ctx)
 
         handle_final_batch_snippet(ctx)
 
