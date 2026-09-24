@@ -83,34 +83,57 @@ async def compact_sectors(task_id: str) -> None:
         ctx.logger.info(f"Compaction complete. Processed {ctx.progress} records.")
 
 
+#: Records whose MARC is read in one go. They are walked in id order, so a
+#: window mostly falls inside one or two sectors and is read as such.
+REBUILD_WINDOW = 200
+
+
 async def rebuild_search_vectors(task_id: str) -> None:
     """Rebuild search_text for all catalog records from their MARC data."""
+    from collections import defaultdict
+
     from marcdantic import MarcRecord
 
-    from adapters.marc_sectors import read_marc
+    from adapters.marc_sectors import read_marc_many
+    from adapters.pipelining import chunks
 
     async with ManagedTask(task_id=task_id) as ctx:
         record_ids = [r[0] for r in ctx.db_session.query(CatalogRecord.id).all()]
         ctx.total = len(record_ids)
         ctx.logger.info(f"Rebuilding search vectors for {ctx.total} records...")
 
-        for record_id in record_ids:
-            record = ctx.db_session.get(CatalogRecord, record_id)
-            if record is None:
+        for window in chunks(record_ids, REBUILD_WINDOW):
+            records = [ctx.db_session.get(CatalogRecord, record_id) for record_id in window]
+            present = [record for record in records if record is not None]
+
+            by_base: defaultdict[str, list[str]] = defaultdict(list)
+            for record in present:
+                by_base[record.base].append(record.system_number)
+            marc_of = {
+                (base, system_number): marc
+                for base, system_numbers in by_base.items()
+                for system_number, marc in read_marc_many(
+                    ctx.db_session, base, system_numbers
+                ).items()
+            }
+
+            for record in records:
+                if record is None:
+                    handle_batch_progress_snippet(ctx)
+                    continue
+
+                marc_bytes = marc_of.get((record.base, record.system_number))
+                if marc_bytes:
+                    try:
+                        marc = MarcRecord.from_mrc(marc_bytes)
+                        record.update_search_text_from(marc)
+                    except Exception as e:
+                        ctx.logger.warning(
+                            f"Failed to rebuild search for "
+                            f"{record.base}/{record.system_number}: {e}"
+                        )
+
                 handle_batch_progress_snippet(ctx)
-                continue
-
-            marc_bytes = read_marc(ctx.db_session, record.base, record.system_number)
-            if marc_bytes:
-                try:
-                    marc = MarcRecord.from_mrc(marc_bytes)
-                    record.update_search_text_from(marc)
-                except Exception as e:
-                    ctx.logger.warning(
-                        f"Failed to rebuild search for {record.base}/{record.system_number}: {e}"
-                    )
-
-            handle_batch_progress_snippet(ctx)
 
         handle_final_batch_snippet(ctx)
 
