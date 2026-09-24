@@ -26,6 +26,19 @@ _LABEL_TO_EXPLANATION: dict[str, Explanation] = {
 }
 
 
+def _is_fixed_field_tag(tag: str) -> bool:
+    """Whether a tag names a fixed field — the 00X block and the leader.
+
+    MARC reserves 000-009 for data held positionally, with no indicators and no
+    subfields; everything from 010 up is a variable field whose value is its
+    subfields. Anything unnumbered belongs to no such block and is treated as
+    variable, which is the safe side: a variable field misread as fixed is what
+    puts a subfield mapping where a plain string is expected.
+    """
+
+    return tag.isdigit() and int(tag) < 10
+
+
 class DefaultComparatorConfig(BaseModel):
     ollama_url: str = "http://localhost:11434"
     llm_enabled: bool = False
@@ -129,8 +142,15 @@ class DefaultComparator(BaseComparator):
         field_results: list[FieldComparisonResult] = []
 
         for tag, groups in field_results_groupped.items():
-            # Diff results on fixed fields
-            if len(groups) == 1 and groups[0].get("code") is None:
+            # Diff results on fixed fields.
+            #
+            # Decided by tag, not by the absence of a subfield code: the engine
+            # also emits a codeless group for a variable field it compared as a
+            # whole, and its value is then the field's subfield mapping. Reading
+            # that as a fixed field put a dict where a string belongs and raised
+            # two string_type errors on a 336 ($a/$b/$2), which failed the
+            # linker and with it the record.
+            if _is_fixed_field_tag(tag) and len(groups) == 1:
                 group = groups[0]
                 field_results.append(
                     FieldComparisonResult(
