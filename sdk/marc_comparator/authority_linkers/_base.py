@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from marcdantic import MarcRecord
 from pydantic import BaseModel
 
+from ..comparators import BaseComparator
 from ..harvest import HarvestCapable
 
 
@@ -60,6 +61,22 @@ class BaseAuthorityLinker(HarvestCapable, ABC):
         #: Linkers declaring a ``config_model`` are constructed with an
         #: instance of it; the rest take no config at all.
         self.config = config
+
+    def bind_comparator(self, comparator: BaseComparator) -> None:
+        """Use the host's comparator to judge candidates, instead of a default.
+
+        A linker that ranks candidates needs a comparator, and building its own
+        means scoring on whatever scale that default happens to have. The host
+        configures one scale for the whole system; a gate measuring against a
+        different one makes a linker's ``minimum_confidence`` mean something
+        other than the score an operator is shown.
+
+        The host owns the decision of what to bind — in particular whether the
+        bound comparator may call an LLM, which a per-candidate gate cannot
+        afford however the comparison feature itself is configured.
+        """
+
+        self._comparator = comparator
 
     async def prefetch(self, requests: Sequence[LinkRequest]) -> None:
         """Warm whatever ``run`` would otherwise fetch one record at a time.

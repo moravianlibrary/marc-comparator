@@ -157,12 +157,19 @@ def load_authority_linkers(
     if not settings:
         return None
     result = init_authority_linkers(settings, linkers)
+    from comparison.tasks import load_gate_comparator
     from harvest.storage import bind_plugin_storage
 
+    # Ranking candidates on the configured scale rather than on whatever the
+    # comparator class defaults to: otherwise a linker's minimum_confidence
+    # means something other than the score an operator is shown.
+    gate_comparator, _ = load_gate_comparator(db_session)
     for linker in result:
         bind_plugin_storage(
             linker.linker.value, linker.instance, db_session, logging.getLogger(__name__)
         )
+        if gate_comparator is not None:
+            linker.instance.bind_comparator(gate_comparator)
     return result or None
 
 
