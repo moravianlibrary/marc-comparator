@@ -254,6 +254,7 @@ def ensure_schema(
     state.source_identity = source_identity
     state.watermark = None
     state.records = 0
+    state.total_records = None
     state.last_harvest_at = None
     db_session.flush()
     return True
@@ -281,6 +282,7 @@ def complete_harvest(
 
     state.watermark = result.watermark
     state.records = result.records
+    state.total_records = result.total_records
     state.last_harvest_at = completed_at or datetime.now(UTC)
     db_session.flush()
     return state

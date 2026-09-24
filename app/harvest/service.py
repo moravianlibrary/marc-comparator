@@ -49,6 +49,7 @@ def list_plugins(db_session: DatabaseSession) -> list[HarvestPluginStatus]:
                 compatible=compatible,
                 watermark=state.watermark if state else None,
                 records=state.records if state else None,
+                total_records=state.total_records if state else None,
                 last_harvest_at=state.last_harvest_at if state else None,
                 current_task=(
                     TaskSchema.model_validate(task, from_attributes=True) if task else None

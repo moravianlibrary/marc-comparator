@@ -19,6 +19,8 @@ export interface HarvestPluginStatus {
   compatible: boolean;
   /** Records processed by the last successful run, not the dataset size. */
   records: number | null;
+  /** Rows the local copy holds, when the plugin reports one. */
+  total_records: number | null;
   last_harvest_at: string | null;
   current_task: Task | null;
 }

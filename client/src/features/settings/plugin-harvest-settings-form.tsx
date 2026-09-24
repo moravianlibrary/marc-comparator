@@ -146,6 +146,10 @@ function PluginHarvestCard({ name, status }: { name: string; status?: HarvestPlu
               ? new Date(status.last_harvest_at).toLocaleString('cs-CZ')
               : t('plugin-harvest.never')}
           </dd>
+          <dt className="text-muted-foreground">{t('plugin-harvest.total-records')}</dt>
+          <dd>
+            {status?.total_records != null ? status.total_records.toLocaleString('cs-CZ') : '—'}
+          </dd>
           <dt className="text-muted-foreground">{t('plugin-harvest.last-records')}</dt>
           <dd>{status?.records != null ? status.records.toLocaleString('cs-CZ') : '—'}</dd>
         </dl>

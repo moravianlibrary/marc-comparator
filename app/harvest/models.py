@@ -36,5 +36,6 @@ class HarvestPluginStatus(BaseModel):
     compatible: bool
     watermark: str | None = None
     records: int | None = None
+    total_records: int | None = None
     last_harvest_at: datetime | None = None
     current_task: TaskSchema | None = None

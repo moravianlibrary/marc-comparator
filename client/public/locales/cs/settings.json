@@ -20,6 +20,7 @@
     "not-ready": "Lokální kopie není k dispozici",
     "fallback-note": "Dokud kopie není připravena, rozšíření se dotazuje vzdálené služby. Zpracování funguje dál, jen je pomalejší.",
     "last-harvest": "Poslední úspěšné stažení",
+    "total-records": "Záznamů v lokální kopii",
     "last-records": "Záznamů v posledním běhu",
     "never": "Zatím neproběhlo",
     "running": "Probíhá stahování",

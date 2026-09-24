@@ -67,6 +67,15 @@ class HarvestResult(BaseModel):
     watermark: str | None = None
     records: int = Field(default=0, ge=0)
 
+    #: Rows the local copy holds once this run is published.
+    #:
+    #: ``records`` measures one run, which for an incremental harvest says
+    #: nothing about the size of the copy: a run that touched a few thousand
+    #: documents leaves an operator no way to tell whether the copy behind it
+    #: holds a hundred thousand or ten million. A plugin that cannot count its
+    #: own rows cheaply leaves this ``None`` and the host reports only the run.
+    total_records: int | None = Field(default=None, ge=0)
+
 
 class HarvestCapable:
     """Optional local-harvest capability shared by validators and linkers.

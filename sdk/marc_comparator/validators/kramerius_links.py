@@ -352,7 +352,15 @@ class KrameriusLinksValidator(BaseValidator):
         # An empty successful run is meaningful and advances the bounded watermark.
         if processed == 0:
             ctx.progress(0, 0)
-        return HarvestResult(watermark=upper, records=processed)
+
+        # `processed` counts one incremental window, which after the first run is
+        # a small fraction of the copy. Count what the copy actually holds so an
+        # operator can tell a day's changes from the dataset behind them.
+        from sqlalchemy import func, select
+
+        documents = self.harvest_metadata(ctx.schema).tables[f"{ctx.schema}.{DOCUMENTS_TABLE}"]
+        held = ctx.connection.execute(select(func.count()).select_from(documents)).scalar_one()
+        return HarvestResult(watermark=upper, records=processed, total_records=int(held))
 
     async def _solr_cursor_pages(self, query: str):
         """Yield raw pages because KrameriusDocument drops cursor/update fields."""

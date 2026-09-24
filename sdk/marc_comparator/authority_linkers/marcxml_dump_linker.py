@@ -597,7 +597,9 @@ class MarcXmlDumpLinker(BaseAuthorityLinker):
                 if kept:
                     ctx.progress(total or 0, total or 0)
                     logger.info("Dump %s is unchanged; keeping %s records", edition, kept)
-                    return HarvestResult(watermark=edition, records=int(kept))
+                    return HarvestResult(
+                        watermark=edition, records=int(kept), total_records=int(kept)
+                    )
 
             self._reset_tables(ctx.connection, records, identifiers)
             dropped = self._drop_indexes(ctx.connection, metadata)
@@ -653,7 +655,12 @@ class MarcXmlDumpLinker(BaseAuthorityLinker):
             ).scalar_one()
 
         ctx.progress(read, read)
-        return HarvestResult(watermark=edition, records=int(harvested))
+        # A run replaces the whole copy, so its work and the copy's size are
+        # the same figure; both are reported so the operator's two questions
+        # are answered from the same place as for an incremental plugin.
+        return HarvestResult(
+            watermark=edition, records=int(harvested), total_records=int(harvested)
+        )
 
     def _drain(self, parser: etree.XMLPullParser) -> Iterator[_ParsedRecord]:
         for _, element in parser.read_events():

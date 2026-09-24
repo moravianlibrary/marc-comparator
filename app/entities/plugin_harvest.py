@@ -40,6 +40,10 @@ class PluginHarvestState(Base, BaseOperationsMixin):
     #: Records processed by the last successful run, for the operator's benefit.
     records: Mapped[int] = mapped_column(Integer, default=0)
 
+    #: Rows the plugin's copy held after that run. Null when the plugin does not
+    #: report one; `records` alone describes a run, not the dataset it leaves.
+    total_records: Mapped[int | None] = mapped_column(Integer, nullable=True)
+
     last_harvest_at: Mapped[datetime | None] = mapped_column(
         TIMESTAMP(timezone=True), nullable=True
     )
