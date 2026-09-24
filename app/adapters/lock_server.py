@@ -3,6 +3,7 @@ import threading
 from contextlib import contextmanager
 
 from redis import Redis
+from redis.exceptions import LockNotOwnedError
 from redis.lock import Lock
 
 from config import config
@@ -47,7 +48,12 @@ def one_at_a_time_lock(
         A background watchdog thread auto-renews the TTL while the
         context is open, so callers do not need to call reacquire().
     """
-    lock = Lock(lock_server_client, name=lock_name, timeout=timeout)
+    # thread_local=False: the token must live on the lock, not on the thread
+    # that acquired it, because the renewal watchdog runs in another thread.
+    # redis-py's default hides the token from it, and reacquire() then fails on
+    # its very first tick with AttributeError — the lock quietly expires one
+    # timeout later while the task runs on for hours believing it holds it.
+    lock = Lock(lock_server_client, name=lock_name, timeout=timeout, thread_local=False)
 
     acquired = lock.acquire(blocking=blocking, blocking_timeout=blocking_timeout)
     if acquired:
@@ -83,9 +89,19 @@ def _renewal_watchdog(
     while not stop_event.wait(interval):
         try:
             lock.reacquire()
-        except Exception:
-            logger.warning(f"Lock renewal failed for '{lock_name}'", exc_info=True)
+        except LockNotOwnedError:
+            # The lock is gone and reacquire cannot take it back, so the
+            # guarantee is already broken; say so loudly and stop.
+            logger.error(
+                f"Lock '{lock_name}' expired before its task finished — "
+                "another run of it is no longer prevented"
+            )
             return
+        except Exception:
+            # Anything else is the connection, not the lock. Keep renewing:
+            # giving up on one failed round trip is what drops a lock held for
+            # the rest of a multi-hour task.
+            logger.warning(f"Lock renewal failed for '{lock_name}'; retrying", exc_info=True)
 
 
 def get_active_locks() -> list[str]:
