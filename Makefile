@@ -43,6 +43,9 @@ K3D_CLUSTER ?= marc-comparator
 HELM_RELEASE ?= marc-comparator
 HELM_NAMESPACE ?= marc-comparator
 
+# The chart's own workloads, as deployment name suffixes
+HELM_WORKLOADS := app worker beat client
+
 # k3d gets its own kubeconfig so creating the local cluster never rewrites (or
 # switches the context of) a real cluster's kubeconfig via $KUBECONFIG
 K3D_KUBECONFIG := $(CURDIR)/.k3d-kubeconfig.yaml
@@ -71,7 +74,7 @@ CNPG_MANIFEST := https://github.com/cloudnative-pg/cloudnative-pg/releases/downl
         k3d-up k3d-down k3d-load k3d-env \
         k3d-port-forward-up k3d-port-forward-down \
         cnpg-install cnpg-uninstall \
-        helm-lint helm-template helm-install helm-uninstall helm-test \
+        helm-lint helm-template helm-install helm-uninstall helm-test helm-reload \
         test test-integration test-integration-verbose coverage-report \
         dev-sdk dev-app dev-worker dev-beat \
         db-migrate db-upgrade db-downgrade db-history \
@@ -302,6 +305,19 @@ helm-uninstall: ## Remove the release from the cluster
 	$(KUBE) helm uninstall $(HELM_RELEASE) --namespace $(HELM_NAMESPACE)
 
 helm-test: k3d-up k3d-load cnpg-install helm-install ## Full local test: cluster + operator + images + install
+
+# Rebuilding under an unchanged VERSION renders a pod spec identical to the
+# running one, so `helm upgrade` reports success and leaves the old containers
+# in place — with pullPolicy IfNotPresent the new image is never picked up.
+# The restart is what makes the rebuild take effect. Nothing here touches the
+# CNPG cluster or its volume, so harvested data survives.
+helm-reload: k3d-load helm-install ## Rebuild images and restart the workloads (keeps the database)
+	@for w in $(HELM_WORKLOADS); do \
+		$(KUBE) kubectl --namespace $(HELM_NAMESPACE) rollout restart deploy/$(HELM_RELEASE)-$$w; \
+	done
+	@for w in $(HELM_WORKLOADS); do \
+		$(KUBE) kubectl --namespace $(HELM_NAMESPACE) rollout status deploy/$(HELM_RELEASE)-$$w --timeout=5m; \
+	done
 
 # ─── Dev mode (backend in Docker, client local with HMR) ─────────────────────
 
