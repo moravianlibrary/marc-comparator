@@ -173,3 +173,80 @@ class TestConfigDefaults:
         linker = KnihovnyCZLinker(KnihovnyCZLinkerConfig())
 
         assert isinstance(linker.client, httpx.AsyncClient)
+
+
+class TestUnknownRecords:
+    """knihovny.cz has no 404, so its 400 has to be read before it is trusted."""
+
+    @staticmethod
+    def response(status_code: int, payload: dict) -> httpx.Response:
+        return httpx.Response(
+            status_code,
+            json=payload,
+            request=httpx.Request("GET", "https://www.knihovny.cz/api/v1/record"),
+        )
+
+    def linker(self, monkeypatch: pytest.MonkeyPatch, response: httpx.Response):
+        linker = KnihovnyCZLinker(KnihovnyCZLinkerConfig())
+
+        async def fake_get(*args: object, **kwargs: object) -> httpx.Response:
+            return response
+
+        monkeypatch.setattr(linker.client, "get", fake_get)
+        return linker
+
+    async def test_record_we_do_not_share_has_no_dedup_group(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Every id knihovny.cz cannot load answers this way, including our own
+        # well-formed ones it has never indexed. Raising for it abandoned the
+        # record entirely — no comparison, no validation, not marked processed.
+        linker = self.linker(
+            monkeypatch,
+            self.response(400, {"status": "ERROR", "statusMessage": "Error loading record"}),
+        )
+
+        assert await linker._get_dedup_ids("mzk.MZK03-001081160") == []
+
+    async def test_unloadable_target_is_skipped_not_fetched_as_none(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        linker = self.linker(
+            monkeypatch,
+            self.response(400, {"status": "ERROR", "statusMessage": "Error loading record"}),
+        )
+
+        assert await linker._get_record("caslin.SKC01-000000000") is None
+
+    async def test_other_bad_requests_still_fail(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        # "No link" is taken as evidence that an existing link is obsolete and
+        # deletes it, so only the answer that really means "not here" may be
+        # reported as one.
+        linker = self.linker(
+            monkeypatch, self.response(400, {"status": "ERROR", "statusMessage": "Bad field"})
+        )
+
+        with pytest.raises(httpx.HTTPStatusError):
+            await linker._get_dedup_ids("mzk.MZK01-000471470")
+
+    async def test_dedup_group_survives_one_unloadable_member(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        linker, comparator, _ = linker_with_dedup(
+            monkeypatch,
+            ["caslin.SKC01-000000000", "caslin.SKC01-001217729"],
+            [0.9],
+        )
+
+        records = iter([None, marc_record("skc2")])
+
+        async def fake_record(id: str) -> MarcRecord | None:
+            return next(records)
+
+        monkeypatch.setattr(linker, "_get_record", fake_record)
+
+        link = await run_linker(linker)
+
+        assert link is not None
+        assert link.system_number == "001217729"
+        assert comparator.compared == 1

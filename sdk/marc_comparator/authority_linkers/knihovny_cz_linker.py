@@ -17,6 +17,36 @@ from pydantic import BaseModel, Field
 from ..comparators.default import DefaultComparator, DefaultComparatorConfig
 from ._base import AuthorityLink, BaseAuthorityLinker
 
+#: knihovny.cz answers a record it does not hold with this, under HTTP 400.
+_RECORD_NOT_FOUND_MESSAGE = "Error loading record"
+
+
+def _is_record_not_found(response: httpx.Response) -> bool:
+    """Whether a 400 is knihovny.cz saying it holds no such record.
+
+    The API has no 404: an id it does not hold and a malformed id get the same
+    400 with an ERROR body reading "Error loading record". Raising for it would
+    make a record the service simply lacks indistinguishable from a fault, and
+    the caller abandons the whole record when a linker fails — no comparison,
+    no validation, not even marked processed.
+
+    The body is read rather than the status alone so a genuinely bad request
+    still surfaces as a failure. That distinction matters: "no link" is taken
+    as evidence that an existing link is obsolete and deletes it, so only an
+    answer that really means "not here" may be reported as one.
+    """
+
+    if response.status_code != httpx.codes.BAD_REQUEST:
+        return False
+    try:
+        payload = response.json()
+    except ValueError:
+        return False
+    return (
+        payload.get("status") == "ERROR"
+        and payload.get("statusMessage") == _RECORD_NOT_FOUND_MESSAGE
+    )
+
 
 class KnihovnyCZBaseMapping(BaseModel):
     base: str
@@ -88,11 +118,16 @@ class KnihovnyCZLinker(BaseAuthorityLinker):
     async def get_target_bases(cls, config: KnihovnyCZLinkerConfig) -> list[str]:
         return [mapping.base for mapping in config.mappings if mapping.is_target]
 
-    async def _get_dedup_ids(self, id: str):
+    async def _get_dedup_ids(self, id: str) -> list[str]:
         response = await self.client.get(
             f"{self.config.api_url}/record",
             params={"id": id, "field[]": "dedupIds"},
         )
+
+        # Not every record of ours reaches knihovny.cz. One it has never
+        # indexed has no dedup group, which is an answer, not an error.
+        if _is_record_not_found(response):
+            return []
 
         response.raise_for_status()
 
@@ -106,6 +141,9 @@ class KnihovnyCZLinker(BaseAuthorityLinker):
             f"{self.config.api_url}/record",
             params={"id": id, "field[]": "fullRecord"},
         )
+
+        if _is_record_not_found(response):
+            return None
 
         response.raise_for_status()
 
@@ -159,8 +197,12 @@ class KnihovnyCZLinker(BaseAuthorityLinker):
                 self._base_to_id_mapper[target_base].format(system_number=target_system_number)
             )
 
-            if not target_record:
-                raise ValueError(f"Record not found for system number: {target_system_number}")
+            if target_record is None:
+                # The dedup group names a record knihovny.cz will not serve.
+                # Dropping that one member keeps the rest of the group usable;
+                # a transport failure still raises and is never read as "no
+                # link", which is what would delete a good link.
+                continue
 
             comparison = await self._comparator.run(record, target_record)
             if best_record is None or comparison.overall_score > best_score:
