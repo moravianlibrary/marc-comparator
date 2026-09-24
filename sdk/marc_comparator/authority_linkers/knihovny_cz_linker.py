@@ -16,6 +16,7 @@ from lxml import etree
 from marcdantic import MarcRecord
 from pydantic import BaseModel, Field
 
+from ..comparators import RecordComparisonResult
 from ..comparators.default import DefaultComparator, DefaultComparatorConfig
 from ._base import AuthorityLink, BaseAuthorityLinker, LinkRequest
 
@@ -283,6 +284,7 @@ class KnihovnyCZLinker(BaseAuthorityLinker):
 
         best_system_number: str | None = None
         best_record: MarcRecord | None = None
+        best_comparison: RecordComparisonResult | None = None
         best_score = 0.0
         for target_system_number in target_system_numbers:
             target_id = self._source_id(target_base, target_system_number)
@@ -301,6 +303,7 @@ class KnihovnyCZLinker(BaseAuthorityLinker):
             if best_record is None or comparison.overall_score > best_score:
                 best_system_number = target_system_number
                 best_record = target_record
+                best_comparison = comparison
                 best_score = comparison.overall_score
 
         # The dedup group says these records belong together; the comparator
@@ -316,4 +319,6 @@ class KnihovnyCZLinker(BaseAuthorityLinker):
             system_number=best_system_number,
             record=best_record,
             confidence=best_score,
+            # The pair chosen here is the pair the pipeline compares next.
+            comparison=best_comparison,
         )

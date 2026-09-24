@@ -1,8 +1,10 @@
 """Whose comparator a linker ranks with, and when its verdict can stand."""
 
-from typing import cast
+import logging
+from typing import Any, cast
 
 import pytest
+from marc_comparator.comparators import RecordComparisonResult
 
 from adapters.database import DatabaseSession
 from comparison import UsedComparatorConfig
@@ -72,3 +74,56 @@ class TestGateComparator:
         _gate, equivalent = load_gate_comparator(NO_SESSION)
 
         assert equivalent is False
+
+
+class TestPrecomputedComparison:
+    @pytest.mark.asyncio
+    async def test_a_handed_in_result_is_stored_without_recomparing(self, monkeypatch):
+        from comparison import tasks
+
+        compared = 0
+
+        class CountingComparator:
+            async def run(self, a, b):
+                nonlocal compared
+                compared += 1
+                return RecordComparisonResult(overall_score=0.1)
+
+        saved: list[dict] = []
+
+        class Link:
+            base = "SKC"
+            authority_record = type("R", (), {"id": "SKC-1", "get_record": lambda self, db: None})()
+
+        class Record:
+            id = "MZK01-1"
+            authority_links = [Link()]
+
+            def get_record(self, db):
+                return None
+
+        class Stored:
+            def __init__(self, **kwargs):
+                saved.append(kwargs)
+
+            @staticmethod
+            def find(*_args):
+                return None
+
+            def save(self, db, commit=False):
+                pass
+
+        monkeypatch.setattr(tasks, "Comparison", Stored)
+
+        carried = RecordComparisonResult(overall_score=0.93)
+        await tasks.handle_catalog_record_comparison(
+            NO_SESSION,
+            cast(Any, CountingComparator()),
+            logging.getLogger("t"),
+            "SKC",
+            cast(Any, Record()),
+            precomputed=carried,
+        )
+
+        assert compared == 0
+        assert saved[0]["result"] == carried.model_dump()

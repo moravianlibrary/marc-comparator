@@ -1,6 +1,6 @@
 import logging
 
-from marc_comparator.comparators import BaseComparator
+from marc_comparator.comparators import BaseComparator, RecordComparisonResult
 
 from adapters.database import DatabaseSession
 from adapters.tasks import (
@@ -68,6 +68,7 @@ async def handle_catalog_record_comparison(
     logger: logging.Logger,
     target_base: str,
     catalog_record: CatalogRecord,
+    precomputed: RecordComparisonResult | None = None,
 ) -> None:
     link = next(
         (al for al in catalog_record.authority_links if al.base == target_base),
@@ -78,7 +79,11 @@ async def handle_catalog_record_comparison(
         logger.info(f"No authority link found for {catalog_record.id} to target base {target_base}")
         return
 
-    result = await comparator.run(
+    # A linker that ranked candidates has already compared the pair it chose,
+    # and that is this pair. Recomputing it produces the same result — checked
+    # over the stored record, so the round trip through sector storage is
+    # included — so the caller may hand that result in instead.
+    result = precomputed or await comparator.run(
         catalog_record.get_record(db_session),
         link.authority_record.get_record(db_session),
     )

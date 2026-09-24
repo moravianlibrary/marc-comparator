@@ -43,6 +43,7 @@ from marcdantic import MarcRecord
 from marcdantic.selectors import IsbnActiveJq, IssnActiveJq, NbnActiveJq, TitleJq
 from pydantic import BaseModel, Field
 
+from ..comparators import RecordComparisonResult
 from ..comparators.default import DefaultComparator, DefaultComparatorConfig
 from ..harvest import HarvestContext, HarvestResult, HarvestStorageUnavailable
 from ._base import AuthorityLink, BaseAuthorityLinker, LinkRequest
@@ -1043,11 +1044,12 @@ class MarcXmlDumpLinker(BaseAuthorityLinker):
             return None
 
         best: _Candidate | None = None
+        best_comparison: RecordComparisonResult | None = None
         best_score = 0.0
         for candidate in candidates:
             comparison = await self._comparator.run(record, candidate.record)
             if best is None or comparison.overall_score > best_score:
-                best, best_score = candidate, comparison.overall_score
+                best, best_comparison, best_score = candidate, comparison, comparison.overall_score
 
         if best is None or best_score < self.config.minimum_confidence:
             return None
@@ -1057,4 +1059,6 @@ class MarcXmlDumpLinker(BaseAuthorityLinker):
             system_number=best.sysno,
             record=best.record,
             confidence=best_score,
+            # The pair chosen here is the pair the pipeline compares next.
+            comparison=best_comparison,
         )

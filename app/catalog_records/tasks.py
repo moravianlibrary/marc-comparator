@@ -3,6 +3,7 @@ import json
 from collections import defaultdict
 
 from aleph_nought import RecordStatus
+from marc_comparator.comparators import RecordComparisonResult
 from marcdantic import MarcRecord
 
 from adapters.aleph_client_registry import AlephClientRegistry
@@ -30,7 +31,11 @@ from catalog_records.models import (
     SyncRecordsData,
 )
 from catalog_records.search import build_filtered_query
-from comparison.tasks import handle_catalog_record_comparison, load_comparator
+from comparison.tasks import (
+    handle_catalog_record_comparison,
+    load_comparator,
+    load_gate_comparator,
+)
 from config import config
 from entities.catalog_record import CatalogRecord
 from entities.record_review import RecordReview
@@ -337,6 +342,10 @@ async def process_records(task_id: str) -> None:
         if not comparator:
             ctx.logger.error("Comparator could not be initialized")
             return
+        # Whether a linker's own verdict is the one this comparator would
+        # reach; it is not when the comparison feature calls an LLM, which a
+        # per-candidate gate cannot.
+        _gate, gate_is_pipeline = load_gate_comparator(ctx.db_session)
 
         validator_instances = load_validators(ctx.db_session, settings.validators, ctx.logger)
         if not validator_instances:
@@ -386,6 +395,9 @@ async def process_records(task_id: str) -> None:
                         ctx.db_session
                     )
 
+                    # A linker that ranked candidates already compared the
+                    # pair it chose, which is the pair compared again below.
+                    measured: dict[str, RecordComparisonResult] = {}
                     for target_base in settings.target_bases:
                         if target_base == catalog_record.base:
                             continue
@@ -397,6 +409,8 @@ async def process_records(task_id: str) -> None:
                             ctx.logger,
                             confident_threshold,
                         )
+                        if gate_is_pipeline and found_link and found_link.comparison:
+                            measured[target_base] = found_link.comparison
                         results = handle_catalog_record_link_action(
                             ctx.db_session,
                             catalog_record,
@@ -416,6 +430,10 @@ async def process_records(task_id: str) -> None:
                             ctx.logger,
                             authority_link.base,
                             catalog_record,
+                            # Present only for a link this pass just made, so a
+                            # link left standing from an earlier run is still
+                            # compared against what is stored now.
+                            precomputed=measured.get(authority_link.base),
                         )
 
                     for validator_instance in validator_instances:

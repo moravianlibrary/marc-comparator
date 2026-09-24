@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from marcdantic import MarcRecord
 from pydantic import BaseModel
 
-from ..comparators import BaseComparator
+from ..comparators import BaseComparator, RecordComparisonResult
 from ..harvest import HarvestCapable
 
 
@@ -31,6 +31,13 @@ class AuthorityLink:
     system_number: str
     record: MarcRecord
     confidence: float | None = None
+
+    #: The comparison the linker measured between the two records, when it
+    #: measured one. A linker that scores its candidates has already compared
+    #: the pair it chose, and that is the same pair the pipeline goes on to
+    #: compare; carrying the result lets the host decide whether to recompute
+    #: it. Only usable when the linker was given the host's own comparator.
+    comparison: RecordComparisonResult | None = None
 
 
 @dataclass(slots=True)
