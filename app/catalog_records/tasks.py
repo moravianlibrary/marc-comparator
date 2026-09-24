@@ -12,11 +12,14 @@ from adapters.tasks import (
     handle_final_batch_snippet,
 )
 from authority_linking.tasks import (
+    LINK_PREFETCH_WINDOW,
     LinkActionResult,
+    announce_link_window,
     find_best_link_for_record,
     handle_catalog_record_link_action,
     load_authority_linkers,
     load_confident_threshold,
+    windows,
 )
 from catalog_records.models import (
     FetchBatchOfRecordsData,
@@ -349,79 +352,87 @@ async def process_records(task_id: str) -> None:
         ]
         ctx.total = len(record_ids)
 
-        # Fetched one at a time from whichever session is live right now, like
-        # the linking and comparison tasks: handle_batch_progress_snippet cycles
-        # the session every commit_interval records, and anything preloaded in
-        # bulk beforehand is detached the moment that happens.
-        for record_id in record_ids:
-            catalog_record = ctx.db_session.get(CatalogRecord, record_id)
-            if catalog_record is None:
-                # Deleted between building the id list and getting here.
-                handle_batch_progress_snippet(ctx)
-                continue
+        # Records are still fetched one at a time from whichever session is
+        # live right now: handle_batch_progress_snippet cycles the session
+        # every commit_interval records, and an ORM instance preloaded in bulk
+        # beforehand is detached the moment that happens. The window carries
+        # only parsed MARC, which belongs to no session and survives the cycle.
+        for window in windows(record_ids, LINK_PREFETCH_WINDOW):
+            window_marc = await announce_link_window(
+                ctx.db_session, window, settings.target_bases, authority_linkers, ctx.logger
+            )
 
-            try:
-                # Capture result hashes before reprocessing
-                old_hashes = _compute_result_hashes(ctx.db_session, record_id)
+            for record_id in window:
+                catalog_record = ctx.db_session.get(CatalogRecord, record_id)
+                if catalog_record is None:
+                    # Deleted between building the id list and getting here.
+                    handle_batch_progress_snippet(ctx)
+                    continue
 
-                marc_record = catalog_record.get_record(ctx.db_session)
+                try:
+                    # Capture result hashes before reprocessing
+                    old_hashes = _compute_result_hashes(ctx.db_session, record_id)
 
-                for target_base in settings.target_bases:
-                    if target_base == catalog_record.base:
-                        continue
-                    found_link, linker_instance = await find_best_link_for_record(
-                        catalog_record,
-                        authority_linkers,
-                        target_base,
-                        marc_record,
-                        ctx.logger,
-                        confident_threshold,
-                    )
-                    results = handle_catalog_record_link_action(
-                        ctx.db_session,
-                        catalog_record,
-                        found_link,
-                        linker_instance,
-                        target_base,
-                    )
-                    for result in results:
-                        counters[result] += 1
-
-                ctx.db_session.refresh(catalog_record)
-
-                for authority_link in catalog_record.authority_links:
-                    await handle_catalog_record_comparison(
-                        ctx.db_session,
-                        comparator,
-                        ctx.logger,
-                        authority_link.base,
-                        catalog_record,
+                    marc_record = window_marc.get(record_id) or catalog_record.get_record(
+                        ctx.db_session
                     )
 
-                for validator_instance in validator_instances:
-                    await handle_catalog_record_validation(
-                        ctx.db_session,
-                        catalog_record,
-                        validator_instance,
-                    )
+                    for target_base in settings.target_bases:
+                        if target_base == catalog_record.base:
+                            continue
+                        found_link, linker_instance = await find_best_link_for_record(
+                            catalog_record,
+                            authority_linkers,
+                            target_base,
+                            marc_record,
+                            ctx.logger,
+                            confident_threshold,
+                        )
+                        results = handle_catalog_record_link_action(
+                            ctx.db_session,
+                            catalog_record,
+                            found_link,
+                            linker_instance,
+                            target_base,
+                        )
+                        for result in results:
+                            counters[result] += 1
 
-                _handle_result_changes(ctx.db_session, record_id, old_hashes)
+                    ctx.db_session.refresh(catalog_record)
 
-                catalog_record.processed_at = config.timestamp
-                catalog_record.save(ctx.db_session, commit=False)
+                    for authority_link in catalog_record.authority_links:
+                        await handle_catalog_record_comparison(
+                            ctx.db_session,
+                            comparator,
+                            ctx.logger,
+                            authority_link.base,
+                            catalog_record,
+                        )
 
-                handle_batch_progress_snippet(ctx)
+                    for validator_instance in validator_instances:
+                        await handle_catalog_record_validation(
+                            ctx.db_session,
+                            catalog_record,
+                            validator_instance,
+                        )
 
-            # Both handlers report `record_id`, never catalog_record.id: reading
-            # the instance here can raise a second error that buries the first.
-            except ValueError as e:
-                ctx.logger.warning(f"Skipping record {record_id}: {e}")
-                handle_batch_progress_snippet(ctx)
+                    _handle_result_changes(ctx.db_session, record_id, old_hashes)
 
-            except Exception as e:
-                ctx.db_session.rollback()
-                ctx.logger.error(f"Failed processing record {record_id}:\n{e}")
-                handle_batch_progress_snippet(ctx)
+                    catalog_record.processed_at = config.timestamp
+                    catalog_record.save(ctx.db_session, commit=False)
+
+                    handle_batch_progress_snippet(ctx)
+
+                # Both handlers report `record_id`, never catalog_record.id: reading
+                # the instance here can raise a second error that buries the first.
+                except ValueError as e:
+                    ctx.logger.warning(f"Skipping record {record_id}: {e}")
+                    handle_batch_progress_snippet(ctx)
+
+                except Exception as e:
+                    ctx.db_session.rollback()
+                    ctx.logger.error(f"Failed processing record {record_id}:\n{e}")
+                    handle_batch_progress_snippet(ctx)
 
         handle_final_batch_snippet(ctx)
         ctx.logger.info(f"Finished processing records, total records processed: {ctx.progress}")

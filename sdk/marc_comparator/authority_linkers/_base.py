@@ -1,4 +1,5 @@
 from abc import ABC, abstractmethod
+from collections.abc import Sequence
 from dataclasses import dataclass
 
 from marcdantic import MarcRecord
@@ -31,6 +32,20 @@ class AuthorityLink:
     confidence: float | None = None
 
 
+@dataclass(slots=True)
+class LinkRequest:
+    """One upcoming ``run`` call, announced ahead of time.
+
+    The fields are exactly ``run``'s arguments, so a linker can answer a
+    prefetched request without being told twice what it is being asked.
+    """
+
+    base: str
+    system_number: str
+    record: MarcRecord
+    target_base: str
+
+
 class BaseAuthorityLinker(HarvestCapable, ABC):
     """
     Abstract base class for MARC authority linkers.
@@ -45,6 +60,26 @@ class BaseAuthorityLinker(HarvestCapable, ABC):
         #: Linkers declaring a ``config_model`` are constructed with an
         #: instance of it; the rest take no config at all.
         self.config = config
+
+    async def prefetch(self, requests: Sequence[LinkRequest]) -> None:
+        """Warm whatever ``run`` would otherwise fetch one record at a time.
+
+        The host announces a window of upcoming calls so a linker that talks to
+        a remote service can collapse them into one request and answer the
+        window from memory. Doing nothing is always correct: ``run`` must still
+        work for a record that was never announced, and a linker answering from
+        local storage has nothing to gain here.
+
+        The window may be a superset of what ``run`` is finally asked about,
+        because a confident answer from an earlier linker ends the search. A
+        prefetch is therefore a hint, never a commitment, and must not be where
+        a linker records anything it would not have learned anyway.
+
+        Whatever a call warms replaces what the previous call warmed, so memory
+        stays bounded by one window rather than by the length of the run.
+        """
+
+        return None
 
     @classmethod
     @abstractmethod

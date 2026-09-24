@@ -5,6 +5,7 @@ from typing import cast
 import httpx
 import pytest
 from lxml import etree  # pyright: ignore[reportAttributeAccessIssue]  # lxml ships no stubs
+from marc_comparator.authority_linkers import LinkRequest
 from marc_comparator.authority_linkers.knihovny_cz_linker import (
     KnihovnyCZLinker,
     KnihovnyCZLinkerConfig,
@@ -250,3 +251,127 @@ class TestUnknownRecords:
         assert link is not None
         assert link.system_number == "001217729"
         assert comparator.compared == 1
+
+
+class TestPrefetch:
+    """One request per window instead of one per record."""
+
+    @staticmethod
+    def scripted_client(monkeypatch: pytest.MonkeyPatch, linker: KnihovnyCZLinker):
+        """Serve dedupIds and fullRecord from memory, counting the round trips."""
+
+        calls: list[dict[str, list[str]]] = []
+
+        dedup_of = {
+            "mzk.MZK01-000000001": ["caslin.SKC01-000000001"],
+            "mzk.MZK01-000000002": ["caslin.SKC01-000000002"],
+            # Absent from the service entirely, so absent from its answers.
+            "mzk.MZK01-000000003": None,
+        }
+
+        async def fake_get(url: str, params, **kwargs: object):
+            # The batched path sends repeated id[]/field[] pairs; the
+            # per-record fallback sends a plain mapping. Both reach here.
+            pairs = list(params.items()) if isinstance(params, dict) else list(params)
+            asked = [value for key, value in pairs if key in {"id[]", "id"}]
+            fields = [value for key, value in pairs if key == "field[]"]
+            calls.append({"ids": asked, "fields": fields})
+            if len(asked) > 1:
+                assert "id" in fields, "a batched answer is unusable without the ids"
+
+            records = []
+            for id in asked:
+                if "fullRecord" in fields:
+                    records.append({"id": id, "fullRecord": MARC_XML.format(control_number=id)})
+                    continue
+                dedup = dedup_of.get(id)
+                if dedup is None:
+                    # The service drops what it cannot load rather than
+                    # reporting it, which is why answers are keyed by id.
+                    continue
+                records.append({"id": id, "dedupIds": dedup})
+            return httpx.Response(
+                200,
+                json={"resultCount": len(records), "records": records, "status": "OK"},
+                request=httpx.Request("GET", "https://www.knihovny.cz/api/v1/record"),
+            )
+
+        monkeypatch.setattr(linker.client, "get", fake_get)
+        return calls
+
+    async def test_window_costs_two_requests_not_two_per_record(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        linker = KnihovnyCZLinker(KnihovnyCZLinkerConfig())
+        calls = self.scripted_client(monkeypatch, linker)
+
+        await linker.prefetch(
+            [
+                LinkRequest(
+                    base="MZK01",
+                    system_number=f"00000000{n}",
+                    record=marc_record(),
+                    target_base="SKC",
+                )
+                for n in (1, 2, 3)
+            ]
+        )
+
+        # One for the dedup groups, one for the records they named.
+        assert len(calls) == 2
+        assert calls[0]["ids"] == [
+            "mzk.MZK01-000000001",
+            "mzk.MZK01-000000002",
+            "mzk.MZK01-000000003",
+        ]
+        assert calls[1]["ids"] == ["caslin.SKC01-000000001", "caslin.SKC01-000000002"]
+
+    async def test_a_prefetched_window_makes_no_further_requests(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        linker = KnihovnyCZLinker(KnihovnyCZLinkerConfig())
+        calls = self.scripted_client(monkeypatch, linker)
+        requests = [
+            LinkRequest(
+                base="MZK01", system_number=f"00000000{n}", record=marc_record(), target_base="SKC"
+            )
+            for n in (1, 2, 3)
+        ]
+
+        await linker.prefetch(requests)
+        before = len(calls)
+        for request in requests:
+            await linker.run(
+                request.base, request.system_number, request.record, request.target_base
+            )
+
+        assert len(calls) == before
+
+    async def test_record_the_service_dropped_is_answered_as_no_group(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Missing from a batched answer means the same as the 400 a single
+        # lookup gets, and must be cached as such or `run` asks again for it.
+        linker = KnihovnyCZLinker(KnihovnyCZLinkerConfig())
+        self.scripted_client(monkeypatch, linker)
+
+        await linker.prefetch(
+            [
+                LinkRequest(
+                    base="MZK01", system_number="000000003", record=marc_record(), target_base="SKC"
+                )
+            ]
+        )
+
+        assert await linker._get_dedup_ids("mzk.MZK01-000000003") == []
+
+    async def test_record_outside_the_window_still_works(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # A window is a hint: `run` must answer for a record never announced.
+        linker = KnihovnyCZLinker(KnihovnyCZLinkerConfig())
+        calls = self.scripted_client(monkeypatch, linker)
+
+        await linker.prefetch([])
+        assert await linker._get_dedup_ids("mzk.MZK01-000000001") == ["caslin.SKC01-000000001"]
+        assert len(calls) == 1

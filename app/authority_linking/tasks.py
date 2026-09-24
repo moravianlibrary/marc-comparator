@@ -1,5 +1,6 @@
 import logging
 from collections import defaultdict
+from collections.abc import Iterator, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 
@@ -7,6 +8,7 @@ from marc_comparator.authority_linkers import (
     AUTHORITY_LINKER_DISPATCHER,
     AuthorityLinker,
     BaseAuthorityLinker,
+    LinkRequest,
 )
 from marc_comparator.authority_linkers import AuthorityLink as SdkAuthorityLink
 from marcdantic import MarcRecord
@@ -62,6 +64,73 @@ def _confidence_of(link: SdkAuthorityLink) -> float:
     """
 
     return link.confidence if link.confidence is not None else 0.0
+
+
+#: Records announced to the linkers in one go.
+#:
+#: A linker that asks a remote service per record is what a full pass spends
+#: most of its time on, and announcing a window lets it collapse those into a
+#: few requests. Sized against both ends: large enough that the per-record cost
+#: is the batched one, small enough that the parsed MARC held for a window is a
+#: few megabytes rather than the whole run.
+LINK_PREFETCH_WINDOW = 200
+
+
+def windows(items: list[str], size: int) -> Iterator[list[str]]:
+    for start in range(0, len(items), size):
+        yield items[start : start + size]
+
+
+async def announce_link_window(
+    db_session: DatabaseSession,
+    record_ids: Sequence[str],
+    target_bases: Sequence[str],
+    linkers: list[AuthorityLinkerInstance],
+    logger: logging.Logger,
+) -> dict[str, MarcRecord]:
+    """Tell every linker what is about to be asked, and keep the MARC read.
+
+    Reading a window costs one parse per record, which the caller pays anyway
+    when it reaches that record, so the records are handed back rather than
+    dropped and read a second time.
+    """
+
+    marc_by_id: dict[str, MarcRecord] = {}
+    requests: list[LinkRequest] = []
+
+    for record_id in record_ids:
+        catalog_record = db_session.get(CatalogRecord, record_id)
+        if catalog_record is None:
+            continue
+        try:
+            marc_record = catalog_record.get_record(db_session)
+        except ValueError:
+            # The caller reports this when it reaches the record. A window is a
+            # hint, and must not turn one record's problem into the batch's.
+            continue
+
+        marc_by_id[record_id] = marc_record
+        for target_base in target_bases:
+            if target_base == catalog_record.base:
+                continue
+            requests.append(
+                LinkRequest(
+                    base=catalog_record.base,
+                    system_number=catalog_record.system_number,
+                    record=marc_record,
+                    target_base=target_base,
+                )
+            )
+
+    for linker in linkers:
+        try:
+            await linker.instance.prefetch(requests)
+        except Exception as e:
+            # A linker that cannot warm its window still answers record by
+            # record. That is slower, not wrong, and not worth losing a batch.
+            logger.warning("Prefetch failed for %s: %s", linker.linker.value, e)
+
+    return marc_by_id
 
 
 def load_authority_linkers(
@@ -375,50 +444,57 @@ async def authority_linking(task_id: str) -> None:
         ]
         ctx.total = len(record_ids)
 
-        for record_id in record_ids:
-            catalog_record = ctx.db_session.get(CatalogRecord, record_id)
-            if catalog_record is None:
-                # Deleted between building the id list and getting here.
-                handle_batch_progress_snippet(ctx)
-                continue
+        for window in windows(record_ids, LINK_PREFETCH_WINDOW):
+            window_marc = await announce_link_window(
+                ctx.db_session, window, [data.target_base], authority_linkers, ctx.logger
+            )
 
-            try:
-                if catalog_record.base == data.target_base:
+            for record_id in window:
+                catalog_record = ctx.db_session.get(CatalogRecord, record_id)
+                if catalog_record is None:
+                    # Deleted between building the id list and getting here.
                     handle_batch_progress_snippet(ctx)
                     continue
 
-                marc_record = catalog_record.get_record(ctx.db_session)
+                try:
+                    if catalog_record.base == data.target_base:
+                        handle_batch_progress_snippet(ctx)
+                        continue
 
-                found_link, linker_instance = await find_best_link_for_record(
-                    catalog_record,
-                    authority_linkers,
-                    data.target_base,
-                    marc_record,
-                    ctx.logger,
-                    confident_threshold,
-                )
+                    marc_record = window_marc.get(record_id) or catalog_record.get_record(
+                        ctx.db_session
+                    )
 
-                results = handle_catalog_record_link_action(
-                    ctx.db_session,
-                    catalog_record,
-                    found_link,
-                    linker_instance,
-                    data.target_base,
-                )
+                    found_link, linker_instance = await find_best_link_for_record(
+                        catalog_record,
+                        authority_linkers,
+                        data.target_base,
+                        marc_record,
+                        ctx.logger,
+                        confident_threshold,
+                    )
 
-                for result in results:
-                    counters[result] += 1
+                    results = handle_catalog_record_link_action(
+                        ctx.db_session,
+                        catalog_record,
+                        found_link,
+                        linker_instance,
+                        data.target_base,
+                    )
 
-                handle_batch_progress_snippet(ctx)
+                    for result in results:
+                        counters[result] += 1
 
-            except ValueError as e:
-                ctx.logger.warning(f"Skipping record {catalog_record.id}: {e}")
-                handle_batch_progress_snippet(ctx)
+                    handle_batch_progress_snippet(ctx)
 
-            except Exception as e:
-                ctx.db_session.rollback()
-                ctx.logger.error(f"Failed linking record {catalog_record.id}:\n{e}")
-                handle_batch_progress_snippet(ctx)
+                except ValueError as e:
+                    ctx.logger.warning(f"Skipping record {catalog_record.id}: {e}")
+                    handle_batch_progress_snippet(ctx)
+
+                except Exception as e:
+                    ctx.db_session.rollback()
+                    ctx.logger.error(f"Failed linking record {catalog_record.id}:\n{e}")
+                    handle_batch_progress_snippet(ctx)
 
         handle_final_batch_snippet(ctx)
 

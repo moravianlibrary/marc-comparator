@@ -8,6 +8,8 @@ plugin reports carries a measured confidence rather than an implied one.
 """
 
 import re
+from collections.abc import Sequence
+from typing import Any
 
 import httpx
 from lxml import etree
@@ -15,7 +17,12 @@ from marcdantic import MarcRecord
 from pydantic import BaseModel, Field
 
 from ..comparators.default import DefaultComparator, DefaultComparatorConfig
-from ._base import AuthorityLink, BaseAuthorityLinker
+from ._base import AuthorityLink, BaseAuthorityLinker, LinkRequest
+
+#: Ids per prefetch request. The service refuses 200 outright; at 50 a record
+#: costs about 12 ms against 196 ms asked for one at a time, and the URL stays
+#: well inside what the service accepts.
+_PREFETCH_BATCH_SIZE = 50
 
 #: knihovny.cz answers a record it does not hold with this, under HTTP 400.
 _RECORD_NOT_FOUND_MESSAGE = "Error loading record"
@@ -46,6 +53,10 @@ def _is_record_not_found(response: httpx.Response) -> bool:
         payload.get("status") == "ERROR"
         and payload.get("statusMessage") == _RECORD_NOT_FOUND_MESSAGE
     )
+
+
+def _parse_full_record(xml: str) -> MarcRecord | None:
+    return MarcRecord.from_xml(etree.fromstring(xml.encode("utf-8")))
 
 
 class KnihovnyCZBaseMapping(BaseModel):
@@ -114,11 +125,112 @@ class KnihovnyCZLinker(BaseAuthorityLinker):
             mapping.pattern: mapping.base for mapping in config.mappings
         }
 
+        # Answers for the window the host last announced. Both are replaced
+        # wholesale by each prefetch, so they hold one window and not a run.
+        self._dedup_cache: dict[str, list[str]] = {}
+        self._record_cache: dict[str, MarcRecord | None] = {}
+
     @classmethod
     async def get_target_bases(cls, config: KnihovnyCZLinkerConfig) -> list[str]:
         return [mapping.base for mapping in config.mappings if mapping.is_target]
 
+    def _source_id(self, base: str, system_number: str) -> str | None:
+        template = self._base_to_id_mapper.get(base)
+        return None if template is None else template.format(system_number=system_number)
+
+    def _target_system_numbers(self, dedup_ids: list[str], target_base: str) -> list[str]:
+        """The members of a dedup group that live in the base being linked to.
+
+        A group may name more than one, so they are all kept and weighed rather
+        than the last one winning.
+        """
+
+        found: list[str] = []
+        for dedup_id in dedup_ids:
+            for pattern, mapped_base in self._id_to_base_patterns.items():
+                if target_base != mapped_base:
+                    continue
+                match_obj = re.match(pattern, dedup_id)
+                if match_obj and match_obj.group(1) not in found:
+                    found.append(match_obj.group(1))
+        return found
+
+    async def _fetch_field(self, ids: list[str], field: str) -> dict[str, Any]:
+        """Read one field of many records per request, keyed by what answered.
+
+        The response is not positional: ids the service cannot load are dropped
+        from it entirely, so three ids can come back as two records. `id` is
+        therefore asked for alongside the field being read and the result keyed
+        by that, never by request order. An id missing from the answer is the
+        batch form of the 400 a single lookup gets for the same record.
+        """
+
+        found: dict[str, Any] = {}
+        for start in range(0, len(ids), _PREFETCH_BATCH_SIZE):
+            chunk = ids[start : start + _PREFETCH_BATCH_SIZE]
+            response = await self.client.get(
+                f"{self.config.api_url}/record",
+                params=[("id[]", id) for id in chunk] + [("field[]", field), ("field[]", "id")],
+            )
+            if _is_record_not_found(response):
+                continue
+            response.raise_for_status()
+            for entry in response.json().get("records") or []:
+                id = entry.get("id")
+                if id is not None and field in entry:
+                    found[id] = entry[field]
+        return found
+
+    async def prefetch(self, requests: Sequence[LinkRequest]) -> None:
+        """Answer a whole window in two requests instead of two per record.
+
+        One round trip per record is what a full pass spends most of its time
+        on, and the service takes many ids at once. The dedup groups come back
+        first; they name the target records `run` will compare against, so
+        those are fetched in the same shape rather than one at a time after.
+        """
+
+        self._dedup_cache = {}
+        self._record_cache = {}
+
+        source_ids: list[str] = []
+        for request in requests:
+            source_id = self._source_id(request.base, request.system_number)
+            if source_id is not None:
+                source_ids.append(source_id)
+        if not source_ids:
+            return
+
+        unique = list(dict.fromkeys(source_ids))
+        self._dedup_cache = await self._fetch_field(unique, "dedupIds")
+        # An id the service did not answer for has no dedup group, and caching
+        # that is what keeps `run` from asking again one record at a time.
+        for source_id in unique:
+            self._dedup_cache.setdefault(source_id, [])
+
+        target_ids: list[str] = []
+        for request in requests:
+            source_id = self._source_id(request.base, request.system_number)
+            if source_id is None:
+                continue
+            for system_number in self._target_system_numbers(
+                self._dedup_cache[source_id], request.target_base
+            ):
+                target_id = self._source_id(request.target_base, system_number)
+                if target_id is not None and target_id not in target_ids:
+                    target_ids.append(target_id)
+        if not target_ids:
+            return
+
+        fetched = await self._fetch_field(target_ids, "fullRecord")
+        for target_id in target_ids:
+            xml = fetched.get(target_id)
+            self._record_cache[target_id] = None if xml is None else _parse_full_record(xml)
+
     async def _get_dedup_ids(self, id: str) -> list[str]:
+        if id in self._dedup_cache:
+            return self._dedup_cache[id]
+
         response = await self.client.get(
             f"{self.config.api_url}/record",
             params={"id": id, "field[]": "dedupIds"},
@@ -137,6 +249,9 @@ class KnihovnyCZLinker(BaseAuthorityLinker):
         """
         Fetch the MARC record by its knihovny.cz ID.
         """
+        if id in self._record_cache:
+            return self._record_cache[id]
+
         response = await self.client.get(
             f"{self.config.api_url}/record",
             params={"id": id, "field[]": "fullRecord"},
@@ -147,11 +262,7 @@ class KnihovnyCZLinker(BaseAuthorityLinker):
 
         response.raise_for_status()
 
-        full_record_xml = response.json()["records"][0]["fullRecord"]
-        xml_bytes = full_record_xml.encode("utf-8")
-        xml_element = etree.fromstring(xml_bytes)
-
-        return MarcRecord.from_xml(xml_element)
+        return _parse_full_record(response.json()["records"][0]["fullRecord"])
 
     async def run(
         self,
@@ -160,31 +271,12 @@ class KnihovnyCZLinker(BaseAuthorityLinker):
         record: MarcRecord,
         target_base: str,
     ) -> AuthorityLink | None:
-        if base not in self._base_to_id_mapper:
+        source_id = self._source_id(base, system_number)
+        if source_id is None:
             raise ValueError(f"Unsupported base: {base}")
 
-        dedup_ids = await self._get_dedup_ids(
-            self._base_to_id_mapper[base].format(system_number=system_number)
-        )
-
-        # A dedup group may name more than one record in the target base. Weigh
-        # them all rather than keeping whichever happened to come last.
-        target_system_numbers: list[str] = []
-        for dedup_id in dedup_ids:
-            for (
-                pattern,
-                mapped_base,
-            ) in self._id_to_base_patterns.items():
-                if target_base != mapped_base:
-                    continue
-
-                match_obj = re.match(pattern, dedup_id)
-                if not match_obj:
-                    continue
-
-                system_number = match_obj.group(1)
-                if system_number not in target_system_numbers:
-                    target_system_numbers.append(system_number)
+        dedup_ids = await self._get_dedup_ids(source_id)
+        target_system_numbers = self._target_system_numbers(dedup_ids, target_base)
 
         if not target_system_numbers:
             return None
@@ -193,9 +285,10 @@ class KnihovnyCZLinker(BaseAuthorityLinker):
         best_record: MarcRecord | None = None
         best_score = 0.0
         for target_system_number in target_system_numbers:
-            target_record = await self._get_record(
-                self._base_to_id_mapper[target_base].format(system_number=target_system_number)
-            )
+            target_id = self._source_id(target_base, target_system_number)
+            if target_id is None:
+                continue
+            target_record = await self._get_record(target_id)
 
             if target_record is None:
                 # The dedup group names a record knihovny.cz will not serve.
