@@ -341,6 +341,11 @@ helm-reload: k3d-load helm-install ## Rebuild images and restart the workloads (
 PROFILE_SECONDS ?= 120
 PROFILE_TOP ?= 25
 PROFILE_OUT ?= $(CURDIR)/.profile
+# flamegraph (an .svg to open), raw (folded stacks, for aggregating self time
+# yourself), or speedscope. The SVG merges boxes by name, so it is good for
+# seeing shape and bad for attributing cost — use raw when you need numbers.
+PROFILE_FORMAT ?= flamegraph
+PROFILE_EXT = $(if $(filter flamegraph,$(PROFILE_FORMAT)),svg,txt)
 
 worker_pod = $$($(KUBE) kubectl --namespace $(HELM_NAMESPACE) get pod \
 	-l app.kubernetes.io/component=worker \
@@ -421,12 +426,12 @@ profile-worker: $(PY_SPY_BIN) ## Record a py-spy flamegraph of the worker (PROFI
 	$(require_cluster)
 	@mkdir -p $(PROFILE_OUT)
 	@pod=$(worker_pod); \
-	out=worker-$$(date +%Y%m%d-%H%M%S).svg; \
+	out=worker-$$(date +%Y%m%d-%H%M%S).$(PROFILE_EXT); \
 	echo "→ sampling $$pod for $(PROFILE_SECONDS)s"; \
 	$(py_spy_present); \
 	$(KUBE) kubectl --namespace $(HELM_NAMESPACE) exec $$pod -- \
 		/tmp/py-spy record --pid 1 --subprocesses --duration $(PROFILE_SECONDS) \
-		--rate 100 --output /tmp/$$out; \
+		--rate 100 --format $(PROFILE_FORMAT) --output /tmp/$$out; \
 	$(KUBE) kubectl --namespace $(HELM_NAMESPACE) cp \
 		$(HELM_NAMESPACE)/$$pod:/tmp/$$out $(PROFILE_OUT)/$$out; \
 	echo "→ $(PROFILE_OUT)/$$out"
