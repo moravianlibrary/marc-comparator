@@ -82,6 +82,20 @@ class TaskAlreadyRunningError(Exception):
         super().__init__(f"Task '{task_id}' is already running; skipping duplicate")
 
 
+class TaskRevokedError(Exception):
+    """Raised when a message arrives for a task that has already been revoked.
+
+    ``control.revoke`` reaches the workers that are listening when it is sent,
+    and each keeps the id in memory. A message redelivered after that worker
+    restarted — which ``acks_late`` guarantees will happen if it was killed
+    mid-task — arrives at a worker that never heard the revoke. The row is the
+    durable record of the decision, so the row is what decides.
+    """
+
+    def __init__(self, task_id: str):
+        super().__init__(f"Task '{task_id}' was revoked; not running it")
+
+
 class PoisonPillError(Exception):
     """Raised when a task has been redelivered more than MAX_TASK_ATTEMPTS times.
 
@@ -374,6 +388,14 @@ class ManagedTask:
                     self.db_session.close()
                     raise TaskAlreadyRunningError(self.task_id)
                 self._lock_obj = lock_obj
+
+        # Checked before the row is touched: marking it Started here is what
+        # would hide the revoke from the guard at the other end, which only
+        # sees the status after the work has already been done.
+        if self.task.status == TaskStatus.Revoked:
+            self._release_lock()
+            self.db_session.close()
+            raise TaskRevokedError(self.task_id)
 
         try:
             # --- Poison-message guard ---

@@ -11,6 +11,7 @@ from adapters.tasks import (
     REAPER_HEARTBEAT_TIMEOUT,
     ManagedTask,
     PoisonPillError,
+    TaskRevokedError,
     reap_orphaned_tasks,
 )
 from auth.models import TokenData
@@ -133,3 +134,75 @@ class TestOrphanReaper:
 
         db_session.expire_all()
         assert db_session.get(Task, task_id).status == TaskStatus.Started
+
+
+class TestRevokedGuard:
+    """A revoked task must not run because its message came back."""
+
+    @staticmethod
+    def reload(db_session, task_id) -> Task:
+        db_session.expire_all()
+        reloaded = db_session.get(Task, task_id)
+        assert reloaded is not None
+        return reloaded
+
+    @pytest.mark.asyncio
+    async def test_a_revoked_task_is_not_started(
+        self, db_session: DatabaseSession, user: TokenData
+    ):
+        # acks_late redelivers whatever the killed worker was holding, and the
+        # worker it lands on never heard the revoke.
+        task = _make_task(db_session, user, status=TaskStatus.Revoked)
+        task_id = task.task_id
+
+        with pytest.raises(TaskRevokedError):
+            async with ManagedTask(task_id=str(task_id)):
+                pytest.fail("a revoked task ran")
+
+        assert self.reload(db_session, task_id).status == TaskStatus.Revoked
+
+    @pytest.mark.asyncio
+    async def test_the_revoked_row_is_left_exactly_as_it_was(
+        self, db_session: DatabaseSession, user: TokenData
+    ):
+        task = _make_task(
+            db_session, user, status=TaskStatus.Revoked, finished_at=config.timestamp, attempts=1
+        )
+        task_id = task.task_id
+
+        with pytest.raises(TaskRevokedError):
+            async with ManagedTask(task_id=str(task_id)):
+                pass
+
+        reloaded = self.reload(db_session, task_id)
+        # Not restarted, not re-attempted, not re-finished.
+        assert reloaded.status == TaskStatus.Revoked
+        assert reloaded.attempts == 1
+        assert reloaded.started_at is None
+
+    @pytest.mark.asyncio
+    async def test_a_task_that_was_not_revoked_still_runs(
+        self, db_session: DatabaseSession, user: TokenData
+    ):
+        task = _make_task(db_session, user, status=TaskStatus.Pending)
+        task_id = task.task_id
+
+        async with ManagedTask(task_id=str(task_id)) as ctx:
+            assert ctx.task.status == TaskStatus.Started
+
+        assert self.reload(db_session, task_id).status == TaskStatus.Success
+
+    @pytest.mark.asyncio
+    async def test_the_run_lock_is_not_left_held(
+        self, db_session: DatabaseSession, user: TokenData, lock_server_client
+    ):
+        from adapters.lock_server import get_active_locks
+
+        task = _make_task(db_session, user, status=TaskStatus.Revoked)
+        lock_key = f"task-run-{task.task_id}"
+
+        with pytest.raises(TaskRevokedError):
+            async with ManagedTask(task_id=str(task.task_id), lock_key=lock_key):
+                pass
+
+        assert lock_key not in get_active_locks()

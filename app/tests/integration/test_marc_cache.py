@@ -183,9 +183,7 @@ class TestSectorBufferHolds:
         assert not buffer.holds(self.BASE, "000009999")
         assert not buffer.holds("SKC", "000000003")
 
-    def test_flushing_writes_one_sector_for_everything_in_it(
-        self, db_session, marc_cache_client
-    ):
+    def test_flushing_writes_one_sector_for_everything_in_it(self, db_session, marc_cache_client):
         buffer = SectorBuffer(lambda: db_session)
         for n in range(1, 6):
             buffer.add(self.BASE, f"00000000{n}", f"record-{n}".encode())

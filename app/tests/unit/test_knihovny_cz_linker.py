@@ -455,9 +455,7 @@ class TestPrefetchResilience:
         return httpx.Request("GET", "https://www.knihovny.cz/api/v1/record")
 
     @pytest.mark.asyncio
-    async def test_a_failing_chunk_does_not_lose_the_others(
-        self, monkeypatch: pytest.MonkeyPatch
-    ):
+    async def test_a_failing_chunk_does_not_lose_the_others(self, monkeypatch: pytest.MonkeyPatch):
         linker = KnihovnyCZLinker(KnihovnyCZLinkerConfig())
         seen = 0
 
@@ -498,8 +496,10 @@ class TestPrefetchResilience:
             if "fullRecord" in fields:
                 records = []
                 for id in asked:
-                    xml = "<not-marc/>" if id.endswith("000000002") else MARC_XML.format(
-                        control_number=id
+                    xml = (
+                        "<not-marc/>"
+                        if id.endswith("000000002")
+                        else MARC_XML.format(control_number=id)
                     )
                     records.append({"id": id, "fullRecord": xml})
                 return httpx.Response(
