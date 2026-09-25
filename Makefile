@@ -365,20 +365,37 @@ LIMIT $(PROFILE_TOP);
 endef
 export PROFILE_DB_QUERY
 
-profile-db-init: ## Create the pg_stat_statements extension (once, after enabling it)
+# CNPG drops this extension once, during its startup reconciliation: after a
+# restart the instance manager polls pg_extension in every database and issues
+# DROP EXTENSION pg_stat_statements, because nothing declares that it should be
+# there. It does not come back for it afterwards, so recreating it after the
+# restart holds for the whole run. The counters live in shared memory and are
+# lost on restart anyway, so reset creates it rather than trusting an earlier
+# init to still hold.
+profile-db-init: ## Create the pg_stat_statements extension
 	$(require_cluster)
 	@$(KUBE) kubectl --namespace $(HELM_NAMESPACE) exec -c postgres $(db_pod) -- \
 		psql -U postgres -d $(PG_DATABASE) \
 		-c 'CREATE EXTENSION IF NOT EXISTS pg_stat_statements;'
 
-profile-db-reset: ## Zero the statement counters — do this immediately before a measured run
-	$(require_cluster)
+profile-db-reset: profile-db-init ## Zero the statement counters — run immediately before a measured run
 	@$(KUBE) kubectl --namespace $(HELM_NAMESPACE) exec -c postgres $(db_pod) -- \
 		psql -U postgres -d $(PG_DATABASE) -tAc 'SELECT pg_stat_statements_reset();' >/dev/null
 	@echo "→ statement counters reset"
 
+# Deliberately does not create the extension: if it is missing, the run being
+# reported on straddled a database restart and the numbers are gone. An empty
+# report would read as "nothing took any time".
 profile-db-report: ## Statements from the local database, worst total time first
 	$(require_cluster)
+	@if ! $(KUBE) kubectl --namespace $(HELM_NAMESPACE) exec -c postgres $(db_pod) -- \
+		psql -U postgres -d $(PG_DATABASE) -tAc \
+		"SELECT 1 FROM pg_extension WHERE extname = 'pg_stat_statements'" | grep -q 1; then \
+		echo "pg_stat_statements is not installed."; \
+		echo "The database restarted since the last 'make profile-db-reset', which"; \
+		echo "takes the counters with it. Reset again and re-run the task."; \
+		exit 1; \
+	fi
 	@$(KUBE) kubectl --namespace $(HELM_NAMESPACE) exec -c postgres $(db_pod) -- \
 		psql -U postgres -d $(PG_DATABASE) -P pager=off -c "$$PROFILE_DB_QUERY"
 

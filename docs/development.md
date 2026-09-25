@@ -209,7 +209,6 @@ timings per normalised statement for as long as the server runs, which is what
 makes it usable on a three-hour task: no sampling window to miss.
 
 ```bash
-make profile-db-init      # once — creates the extension
 make profile-db-reset     # immediately before the run you want to measure
 # ... start the task, let it finish ...
 make profile-db-report    # worst total time first; PROFILE_TOP=25 by default
@@ -217,6 +216,17 @@ make profile-db-report    # worst total time first; PROFILE_TOP=25 by default
 
 The `pct` column is a share of everything in the view, so it only means
 anything if the counters were reset at the start of the run.
+
+The extension is missing after a database restart, and the cause is CNPG, not
+lost data. Its instance manager reconciles on startup — it polls
+`pg_extension` in every database and issues `DROP EXTENSION pg_stat_statements`
+once, since nothing in the Cluster declares that the extension should exist.
+It does not come back for it, so recreating it after the restart holds for the
+whole run. `profile-db-reset` does that for you.
+
+`profile-db-report` deliberately does not recreate it: if it is missing at
+report time the run straddled a restart, the shared-memory counters went with
+it, and an empty table would read as "nothing took any time".
 
 ### Where the Python time goes — `py-spy`
 
