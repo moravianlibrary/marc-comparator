@@ -50,5 +50,12 @@ spec:
                 name: {{ include "marc-comparator.fullname" . }}-config
             - secretRef:
                 name: {{ include "marc-comparator.fullname" . }}-secret
+          {{- if .Values.worker.sqlTrace }}
+          # Records the application stack behind every SQL statement, which
+          # costs a stack capture per query. Measurement runs only.
+          env:
+            - name: SQL_TRACE_ENABLED
+              value: "true"
+          {{- end }}
           resources:
             {{- toYaml .Values.worker.resources | nindent 12 }}

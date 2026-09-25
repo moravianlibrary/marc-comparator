@@ -124,6 +124,20 @@ def _reset_db_pool(**_kwargs):
     engine.dispose(close=False)
 
 
+@worker_process_init.connect
+def _install_sql_tracing(**_kwargs):
+    """Start per-call-site SQL accounting in each pool child, if enabled.
+
+    Installed per child rather than once in the parent: the listeners would
+    survive the fork, but the counters and the dump thread would not — a
+    thread does not cross fork(), so the parent's dumper is gone in the child
+    and nothing would ever be written.
+    """
+    from adapters.sql_tracing import install
+
+    install()
+
+
 type TasksClient = Celery
 
 LEVEL_NO_TO_SEVERITY = {

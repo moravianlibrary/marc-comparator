@@ -252,6 +252,39 @@ image carries no profiler; the copy is lost whenever the pod is replaced. Note
 that the worker has no route to PyPI, so installing it from inside the pod does
 not work. Leave `PROFILE` unset for anything but a profiling session.
 
+Read the SVG for shape, not for numbers: it merges boxes by name, so the self
+time it appears to show is not attributable. `PROFILE_FORMAT=raw` writes folded
+stacks instead, which is what you want as soon as you need a percentage — and
+filter those to the stacks containing `process_records`, or the idle pool
+children and the master dilute every share you compute.
+
+### Which line issued the query — `adapters.sql_tracing`
+
+The two above each answer half a question. `pg_stat_statements` knows what SQL
+ran but nothing about Python; py-spy knows where the wall clock went but
+samples too coarsely to catch a query that is individually cheap and made
+constantly. Neither says *which line asked for fifty thousand queries*, and on
+this workload that has repeatedly been the thing worth knowing: the server is
+busy for a few percent of a run, and the cost is the number of round trips
+rather than the price of any one of them.
+
+`SQLTRACE=1` makes the worker record, per statement, the application stack that
+issued it:
+
+```bash
+SQLTRACE=1 make helm-reload    # replaces the worker pod, like PROFILE
+```
+
+Each pool child writes its cumulative counters to `/tmp/sql-trace/<pid>.json`
+every five seconds. Nothing resets them — a measurement of one stage is the
+difference between two dumps, which is also the only honest way to measure a
+stage of a worker that is running other things. `scripts/benchmark_pipeline.py`
+does that diffing for you.
+
+It is a separate switch from `PROFILE` on purpose: capturing a stack per query
+is exactly the kind of overhead that would skew a py-spy sample taken beside
+it. Run one or the other, not both.
+
 ---
 
 ## Feature Development Workflow

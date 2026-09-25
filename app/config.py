@@ -101,6 +101,24 @@ class OIDCConfig(BaseSettings):
         return f"{self.app_base_url}/api/auth/oidc/callback"
 
 
+class SqlTraceConfig(BaseSettings):
+    """Per-call-site SQL accounting (adapters.sql_tracing). Debugging only.
+
+    Kept off by default: it captures a stack for every statement, which is
+    cheap next to a slow query and very much not cheap next to the thousands
+    of fast ones this workload issues.
+    """
+
+    model_config = SettingsConfigDict(env_prefix="SQL_TRACE_")
+
+    enabled: bool = Field(default=False)
+    output_dir: str = Field(default="/tmp/sql-trace")
+    dump_seconds: float = Field(default=5.0, gt=0)
+    #: Application frames kept per statement, innermost first.
+    max_frames: int = Field(default=12, ge=1)
+    max_sql_length: int = Field(default=120, ge=20)
+
+
 class AppConfig(BaseSettings):
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
@@ -115,6 +133,7 @@ class AppConfig(BaseSettings):
     broker: BrokerConfig = BrokerConfig()
     auth: AuthConfig = AuthConfig()
     oidc: OIDCConfig = OIDCConfig()
+    sql_trace: SqlTraceConfig = SqlTraceConfig()
 
     index_batch_size: int = Field(default=1000)
     marc_cache_ttl_seconds: int = Field(default=3600, ge=1)

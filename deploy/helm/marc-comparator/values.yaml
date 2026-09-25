@@ -32,6 +32,11 @@ worker:
   # the pod, so turn it on before starting the run you mean to profile, not
   # during one. `make PROFILE=1 helm-install` sets it.
   profiling: false
+  # Per-call-site SQL accounting in the worker (adapters.sql_tracing). Its own
+  # switch rather than part of `profiling`, because the stack capture it adds
+  # to every query is exactly the kind of overhead that would skew a py-spy
+  # sample taken at the same time.
+  sqlTrace: false
   image:
     repository: marc-comparator-worker
   resources:

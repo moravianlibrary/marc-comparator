@@ -62,7 +62,12 @@ PG_DATABASE ?= marc
 # PROFILE=1 grants the worker CAP_SYS_PTRACE so py-spy can attach to the pool.
 # It is left off otherwise, and it replaces the worker pod when it changes.
 PROFILE ?=
-HELM_PROFILE_FLAGS := $(if $(PROFILE),--set worker.profiling=true,)
+# SQLTRACE=1 makes the worker record the application stack behind every SQL
+# statement (adapters.sql_tracing). Separate from PROFILE because the stack
+# capture it adds to every query would skew a py-spy sample taken beside it.
+SQLTRACE ?=
+HELM_PROFILE_FLAGS := $(if $(PROFILE),--set worker.profiling=true,) \
+                      $(if $(SQLTRACE),--set worker.sqlTrace=true,)
 
 # CloudNativePG operator — provides the postgresql.cnpg.io CRDs the chart needs
 CNPG_VERSION ?= 1.30.0
