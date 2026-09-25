@@ -5,11 +5,13 @@ from dataclasses import dataclass
 from marc_comparator.validators import (
     VALIDATOR_DISPATCHER,
     BaseValidator,
+    ValidationResult,
     Validator,
 )
 from marcdantic import MarcRecord
 
 from adapters.database import DatabaseSession
+from adapters.marc_sectors import read_marc_for_ids
 from adapters.tasks import (
     ManagedTask,
     handle_batch_progress_snippet,
@@ -23,7 +25,7 @@ from authority_linking.tasks import (
 from catalog_records.search import build_filtered_query
 from entities.catalog_record import CatalogRecord
 from entities.settings import Settings, SettingsScope
-from entities.validation import Validation
+from entities.validation import Validation, stored_results_for
 
 from .models import ValidationSettings, ValidationTaskData
 
@@ -84,6 +86,7 @@ async def handle_catalog_record_validation(
     catalog_record: CatalogRecord,
     validator_instance: ValidatorInstance,
     record: MarcRecord | None = None,
+    existing: Sequence[ValidationResult] | None = None,
 ) -> None:
     # Callers running every validator over one record already hold it parsed;
     # reading it back per validator was a sector read and a parse each time.
@@ -91,17 +94,12 @@ async def handle_catalog_record_validation(
         record if record is not None else catalog_record.get_record(db_session)
     )
 
-    Validation.delete_by_record_and_validator(
-        db_session,
-        catalog_record.id,
-        validator_instance.type.value,
-    )
-
-    Validation.save_all(
+    Validation.replace_all(
         db_session,
         catalog_record.id,
         validator_instance.type.value,
         results,
+        existing,
     )
 
 
@@ -114,15 +112,12 @@ async def announce_validation_window(
     """Tell every validator which records are coming before walking them."""
 
     records: list[MarcRecord] = []
-    for record_id in record_ids:
-        catalog_record = db_session.get(CatalogRecord, record_id)
-        if catalog_record is None:
-            continue
+    # Reported by the caller when it reaches a record with no MARC; a window
+    # is a hint, and must not turn one record's problem into the batch's.
+    for _base, _system_number, raw in read_marc_for_ids(db_session, record_ids).values():
         try:
-            records.append(catalog_record.get_record(db_session))
+            records.append(MarcRecord.from_mrc(raw))
         except ValueError:
-            # Reported by the caller when it reaches this record; a window is
-            # a hint, and must not turn one record's problem into the batch's.
             continue
 
     await announce_window(validators, records, logger, lambda instance: instance.type.value)
@@ -150,6 +145,9 @@ async def validate_records(task_id: str) -> None:
                 ctx.db_session, window, validator_instances, ctx.logger
             )
 
+            CatalogRecord.warm(ctx.db_session, window)
+            stored = stored_results_for(ctx.db_session, window)
+
             for record_id in window:
                 catalog_record = ctx.db_session.get(CatalogRecord, record_id)
                 if catalog_record is None:
@@ -165,6 +163,7 @@ async def validate_records(task_id: str) -> None:
                             ctx.db_session,
                             catalog_record,
                             validator_instance,
+                            existing=stored.get((record_id, validator_instance.type.value), []),
                         )
 
                         handle_batch_progress_snippet(ctx)

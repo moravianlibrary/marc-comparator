@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from datetime import datetime
 from enum import StrEnum
 from typing import Optional
@@ -13,6 +14,7 @@ from sqlalchemy import (
     String,
     event,
     func,
+    select,
 )
 from sqlalchemy.dialects.postgresql import ARRAY, TSVECTOR
 from sqlalchemy.orm import Mapped, Session, mapped_column, relationship
@@ -115,6 +117,34 @@ class CatalogRecord(
     @classmethod
     def generate_id(cls, base: str, system_number: str) -> str:
         return f"{base}-{system_number}"
+
+    @classmethod
+    def warm(cls, db_session: Session, record_ids: Sequence[str]) -> None:
+        """Load a window of records into the session in one query.
+
+        The loops that walk a window ask for each record with ``Session.get``,
+        which answers from the identity map when the row is already loaded and
+        goes to the database when it is not. Filling the map up front therefore
+        turns a query per record into one per window, without any caller having
+        to hold the instances — which it must not do anyway, since ManagedTask
+        cycles the session every ``commit_interval`` records and detaches them.
+
+        Safe precisely because it is only a warm-up: after a cycle the map is
+        empty again and the next ``get`` queries exactly as it did before.
+        """
+
+        if not record_ids:
+            return
+
+        rows = db_session.execute(select(cls).where(cls.id.in_(record_ids))).scalars().all()
+
+        # The identity map holds *weak* references. Letting these fall out of
+        # scope here collects them straight back out of it, and every get()
+        # afterwards queries again — which is what the first version of this
+        # did, silently and with no way to tell from the outside. Session.info
+        # lives exactly as long as the session, so a cycled session drops them
+        # of its own accord.
+        db_session.info["warmed_window"] = rows
 
     @classmethod
     def find_by_base_and_system_number(

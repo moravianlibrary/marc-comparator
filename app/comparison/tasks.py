@@ -9,6 +9,7 @@ from adapters.tasks import (
     handle_batch_progress_snippet,
     handle_final_batch_snippet,
 )
+from authority_linking.tasks import LINK_PREFETCH_WINDOW, windows
 from catalog_records.search import build_filtered_query
 from entities.authority_link import AuthorityLink
 from entities.catalog_record import CatalogRecord
@@ -134,32 +135,38 @@ async def compare_records(task_id: str) -> None:
         ]
         ctx.total = len(record_ids)
 
-        for record_id in record_ids:
-            catalog_record = ctx.db_session.get(CatalogRecord, record_id)
-            if catalog_record is None:
-                # Deleted between building the id list and getting here.
-                handle_batch_progress_snippet(ctx)
-                continue
+        # Windowed only to give the warm-up something to load: the loop
+        # itself is unchanged, and one query per window replaces one per
+        # record that Session.get would otherwise issue.
+        for window in windows(record_ids, LINK_PREFETCH_WINDOW):
+            CatalogRecord.warm(ctx.db_session, window)
 
-            try:
-                await handle_catalog_record_comparison(
-                    ctx.db_session,
-                    comparator,
-                    ctx.logger,
-                    data.target_base,
-                    catalog_record,
-                )
+            for record_id in window:
+                catalog_record = ctx.db_session.get(CatalogRecord, record_id)
+                if catalog_record is None:
+                    # Deleted between building the id list and getting here.
+                    handle_batch_progress_snippet(ctx)
+                    continue
 
-                handle_batch_progress_snippet(ctx)
+                try:
+                    await handle_catalog_record_comparison(
+                        ctx.db_session,
+                        comparator,
+                        ctx.logger,
+                        data.target_base,
+                        catalog_record,
+                    )
 
-            except ValueError as e:
-                ctx.logger.warning(f"Skipping record {catalog_record.id}: {e}")
-                handle_batch_progress_snippet(ctx)
+                    handle_batch_progress_snippet(ctx)
 
-            except Exception as e:
-                ctx.db_session.rollback()
-                ctx.logger.error(f"Failed comparing record {catalog_record.id}:\n{e}")
-                handle_batch_progress_snippet(ctx)
+                except ValueError as e:
+                    ctx.logger.warning(f"Skipping record {catalog_record.id}: {e}")
+                    handle_batch_progress_snippet(ctx)
+
+                except Exception as e:
+                    ctx.db_session.rollback()
+                    ctx.logger.error(f"Failed comparing record {catalog_record.id}:\n{e}")
+                    handle_batch_progress_snippet(ctx)
 
         handle_final_batch_snippet(ctx)
 

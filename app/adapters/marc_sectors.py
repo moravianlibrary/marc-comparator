@@ -1,6 +1,6 @@
 import logging
 from collections import defaultdict
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 
 import zstandard as zstd
 from marcdantic import MarcRecord
@@ -59,6 +59,49 @@ def read_marc(db: Session, base: str, system_number: str) -> bytes | None:
     _cache_marc(base, system_number, result)
 
     return result
+
+
+def read_marc_for_ids(db: Session, record_ids: Sequence[str]) -> dict[str, tuple[str, str, bytes]]:
+    """MARC for a window of catalog records, keyed by record id.
+
+    Every window in the system walks a list of record ids and wants each
+    record's MARC. Done the obvious way that is a lookup of the row plus two
+    more queries to find and decompress the MARC — three round trips per
+    record, where a window shares almost all of its sectors.
+
+    The base and system number come back with the bytes because the callers
+    need them and would otherwise go back to the row for them. Nothing here is
+    an ORM instance: ``handle_batch_progress_snippet`` cycles the session every
+    ``commit_interval`` records, which detaches anything preloaded in bulk,
+    and a tuple belongs to no session.
+
+    Records with no MARC in storage are simply absent, as in ``read_marc``.
+    """
+
+    from entities.catalog_record import CatalogRecord
+
+    rows = db.execute(
+        select(CatalogRecord.id, CatalogRecord.base, CatalogRecord.system_number).where(
+            CatalogRecord.id.in_(record_ids)
+        )
+    ).all()
+
+    by_base: defaultdict[str, list[str]] = defaultdict(list)
+    for _record_id, base, system_number in rows:
+        by_base[base].append(system_number)
+
+    marc = {
+        (base, system_number): raw
+        for base, system_numbers in by_base.items()
+        for system_number, raw in read_marc_many(db, base, system_numbers).items()
+    }
+
+    found: dict[str, tuple[str, str, bytes]] = {}
+    for record_id, base, system_number in rows:
+        raw = marc.get((base, system_number))
+        if raw is not None:
+            found[record_id] = (base, system_number, raw)
+    return found
 
 
 def read_marc_many(db: Session, base: str, system_numbers: list[str]) -> dict[str, bytes]:

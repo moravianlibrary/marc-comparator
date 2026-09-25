@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy import TIMESTAMP, Float, ForeignKey, String, func
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, joinedload, mapped_column, relationship
 
 from adapters.database import Base, DatabaseSession
 from entities._operations import BaseOperationsMixin
@@ -66,5 +66,16 @@ class AuthorityLink(Base, BaseOperationsMixin):
         main_record_id: str,
         base: str,
     ) -> Optional["AuthorityLink"]:
-        """Return the single authority link for this record and base, if any."""
-        return db_session.query(cls).filter_by(main_record_id=main_record_id, base=base).first()
+        """Return the single authority link for this record and base, if any.
+
+        The authority record comes with it: callers reach straight through to
+        it — ``system_number`` below is a property that does — and the
+        relationship is lazy, so leaving it out costs a second query per link
+        to read one column.
+        """
+        return (
+            db_session.query(cls)
+            .options(joinedload(cls.authority_record))
+            .filter_by(main_record_id=main_record_id, base=base)
+            .first()
+        )

@@ -54,10 +54,7 @@ class TestValidationUsesTheSuppliedRecord:
                 seen.append(record)
                 return []
 
-        monkeypatch.setattr(
-            validation_tasks.Validation, "delete_by_record_and_validator", lambda *a, **k: None
-        )
-        monkeypatch.setattr(validation_tasks.Validation, "save_all", lambda *a, **k: None)
+        monkeypatch.setattr(validation_tasks.Validation, "replace_all", lambda *a, **k: True)
 
         validator = _Validator(type=type("T", (), {"value": "kramerius"})(), instance=Instance())
         record = _RecordThatRefusesToBeRead()
@@ -86,10 +83,7 @@ class TestValidationUsesTheSuppliedRecord:
             def get_record(self, _db):
                 return from_storage
 
-        monkeypatch.setattr(
-            validation_tasks.Validation, "delete_by_record_and_validator", lambda *a, **k: None
-        )
-        monkeypatch.setattr(validation_tasks.Validation, "save_all", lambda *a, **k: None)
+        monkeypatch.setattr(validation_tasks.Validation, "replace_all", lambda *a, **k: True)
 
         validator = _Validator(type=type("T", (), {"value": "kramerius"})(), instance=Instance())
         await validation_tasks.handle_catalog_record_validation(
