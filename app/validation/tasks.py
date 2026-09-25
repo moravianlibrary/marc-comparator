@@ -83,8 +83,13 @@ async def handle_catalog_record_validation(
     db_session: DatabaseSession,
     catalog_record: CatalogRecord,
     validator_instance: ValidatorInstance,
+    record: MarcRecord | None = None,
 ) -> None:
-    results = await validator_instance.instance.run(catalog_record.get_record(db_session))
+    # Callers running every validator over one record already hold it parsed;
+    # reading it back per validator was a sector read and a parse each time.
+    results = await validator_instance.instance.run(
+        record if record is not None else catalog_record.get_record(db_session)
+    )
 
     Validation.delete_by_record_and_validator(
         db_session,

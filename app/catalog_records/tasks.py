@@ -6,6 +6,7 @@ from collections.abc import Sequence
 from aleph_nought import RecordStatus
 from marc_comparator.comparators import RecordComparisonResult
 from marcdantic import MarcRecord
+from sqlalchemy.orm import joinedload
 
 from adapters.aleph_client_registry import AlephClientRegistry
 from adapters.marc_sectors import SectorBuffer, read_marc_many
@@ -40,6 +41,7 @@ from comparison.tasks import (
     load_gate_comparator,
 )
 from config import config
+from entities.authority_link import AuthorityLink
 from entities.catalog_record import CatalogRecord
 from entities.record_review import RecordReview
 from entities.result_snapshot import ResultSnapshot
@@ -116,6 +118,20 @@ def _result_hashes_for(
         _hash_grouped_results(validations.get(record_id, []), "validator", for_record)
         hashes[record_id] = for_record
     return hashes
+
+
+def _old_hashes_for(db_session, record_id: str, window_hashes: dict) -> dict:
+    """What a record's results looked like before this pass reprocessed it.
+
+    Membership, not truth: a record with nothing to replace yet hashes to an
+    empty dict, and asking `window_hashes.get(record_id) or ...` sent every one
+    of those back to the database for an answer the window already had. On a
+    first pass that is every record, which made the windowed read pure cost.
+    """
+
+    if record_id in window_hashes:
+        return window_hashes[record_id]
+    return _compute_result_hashes(db_session, record_id)
 
 
 def _hash_grouped_results(
@@ -478,9 +494,7 @@ async def process_records(task_id: str) -> None:
 
                 try:
                     # Captured before reprocessing, from the window's read.
-                    old_hashes = window_hashes.get(record_id) or _compute_result_hashes(
-                        ctx.db_session, record_id
-                    )
+                    old_hashes = _old_hashes_for(ctx.db_session, record_id, window_hashes)
 
                     marc_record = window_marc.get(record_id) or catalog_record.get_record(
                         ctx.db_session
@@ -513,7 +527,20 @@ async def process_records(task_id: str) -> None:
                         for result in results:
                             counters[result] += 1
 
-                    ctx.db_session.refresh(catalog_record)
+                    # The links this record now has, with the authority records
+                    # behind them, in one query. Both relationships load lazily,
+                    # so refreshing the row and then walking them cost a SELECT
+                    # for the record, one for its links, and one per link — 10%
+                    # of the worker between them. The flush makes a link this
+                    # pass deleted visible, which the row refresh did not do
+                    # either: the session does not autoflush.
+                    ctx.db_session.flush()
+                    authority_links = (
+                        ctx.db_session.query(AuthorityLink)
+                        .options(joinedload(AuthorityLink.authority_record))
+                        .filter_by(main_record_id=catalog_record.id)
+                        .all()
+                    )
 
                     # A comparison with nothing measured for it reads the
                     # authority record back, and one still waiting in the
@@ -524,11 +551,11 @@ async def process_records(task_id: str) -> None:
                             authority_link.authority_record.base,
                             authority_link.authority_record.system_number,
                         )
-                        for authority_link in catalog_record.authority_links
+                        for authority_link in authority_links
                     ):
                         sectors.flush_all()
 
-                    for authority_link in catalog_record.authority_links:
+                    for authority_link in authority_links:
                         await handle_catalog_record_comparison(
                             ctx.db_session,
                             comparator,
@@ -539,6 +566,8 @@ async def process_records(task_id: str) -> None:
                             # link left standing from an earlier run is still
                             # compared against what is stored now.
                             precomputed=measured.get(authority_link.base),
+                            record=marc_record,
+                            link=authority_link,
                         )
 
                     for validator_instance in validator_instances:
@@ -546,6 +575,7 @@ async def process_records(task_id: str) -> None:
                             ctx.db_session,
                             catalog_record,
                             validator_instance,
+                            record=marc_record,
                         )
 
                     _handle_result_changes(ctx.db_session, record_id, old_hashes)

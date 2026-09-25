@@ -1,6 +1,7 @@
 import logging
 
 from marc_comparator.comparators import BaseComparator, RecordComparisonResult
+from marcdantic import MarcRecord
 
 from adapters.database import DatabaseSession
 from adapters.tasks import (
@@ -9,6 +10,7 @@ from adapters.tasks import (
     handle_final_batch_snippet,
 )
 from catalog_records.search import build_filtered_query
+from entities.authority_link import AuthorityLink
 from entities.catalog_record import CatalogRecord
 from entities.comparison import Comparison
 from entities.settings import Settings, SettingsScope
@@ -69,11 +71,16 @@ async def handle_catalog_record_comparison(
     target_base: str,
     catalog_record: CatalogRecord,
     precomputed: RecordComparisonResult | None = None,
+    record: MarcRecord | None = None,
+    link: AuthorityLink | None = None,
 ) -> None:
-    link = next(
-        (al for al in catalog_record.authority_links if al.base == target_base),
-        None,
-    )
+    # A caller walking a record's links already has them, with the authority
+    # records attached; finding the link here again is a lazy load per base.
+    if link is None:
+        link = next(
+            (al for al in catalog_record.authority_links if al.base == target_base),
+            None,
+        )
 
     if link is None:
         logger.info(f"No authority link found for {catalog_record.id} to target base {target_base}")
@@ -84,7 +91,7 @@ async def handle_catalog_record_comparison(
     # over the stored record, so the round trip through sector storage is
     # included — so the caller may hand that result in instead.
     result = precomputed or await comparator.run(
-        catalog_record.get_record(db_session),
+        record if record is not None else catalog_record.get_record(db_session),
         link.authority_record.get_record(db_session),
     )
 
