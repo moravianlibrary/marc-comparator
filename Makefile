@@ -91,6 +91,7 @@ CNPG_MANIFEST := https://github.com/cloudnative-pg/cloudnative-pg/releases/downl
         helm-lint helm-template helm-install helm-uninstall helm-test helm-reload \
         profile-db-init profile-db-reset profile-db-report \
         profile-worker profile-worker-dump \
+        benchmark \
         test test-integration test-integration-verbose coverage-report \
         dev-sdk dev-app dev-worker dev-beat \
         db-migrate db-upgrade db-downgrade db-history \
@@ -105,19 +106,19 @@ help: ## Show this help
 # ─── Quality ─────────────────────────────────────────────────────────────────
 
 format: ## Format all code (Python + client)
-	$(UV) run --directory app ruff format . ../sdk
+	$(UV) run --directory app ruff format . ../sdk ../scripts
 	cd client && $(BUN) run format
 
 format-check: ## Check formatting without writing
-	$(UV) run --directory app ruff format --check . ../sdk
+	$(UV) run --directory app ruff format --check . ../sdk ../scripts
 	cd client && $(BUN) run format:check
 
 lint: ## Lint all code
-	$(UV) run --directory app ruff check . ../sdk
+	$(UV) run --directory app ruff check . ../sdk ../scripts
 	cd client && $(BUN) run lint
 
 lint-fix: ## Lint and apply safe fixes
-	$(UV) run --directory app ruff check --fix . ../sdk
+	$(UV) run --directory app ruff check --fix . ../sdk ../scripts
 	cd client && $(BUN) run lint:fix
 
 typecheck: ## Type-check Python (basedpyright) and client (tsc)
@@ -447,6 +448,21 @@ profile-worker-dump: $(PY_SPY_BIN) ## Print what every worker process is doing r
 	$(py_spy_present); \
 	$(KUBE) kubectl --namespace $(HELM_NAMESPACE) exec $$pod -- \
 		/tmp/py-spy dump --pid 1 --subprocesses
+
+# ─── Pipeline benchmark ──────────────────────────────────────────────────────
+
+# Empties the record tables, syncs a bounded slice of both catalogues and then
+# runs each pipeline stage on its own, twice — once cold, once with every
+# result already present. Configuration, users and the plugins' harvested
+# schemas are left alone; see RECORD_TABLES in the script for exactly what goes.
+#
+# Wants `make SQLTRACE=1 helm-install` beforehand for the per-call-site SQL
+# section, and a port-forward (`make k3d-port-forward-up`) for the API.
+BENCHMARK_ARGS ?=
+
+benchmark: ## Time each pipeline stage separately (BENCHMARK_ARGS='--py-spy-seconds 60')
+	$(require_cluster)
+	cd app && PYTHONPATH=. $(UV) run python ../scripts/benchmark_pipeline.py $(BENCHMARK_ARGS)
 
 # ─── Dev mode (backend in Docker, client local with HMR) ─────────────────────
 

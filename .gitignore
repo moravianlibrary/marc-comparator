@@ -429,3 +429,6 @@ CONTINUATION.md
 
 # Flamegraphs recorded by `make profile-worker`
 .profile/
+
+# Stage reports written by `make benchmark`
+.benchmark/

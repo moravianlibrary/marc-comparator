@@ -285,6 +285,33 @@ It is a separate switch from `PROFILE` on purpose: capturing a stack per query
 is exactly the kind of overhead that would skew a py-spy sample taken beside
 it. Run one or the other, not both.
 
+### Timing the stages against each other — `make benchmark`
+
+`scripts/benchmark_pipeline.py` empties the record tables, syncs a bounded
+slice of both catalogues, and then runs each pipeline stage on its own — twice.
+The second pass reruns everything with the results already present, which is a
+different question with a different answer.
+
+```bash
+make k3d-port-forward-up                    # the driver creates tasks over the API
+SQLTRACE=1 make helm-reload                 # optional, for the call-site section
+make benchmark BENCHMARK_ARGS='--revoke-running'
+```
+
+Each stage is bracketed by all three instruments and the task row itself, and
+the report lands in `.benchmark/<timestamp>/report.json` after every stage, so
+an interrupted run still keeps what it had measured.
+
+What it deletes is `RECORD_TABLES` in the script: records and everything
+derived from them, plus task history. Settings, users and roles survive, and so
+does harvested plugin data — that lives in the plugins' own Postgres schemas
+(`plugin_kramerius_links`, `plugin_marcxml_dump`), which nothing in `public`
+can reach. `--no-reset` skips the wipe entirely.
+
+Useful flags: `--stages sync process` to run part of it, `--since-days` for the
+sync window, `--py-spy-seconds 60` to take a folded-stack sample inside each
+stage.
+
 ---
 
 ## Feature Development Workflow
