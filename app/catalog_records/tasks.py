@@ -25,6 +25,7 @@ from authority_linking.tasks import (
     handle_catalog_record_link_action,
     load_authority_linkers,
     load_confident_threshold,
+    prefetch_linked_authority_marc,
     windows,
 )
 from catalog_records.models import (
@@ -46,6 +47,7 @@ from entities.catalog_record import CatalogRecord
 from entities.record_review import RecordReview
 from entities.result_snapshot import ResultSnapshot
 from entities.settings import Settings, SettingsScope
+from entities.validation import stored_results_for
 from validation.tasks import handle_catalog_record_validation, load_validators
 
 #: Records held between the catalogue and the loop that stores them.
@@ -120,6 +122,36 @@ def _result_hashes_for(
     return hashes
 
 
+def _link_fingerprint(links: Sequence[AuthorityLink]) -> str:
+    """What this record's authority links say, as one comparable string.
+
+    Kept apart from the result hashes on purpose: those feed ResultSnapshot
+    and outdate a record's reviews, and a link moving is not by itself a
+    reason to invalidate somebody's review of a comparison. This exists only
+    to answer whether a pass found anything new.
+    """
+
+    return json.dumps(
+        sorted(
+            (link.linker, link.base, link.authority_record_id, link.confidence) for link in links
+        ),
+        sort_keys=True,
+    )
+
+
+def _link_fingerprints_for(db_session, record_ids: Sequence[str]) -> dict[str, str]:
+    """The same for a window, in one query rather than one per record."""
+
+    wanted = list(record_ids)
+    by_record: defaultdict[str, list[AuthorityLink]] = defaultdict(list)
+    if wanted:
+        for link in (
+            db_session.query(AuthorityLink).filter(AuthorityLink.main_record_id.in_(wanted)).all()
+        ):
+            by_record[link.main_record_id].append(link)
+    return {record_id: _link_fingerprint(by_record.get(record_id, [])) for record_id in wanted}
+
+
 def _old_hashes_for(db_session, record_id: str, window_hashes: dict) -> dict:
     """What a record's results looked like before this pass reprocessed it.
 
@@ -148,15 +180,40 @@ def _hash_grouped_results(
 
 def _handle_result_changes(
     db_session, record_id: str, old_hashes: dict[str, tuple[str, list[dict]]]
-) -> None:
-    """Compare old vs new result hashes. Snapshot old data and outdate reviews where changed."""
-    new_hashes = _compute_result_hashes(db_session, record_id)
+) -> bool:
+    """Compare old vs new result hashes. Snapshot old data and outdate reviews where changed.
+
+    Returns whether anything actually differed. The caller needs that to know
+    whether the pass found anything: results move without the record moving,
+    because validators ask Kramerius and linkers ask the dump and knihovny.cz,
+    and any of those can answer differently than they did last time.
+    """
+    return _apply_result_changes(
+        db_session, record_id, old_hashes, _compute_result_hashes(db_session, record_id)
+    )
+
+
+def _apply_result_changes(
+    db_session,
+    record_id: str,
+    old_hashes: dict[str, tuple[str, list[dict]]],
+    new_hashes: dict[str, tuple[str, list[dict]]],
+) -> bool:
+    """The comparison itself, given both sides.
+
+    Split out so a window can read every record's new results in two queries
+    instead of two per record — the post-pass read was the last thing in the
+    processing loop still asked one record at a time.
+    """
+
+    changed = False
 
     for aspect_name, (old_hash, old_data) in old_hashes.items():
         new_entry = new_hashes.get(aspect_name)
         new_hash = new_entry[0] if new_entry else None
 
         if new_hash != old_hash:
+            changed = True
             version = ResultSnapshot.next_version(db_session, record_id, aspect_name)
             snapshot = ResultSnapshot(
                 record_id=record_id,
@@ -170,7 +227,10 @@ def _handle_result_changes(
     # Also outdate reviews for aspects that are new (didn't exist before)
     for aspect_name in new_hashes:
         if aspect_name not in old_hashes:
+            changed = True
             RecordReview.outdate_current(db_session, record_id, aspect_name)
+
+    return changed
 
 
 def save_record_metadata(
@@ -409,6 +469,50 @@ async def records_sync_task(task_id: str, lock_key: str, lock_blocking_timeout: 
         ctx.logger.info(f"Finished catalog sync, total records processed: {ctx.progress}")
 
 
+def _settle_window(
+    ctx: ManagedTask,
+    settle: Sequence[tuple[str, dict[str, tuple[str, list[dict]]], str]],
+    window_links: dict[str, str],
+) -> None:
+    """Snapshot, outdate and stamp a whole window at once.
+
+    Every record's new results are read together here rather than one record
+    at a time at the end of its own turn, which is what the post-pass hashing
+    used to cost. Deferring is safe because nothing in the loop reads back
+    what this writes — the pass is finished with a record by the time it gets
+    here.
+
+    A record is stamped only when this pass actually found something, or when
+    it has never been processed at all. Every reader of ``processed_at``
+    treats it as a boolean — "has this been processed since it last changed" —
+    so re-stamping a record whose links, comparisons and validations all still
+    say what they said says nothing new. It is not free either: ``updated_at``
+    is indexed and moves with any write, so each one of those rewrites the
+    primary key, that index and the GIN index over ``search_vector``.
+    """
+
+    if not settle:
+        return
+
+    # The writes of this window have to be visible to the read below, and the
+    # session does not autoflush.
+    ctx.db_session.flush()
+    new_hashes = _result_hashes_for(ctx.db_session, [record_id for record_id, _, _ in settle])
+
+    for record_id, old_hashes, links_after in settle:
+        results_changed = _apply_result_changes(
+            ctx.db_session, record_id, old_hashes, new_hashes.get(record_id, {})
+        )
+        links_changed = links_after != window_links.get(record_id, "")
+
+        catalog_record = ctx.db_session.get(CatalogRecord, record_id)
+        if catalog_record is None:
+            continue
+        if results_changed or links_changed or catalog_record.processed_at is None:
+            catalog_record.processed_at = config.timestamp
+            catalog_record.save(ctx.db_session, commit=False)
+
+
 async def process_records(task_id: str) -> None:
     """
     Process catalog records: link to authorities, compare with linked records,
@@ -485,6 +589,19 @@ async def process_records(task_id: str) -> None:
                 lambda instance: instance.type.value,
             )
 
+            CatalogRecord.warm(ctx.db_session, window)
+            stored_marc = prefetch_linked_authority_marc(
+                ctx.db_session, window, settings.target_bases
+            )
+            # What each record's links looked like before this pass, for the
+            # same reason the result hashes are read: to tell afterwards
+            # whether the pass found anything.
+            window_links = _link_fingerprints_for(ctx.db_session, window)
+            settle: list[tuple[str, dict[str, tuple[str, list[dict]]], str]] = []
+            # What each validator already stored for these records, so that a
+            # validator finding nothing new costs no query to discover it.
+            stored_validations = stored_results_for(ctx.db_session, window)
+
             for record_id in window:
                 catalog_record = ctx.db_session.get(CatalogRecord, record_id)
                 if catalog_record is None:
@@ -523,6 +640,7 @@ async def process_records(task_id: str) -> None:
                             linker_instance,
                             target_base,
                             sectors,
+                            stored_marc,
                         )
                         for result in results:
                             counters[result] += 1
@@ -576,12 +694,15 @@ async def process_records(task_id: str) -> None:
                             catalog_record,
                             validator_instance,
                             record=marc_record,
+                            existing=stored_validations.get(
+                                (record_id, validator_instance.type.value), []
+                            ),
                         )
 
-                    _handle_result_changes(ctx.db_session, record_id, old_hashes)
-
-                    catalog_record.processed_at = config.timestamp
-                    catalog_record.save(ctx.db_session, commit=False)
+                    # Settled once for the whole window, below: what this
+                    # record's results now say is two queries shared with
+                    # every other record in it rather than two of its own.
+                    settle.append((record_id, old_hashes, _link_fingerprint(authority_links)))
 
                     handle_batch_progress_snippet(ctx)
 
@@ -595,6 +716,8 @@ async def process_records(task_id: str) -> None:
                     ctx.db_session.rollback()
                     ctx.logger.error(f"Failed processing record {record_id}:\n{e}")
                     handle_batch_progress_snippet(ctx)
+
+            _settle_window(ctx, settle, window_links)
 
         handle_final_batch_snippet(ctx)
         ctx.logger.info(f"Finished processing records, total records processed: {ctx.progress}")

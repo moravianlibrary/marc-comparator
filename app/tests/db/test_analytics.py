@@ -1,9 +1,30 @@
 import pytest
+from marc_comparator.validators import (
+    ValidationResult,
+    ValidationTarget,
+    ValidityStatus,
+)
 from sqlalchemy import text
 
 from catalog_records.analytics import rebuild_all, upsert_records
 from entities.catalog_record import CatalogRecord, CatalogRecordSource
 from entities.comparison import Comparison
+
+
+def _validation_result(status: ValidityStatus) -> dict:
+    """A stored validation result, built the way the application builds one.
+
+    Written by hand these fixtures left out ``target``, which the model
+    requires, so the rows were a shape no validator could ever produce.
+    Building them through the model makes that impossible rather than merely
+    corrected.
+    """
+
+    return ValidationResult(
+        target=ValidationTarget(tag="856", codes=["u"]),
+        status=status,
+        reason="fixture",
+    ).model_dump()
 
 
 def _create_record(db_session, base="MZK01", sysno="000000001", **kwargs):
@@ -118,17 +139,17 @@ class TestFacetCube:
                 Validation(
                     catalog_record_id=one.id,
                     validator="kramerius-links",
-                    result={"status": "Valid"},
+                    result=_validation_result(ValidityStatus.Valid),
                 ),
                 Validation(
                     catalog_record_id=two.id,
                     validator="kramerius-links",
-                    result={"status": "Valid"},
+                    result=_validation_result(ValidityStatus.Valid),
                 ),
                 Validation(
                     catalog_record_id=two.id,
                     validator="other",
-                    result={"status": "Invalid"},
+                    result=_validation_result(ValidityStatus.Invalid),
                 ),
             ]
         )

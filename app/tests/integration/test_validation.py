@@ -118,7 +118,7 @@ def validation(
         validator="kramerius-links",
         result={
             "target": {"tag": "001"},
-            "status": "valid",
+            "status": "Valid",
             "reason": "mock_passed",
         },
     )

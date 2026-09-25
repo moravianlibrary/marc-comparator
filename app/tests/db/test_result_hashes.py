@@ -1,11 +1,33 @@
 """Reading a window's results must give each record what it would read alone."""
 
 import pytest
+from marc_comparator.validators import (
+    ValidationResult,
+    ValidationTarget,
+    ValidityStatus,
+)
 
 from catalog_records.tasks import _compute_result_hashes, _result_hashes_for
 from entities.catalog_record import CatalogRecord, CatalogRecordSource
 from entities.comparison import Comparison
 from entities.validation import Validation
+
+
+def _validation_result(status: ValidityStatus) -> dict:
+    """A stored validation result, built the way the application builds one.
+
+    Written by hand these fixtures left out ``target``, which the model
+    requires, so the rows were a shape no validator could ever produce.
+    Building them through the model makes that impossible rather than merely
+    corrected.
+    """
+
+    return ValidationResult(
+        target=ValidationTarget(tag="856", codes=["u"]),
+        status=status,
+        reason="fixture",
+    ).model_dump()
+
 
 pytestmark = pytest.mark.db
 
@@ -46,12 +68,12 @@ def population(db_session):
             Validation(
                 catalog_record_id=both.id,
                 validator="kramerius-links",
-                result={"status": "Valid"},
+                result=_validation_result(ValidityStatus.Valid),
             ),
             Validation(
                 catalog_record_id=validated_only.id,
                 validator="kramerius-links",
-                result={"status": "Invalid"},
+                result=_validation_result(ValidityStatus.Invalid),
             ),
         ]
     )
