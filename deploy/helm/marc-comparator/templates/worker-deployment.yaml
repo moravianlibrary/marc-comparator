@@ -25,6 +25,16 @@ spec:
         - name: worker
           image: {{ include "marc-comparator.image" (dict "image" .Values.worker.image "global" .Values.image) }}
           imagePullPolicy: {{ .Values.image.pullPolicy }}
+          {{- if .Values.worker.profiling }}
+          # py-spy samples by reading another process's memory, which the
+          # default container capability set forbids — and the host's
+          # kernel.yama.ptrace_scope=1 would forbid it too, for a process that
+          # is not a descendant of the profiler. Debugging only.
+          securityContext:
+            capabilities:
+              add:
+                - SYS_PTRACE
+          {{- end }}
           # Pin concurrency so the pool does not fork one process per node CPU
           # (~8) onto a 2-CPU/2Gi pod, which oversubscribes and triggers the
           # OOM/eviction that orphans tasks. See PLAN Workstream 1.

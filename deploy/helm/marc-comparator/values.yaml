@@ -26,6 +26,12 @@ worker:
   # Number of prefork worker processes. Keep at/under the CPU limit below to
   # avoid oversubscription (OOM/eviction that orphans tasks).
   concurrency: 2
+  # -- Grant the worker CAP_SYS_PTRACE so py-spy can attach to the pool
+  # processes. Debugging only — it lets anything in the container read any
+  # other process's memory, and the worker runs as root. Toggling it replaces
+  # the pod, so turn it on before starting the run you mean to profile, not
+  # during one. `make PROFILE=1 helm-install` sets it.
+  profiling: false
   image:
     repository: marc-comparator-worker
   resources:
@@ -83,6 +89,12 @@ cnpg:
   # Name of the CNPG Cluster resource to create
   name: marc-comparator-db
   instances: 1
+  # -- Load pg_stat_statements, which accumulates per-statement call counts and
+  # timings for as long as the server runs. It is how you find out which SQL a
+  # long task actually spends its time in, costs a few percent, and is the
+  # standard Postgres answer to that question. Changing this restarts the
+  # instance, because shared_preload_libraries is only read at startup.
+  pgStatStatements: true
   storage:
     size: 10Gi
     storageClassName: ""

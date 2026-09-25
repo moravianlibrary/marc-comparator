@@ -55,6 +55,15 @@ PF_DIR := $(CURDIR)/.k3d-port-forward
 PF_APP_PORT ?= 8000
 PF_CLIENT_PORT ?= 8080
 
+# The CNPG Cluster the chart creates (keep in sync with values.yaml cnpg.name)
+CNPG_CLUSTER ?= marc-comparator-db
+PG_DATABASE ?= marc
+
+# PROFILE=1 grants the worker CAP_SYS_PTRACE so py-spy can attach to the pool.
+# It is left off otherwise, and it replaces the worker pod when it changes.
+PROFILE ?=
+HELM_PROFILE_FLAGS := $(if $(PROFILE),--set worker.profiling=true,)
+
 # CloudNativePG operator — provides the postgresql.cnpg.io CRDs the chart needs
 CNPG_VERSION ?= 1.30.0
 CNPG_MANIFEST := https://github.com/cloudnative-pg/cloudnative-pg/releases/download/v$(CNPG_VERSION)/cnpg-$(CNPG_VERSION).yaml
@@ -75,6 +84,8 @@ CNPG_MANIFEST := https://github.com/cloudnative-pg/cloudnative-pg/releases/downl
         k3d-port-forward-up k3d-port-forward-down \
         cnpg-install cnpg-uninstall \
         helm-lint helm-template helm-install helm-uninstall helm-test helm-reload \
+        profile-db-init profile-db-reset profile-db-report \
+        profile-worker profile-worker-dump \
         test test-integration test-integration-verbose coverage-report \
         dev-sdk dev-app dev-worker dev-beat \
         db-migrate db-upgrade db-downgrade db-history \
@@ -298,6 +309,7 @@ helm-install: ## Install/upgrade the chart into the local cluster (ALLOW_REMOTE=
 	$(KUBE) helm upgrade --install $(HELM_RELEASE) $(CHART_DIR) \
 		--namespace $(HELM_NAMESPACE) --create-namespace \
 		--set image.tag=$(VERSION) \
+		$(HELM_PROFILE_FLAGS) \
 		--wait --timeout 10m
 
 helm-uninstall: ## Remove the release from the cluster
@@ -318,6 +330,96 @@ helm-reload: k3d-load helm-install ## Rebuild images and restart the workloads (
 	@for w in $(HELM_WORKLOADS); do \
 		$(KUBE) kubectl --namespace $(HELM_NAMESPACE) rollout status deploy/$(HELM_RELEASE)-$$w --timeout=5m; \
 	done
+
+# ─── Profiling ───────────────────────────────────────────────────────────────
+
+# Two instruments, because on this workload the time has repeatedly turned out
+# to be in the database rather than in Python: pg_stat_statements attributes it
+# to SQL across a whole run, py-spy attributes whatever is left to Python and
+# native frames. Reach for the SQL one first.
+
+PROFILE_SECONDS ?= 120
+PROFILE_TOP ?= 25
+PROFILE_OUT ?= $(CURDIR)/.profile
+
+worker_pod = $$($(KUBE) kubectl --namespace $(HELM_NAMESPACE) get pod \
+	-l app.kubernetes.io/component=worker \
+	-o jsonpath='{.items[0].metadata.name}')
+
+db_pod = $$($(KUBE) kubectl --namespace $(HELM_NAMESPACE) get pod \
+	-l cnpg.io/cluster=$(CNPG_CLUSTER),cnpg.io/instanceRole=primary \
+	-o jsonpath='{.items[0].metadata.name}')
+
+# Percentages are of the total in the view, so they only mean anything when the
+# counters were reset at the start of the run being measured.
+define PROFILE_DB_QUERY
+SELECT round((total_exec_time / 1000)::numeric, 1) AS total_s,
+       round((100 * total_exec_time / nullif(sum(total_exec_time) OVER (), 0))::numeric, 1) AS pct,
+       calls,
+       round(mean_exec_time::numeric, 2) AS mean_ms,
+       round((shared_blks_hit + shared_blks_read)::numeric / greatest(calls, 1), 0) AS blks_per_call,
+       left(regexp_replace(query, '\s+', ' ', 'g'), 100) AS query
+FROM pg_stat_statements
+ORDER BY total_exec_time DESC
+LIMIT $(PROFILE_TOP);
+endef
+export PROFILE_DB_QUERY
+
+profile-db-init: ## Create the pg_stat_statements extension (once, after enabling it)
+	$(require_cluster)
+	@$(KUBE) kubectl --namespace $(HELM_NAMESPACE) exec -c postgres $(db_pod) -- \
+		psql -U postgres -d $(PG_DATABASE) \
+		-c 'CREATE EXTENSION IF NOT EXISTS pg_stat_statements;'
+
+profile-db-reset: ## Zero the statement counters — do this immediately before a measured run
+	$(require_cluster)
+	@$(KUBE) kubectl --namespace $(HELM_NAMESPACE) exec -c postgres $(db_pod) -- \
+		psql -U postgres -d $(PG_DATABASE) -tAc 'SELECT pg_stat_statements_reset();' >/dev/null
+	@echo "→ statement counters reset"
+
+profile-db-report: ## Statements from the local database, worst total time first
+	$(require_cluster)
+	@$(KUBE) kubectl --namespace $(HELM_NAMESPACE) exec -c postgres $(db_pod) -- \
+		psql -U postgres -d $(PG_DATABASE) -P pager=off -c "$$PROFILE_DB_QUERY"
+
+# py-spy is fetched on this machine and copied into the pod, not installed from
+# inside it: the worker has no route to PyPI, and the shipped image is better
+# off carrying no profiler at all. The copy is lost when the pod is replaced.
+PY_SPY_BIN := $(PROFILE_OUT)/bin/py-spy
+
+$(PY_SPY_BIN):
+	@mkdir -p $(PROFILE_OUT)/bin
+	$(UV) venv --quiet $(PROFILE_OUT)/venv
+	$(UV) pip install --quiet --python $(PROFILE_OUT)/venv py-spy
+	@cp $(PROFILE_OUT)/venv/bin/py-spy $@
+
+define py_spy_present
+	$(KUBE) kubectl --namespace $(HELM_NAMESPACE) exec $$pod -- test -x /tmp/py-spy \
+		2>/dev/null \
+		|| $(KUBE) kubectl --namespace $(HELM_NAMESPACE) cp \
+			$(PY_SPY_BIN) $(HELM_NAMESPACE)/$$pod:/tmp/py-spy
+endef
+
+profile-worker: $(PY_SPY_BIN) ## Record a py-spy flamegraph of the worker (PROFILE_SECONDS=120)
+	$(require_cluster)
+	@mkdir -p $(PROFILE_OUT)
+	@pod=$(worker_pod); \
+	out=worker-$$(date +%Y%m%d-%H%M%S).svg; \
+	echo "→ sampling $$pod for $(PROFILE_SECONDS)s"; \
+	$(py_spy_present); \
+	$(KUBE) kubectl --namespace $(HELM_NAMESPACE) exec $$pod -- \
+		/tmp/py-spy record --pid 1 --subprocesses --duration $(PROFILE_SECONDS) \
+		--rate 100 --output /tmp/$$out; \
+	$(KUBE) kubectl --namespace $(HELM_NAMESPACE) cp \
+		$(HELM_NAMESPACE)/$$pod:/tmp/$$out $(PROFILE_OUT)/$$out; \
+	echo "→ $(PROFILE_OUT)/$$out"
+
+profile-worker-dump: $(PY_SPY_BIN) ## Print what every worker process is doing right now
+	$(require_cluster)
+	@pod=$(worker_pod); \
+	$(py_spy_present); \
+	$(KUBE) kubectl --namespace $(HELM_NAMESPACE) exec $$pod -- \
+		/tmp/py-spy dump --pid 1 --subprocesses
 
 # ─── Dev mode (backend in Docker, client local with HMR) ─────────────────────
 

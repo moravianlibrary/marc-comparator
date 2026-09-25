@@ -7,6 +7,12 @@ metadata:
 spec:
   instances: {{ .Values.cnpg.instances }}
 
+  {{- if .Values.cnpg.pgStatStatements }}
+  postgresql:
+    shared_preload_libraries:
+      - pg_stat_statements
+  {{- end }}
+
   bootstrap:
     initdb:
       database: {{ .Values.cnpg.database }}

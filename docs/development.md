@@ -196,6 +196,54 @@ make test-integration APP_TEST_TARGET=_smoke
 
 ---
 
+## Profiling
+
+Long tasks on this workload have repeatedly turned out to spend their time in
+the database rather than in Python, so start with the SQL and only then look at
+the interpreter.
+
+### Where the SQL time goes — `pg_stat_statements`
+
+Loaded by default (`cnpg.pgStatStatements`). It accumulates call counts and
+timings per normalised statement for as long as the server runs, which is what
+makes it usable on a three-hour task: no sampling window to miss.
+
+```bash
+make profile-db-init      # once — creates the extension
+make profile-db-reset     # immediately before the run you want to measure
+# ... start the task, let it finish ...
+make profile-db-report    # worst total time first; PROFILE_TOP=25 by default
+```
+
+The `pct` column is a share of everything in the view, so it only means
+anything if the counters were reset at the start of the run.
+
+### Where the Python time goes — `py-spy`
+
+py-spy samples a running process without instrumenting it, and it resolves
+native frames, so time inside zstd or psycopg shows up as itself rather than
+hiding behind one opaque Python call. cProfile is the wrong tool here: it
+counts each resumption of a coroutine as a call, which makes async code
+unreadable.
+
+Sampling means reading another process's memory, which the default container
+capability set forbids. `PROFILE=1` adds `CAP_SYS_PTRACE` to the worker:
+
+```bash
+PROFILE=1 make helm-reload     # replaces the worker pod — do it before the run
+make profile-worker            # PROFILE_SECONDS=120, writes .profile/*.svg
+make profile-worker-dump       # what every pool process is doing right now
+```
+
+`profile-worker-dump` is also the quickest answer to "is the task stuck?".
+
+py-spy is fetched on your own machine and copied into the pod, so the shipped
+image carries no profiler; the copy is lost whenever the pod is replaced. Note
+that the worker has no route to PyPI, so installing it from inside the pod does
+not work. Leave `PROFILE` unset for anything but a profiling session.
+
+---
+
 ## Feature Development Workflow
 
 1. Create a feature branch:
