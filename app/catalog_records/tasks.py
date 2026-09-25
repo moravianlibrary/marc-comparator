@@ -271,7 +271,12 @@ async def fetch_batch_of_records_task(task_id: str) -> None:
                     catalog_record = save_record_metadata(
                         ctx, base, system_number, record, existing
                     )
-                    buffer.add(base, system_number, marc_bytes_of(record))
+                    marc = marc_bytes_of(record)
+                    if old_marc != marc:
+                        # When they match, storage already holds this record byte
+                        # for byte; buffering it would rewrite its whole sector to
+                        # arrive at what is already there.
+                        buffer.add(base, system_number, marc)
 
                     if old_marc is not None and old_marc != record._marc:
                         catalog_record.processed_at = None
@@ -368,7 +373,9 @@ async def records_sync_task(task_id: str, lock_key: str, lock_blocking_timeout: 
                         cr = save_record_metadata(
                             ctx, record_base, system_number, record, catalog_record
                         )
-                        buffer.add(record_base, system_number, marc_bytes_of(record))
+                        marc = marc_bytes_of(record)
+                        if old_marc != marc:
+                            buffer.add(record_base, system_number, marc)
 
                         if old_marc is not None and old_marc != record._marc:
                             cr.processed_at = None

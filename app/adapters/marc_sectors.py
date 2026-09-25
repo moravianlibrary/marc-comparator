@@ -4,6 +4,7 @@ from collections.abc import Callable
 
 import zstandard as zstd
 from marcdantic import MarcRecord
+from sqlalchemy import select, tuple_
 from sqlalchemy.orm import Session
 
 from adapters.lock_server import lock_server_client
@@ -69,8 +70,6 @@ def read_marc_many(db: Session, base: str, system_numbers: list[str]) -> dict[st
     whether the record changed. Records missing from storage are simply absent
     from the result, exactly as ``read_marc`` returns None for them.
     """
-
-    from sqlalchemy import select, tuple_
 
     found: dict[str, bytes] = {}
     wanted = list(dict.fromkeys(system_numbers))
@@ -190,11 +189,26 @@ def write_records_to_sector(
     # Flush so the sector row exists before index rows reference it
     db.flush()
 
+    # One query for every index row this sector touches. Fetched one at a time
+    # this was a SELECT per record — up to SECTOR_SIZE of them per write, and
+    # 15% of everything the worker did.
+    existing_indexes = {
+        index.system_number: index
+        for index in db.execute(
+            select(MarcRecordIndex).where(
+                MarcRecordIndex.base == base,
+                MarcRecordIndex.system_number.in_([sysno for sysno, _ in sorted_items]),
+            )
+        )
+        .scalars()
+        .all()
+    }
+
     # Upsert index rows
     offset = 0
     for sysno, marc_bytes in sorted_items:
         rec_len = len(marc_bytes)
-        idx = db.get(MarcRecordIndex, (base, sysno))
+        idx = existing_indexes.get(sysno)
         if idx is None:
             db.add(
                 MarcRecordIndex(
@@ -227,6 +241,10 @@ def upsert_record_in_sector(db: Session, base: str, system_number: str, marc_byt
     # Decompress existing sector, merge, rewrite
     raw = _decompressor.decompress(sector.data)
     records = _parse_blob_with_index(db, base, sector_id, raw)
+    if records.get(system_number) == marc_bytes:
+        # Already in storage byte for byte. Rewriting would recompress the whole
+        # sector and evict every record sharing it from the cache, for nothing.
+        return
     records[system_number] = marc_bytes
     write_records_to_sector(db, base, sector_id, records)
 
@@ -285,6 +303,13 @@ class SectorBuffer:
         if existing:
             raw = _decompressor.decompress(existing.data)
             existing_records = _parse_blob_with_index(self.db, base, sector_id, raw)
+            if all(existing_records.get(sysno) == marc for sysno, marc in records.items()):
+                # Nothing here differs from what is stored. Linking re-stores an
+                # authority record for every catalogue record that points at it,
+                # so most of these buffers are identical to the sector already on
+                # disk, and writing one costs a zstd pass over the whole sector
+                # plus an index row and a cache eviction per record in it.
+                return
             existing_records.update(records)
             records = existing_records
 
