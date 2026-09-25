@@ -207,19 +207,62 @@ def _load_local_documents(connection, documents, identifiers, rows) -> list[Kram
     return result
 
 
-def _identifier_parts(record: MarcRecord) -> list[tuple[KrameriusField, str]]:
-    """The (field, value) pairs a record is searched by, in a stable order."""
+#: Asked together, in this order, so the record is handed to jq once.
+#:
+#: Handing it over converts the whole record into jq's own values, so the
+#: cost follows the size of the record rather than what the filter selects:
+#: three selectors asked separately measured 0.675 ms against 0.231 ms asked
+#: together, which is what one of them costs alone.
+_IDENTIFIER_SELECTORS = (
+    (KrameriusField.Isbn, IsbnActiveJq),
+    (KrameriusField.Issn, IssnActiveJq),
+    (KrameriusField.Nbn, NbnActiveJq),
+)
+
+
+#: The 856 fields, asked for alongside the identifiers rather than on their own.
+_ELOCATION_FIELDS_JQ = '.["856"][]?'
+
+#: Every filter this validator asks of a record, in one list, so the record is
+#: handed to jq once.
+_ALL_FILTERS = [jq_filter for _field, jq_filter in _IDENTIFIER_SELECTORS] + [_ELOCATION_FIELDS_JQ]
+
+
+@dataclass(frozen=True)
+class _RecordQueries:
+    """Everything this validator asks jq about one record.
+
+    Asked together because handing a record to jq converts the whole of it
+    into jq's own values, so the cost follows the size of the record and not
+    what the filter selects. Four filters asked separately convert the same
+    record four times.
+    """
+
+    identifiers: list[tuple[KrameriusField, str]]
+    elocation_fields: list[VariableField]
+
+
+def _query_record(record: MarcRecord) -> _RecordQueries:
+    """Ask every filter at once and sort the answers out afterwards."""
+
+    *identifier_values, elocation = record.variable_fields.query_many(_ALL_FILTERS)
 
     raw_fields = [
         (
             KrameriusField.Barcode,
             [i.barcode for i in record.issues_selector.all if i.barcode],
         ),
-        (KrameriusField.Isbn, record.variable_fields.query(IsbnActiveJq)),
-        (KrameriusField.Issn, record.variable_fields.query(IssnActiveJq)),
-        (KrameriusField.Nbn, record.variable_fields.query(NbnActiveJq)),
+        *(
+            (field, values)
+            for (field, _), values in zip(_IDENTIFIER_SELECTORS, identifier_values, strict=True)
+        ),
     ]
-    return [(field, value) for field, values in raw_fields for value in (values or [])]
+    return _RecordQueries(
+        identifiers=[(field, value) for field, values in raw_fields for value in (values or [])],
+        # query_fields would have validated these; query_many hands back the
+        # plain dicts jq produced, so they are validated here instead.
+        elocation_fields=[VariableField.model_validate(field) for field in elocation],
+    )
 
 
 def _window_key(searched_values: dict[KrameriusField, set[str]]) -> frozenset[tuple[str, str]]:
@@ -294,6 +337,11 @@ class KrameriusLinksValidator(BaseValidator):
         #: record searches on. Replaced wholesale by each prefetch, so it holds
         #: one window and not a run.
         self._documents_cache: dict[frozenset[tuple[str, str]], list[KrameriusDocument]] = {}
+        #: What each record in the current window asks jq, keyed by identity.
+        #: Populated only while `_window_records` holds those records alive, so
+        #: an id cannot be reused underneath an entry.
+        self._record_queries: dict[int, _RecordQueries] = {}
+        self._window_records: Sequence[MarcRecord] = ()
 
     def harvest_source_identity(self) -> str:
         """Fingerprint only settings that change the Solr dataset being copied."""
@@ -522,6 +570,8 @@ class KrameriusLinksValidator(BaseValidator):
         """
 
         self._documents_cache = {}
+        self._record_queries = {}
+        self._window_records = ()
         if not records or not self.harvest_ready:
             return
         try:
@@ -532,11 +582,17 @@ class KrameriusLinksValidator(BaseValidator):
             logger.info("Harvested Kramerius data became unavailable while prefetching")
 
     def _load_window(self, records: Sequence[MarcRecord]) -> None:
+        # Held for as long as the answers below are keyed by their identity.
+        self._window_records = records
+
         wanted: list[tuple[frozenset[tuple[str, str]], dict[KrameriusField, set[str]]]] = []
         combined: dict[KrameriusField, set[str]] = defaultdict(set)
         for record in records:
+            queries = _query_record(record)
+            self._record_queries[id(record)] = queries
+
             searched: dict[KrameriusField, set[str]] = defaultdict(set)
-            for field, value in _identifier_parts(record):
+            for field, value in queries.identifiers:
                 searched[field].add(value)
             wanted.append((_window_key(searched), searched))
             for field, values in searched.items():
@@ -557,6 +613,18 @@ class KrameriusLinksValidator(BaseValidator):
         for key, _searched in wanted:
             positions = {position for pair in key for position in by_value.get(pair, ())}
             self._documents_cache[key] = [found[position] for position in sorted(positions)]
+
+    def _queries_for(self, record: MarcRecord) -> _RecordQueries:
+        """What this record asks jq, from the window if it was prefetched.
+
+        Only `_load_window` ever fills the cache, and only while
+        `_window_records` keeps those records alive: caching a record from
+        anywhere else would leave an entry keyed by an id that a later object
+        could be handed once this one is collected.
+        """
+
+        cached = self._record_queries.get(id(record))
+        return cached if cached is not None else _query_record(record)
 
     def _local_documents_by_identifiers(
         self, searched_values: dict[KrameriusField, set[str]]
@@ -615,7 +683,7 @@ class KrameriusLinksValidator(BaseValidator):
     ) -> tuple[list[FoundKrameriusLink], list[AmbiguousIdentifier]]:
         links: dict[str, FoundKrameriusLink] = {}
 
-        field_query_parts = _identifier_parts(record)
+        field_query_parts = self._queries_for(record).identifiers
 
         searched_values: dict[KrameriusField, set[str]] = defaultdict(set)
         for field, value in field_query_parts:
@@ -766,7 +834,7 @@ class KrameriusLinksValidator(BaseValidator):
                 )
             )
 
-        for field_idx, vf in enumerate(record.variable_fields.query_fields('.["856"][]?')):
+        for field_idx, vf in enumerate(self._queries_for(record).elocation_fields):
             if not any(self.link_text_regex.match(v) for v in vf.subfields.get("y", [])):
                 if not any(self.url_to_pid_regex.match(v) for v in vf.subfields.get("u", [])):
                     continue

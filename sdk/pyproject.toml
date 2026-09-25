@@ -13,11 +13,11 @@ authors = [
 ]
 requires-python = ">=3.12"
 dependencies = [
-    "aleph-nought @ git+https://github.com/moravianlibrary/aleph-nought.git@v0.2.12",
+    "aleph-nought @ git+https://github.com/moravianlibrary/aleph-nought.git@v0.2.13",
     "httpx",
     "kramerius @ git+https://github.com/moravianlibrary/kramerius-client.git@v0.3.3",
     "lxml",
-    "marcdantic @ git+https://github.com/moravianlibrary/marcdantic.git@v0.3.11",
+    "marcdantic @ git+https://github.com/moravianlibrary/marcdantic.git@v0.3.12",
     "pydantic",
     "pymarc>=5",
     "python-stdnum",
