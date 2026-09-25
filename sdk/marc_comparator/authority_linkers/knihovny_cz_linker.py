@@ -8,6 +8,7 @@ plugin reports carries a measured confidence rather than an implied one.
 """
 
 import asyncio
+import logging
 import re
 from collections.abc import Sequence
 from typing import Any
@@ -20,6 +21,8 @@ from pydantic import BaseModel, Field
 from ..comparators import RecordComparisonResult
 from ..comparators.default import DefaultComparator, DefaultComparatorConfig
 from ._base import AuthorityLink, BaseAuthorityLinker, LinkRequest
+
+logger = logging.getLogger(__name__)
 
 #: Ids per prefetch request. The service refuses 200 outright; at 50 a record
 #: costs about 12 ms against 196 ms asked for one at a time, and the URL stays
@@ -194,8 +197,22 @@ class KnihovnyCZLinker(BaseAuthorityLinker):
             response.raise_for_status()
             return response.json().get("records") or []
 
+        # One chunk failing is one chunk's worth of records falling back to
+        # their own lookup, which is what they would have done without a
+        # window at all. Losing the chunks that did answer would be worse.
+        results = await asyncio.gather(*(fetch(chunk) for chunk in chunks), return_exceptions=True)
+
         found: dict[str, Any] = {}
-        for entries in await asyncio.gather(*(fetch(chunk) for chunk in chunks)):
+        for chunk, entries in zip(chunks, results, strict=True):
+            if isinstance(entries, BaseException):
+                logger.warning(
+                    "Could not read %s for %d records at once (%s); "
+                    "they will be asked for one at a time",
+                    field,
+                    len(chunk),
+                    entries,
+                )
+                continue
             for entry in entries:
                 id = entry.get("id")
                 if id is not None and field in entry:
@@ -246,7 +263,16 @@ class KnihovnyCZLinker(BaseAuthorityLinker):
         fetched = await self._fetch_field(target_ids, "fullRecord")
         for target_id in target_ids:
             xml = fetched.get(target_id)
-            self._record_cache[target_id] = None if xml is None else _parse_full_record(xml)
+            if xml is None:
+                self._record_cache[target_id] = None
+                continue
+            try:
+                self._record_cache[target_id] = _parse_full_record(xml)
+            except Exception:
+                # One record the service cannot express as MARC must not cost
+                # the window it happened to be in. Left out of the cache, so
+                # `run` asks for it on its own and fails only that record.
+                logger.warning("Skipping unparseable knihovny.cz record %s", target_id)
 
     async def _get_dedup_ids(self, id: str) -> list[str]:
         if id in self._dedup_cache:

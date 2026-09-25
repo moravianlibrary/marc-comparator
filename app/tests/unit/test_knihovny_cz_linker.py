@@ -445,3 +445,100 @@ class TestPrefetchConcurrency:
         await linker._fetch_field([f"mzk.MZK01-{n:09}" for n in range(1000)], "dedupIds")
 
         assert peak <= _PREFETCH_CONCURRENCY
+
+
+class TestPrefetchResilience:
+    """One bad record or one bad chunk must not cost the whole window."""
+
+    @staticmethod
+    def request() -> httpx.Request:
+        return httpx.Request("GET", "https://www.knihovny.cz/api/v1/record")
+
+    @pytest.mark.asyncio
+    async def test_a_failing_chunk_does_not_lose_the_others(
+        self, monkeypatch: pytest.MonkeyPatch
+    ):
+        linker = KnihovnyCZLinker(KnihovnyCZLinkerConfig())
+        seen = 0
+
+        async def get(url: str, params, **kwargs: object):
+            nonlocal seen
+            seen += 1
+            asked = [value for key, value in params if key == "id[]"]
+            if seen == 1:
+                # The service does return 500 on a batch now and then.
+                return httpx.Response(500, text="boom", request=self.request())
+            return httpx.Response(
+                200,
+                json={
+                    "resultCount": len(asked),
+                    "records": [{"id": id, "dedupIds": [f"dedup-{id}"]} for id in asked],
+                    "status": "OK",
+                },
+                request=self.request(),
+            )
+
+        monkeypatch.setattr(linker.client, "get", get)
+
+        found = await linker._fetch_field([f"mzk.MZK01-{n:09}" for n in range(100)], "dedupIds")
+
+        # The 50 the failing chunk asked about are simply absent, so they fall
+        # back to their own lookup; the other 50 are here.
+        assert len(found) == 50
+
+    @pytest.mark.asyncio
+    async def test_an_unparseable_record_does_not_cost_the_window(
+        self, monkeypatch: pytest.MonkeyPatch
+    ):
+        linker = KnihovnyCZLinker(KnihovnyCZLinkerConfig())
+
+        async def get(url: str, params, **kwargs: object):
+            fields = [value for key, value in params if key == "field[]"]
+            asked = [value for key, value in params if key in {"id[]", "id"}]
+            if "fullRecord" in fields:
+                records = []
+                for id in asked:
+                    xml = "<not-marc/>" if id.endswith("000000002") else MARC_XML.format(
+                        control_number=id
+                    )
+                    records.append({"id": id, "fullRecord": xml})
+                return httpx.Response(
+                    200,
+                    json={"resultCount": len(records), "records": records, "status": "OK"},
+                    request=self.request(),
+                )
+            return httpx.Response(
+                200,
+                json={
+                    "resultCount": len(asked),
+                    "records": [
+                        {
+                            "id": id,
+                            "dedupIds": [f"caslin.SKC01-{id.rsplit('-', 1)[1]}"],
+                        }
+                        for id in asked
+                    ],
+                    "status": "OK",
+                },
+                request=self.request(),
+            )
+
+        monkeypatch.setattr(linker.client, "get", get)
+
+        await linker.prefetch(
+            [
+                LinkRequest(
+                    base="MZK01",
+                    system_number=f"00000000{n}",
+                    record=marc_record(),
+                    target_base="SKC",
+                )
+                for n in (1, 2, 3)
+            ]
+        )
+
+        # The two that parsed are served from the window; the one that did not
+        # is absent, so `run` asks for it and only it can fail.
+        assert linker._record_cache.get("caslin.SKC01-000000001") is not None
+        assert linker._record_cache.get("caslin.SKC01-000000003") is not None
+        assert "caslin.SKC01-000000002" not in linker._record_cache
