@@ -62,10 +62,11 @@ def delete_role(role_id: int, db_session: DatabaseSession) -> Role:
 
 
 def get_users(params: UsersRequestParams, db_session: DatabaseSession) -> Page[UserSchema]:
-    # The scheduler's account is not a person and cannot be administered — it
-    # never logs in and its roles are fixed — so listing it among the accounts
-    # someone manages only invites an edit that will be refused.
-    query_base = db_session.query(User).filter(User.id != SYSTEM_USER_ID)
+    # The scheduler's account stays in this list even though it is not a
+    # person. It is what the task table resolves `created_by` against, so
+    # hiding it here made every scheduled task credit a bare UUID. The
+    # role guards below are what actually stop it being administered.
+    query_base = db_session.query(User)
     if params.email:
         query_base = query_base.filter(User.email.ilike(f"{params.email}%"))
 

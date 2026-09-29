@@ -3,7 +3,7 @@ from httpx import AsyncClient
 
 from adapters.database import DatabaseSession
 from entities.role import Role
-from entities.user import User
+from entities.user import SYSTEM_USER_EMAIL, SYSTEM_USER_ID, User
 from tests.conftest import assert_response
 
 
@@ -465,3 +465,34 @@ class TestAccessControlEndpoints:
                 "protected": True,
             },
         )
+
+
+class TestTheSchedulerIsStillListed:
+    """Hiding the system user from this endpoint is not free.
+
+    The task table resolves `created_by` against this list, so an account
+    missing from it makes every task it created credit a bare UUID. The
+    guards on assign/unassign are what keep it un-administered; the listing
+    is just how the rest of the interface learns its name.
+    """
+
+    @pytest.mark.asyncio
+    async def test_the_system_user_appears_with_its_name(
+        self, db_session: DatabaseSession, user, client: AsyncClient
+    ):
+        Role.create_default_roles(db_session)
+        system = User(
+            id=SYSTEM_USER_ID,
+            email=SYSTEM_USER_EMAIL,
+            first_name="System",
+            last_name="Scheduler",
+            password_hash="unusable",
+        )
+        system.save(db_session)
+
+        response = await client.get("/access-control/users")
+
+        assert response.status_code == 200
+        listed = {item["id"]: item for item in response.json()["items"]}
+        assert str(SYSTEM_USER_ID) in listed, "the task table has no name to show for it"
+        assert listed[str(SYSTEM_USER_ID)]["first_name"] == "System"
