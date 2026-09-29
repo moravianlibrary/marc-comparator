@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import json
+import logging
 import os
 from collections import defaultdict
+from functools import lru_cache
 from typing import Any
 
 from .config import AGG_P, AGGREGATION, HINGE_ACCEL_ENABLED, HINGE_EXP, HINGE_POINT, RECORD_CAP
 from .marc21_quality import DEFAULT_WEIGHTS
+
+logger = logging.getLogger(__name__)
 
 LABEL_TO_CATEGORY = {
     "TYPO": "typo",
@@ -34,7 +38,27 @@ MISSING_REASONS = {
 }
 
 
+@lru_cache(maxsize=8)
 def _load_weights(path: str | None = None) -> dict[str, int]:
+    """The weight table, read once per path.
+
+    Rebuilding this is 565 dictionary entries, measured at 0.156 ms, and it ran
+    on every ``score_differences`` call — once per comparison plus once per
+    linker candidate. Over a full pass that is hours of rebuilding a table that
+    never changes while the process is up.
+
+    Cached, so the file and ``MARC_WEIGHTS_PATH`` are read at first use and a
+    change to either needs a restart. That is already true of everything else
+    this module reads from ``config``. Callers only read the result; it is
+    shared, not copied.
+
+    An answer that is blank or unparseable is left out rather than stored as 0.
+    The keys here are answers to a survey question per field and category, and
+    an unanswered one is not the same as "this difference costs nothing" —
+    omitted, ``_pick_weight`` falls through to the next key and finally to its
+    own default, which is what an unpriced difference should get.
+    """
+
     p = path or os.environ.get("MARC_WEIGHTS_PATH")
 
     if p:
@@ -46,10 +70,14 @@ def _load_weights(path: str | None = None) -> dict[str, int]:
 
     out: dict[str, int] = {}
     for k, v in raw.items():
+        if v in ("", None):
+            continue
         try:
-            out[k] = int(v) if v not in ("", None) else 0
-        except Exception:
-            out[k] = 0
+            out[k] = int(v)
+        except (TypeError, ValueError):
+            # Blank is a survey answer nobody gave; this is a value somebody
+            # gave that is not a weight, which is worth hearing about.
+            logger.warning("Ignoring unreadable weight for %s: %r", k, v)
     return out
 
 

@@ -36,6 +36,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   OCLC number or UUID, discarded for scoring below 0.7; those now link. Expect roughly
   half as many links again, concentrated in the band the review queue exists to show.
   The knihovny.cz linker retrieves one way only and keeps its single floor.
+- A blank answer in the comparator weight table no longer prices its category at
+  zero. `_load_weights` leaves blank and unreadable answers out, so `_pick_weight`
+  falls through instead of finding a 0 — a typo in 080 or 504, or in 600 `$2`, used
+  to cost nothing at all. `field_080_typo` and `field_504_typo`, which had nothing
+  to fall through to, were filled from the other categories in their own rows (10
+  and 9); the remaining two blanks fall back correctly and are left as they are.
+- The weight table is built once per path instead of on every `score_differences`
+  call — about 1700x per call after the first, and up to an hour of pure dictionary
+  rebuilding across a full pass. The file and `MARC_WEIGHTS_PATH` are now read at
+  first use, so changing either needs a restart.
 - Ruff lint selection extended with `B` (bugbear) and `SIM` (simplify).
 - Client tooling migrated from npm to Bun, and from ESLint + Prettier to Biome.
 - Python dependencies migrated from `requirements*.txt` to PEP 621 with `uv`.
