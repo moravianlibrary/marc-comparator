@@ -107,13 +107,16 @@ _ANALYTICS_SELECT = """
         array_agg(DISTINCT al.base)
             FILTER (WHERE al.base IS NOT NULL)              AS authority_link_bases,
 
-        -- Every outcome, not only the linked ones `al` is scoped to: this is
-        -- the column that answers "which records did linking fail on". A
-        -- subquery rather than a second join, which would multiply the rows
-        -- every array_agg above is computed over.
+        -- The answer for each base, whatever it says — which is the column
+        -- that tells the records linking failed on from the ones it linked.
+        -- Answers only: a runner-up is not an outcome, and including the
+        -- `Rejected` rows would put a value in this facet that means
+        -- something else entirely and stop the buckets partitioning the
+        -- records. A subquery rather than a second join, which would
+        -- multiply the rows every array_agg above is computed over.
         (SELECT array_agg(DISTINCT al2.outcome)
          FROM authority_links al2
-         WHERE al2.main_record_id = cr.id
+         WHERE al2.main_record_id = cr.id AND al2.rank = 0
         ) AS link_outcomes,
 
         array_agg(DISTINCT cmp.base)

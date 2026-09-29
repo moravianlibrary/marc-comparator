@@ -611,3 +611,63 @@ class TestTheSummaryCarriesTheWholeStory:
         db_session.commit()
 
         assert self._summary(db_session, record).processing_error == ("variable_fields.500.0.ind1")
+
+
+class TestTheOutcomeFacetPartitionsTheRecords:
+    """`link_outcomes` is the answer for each base, not every row.
+
+    A runner-up is not an outcome. Counting the `Rejected` rows here would
+    put a value in the facet meaning "this record has stored alternatives",
+    which is a different question, and the buckets would stop adding up to
+    the records.
+    """
+
+    def _analytics(self, db_session, record: CatalogRecord):
+        from sqlalchemy import text
+
+        from catalog_records.analytics import TABLE, upsert_records
+
+        upsert_records(db_session, [record.id])
+        return db_session.execute(
+            text(f"SELECT link_outcomes FROM {TABLE} WHERE id = :i"), {"i": record.id}
+        ).scalar()
+
+    def test_a_kept_runner_up_does_not_become_an_outcome(self, db_session):
+        record = _record(db_session, "000000100")
+        won = _record(db_session, "000000101", TARGET_BASE, CatalogRecordSource.AuthorityLinker)
+        lost = _record(db_session, "000000102", TARGET_BASE, CatalogRecordSource.AuthorityLinker)
+
+        handle_catalog_record_link_action(
+            db_session,
+            record,
+            _decision(_candidate(won, 0.71), _candidate(lost, 0.64)),
+            TARGET_BASE,
+        )
+        db_session.commit()
+
+        assert self._analytics(db_session, record) == ["Linked"]
+
+    def test_the_filter_agrees_with_the_facet(self, db_session):
+        """The ORM and the analytics compiler answer the same question."""
+
+        record = _record(db_session, "000000103")
+        won = _record(db_session, "000000104", TARGET_BASE, CatalogRecordSource.AuthorityLinker)
+        lost = _record(db_session, "000000105", TARGET_BASE, CatalogRecordSource.AuthorityLinker)
+
+        handle_catalog_record_link_action(
+            db_session,
+            record,
+            _decision(_candidate(won, 0.71), _candidate(lost, 0.64)),
+            TARGET_BASE,
+        )
+        db_session.commit()
+
+        assert (
+            build_filtered_query(
+                db_session, RecordFilter(link_outcomes=[LinkOutcome.Rejected.value])
+            ).all()
+            == []
+        )
+        assert build_filtered_query(
+            db_session, RecordFilter(link_outcomes=[LinkOutcome.Linked.value])
+        ).all() == [record]

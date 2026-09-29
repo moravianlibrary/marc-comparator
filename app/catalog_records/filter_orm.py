@@ -1,6 +1,6 @@
 from sqlalchemy import String, and_, bindparam, func, or_, text
 
-from entities.authority_link import AuthorityLink
+from entities.authority_link import ANSWER_RANK, AuthorityLink
 from entities.catalog_record import CatalogRecord
 from entities.comparison import Comparison
 from entities.record_review import RecordReview, ReviewStatus
@@ -17,9 +17,6 @@ MATCH_QUALITY_RANGES = {
 RELATIONSHIP_FILTERS = {
     FilterField.AuthorityLinkLinkers: (CatalogRecord.authority_links, AuthorityLink.linker),
     FilterField.AuthorityLinkBases: (CatalogRecord.authority_links, AuthorityLink.base),
-    # Over every attempt rather than the accepted links: an outcome that is
-    # not `Linked` has no link to be found through, which is the point of it.
-    FilterField.LinkOutcomes: (CatalogRecord.link_attempts, AuthorityLink.outcome),
     FilterField.Validators: (CatalogRecord.validations, Validation.validator),
 }
 
@@ -90,12 +87,24 @@ def _compile_one(query, c: FilterCondition):
         case (
             FilterField.AuthorityLinkLinkers
             | FilterField.AuthorityLinkBases
-            | FilterField.LinkOutcomes
             | FilterField.Validators
         ):
             relationship, column = RELATIONSHIP_FILTERS[c.field]
             for val in c.value:
                 query = query.filter(relationship.any(column == val))
+            return query
+
+        case FilterField.LinkOutcomes:
+            # Over every attempt, because an outcome that is not `Linked` has
+            # no link to be found through — but only the answer rows. A
+            # runner-up is not an outcome, and matching one would select
+            # records under a value that describes something else.
+            for val in c.value:
+                query = query.filter(
+                    CatalogRecord.link_attempts.any(
+                        and_(AuthorityLink.rank == ANSWER_RANK, AuthorityLink.outcome == val)
+                    )
+                )
             return query
 
         case FilterField.ComparisonBases:
