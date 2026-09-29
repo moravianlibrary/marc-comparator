@@ -197,6 +197,23 @@ _ANALYTICS_SELECT = """
 
 _ANALYTICS_GROUP_BY = "GROUP BY cr.id"
 
+#: The columns `_ANALYTICS_SELECT` produces, in its order.
+#:
+#: Naming them is not decoration. `INSERT INTO t SELECT ...` matches by
+#: position, and a column added by ADD_COLUMNS_SQL lands at the end of an
+#: existing table while sitting mid-list in CREATE_TABLE_SQL. The two
+#: disagree from then on, and the insert quietly files each value one
+#: column to the left of where it belongs.
+_ANALYTICS_COLUMNS = """
+    id, base, system_number, type_of_record, bibliographic_level,
+    is_deleted, is_processed, is_broken,
+    authority_link_linkers, authority_link_bases,
+    comparison_bases, match_qualities, overall_scores, field_explanations,
+    validators, validation_statuses, validation_target_tags, validation_reasons,
+    reviewed_aspects, review_status,
+    latest_sync, latest_transaction, processed_at, updated_at
+"""
+
 
 #: Columns added to the analytics table after it first shipped.
 #:
@@ -231,7 +248,7 @@ def upsert_records(db: Session, record_ids: list[str]) -> None:
         return
     db.execute(
         text(f"""
-        INSERT INTO {TABLE} {_ANALYTICS_SELECT}
+        INSERT INTO {TABLE} ({_ANALYTICS_COLUMNS}) {_ANALYTICS_SELECT}
             AND cr.id = ANY(:ids)
             {_ANALYTICS_GROUP_BY}
         ON CONFLICT (id) DO UPDATE SET
@@ -269,7 +286,7 @@ def rebuild_all(db: Session) -> None:
     db.execute(text(f"TRUNCATE {TABLE}"))
     db.execute(
         text(f"""
-        INSERT INTO {TABLE} {_ANALYTICS_SELECT}
+        INSERT INTO {TABLE} ({_ANALYTICS_COLUMNS}) {_ANALYTICS_SELECT}
             {_ANALYTICS_GROUP_BY}
     """)
     )

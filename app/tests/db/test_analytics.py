@@ -6,9 +6,18 @@ from marc_comparator.validators import (
 )
 from sqlalchemy import text
 
-from catalog_records.analytics import rebuild_all, upsert_records
+from catalog_records.analytics import (
+    _ANALYTICS_COLUMNS,
+    CREATE_TABLE_SQL,
+    TABLE,
+    init_analytics_table,
+    rebuild_all,
+    upsert_records,
+)
 from entities.catalog_record import CatalogRecord, CatalogRecordSource
 from entities.comparison import Comparison
+
+_NEWEST_COLUMN_DDL = "    is_broken       BOOLEAN NOT NULL DEFAULT FALSE,\n"
 
 
 def _validation_result(status: ValidityStatus) -> dict:
@@ -202,3 +211,53 @@ class TestFacetCube:
             key for key in self.cube(db_session, "base", "SKC") if key[0] == "type_of_record"
         ]
         assert self.cube(db_session, "type_of_record", "a").get(("base", "SKC")) is None
+
+
+@pytest.mark.db
+class TestTheTableSurvivesGainingAColumn:
+    """The analytics table is created, never migrated.
+
+    `CREATE TABLE IF NOT EXISTS` is a no-op where one already exists, so a new
+    column reaches an older deployment through ADD_COLUMNS_SQL — which appends
+    it, while CREATE_TABLE_SQL lists it in the middle. An `INSERT ... SELECT`
+    matches by position, so on a table that predates the column every value
+    after it went into the wrong column and the rebuild failed with a type
+    mismatch, aborting whatever task had asked for it.
+    """
+
+    def test_a_rebuild_is_correct_on_a_table_that_predates_the_column(self, db_session):
+        _create_record(db_session, sysno="000009001", processing_error="will not decode")
+        _create_record(db_session, sysno="000009002")
+
+        # Recreate the older shape: same table, without the newest column.
+        db_session.execute(text(f"DROP TABLE IF EXISTS {TABLE} CASCADE"))
+        db_session.execute(text(CREATE_TABLE_SQL.replace(_NEWEST_COLUMN_DDL, "")))
+        db_session.commit()
+
+        init_analytics_table(db_session)
+        rebuild_all(db_session)
+
+        rows = dict(
+            db_session.execute(
+                text(f"SELECT system_number, is_broken FROM {TABLE} ORDER BY system_number")
+            ).all()
+        )
+        assert rows == {"000009001": True, "000009002": False}
+
+    def test_every_named_column_exists_on_the_table(self, db_session):
+        init_analytics_table(db_session)
+
+        named = {c.strip() for c in _ANALYTICS_COLUMNS.replace("\n", " ").split(",") if c.strip()}
+        actual = {
+            row[0]
+            for row in db_session.execute(
+                text(
+                    "SELECT column_name FROM information_schema.columns "
+                    "WHERE table_name = :t"
+                ),
+                {"t": TABLE},
+            ).all()
+        }
+
+        assert named <= actual, f"the insert names columns the table lacks: {named - actual}"
+        assert actual <= named, f"the insert never fills: {actual - named}"
