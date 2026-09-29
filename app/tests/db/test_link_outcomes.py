@@ -15,7 +15,9 @@ import pytest
 from marc_comparator.authority_linkers import MatchRoute
 
 from authority_linking.tasks import (
+    Candidate,
     LinkActionResult,
+    LinkDecision,
     handle_catalog_record_link_action,
     record_lookup_failure,
     scenario_no_link_no_existing,
@@ -71,20 +73,55 @@ def _answer(db_session, main: CatalogRecord) -> AuthorityLink | None:
     return AuthorityLink.find_answer(db_session, main.id, TARGET_BASE)
 
 
-def _found_link(authority: CatalogRecord) -> Any:
+def _rows(db_session, main: CatalogRecord) -> list[AuthorityLink]:
+    """This record's whole list for the target base, in rank order."""
+
+    return (
+        db_session.query(AuthorityLink)
+        .filter_by(main_record_id=main.id, base=TARGET_BASE)
+        .order_by(AuthorityLink.rank)
+        .all()
+    )
+
+
+def _found_link(authority: CatalogRecord, confidence: float = 0.91) -> Any:
     """What a linker hands back, over a record the storage layer can write."""
 
     return SimpleNamespace(
         base=authority.base,
         system_number=authority.system_number,
         record=load_test_record("MZK01-001217709.mrc"),
-        confidence=0.91,
+        confidence=confidence,
         matched_by=MatchRoute.Identifier,
     )
 
 
-def _linker_instance() -> Any:
-    return SimpleNamespace(linker=SimpleNamespace(value="marcxml-dump"))
+def _linker_instance(name: str = "marcxml-dump") -> Any:
+    return SimpleNamespace(linker=SimpleNamespace(value=name))
+
+
+def _candidate(
+    authority: CatalogRecord, confidence: float = 0.91, linker: str = "marcxml-dump"
+) -> Candidate:
+    return Candidate(_found_link(authority, confidence), _linker_instance(linker))
+
+
+def _decision(*candidates: Candidate) -> LinkDecision:
+    """A decision accepting the best of these candidates."""
+
+    ordered = sorted(candidates, key=lambda c: c.link.confidence or 0.0, reverse=True)
+    return LinkDecision(
+        accepted=ordered[0] if ordered else None,
+        candidates=ordered,
+        candidate_count=len(ordered),
+    )
+
+
+def _rejected(*candidates: Candidate) -> LinkDecision:
+    """Candidates were weighed and not one of them cleared a floor."""
+
+    ordered = sorted(candidates, key=lambda c: c.link.confidence or 0.0, reverse=True)
+    return LinkDecision(accepted=None, candidates=ordered, candidate_count=len(ordered))
 
 
 class TestAGapIsWrittenWhereALinkWouldBe:
@@ -133,7 +170,9 @@ class TestALinkThatDisappearsLeavesAReason:
         )
         _link(db_session, record, authority)
 
-        results = handle_catalog_record_link_action(db_session, record, None, None, TARGET_BASE)
+        results = handle_catalog_record_link_action(
+            db_session, record, LinkDecision.nothing_found(), TARGET_BASE
+        )
         db_session.commit()
 
         assert results == [LinkActionResult.DeletedLink]
@@ -155,7 +194,9 @@ class TestALinkThatDisappearsLeavesAReason:
         )
         _link(db_session, record, authority)
 
-        handle_catalog_record_link_action(db_session, record, None, None, TARGET_BASE)
+        handle_catalog_record_link_action(
+            db_session, record, LinkDecision.nothing_found(), TARGET_BASE
+        )
         db_session.commit()
 
         assert db_session.get(CatalogRecord, authority.id) is not None
@@ -231,10 +272,9 @@ class TestALinkFoundLaterTakesTheSlotBack:
         scenario_no_link_no_existing(db_session, record.id, TARGET_BASE)
         db_session.commit()
 
-        found = _found_link(authority)
-        linker = _linker_instance()
-
-        results = handle_catalog_record_link_action(db_session, record, found, linker, TARGET_BASE)
+        results = handle_catalog_record_link_action(
+            db_session, record, _decision(_candidate(authority)), TARGET_BASE
+        )
         db_session.commit()
         db_session.expire_all()
 
@@ -280,3 +320,223 @@ class TestTheGapIsFindable:
             build_filtered_query(db_session, RecordFilter(authority_link_bases=[TARGET_BASE])).all()
             == []
         )
+
+
+class TestTheRunnerUpsAreKept:
+    """What the record was nearly linked to, for whoever has to judge it.
+
+    Every candidate was compared to pick the winner; the losing scores were
+    thrown away afterwards. A cataloguer told "this is the match" and nothing
+    else cannot see that the runner-up scored 0.99, which is exactly when they
+    need to look — either the union catalogue holds a duplicate or we are
+    about to pick the wrong one of a pair.
+    """
+
+    def test_a_doubtful_winner_keeps_its_alternatives(self, db_session):
+        record = _record(db_session, "000000050")
+        won = _record(db_session, "000000051", TARGET_BASE, CatalogRecordSource.AuthorityLinker)
+        lost = _record(db_session, "000000052", TARGET_BASE, CatalogRecordSource.AuthorityLinker)
+
+        handle_catalog_record_link_action(
+            db_session,
+            record,
+            _decision(_candidate(won, 0.71), _candidate(lost, 0.64)),
+            TARGET_BASE,
+        )
+        db_session.commit()
+        db_session.expire_all()
+
+        rows = _rows(db_session, record)
+        assert [(r.rank, r.outcome, r.authority_sysno) for r in rows] == [
+            (0, LinkOutcome.Linked, won.system_number),
+            (1, LinkOutcome.Rejected, lost.system_number),
+        ]
+        assert rows[1].authority_record_id is None, (
+            "a candidate nobody accepted is not worth a persisted copy of the record"
+        )
+        assert rows[1].confidence == 0.64
+
+    def test_a_confident_winner_keeps_a_near_tie(self, db_session):
+        """Perfect and ambiguous at the same time is the case score alone misses."""
+
+        record = _record(db_session, "000000053")
+        won = _record(db_session, "000000054", TARGET_BASE, CatalogRecordSource.AuthorityLinker)
+        lost = _record(db_session, "000000055", TARGET_BASE, CatalogRecordSource.AuthorityLinker)
+
+        handle_catalog_record_link_action(
+            db_session,
+            record,
+            _decision(_candidate(won, 1.0), _candidate(lost, 0.99)),
+            TARGET_BASE,
+        )
+        db_session.commit()
+
+        assert [r.rank for r in _rows(db_session, record)] == [0, 1]
+
+    def test_a_confident_winner_drops_a_distant_rival(self, db_session):
+        record = _record(db_session, "000000056")
+        won = _record(db_session, "000000057", TARGET_BASE, CatalogRecordSource.AuthorityLinker)
+        lost = _record(db_session, "000000058", TARGET_BASE, CatalogRecordSource.AuthorityLinker)
+
+        handle_catalog_record_link_action(
+            db_session,
+            record,
+            _decision(_candidate(won, 1.0), _candidate(lost, 0.40)),
+            TARGET_BASE,
+        )
+        db_session.commit()
+
+        rows = _rows(db_session, record)
+        assert [r.rank for r in rows] == [0]
+        assert rows[0].candidate_count == 2, (
+            "the count is what says two were weighed when only one was kept"
+        )
+
+    def test_the_kept_list_is_replaced_not_appended(self, db_session):
+        record = _record(db_session, "000000060")
+        won = _record(db_session, "000000061", TARGET_BASE, CatalogRecordSource.AuthorityLinker)
+        first = _record(db_session, "000000062", TARGET_BASE, CatalogRecordSource.AuthorityLinker)
+        second = _record(db_session, "000000063", TARGET_BASE, CatalogRecordSource.AuthorityLinker)
+
+        handle_catalog_record_link_action(
+            db_session,
+            record,
+            _decision(_candidate(won, 0.71), _candidate(first, 0.64)),
+            TARGET_BASE,
+        )
+        db_session.commit()
+        handle_catalog_record_link_action(
+            db_session,
+            record,
+            _decision(_candidate(won, 0.71), _candidate(second, 0.66)),
+            TARGET_BASE,
+        )
+        db_session.commit()
+        db_session.expire_all()
+
+        rows = _rows(db_session, record)
+        assert [r.authority_sysno for r in rows] == [won.system_number, second.system_number]
+
+    def test_a_runner_up_can_become_the_answer(self, db_session):
+        """The swap the rows are rewritten wholesale to survive.
+
+        The record being promoted is in the table already, at another rank.
+        Reconciling row by row would have it there twice before the flush
+        that fixes it, and both the primary key and the candidate index
+        refuse that.
+        """
+
+        record = _record(db_session, "000000070")
+        first = _record(db_session, "000000071", TARGET_BASE, CatalogRecordSource.AuthorityLinker)
+        second = _record(db_session, "000000072", TARGET_BASE, CatalogRecordSource.AuthorityLinker)
+
+        handle_catalog_record_link_action(
+            db_session,
+            record,
+            _decision(_candidate(first, 0.71), _candidate(second, 0.64)),
+            TARGET_BASE,
+        )
+        db_session.commit()
+        handle_catalog_record_link_action(
+            db_session,
+            record,
+            _decision(_candidate(first, 0.64), _candidate(second, 0.71)),
+            TARGET_BASE,
+        )
+        db_session.commit()
+        db_session.expire_all()
+
+        rows = _rows(db_session, record)
+        assert [(r.rank, r.authority_sysno) for r in rows] == [
+            (0, second.system_number),
+            (1, first.system_number),
+        ]
+        assert rows[0].outcome == LinkOutcome.Linked
+
+
+class TestNothingGoodEnoughIsStillAFinding:
+    def test_the_best_rejected_candidate_is_named(self, db_session):
+        """A floor set too high is invisible without this.
+
+        The records it rejects would otherwise look exactly like the ones with
+        no match in the union catalogue at all.
+        """
+
+        record = _record(db_session, "000000080")
+        best = _record(db_session, "000000081", TARGET_BASE, CatalogRecordSource.AuthorityLinker)
+        rest = _record(db_session, "000000082", TARGET_BASE, CatalogRecordSource.AuthorityLinker)
+
+        results = handle_catalog_record_link_action(
+            db_session,
+            record,
+            _rejected(_candidate(best, 0.42), _candidate(rest, 0.31)),
+            TARGET_BASE,
+        )
+        db_session.commit()
+        db_session.expire_all()
+
+        assert results == [LinkActionResult.NoLinkFound]
+        rows = _rows(db_session, record)
+        assert rows[0].outcome == LinkOutcome.BelowFloor
+        assert rows[0].authority_sysno == best.system_number
+        assert rows[0].confidence == 0.42
+        assert rows[0].candidate_count == 2
+        assert rows[0].authority_record_id is None, "refused is not linked"
+
+    def test_it_is_not_a_link(self, db_session):
+        record = _record(db_session, "000000083")
+        best = _record(db_session, "000000084", TARGET_BASE, CatalogRecordSource.AuthorityLinker)
+
+        handle_catalog_record_link_action(
+            db_session, record, _rejected(_candidate(best, 0.42)), TARGET_BASE
+        )
+        db_session.commit()
+        db_session.expire_all()
+
+        record = cast(CatalogRecord, db_session.get(CatalogRecord, record.id))
+        assert record.authority_links == []
+        assert build_filtered_query(
+            db_session, RecordFilter(link_outcomes=[LinkOutcome.BelowFloor.value])
+        ).all() == [record]
+
+    def test_the_whole_shortlist_is_kept(self, db_session):
+        """Pruning the evidence would leave a refusal with nothing behind it."""
+
+        record = _record(db_session, "000000085")
+        best = _record(db_session, "000000086", TARGET_BASE, CatalogRecordSource.AuthorityLinker)
+        rest = _record(db_session, "000000087", TARGET_BASE, CatalogRecordSource.AuthorityLinker)
+
+        handle_catalog_record_link_action(
+            db_session,
+            record,
+            _rejected(_candidate(best, 0.42), _candidate(rest, 0.05)),
+            TARGET_BASE,
+        )
+        db_session.commit()
+        db_session.expire_all()
+
+        rows = _rows(db_session, record)
+        assert [(r.rank, r.outcome) for r in rows] == [
+            (0, LinkOutcome.BelowFloor),
+            (1, LinkOutcome.Rejected),
+        ]
+
+    def test_a_link_found_later_clears_the_refusal(self, db_session):
+        record = _record(db_session, "000000088")
+        candidate = _record(
+            db_session, "000000089", TARGET_BASE, CatalogRecordSource.AuthorityLinker
+        )
+
+        handle_catalog_record_link_action(
+            db_session, record, _rejected(_candidate(candidate, 0.42)), TARGET_BASE
+        )
+        db_session.commit()
+        handle_catalog_record_link_action(
+            db_session, record, _decision(_candidate(candidate, 0.95)), TARGET_BASE
+        )
+        db_session.commit()
+        db_session.expire_all()
+
+        rows = _rows(db_session, record)
+        assert [(r.rank, r.outcome) for r in rows] == [(0, LinkOutcome.Linked)]
+        assert rows[0].authority_record_id == candidate.id

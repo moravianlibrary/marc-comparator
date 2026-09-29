@@ -71,6 +71,16 @@ def linker_with_dedup(
 
 
 async def run_linker(linker: KnihovnyCZLinker):
+    """The accepted link, which is what most of these tests are about.
+
+    ``run`` hands back the whole shortlist; the tests that care about the rest
+    of it call it directly.
+    """
+
+    return (await linker.run("MZK01", "000123456", marc_record(), "SKC")).link
+
+
+async def propose(linker: KnihovnyCZLinker):
     return await linker.run("MZK01", "000123456", marc_record(), "SKC")
 
 

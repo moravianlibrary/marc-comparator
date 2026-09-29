@@ -25,6 +25,7 @@ from authority_linking.tasks import (
     find_best_link_for_record,
     handle_catalog_record_link_action,
     load_authority_linkers,
+    load_candidate_margin,
     load_confident_threshold,
     prefetch_linked_authority_marc,
     record_lookup_failure,
@@ -582,6 +583,7 @@ async def process_records(task_id: str) -> None:
             ctx.logger.error("Authority linkers could not be initialized")
             return
         confident_threshold = load_confident_threshold(ctx.db_session)
+        candidate_margin = load_candidate_margin(ctx.db_session)
 
         comparator = load_comparator(ctx.db_session)
         if not comparator:
@@ -668,7 +670,7 @@ async def process_records(task_id: str) -> None:
                     for target_base in settings.target_bases:
                         if target_base == catalog_record.base:
                             continue
-                        found_link, linker_instance = await find_best_link_for_record(
+                        decision = await find_best_link_for_record(
                             catalog_record,
                             authority_linkers,
                             target_base,
@@ -676,16 +678,18 @@ async def process_records(task_id: str) -> None:
                             ctx.logger,
                             confident_threshold,
                         )
-                        if gate_is_pipeline and found_link and found_link.comparison:
-                            measured[target_base] = found_link.comparison
+                        accepted = decision.accepted
+                        if gate_is_pipeline and accepted and accepted.link.comparison:
+                            measured[target_base] = accepted.link.comparison
                         results = handle_catalog_record_link_action(
                             ctx.db_session,
                             catalog_record,
-                            found_link,
-                            linker_instance,
+                            decision,
                             target_base,
                             sectors,
                             stored_marc,
+                            confident_threshold,
+                            candidate_margin,
                         )
                         for result in results:
                             counters[result] += 1

@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from datetime import datetime
 from enum import StrEnum
 from typing import TYPE_CHECKING, Optional
@@ -214,6 +215,30 @@ class AuthorityLink(Base, BaseOperationsMixin):
                 outcome=LinkOutcome.Linked,
             )
             .first()
+        )
+
+    @classmethod
+    def find_candidates_for(
+        cls,
+        db_session: DatabaseSession,
+        main_record_id: str,
+        base: str,
+    ) -> Sequence["AuthorityLink"]:
+        """The runner-ups this record's answer was chosen over, best first.
+
+        The alternatives to show somebody who does not believe the answer.
+        Not every candidate that was weighed — an unambiguous winner keeps
+        none — which is what ``candidate_count`` on the answer row is for.
+        """
+        return (
+            db_session.query(cls)
+            .filter(
+                cls.main_record_id == main_record_id,
+                cls.base == base,
+                cls.rank > ANSWER_RANK,
+            )
+            .order_by(cls.rank)
+            .all()
         )
 
     @classmethod

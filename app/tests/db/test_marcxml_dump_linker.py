@@ -186,12 +186,14 @@ async def test_identifier_lookup_finds_the_record_without_a_network_call(
         assert "ix_marcxml_dump_records_title_key" in set(indexes)
 
     linked = ready_linker(harvest_engine, {"000000001": 0.95})
-    link = await linked.run(
-        "MZK01",
-        "000000999",
-        query_record(isbn="978-80-87186-82-4 (brož.)", title="Elektromagnetické záření :"),
-        "SKC",
-    )
+    link = (
+        await linked.run(
+            "MZK01",
+            "000000999",
+            query_record(isbn="978-80-87186-82-4 (brož.)", title="Elektromagnetické záření :"),
+            "SKC",
+        )
+    ).link
 
     assert link is not None
     assert link.system_number == "000000001"
@@ -213,7 +215,7 @@ async def test_title_fallback_applies_only_without_identifier_hits(harvest_engin
     assert (await harvest(linker, harvest_engine))[0].records == 2
 
     linked = ready_linker(harvest_engine, {"000000010": 0.93, "000000011": 0.91})
-    link = await linked.run("MZK01", "000000999", query_record(title="Sborník prací"), "SKC")
+    link = (await linked.run("MZK01", "000000999", query_record(title="Sborník prací"), "SKC")).link
 
     assert link is not None
     assert link.system_number == "000000010"
@@ -227,9 +229,11 @@ async def test_unrelated_record_finds_nothing(harvest_engine, monkeypatch):
 
     linked = ready_linker(harvest_engine, {"000000020": 1.0})
 
-    assert await linked.run(
-        "MZK01", "000000999", query_record(title="Úplně jiný název"), "SKC"
-    ) is (None)
+    proposal = await linked.run("MZK01", "000000999", query_record(title="Úplně jiný název"), "SKC")
+
+    assert proposal.link is None
+    assert proposal.candidates == [], "nothing was retrieved, so there is nothing to show"
+    assert proposal.candidate_count == 0
 
 
 @pytest.mark.asyncio

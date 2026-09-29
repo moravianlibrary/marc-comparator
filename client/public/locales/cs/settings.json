@@ -62,7 +62,8 @@
   "authority-linkers": {
     "decision": {
       "title": "Rozhodování o propojení",
-      "confident-threshold": "Práh jistoty"
+      "confident-threshold": "Práh jistoty",
+      "candidate-margin": "Odstup uchovaných alternativ"
     },
     "knihovny-cz": {
       "title": "Knihovny.cz",
@@ -173,7 +174,8 @@
         "intro": "Určuje, jak se z nálezů jednotlivých služeb vybere ten, který se zapíše k záznamu.",
         "two-stages": "Propojování probíhá ve dvou krocích. Nejdřív se služby obcházejí popořadě a hledá se nález s jistotou na úrovni prahu nebo vyšší; jakmile se takový objeví, přijme se a zbylé služby se už nedotazují. Pokud tak jistý nález nenajde žádná služba, porovnají se všechny nabídnuté nálezy a vybere se ten s nejvyšší jistotou.",
         "fields-title": "Popis polí",
-        "confident-threshold": "Jistota, při které se hledání zastaví u prvního nálezu. Vyšší hodnota znamená, že se častěji dotazují všechny služby a vybírá se to nejlepší — přesnější, ale pomalejší. Nižší hodnota přijme první dost dobrý nález."
+        "confident-threshold": "Jistota, při které se hledání zastaví u prvního nálezu. Vyšší hodnota znamená, že se častěji dotazují všechny služby a vybírá se to nejlepší — přesnější, ale pomalejší. Nižší hodnota přijme první dost dobrý nález.",
+        "candidate-margin": "Jak těsně za přijatým nálezem musí skončit další nález, aby se uložil vedle něj jako alternativa. Nález s jistotou 1,00 a druhý v pořadí s 0,99 je nejednoznačný i při perfektním skóre — souborný katalog obsahuje dva odpovídající záznamy, takže buď je v něm duplicita, nebo se z dvojice vybírá ten nesprávný. Právě u nich potřebuje katalogizátor vidět, co dalšího přicházelo v úvahu. Pokud přijatý nález nedosáhne prahu jistoty, uchovají se alternativy vždy."
       },
       "marcxml-dump": {
         "intro": "Propojení s katalogem, který zveřejňuje všechny své záznamy jako jeden soubor ve formátu MARC21 slim XML (MARCXML), obvykle zabalený gzipem. Ve výchozím nastavení míří na Souborný katalog ČR, ale pracovat umí s kterýmkoli katalogem publikovaným stejným způsobem — stačí změnit adresu dávky, bázi a způsob čtení systémového čísla.",

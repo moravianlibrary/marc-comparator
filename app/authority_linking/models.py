@@ -18,6 +18,12 @@ class AuthorityLinkingSettings(SettingsSchema):
     #: Confidence at which linking stops asking further linkers. Below it every
     #: configured linker is consulted and the best proposal wins.
     confident_threshold: float = Field(default=0.9, ge=0.0, le=1.0)
+    #: How close behind a confident winner a runner-up has to score to be kept
+    #: beside it. A winner at 1.00 with a rival at 0.99 is ambiguous however
+    #: good the score is — the catalogue holds two records matching ours — and
+    #: those are the ones a cataloguer needs the alternatives for. Below
+    #: `confident_threshold` the runner-ups are kept regardless.
+    candidate_margin: float = Field(default=0.05, ge=0.0, le=1.0)
 
 
 class AuthorityLinkingTaskData(BaseModel):

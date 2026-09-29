@@ -4,7 +4,12 @@ import logging
 from typing import cast
 
 import pytest
-from marc_comparator.authority_linkers import AuthorityLink, AuthorityLinker, BaseAuthorityLinker
+from marc_comparator.authority_linkers import (
+    AuthorityLink,
+    AuthorityLinker,
+    BaseAuthorityLinker,
+    LinkProposal,
+)
 from marcdantic import MarcRecord
 
 from authority_linking.tasks import (
@@ -47,13 +52,23 @@ async def raises(*args, **kwargs):
 
 
 async def finds_nothing(*args, **kwargs):
-    return None
+    return LinkProposal.nothing_found()
 
 
 async def finds_link(*args, **kwargs):
-    return AuthorityLink(
+    link = AuthorityLink(
         base="SKC", system_number="000123456", record=marc_record(), confidence=1.0
     )
+    return LinkProposal(link=link, candidates=[link], candidate_count=1)
+
+
+async def finds_only_rejects(*args, **kwargs):
+    """Candidates were retrieved and none of them cleared the floor."""
+
+    link = AuthorityLink(
+        base="SKC", system_number="000999999", record=marc_record(), confidence=0.2
+    )
+    return LinkProposal(link=None, candidates=[link], candidate_count=1)
 
 
 @pytest.mark.asyncio
@@ -87,7 +102,7 @@ async def test_partial_failure_still_refuses_to_confirm_an_empty_result():
 
 @pytest.mark.asyncio
 async def test_a_found_link_survives_another_linker_failing():
-    link, linker = await find_best_link_for_record(
+    decision = await find_best_link_for_record(
         catalog_record(),
         [
             instance(AuthorityLinker.KnihovnyCz, raises),
@@ -98,17 +113,58 @@ async def test_a_found_link_survives_another_linker_failing():
         logging.getLogger(__name__),
     )
 
-    assert link is not None
-    assert linker is not None
-    assert linker.linker == AuthorityLinker.MarcXmlDump
+    assert decision.accepted is not None
+    assert decision.accepted.linker.linker == AuthorityLinker.MarcXmlDump
+
+
+@pytest.mark.asyncio
+async def test_a_shortlist_nobody_accepted_does_not_excuse_a_failure():
+    """Below the floor is still not an answer while a linker is down.
+
+    A rejected shortlist is a real finding and worth recording — but only
+    once every linker has had its say. Reported while one of them never
+    answered it would reach the caller as "no link", and the caller deletes
+    a link it no longer finds.
+    """
+
+    with pytest.raises(AuthorityLinkingFailed):
+        await find_best_link_for_record(
+            catalog_record(),
+            [
+                instance(AuthorityLinker.KnihovnyCz, finds_only_rejects),
+                instance(AuthorityLinker.MarcXmlDump, raises),
+            ],
+            "SKC",
+            marc_record(),
+            logging.getLogger(__name__),
+        )
+
+
+@pytest.mark.asyncio
+async def test_a_shortlist_nobody_accepted_is_reported_when_all_linkers_answered():
+    decision = await find_best_link_for_record(
+        catalog_record(),
+        [instance(AuthorityLinker.MarcXmlDump, finds_only_rejects)],
+        "SKC",
+        marc_record(),
+        logging.getLogger(__name__),
+    )
+
+    assert decision.accepted is None
+    assert decision.below_floor
+    assert [c.link.system_number for c in decision.candidates] == ["000999999"]
 
 
 @pytest.mark.asyncio
 async def test_every_linker_reporting_nothing_is_a_real_empty_result():
-    assert await find_best_link_for_record(
+    decision = await find_best_link_for_record(
         catalog_record(),
         [instance(AuthorityLinker.MarcXmlDump, finds_nothing)],
         "SKC",
         marc_record(),
         logging.getLogger(__name__),
-    ) == (None, None)
+    )
+
+    assert decision.accepted is None
+    assert decision.candidates == []
+    assert not decision.below_floor, "nothing was found, so nothing was refused"

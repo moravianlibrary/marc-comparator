@@ -61,6 +61,7 @@ export const authorityLinkingSettingsSchema = z.object({
   'knihovny-cz': knihovnyCZLinkerConfigSchema.nullable(),
   'marcxml-dump': marcDumpLinkerConfigSchema.nullable(),
   confident_threshold: z.number().min(0).max(1),
+  candidate_margin: z.number().min(0).max(1),
 });
 
 export type AuthorityLinkingSettingsFormValues = z.infer<typeof authorityLinkingSettingsSchema>;

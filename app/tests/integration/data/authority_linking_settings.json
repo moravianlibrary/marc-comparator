@@ -1,38 +1,39 @@
 {
-    "knihovny-cz": {
-        "api_url": "https://api.knihovny.cz/v1/",
-        "minimum_confidence": 0.7,
-        "mappings": [
-            {
-                "base": "MZK01",
-                "id_template": "mzk.MZK01-{system_number}",
-                "pattern": "^mzk\\.MZK01-(\\d{9})$",
-                "is_target": false
-            },
-            {
-                "base": "MZK03",
-                "id_template": "mzk.MZK03-{system_number}",
-                "pattern": "^mzk\\.MZK03-(\\d{9})$",
-                "is_target": false
-            },
-            {
-                "base": "SKC",
-                "id_template": "caslin.SKC01-{system_number}",
-                "pattern": "^caslin\\.SKC01-(\\d{9})$",
-                "is_target": false
-            }
-        ]
-    },
-    "marcxml-dump": {
-        "dump_url": "https://aleph.nkp.cz/data/skc.xml.gz",
-        "target_base": "SKC",
-        "system_number_tag": "998",
-        "system_number_subfield": "a",
-        "system_number_pattern": "doc_number=(\\d+)",
-        "system_number_padding": 9,
-        "identifier_minimum_confidence": 0.0,
-        "title_minimum_confidence": 0.55,
-        "candidate_limit": 10
-    },
-    "confident_threshold": 0.9
+  "knihovny-cz": {
+    "api_url": "https://api.knihovny.cz/v1/",
+    "minimum_confidence": 0.7,
+    "mappings": [
+      {
+        "base": "MZK01",
+        "id_template": "mzk.MZK01-{system_number}",
+        "pattern": "^mzk\\.MZK01-(\\d{9})$",
+        "is_target": false
+      },
+      {
+        "base": "MZK03",
+        "id_template": "mzk.MZK03-{system_number}",
+        "pattern": "^mzk\\.MZK03-(\\d{9})$",
+        "is_target": false
+      },
+      {
+        "base": "SKC",
+        "id_template": "caslin.SKC01-{system_number}",
+        "pattern": "^caslin\\.SKC01-(\\d{9})$",
+        "is_target": false
+      }
+    ]
+  },
+  "marcxml-dump": {
+    "dump_url": "https://aleph.nkp.cz/data/skc.xml.gz",
+    "target_base": "SKC",
+    "system_number_tag": "998",
+    "system_number_subfield": "a",
+    "system_number_pattern": "doc_number=(\\d+)",
+    "system_number_padding": 9,
+    "identifier_minimum_confidence": 0.0,
+    "title_minimum_confidence": 0.55,
+    "candidate_limit": 10
+  },
+  "confident_threshold": 0.9,
+  "candidate_margin": 0.05
 }

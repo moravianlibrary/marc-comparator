@@ -58,6 +58,8 @@ export interface AuthorityLinkingSettings {
   'marcxml-dump': MarcXmlDumpLinkerConfig | null;
   /** Confidence at which linking stops consulting further linkers. */
   confident_threshold: number;
+  /** How close behind a confident winner a runner-up must score to be kept. */
+  candidate_margin: number;
 }
 
 export interface ComparatorConfig {

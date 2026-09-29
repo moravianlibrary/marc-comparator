@@ -244,7 +244,7 @@ async def test_run_rejects_a_target_base_it_does_not_serve():
 async def test_run_keeps_the_best_scoring_candidate(monkeypatch):
     linker, comparator = linker_with_candidates(monkeypatch, [0.91, 0.97, 0.93])
 
-    link = await linker.run("MZK01", "000123456", marc_record(), "SKC")
+    link = (await linker.run("MZK01", "000123456", marc_record(), "SKC")).link
 
     assert link is not None
     assert link.system_number == "000000001"
@@ -259,7 +259,7 @@ async def test_run_reports_a_plausible_match_with_its_real_score(monkeypatch):
     # this linker against another when neither is certain.
     linker, _ = linker_with_candidates(monkeypatch, [0.72, 0.85])
 
-    link = await linker.run("MZK01", "000123456", marc_record(), "SKC")
+    link = (await linker.run("MZK01", "000123456", marc_record(), "SKC")).link
 
     assert link is not None
     assert link.confidence == 0.85
@@ -274,7 +274,7 @@ async def test_a_shared_identifier_is_reported_however_badly_it_scores(monkeypat
     # threw away and left looking unmatched.
     linker, _ = linker_with_candidates(monkeypatch, [0.31], route=MatchRoute.Identifier)
 
-    link = await linker.run("MZK01", "000123456", marc_record(), "SKC")
+    link = (await linker.run("MZK01", "000123456", marc_record(), "SKC")).link
 
     assert link is not None
     assert link.confidence == 0.31
@@ -286,14 +286,14 @@ async def test_a_title_match_below_its_floor_is_not_reported(monkeypatch):
     # only evidence there is and 0.42 is not enough of it.
     linker, _ = linker_with_candidates(monkeypatch, [0.42], route=MatchRoute.Title)
 
-    assert await linker.run("MZK01", "000123456", marc_record(), "SKC") is None
+    assert (await linker.run("MZK01", "000123456", marc_record(), "SKC")).link is None
 
 
 @pytest.mark.asyncio
 async def test_the_title_floor_is_inclusive(monkeypatch):
     linker, _ = linker_with_candidates(monkeypatch, [0.55], route=MatchRoute.Title)
 
-    link = await linker.run("MZK01", "000123456", marc_record(), "SKC")
+    link = (await linker.run("MZK01", "000123456", marc_record(), "SKC")).link
 
     assert link is not None
     assert link.confidence == 0.55
@@ -303,10 +303,10 @@ async def test_the_title_floor_is_inclusive(monkeypatch):
 async def test_each_route_is_held_to_its_own_floor(monkeypatch):
     # The same score, accepted one way and refused the other.
     identified, _ = linker_with_candidates(monkeypatch, [0.5], route=MatchRoute.Identifier)
-    assert await identified.run("MZK01", "000123456", marc_record(), "SKC") is not None
+    assert (await identified.run("MZK01", "000123456", marc_record(), "SKC")).link is not None
 
     by_title, _ = linker_with_candidates(monkeypatch, [0.5], route=MatchRoute.Title)
-    assert await by_title.run("MZK01", "000123456", marc_record(), "SKC") is None
+    assert (await by_title.run("MZK01", "000123456", marc_record(), "SKC")).link is None
 
 
 @pytest.mark.asyncio
@@ -315,7 +315,7 @@ async def test_the_identifier_floor_can_still_be_raised(monkeypatch):
         monkeypatch, [0.7], route=MatchRoute.Identifier, identifier_minimum_confidence=0.8
     )
 
-    assert await linker.run("MZK01", "000123456", marc_record(), "SKC") is None
+    assert (await linker.run("MZK01", "000123456", marc_record(), "SKC")).link is None
 
 
 @pytest.mark.asyncio
@@ -324,7 +324,7 @@ async def test_a_candidate_that_cannot_say_how_it_was_found_gets_the_stricter_fl
     # it; something that cannot show it took that path does not get the benefit.
     linker, _ = linker_with_candidates(monkeypatch, [0.5], route=None)
 
-    assert await linker.run("MZK01", "000123456", marc_record(), "SKC") is None
+    assert (await linker.run("MZK01", "000123456", marc_record(), "SKC")).link is None
 
 
 @pytest.mark.asyncio
@@ -332,7 +332,7 @@ async def test_the_link_carries_the_route_that_found_it(monkeypatch):
     # Stored alongside the score, this is what makes a low one readable.
     linker, _ = linker_with_candidates(monkeypatch, [0.4], route=MatchRoute.Identifier)
 
-    link = await linker.run("MZK01", "000123456", marc_record(), "SKC")
+    link = (await linker.run("MZK01", "000123456", marc_record(), "SKC")).link
 
     assert link is not None
     assert link.matched_by is MatchRoute.Identifier

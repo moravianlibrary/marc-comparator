@@ -19,6 +19,8 @@ from authority_linking.tasks import (
 )
 
 STORED = b"\x00\x01authority-as-stored"
+#: What the linker reports having weighed, matching `_Link`'s own column.
+CANDIDATES = 1
 NO_SESSION = cast(Any, object())
 
 
@@ -44,10 +46,12 @@ class _Link:
         matched_by: str | None = MatchRoute.Identifier.value,
         authority_base: str = "SKC",
         authority_sysno: str = "000000001",
+        candidate_count: int | None = 1,
     ):
         self.main_record_id = "MZK01-000000042"
         self.base = "SKC"
         self.outcome = "Linked"
+        self.candidate_count = candidate_count
         self.confidence = confidence
         self.matched_by = matched_by
         self.authority_base = authority_base
@@ -108,6 +112,7 @@ class TestNothingIsWrittenWhenNothingMoved:
             cast(Any, link),
             cast(Any, _Buffer()),
             stored,
+            CANDIDATES,
         )
 
         assert results == [LinkActionResult.UnchangedLink]
@@ -143,6 +148,7 @@ class TestEveryRealChangeStillLands:
             cast(Any, link),
             cast(Any, _Buffer()),
             stored,
+            CANDIDATES,
         )
 
         assert results == [
@@ -162,6 +168,7 @@ class TestEveryRealChangeStillLands:
             cast(Any, link),
             cast(Any, _Buffer()),
             {},
+            CANDIDATES,
         )
 
     def test_a_buffered_record_is_written(self):
@@ -174,6 +181,7 @@ class TestEveryRealChangeStillLands:
             cast(Any, link),
             cast(Any, _Buffer(holding=True)),
             {link.authority_record.id: STORED},
+            CANDIDATES,
         )
 
     def test_a_link_predating_the_natural_key_is_written(self):
@@ -192,6 +200,7 @@ class TestEveryRealChangeStillLands:
             cast(Any, link),
             cast(Any, _Buffer()),
             {link.authority_record.id: STORED},
+            CANDIDATES,
         )
 
     def test_a_link_predating_the_route_is_written(self):
@@ -210,6 +219,26 @@ class TestEveryRealChangeStillLands:
             cast(Any, link),
             cast(Any, _Buffer()),
             {link.authority_record.id: STORED},
+            CANDIDATES,
+        )
+
+    def test_a_changed_candidate_count_is_written(self):
+        """How many were weighed is stored, and derivable from nothing else.
+
+        An unambiguous winner is kept without its runner-ups, so this column
+        is the only thing separating "there was one candidate" from "there
+        were eight and seven were not worth keeping".
+        """
+
+        link = _Link(candidate_count=1)
+
+        assert not _link_update_would_write_nothing(
+            cast(Any, _found()),
+            cast(Any, _linker()),
+            cast(Any, link),
+            cast(Any, _Buffer()),
+            {link.authority_record.id: STORED},
+            8,
         )
 
     def test_a_linker_that_reports_no_route_leaves_the_column_alone(self):
@@ -223,4 +252,5 @@ class TestEveryRealChangeStillLands:
             cast(Any, link),
             cast(Any, _Buffer()),
             {link.authority_record.id: STORED},
+            CANDIDATES,
         )

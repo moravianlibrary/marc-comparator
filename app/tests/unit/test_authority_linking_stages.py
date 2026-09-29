@@ -4,7 +4,12 @@ import logging
 from typing import cast
 
 import pytest
-from marc_comparator.authority_linkers import AuthorityLink, AuthorityLinker, BaseAuthorityLinker
+from marc_comparator.authority_linkers import (
+    AuthorityLink,
+    AuthorityLinker,
+    BaseAuthorityLinker,
+    LinkProposal,
+)
 from marcdantic import MarcRecord
 
 from authority_linking.tasks import AuthorityLinkerInstance, find_best_link_for_record
@@ -42,23 +47,24 @@ class CountingLinker:
         self.confidence = confidence
         self.calls = 0
 
-    async def run(self, base, system_number, record, target_base) -> AuthorityLink | None:
+    async def run(self, base, system_number, record, target_base) -> LinkProposal:
         self.calls += 1
-        return AuthorityLink(
+        link = AuthorityLink(
             base=target_base,
             system_number=self.system_number,
             record=marc_record(),
             confidence=self.confidence,
         )
+        return LinkProposal(link=link, candidates=[link], candidate_count=1)
 
 
 class SilentLinker:
     def __init__(self) -> None:
         self.calls = 0
 
-    async def run(self, base, system_number, record, target_base) -> AuthorityLink | None:
+    async def run(self, base, system_number, record, target_base) -> LinkProposal:
         self.calls += 1
-        return None
+        return LinkProposal.nothing_found()
 
 
 def instance(linker: AuthorityLinker, stub: object) -> AuthorityLinkerInstance:
@@ -80,7 +86,11 @@ async def test_a_confident_first_linker_stops_the_rest():
     first = CountingLinker("000000111", 0.95)
     second = CountingLinker("000000222", 0.99)
 
-    link, linker = await link_with(first, second)
+    decision = await link_with(first, second)
+
+    link = decision.accepted.link if decision.accepted else None
+
+    linker = decision.accepted.linker if decision.accepted else None
 
     assert link is not None
     assert link.system_number == "000000111"
@@ -95,7 +105,9 @@ async def test_a_later_linker_can_be_the_confident_one():
     first = SilentLinker()
     second = CountingLinker("000000222", 0.93)
 
-    link, _ = await link_with(first, second)
+    decision = await link_with(first, second)
+
+    link = decision.accepted.link if decision.accepted else None
 
     assert link is not None
     assert link.system_number == "000000222"
@@ -107,7 +119,11 @@ async def test_without_confidence_every_linker_is_consulted_and_the_best_wins():
     first = CountingLinker("000000111", 0.74)
     second = CountingLinker("000000222", 0.86)
 
-    link, linker = await link_with(first, second)
+    decision = await link_with(first, second)
+
+    link = decision.accepted.link if decision.accepted else None
+
+    linker = decision.accepted.linker if decision.accepted else None
 
     assert link is not None
     assert link.system_number == "000000222"
@@ -122,7 +138,9 @@ async def test_order_decides_between_equally_confident_linkers():
     first = CountingLinker("000000111", 0.95)
     second = CountingLinker("000000222", 0.95)
 
-    link, _ = await link_with(first, second)
+    decision = await link_with(first, second)
+
+    link = decision.accepted.link if decision.accepted else None
 
     assert link is not None
     assert link.system_number == "000000111"
@@ -135,7 +153,9 @@ async def test_a_linker_reporting_no_confidence_ranks_last():
     first = CountingLinker("000000111", None)
     second = CountingLinker("000000222", 0.71)
 
-    link, _ = await link_with(first, second)
+    decision = await link_with(first, second)
+
+    link = decision.accepted.link if decision.accepted else None
 
     assert link is not None
     assert link.system_number == "000000222"
@@ -146,7 +166,9 @@ async def test_the_threshold_is_configurable():
     first = CountingLinker("000000111", 0.8)
     second = CountingLinker("000000222", 0.99)
 
-    link, _ = await link_with(first, second, confident_threshold=0.75)
+    decision = await link_with(first, second, confident_threshold=0.75)
+
+    link = decision.accepted.link if decision.accepted else None
 
     assert link is not None
     assert link.system_number == "000000111"

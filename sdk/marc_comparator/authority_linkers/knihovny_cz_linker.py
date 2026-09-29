@@ -18,12 +18,12 @@ from lxml import etree
 from marcdantic import MarcRecord
 from pydantic import BaseModel, Field
 
-from ..comparators import RecordComparisonResult
 from ..comparators.default import DefaultComparator, DefaultComparatorConfig
 from ._base import (
     CANDIDATE_MARC_CONTEXT,
     AuthorityLink,
     BaseAuthorityLinker,
+    LinkProposal,
     LinkRequest,
     MatchRoute,
 )
@@ -323,7 +323,7 @@ class KnihovnyCZLinker(BaseAuthorityLinker):
         system_number: str,
         record: MarcRecord,
         target_base: str,
-    ) -> AuthorityLink | None:
+    ) -> LinkProposal:
         source_id = self._source_id(base, system_number)
         if source_id is None:
             raise ValueError(f"Unsupported base: {base}")
@@ -332,12 +332,9 @@ class KnihovnyCZLinker(BaseAuthorityLinker):
         target_system_numbers = self._target_system_numbers(dedup_ids, target_base)
 
         if not target_system_numbers:
-            return None
+            return LinkProposal.nothing_found()
 
-        best_system_number: str | None = None
-        best_record: MarcRecord | None = None
-        best_comparison: RecordComparisonResult | None = None
-        best_score = 0.0
+        scored: list[AuthorityLink] = []
         for target_system_number in target_system_numbers:
             target_id = self._source_id(target_base, target_system_number)
             if target_id is None:
@@ -352,28 +349,37 @@ class KnihovnyCZLinker(BaseAuthorityLinker):
                 continue
 
             comparison = await self._comparator.run(record, target_record)
-            if best_record is None or comparison.overall_score > best_score:
-                best_system_number = target_system_number
-                best_record = target_record
-                best_comparison = comparison
-                best_score = comparison.overall_score
+            scored.append(
+                AuthorityLink(
+                    base=target_base,
+                    system_number=target_system_number,
+                    record=target_record,
+                    confidence=comparison.overall_score,
+                    # The pair the pipeline compares next, for whichever of
+                    # these is chosen.
+                    comparison=comparison,
+                    # Every candidate here comes from one place, so unlike the
+                    # dump linker there is nothing to tell apart and one floor
+                    # is enough.
+                    matched_by=MatchRoute.Dedup,
+                )
+            )
+
+        if not scored:
+            # The group named members and not one of them could be fetched.
+            # Still "nothing to consider" rather than a failure: a transport
+            # error would have raised out of `_get_record`.
+            return LinkProposal.nothing_found()
+
+        scored.sort(key=lambda link: link.confidence or 0.0, reverse=True)
+        best = scored[0]
 
         # The dedup group says these records belong together; the comparator
-        # says how far this catalogue agrees. Disagreement below the floor is
-        # reported as no link rather than as a link nobody can trust.
-        if best_record is None or best_system_number is None:
-            return None
-        if best_score < self.config.minimum_confidence:
-            return None
-
-        return AuthorityLink(
-            base=target_base,
-            system_number=best_system_number,
-            record=best_record,
-            confidence=best_score,
-            # The pair chosen here is the pair the pipeline compares next.
-            comparison=best_comparison,
-            # Every candidate here comes from one place, so unlike the dump
-            # linker there is nothing to tell apart and one floor is enough.
-            matched_by=MatchRoute.Dedup,
+        # says how far this catalogue agrees. Disagreement below the floor
+        # withholds the link, but the group still comes back as candidates —
+        # a group the comparator dislikes is a finding, not an absence.
+        return LinkProposal(
+            link=best if (best.confidence or 0.0) >= self.config.minimum_confidence else None,
+            candidates=scored,
+            candidate_count=len(target_system_numbers),
         )

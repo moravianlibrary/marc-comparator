@@ -50,6 +50,7 @@ export function AuthorityLinkingSettingsForm({ data, onDirtyChange, onFormRef, o
         candidate_limit: 10,
       },
       confident_threshold: data.confident_threshold ?? 0.9,
+      candidate_margin: data.candidate_margin ?? 0.05,
     }),
     [data],
   );
@@ -84,6 +85,26 @@ export function AuthorityLinkingSettingsForm({ data, onDirtyChange, onFormRef, o
               render={({ field }) => (
                 <FormItem className="max-w-xs">
                   <FormLabel>{t('authority-linkers.decision.confident-threshold')}</FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="1"
+                      {...field}
+                      onChange={e => field.onChange(Number(e.target.value))}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="candidate_margin"
+              render={({ field }) => (
+                <FormItem className="mt-4 max-w-xs">
+                  <FormLabel>{t('authority-linkers.decision.candidate-margin')}</FormLabel>
                   <FormControl>
                     <Input
                       type="number"

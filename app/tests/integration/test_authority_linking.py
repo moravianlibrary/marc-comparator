@@ -4,6 +4,7 @@ from marc_comparator.authority_linkers import (
     AuthorityLink,
     AuthorityLinker,
     BaseAuthorityLinker,
+    LinkProposal,
 )
 from pytest_mock import MockerFixture
 
@@ -146,7 +147,8 @@ def mock_linker_with_link(mocker: MockerFixture) -> None:
             return ["SKC"]
 
         async def run(self, base, system_number, record, target_base):
-            return AuthorityLink(base=target_base, system_number="001217729", record=record)
+            link = AuthorityLink(base=target_base, system_number="001217729", record=record)
+            return LinkProposal(link=link, candidates=[link], candidate_count=1)
 
     mocker.patch(
         "authority_linking.tasks.AUTHORITY_LINKER_DISPATCHER",
@@ -162,7 +164,7 @@ def mock_linker_with_no_link(mocker: MockerFixture) -> None:
             return ["SKC"]
 
         async def run(self, base, system_number, record, target_base):
-            return None
+            return LinkProposal.nothing_found()
 
     mocker.patch(
         "authority_linking.tasks.AUTHORITY_LINKER_DISPATCHER",

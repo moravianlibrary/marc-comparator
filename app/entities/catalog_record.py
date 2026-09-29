@@ -114,6 +114,23 @@ class CatalogRecord(
         viewonly=True,
         lazy="select",
     )
+    #: The runner-ups, best first: what each answer was chosen over.
+    #:
+    #: Separate from `authority_links` because they are not links — nothing
+    #: here is a claim that two records are the same work, only that one was
+    #: considered. A reader listing alternatives wants these; every other
+    #: reader wants the scoped relationship above and would be wrong to see
+    #: them.
+    link_candidates: Mapped[list[AuthorityLink]] = relationship(
+        "AuthorityLink",
+        primaryjoin=lambda: and_(
+            CatalogRecord.id == AuthorityLink.main_record_id,
+            AuthorityLink.rank > ANSWER_RANK,
+        ),
+        order_by=lambda: (AuthorityLink.base, AuthorityLink.rank),
+        viewonly=True,
+        lazy="select",
+    )
     #: Everything the linkers had to say about this record, links and gaps
     #: alike, in the order they would be shown.
     link_attempts: Mapped[list[AuthorityLink]] = relationship(

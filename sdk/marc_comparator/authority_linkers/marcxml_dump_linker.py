@@ -45,13 +45,13 @@ from marcdantic import MarcRecord
 from marcdantic.selectors import IsbnActiveJq, IssnActiveJq, NbnActiveJq, TitleJq
 from pydantic import BaseModel, Field
 
-from ..comparators import RecordComparisonResult
 from ..comparators.default import DefaultComparator, DefaultComparatorConfig
 from ..harvest import HarvestContext, HarvestResult, HarvestStorageUnavailable
 from ._base import (
     CANDIDATE_MARC_CONTEXT,
     AuthorityLink,
     BaseAuthorityLinker,
+    LinkProposal,
     LinkRequest,
     MatchRoute,
 )
@@ -1077,7 +1077,7 @@ class MarcXmlDumpLinker(BaseAuthorityLinker):
         system_number: str,
         record: MarcRecord,
         target_base: str,
-    ) -> AuthorityLink | None:
+    ) -> LinkProposal:
         if target_base != self.config.target_base:
             raise ValueError(f"Unsupported target base: {target_base}")
         if self.harvest_storage is None:
@@ -1090,27 +1090,42 @@ class MarcXmlDumpLinker(BaseAuthorityLinker):
 
         retrieval = await asyncio.to_thread(self._candidates, record, (base, system_number))
         if not retrieval.candidates:
-            return None
+            return LinkProposal.nothing_found()
 
-        best: _Candidate | None = None
-        best_comparison: RecordComparisonResult | None = None
-        best_score = 0.0
+        # Every candidate was already compared to pick a winner; the losing
+        # scores were simply thrown away afterwards. Keeping them costs the
+        # comparisons nothing — they have all been run by the time the best is
+        # known — and it is the difference between a cataloguer seeing "this
+        # one, and here are the three it beat" and seeing one bare answer.
+        scored: list[AuthorityLink] = []
         for candidate in retrieval.candidates:
             comparison = await self._comparator.run(record, candidate.record)
-            if best is None or comparison.overall_score > best_score:
-                best, best_comparison, best_score = candidate, comparison, comparison.overall_score
+            scored.append(
+                AuthorityLink(
+                    base=target_base,
+                    system_number=candidate.sysno,
+                    record=candidate.record,
+                    confidence=comparison.overall_score,
+                    # The pair the pipeline compares next, for whichever of
+                    # these is chosen; carried on all of them so promoting a
+                    # runner-up later does not have to recompute it.
+                    comparison=comparison,
+                    matched_by=retrieval.route,
+                )
+            )
 
-        if best is None or best_score < self._minimum_confidence_for(retrieval.route):
-            return None
+        scored.sort(key=lambda link: link.confidence or 0.0, reverse=True)
+        best = scored[0]
+        floor = self._minimum_confidence_for(retrieval.route)
 
-        return AuthorityLink(
-            base=target_base,
-            system_number=best.sysno,
-            record=best.record,
-            confidence=best_score,
-            # The pair chosen here is the pair the pipeline compares next.
-            comparison=best_comparison,
-            matched_by=retrieval.route,
+        return LinkProposal(
+            # Below the floor the shortlist still comes back. The host records
+            # that something was found and rejected, which reads very
+            # differently from finding nothing — and is the only way anyone
+            # can tell a floor is set too high.
+            link=best if (best.confidence or 0.0) >= floor else None,
+            candidates=scored,
+            candidate_count=len(retrieval.candidates),
         )
 
     def _minimum_confidence_for(self, route: MatchRoute | None) -> float:

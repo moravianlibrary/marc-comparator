@@ -78,6 +78,10 @@ export function LinkingDecisionHelp() {
           <strong>{t('authority-linkers.decision.confident-threshold')}</strong> —{' '}
           {t('help.authority-linkers.decision.confident-threshold')}
         </li>
+        <li>
+          <strong>{t('authority-linkers.decision.candidate-margin')}</strong> —{' '}
+          {t('help.authority-linkers.decision.candidate-margin')}
+        </li>
       </TypographyList>
     </>
   );

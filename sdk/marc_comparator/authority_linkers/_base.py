@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import StrEnum
 
 from marcdantic import MarcRecord
@@ -80,6 +80,45 @@ class AuthorityLink:
     #: what a low score means: weak agreement between records known to be the
     #: same work, or a candidate that was never more than a guess.
     matched_by: MatchRoute | None = None
+
+
+@dataclass(slots=True)
+class LinkProposal:
+    """Everything one linker concluded about one record and one target base.
+
+    ``run`` used to return the accepted link alone, so a caller could not tell
+    a lookup that found nothing from one that found several and liked none of
+    them, and the candidates that were scored and set aside were discarded
+    before anybody could be shown them. Those are different answers and the
+    people fixing records need them apart.
+
+    The three cases are readable off the two fields:
+
+    - ``link`` set — this is the match, and ``candidates`` holds it first.
+    - ``link`` unset, ``candidates`` empty — nothing was found to consider.
+    - ``link`` unset, ``candidates`` filled — something was found and none of
+      it cleared the floor for the route it was found by.
+    """
+
+    #: The candidate this linker accepts, or nothing where none qualified.
+    link: AuthorityLink | None
+
+    #: Every candidate it is willing to hand over, best first, including
+    #: ``link``. Ordered by this linker's own confidence, which is comparable
+    #: within one list and not between two: one linker may measure a match
+    #: while another asserts a constant for every hit.
+    candidates: list[AuthorityLink] = field(default_factory=list)
+
+    #: How many were weighed altogether. Not ``len(candidates)``: a linker may
+    #: hand back a shortlist, and the difference is what tells a reader that
+    #: "one candidate, chosen" is not the same as "eight, one chosen".
+    candidate_count: int = 0
+
+    @classmethod
+    def nothing_found(cls) -> "LinkProposal":
+        """No candidate was retrieved at all."""
+
+        return cls(link=None, candidates=[], candidate_count=0)
 
 
 @dataclass(slots=True)
@@ -167,7 +206,7 @@ class BaseAuthorityLinker(HarvestCapable, ABC):
         system_number: str,
         record: MarcRecord,
         target_base: str,
-    ) -> AuthorityLink | None:
+    ) -> LinkProposal:
         """
         Attempt to link a catalog record to an authority record.
 
@@ -184,8 +223,15 @@ class BaseAuthorityLinker(HarvestCapable, ABC):
 
         Returns
         -------
-        AuthorityLink | None
-            An AuthorityLink instance if a matching authority record is found,
-            otherwise None.
+        LinkProposal
+            What this linker concluded: the accepted link if there is one, the
+            candidates it weighed, and how many there were. Always a proposal,
+            never ``None`` — "found nothing" is
+            ``LinkProposal.nothing_found()``, and it is a different answer from
+            "found something and rejected it", which callers need to tell apart.
+
+        A lookup that could not be performed raises. Reporting it as a proposal
+        with no link would be read as "no match exists", and the host deletes
+        links it no longer finds.
         """
         raise NotImplementedError
