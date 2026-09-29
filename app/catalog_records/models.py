@@ -60,6 +60,10 @@ class RecordFilter(BaseModel):
     # Boolean
     deleted: bool | None = None
     processed: bool | None = None
+    #: True selects only records the last pass could not read, false only those
+    #: it could. Separate from `processed`, which a broken record also fails —
+    #: "not reached yet" and "cannot be read" are not the same work item.
+    broken: bool | None = None
 
     # Review status
     review_statuses: list[str] | None = None
@@ -167,6 +171,10 @@ class RecordSummary(BaseModel):
     latest_sync: datetime | None = None
     latest_transaction: datetime | None = None
     processed_at: datetime | None = None
+    #: Why the last pass could not read this record, when it could not. The
+    #: message is the only thing that turns a Broken state into something
+    #: somebody can act on — it names the field MARC failed at.
+    processing_error: str | None = None
 
 
 class SearchRecordsResponse(BaseModel):

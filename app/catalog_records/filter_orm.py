@@ -57,6 +57,13 @@ def _compile_one(query, c: FilterCondition):
                 else CatalogRecord.processed_at.is_(None)
             )
 
+        case FilterField.Broken:
+            return query.filter(
+                CatalogRecord.processing_error.isnot(None)
+                if c.value
+                else CatalogRecord.processing_error.is_(None)
+            )
+
         case FilterField.ReviewStatuses:
             has_current = CatalogRecord.reviews.any(RecordReview.status == ReviewStatus.Current)
             has_bad_comparisons = CatalogRecord.comparisons.any(

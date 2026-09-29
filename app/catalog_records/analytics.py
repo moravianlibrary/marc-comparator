@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS catalog_records_analytics (
     bibliographic_level TEXT,
     is_deleted      BOOLEAN NOT NULL DEFAULT FALSE,
     is_processed    BOOLEAN NOT NULL DEFAULT FALSE,
+    is_broken       BOOLEAN NOT NULL DEFAULT FALSE,
 
     authority_link_linkers  TEXT[],
     authority_link_bases    TEXT[],
@@ -45,6 +46,7 @@ CREATE TABLE IF NOT EXISTS catalog_records_analytics (
 CREATE_INDEXES_SQL = [
     "CREATE INDEX IF NOT EXISTS idx_analytics_base ON catalog_records_analytics (base)",
     "CREATE INDEX IF NOT EXISTS idx_analytics_processed ON catalog_records_analytics (is_processed)",
+    "CREATE INDEX IF NOT EXISTS idx_analytics_broken ON catalog_records_analytics (is_broken) WHERE is_broken",
     "CREATE INDEX IF NOT EXISTS idx_analytics_review_status ON catalog_records_analytics (review_status) WHERE review_status != 'ReviewNotNeeded'",
     "CREATE INDEX IF NOT EXISTS idx_analytics_auth_linkers ON catalog_records_analytics USING gin (authority_link_linkers)",
     "CREATE INDEX IF NOT EXISTS idx_analytics_auth_bases ON catalog_records_analytics USING gin (authority_link_bases)",
@@ -96,6 +98,7 @@ _ANALYTICS_SELECT = """
         cr.bibliographic_level,
         cr.deleted         AS is_deleted,
         (cr.processed_at IS NOT NULL) AS is_processed,
+        (cr.processing_error IS NOT NULL) AS is_broken,
 
         array_agg(DISTINCT al.linker)
             FILTER (WHERE al.linker IS NOT NULL)            AS authority_link_linkers,
@@ -132,6 +135,11 @@ _ANALYTICS_SELECT = """
         array_agg(DISTINCT rr.aspect_name)
             FILTER (WHERE rr.id IS NOT NULL)                       AS reviewed_aspects,
         CASE
+            -- A record nobody could read has no comparisons and no validations,
+            -- so every branch below would call it ReviewNotNeeded. That is the
+            -- reading that made a broken record look clean; it has no review
+            -- status at all, which is what the ORM's `state` now says too.
+            WHEN cr.processing_error IS NOT NULL THEN NULL
             WHEN NOT EXISTS (
                 SELECT 1 FROM comparisons cmp2
                 WHERE cmp2.main_record_id = cr.id
@@ -190,9 +198,23 @@ _ANALYTICS_SELECT = """
 _ANALYTICS_GROUP_BY = "GROUP BY cr.id"
 
 
+#: Columns added to the analytics table after it first shipped.
+#:
+#: The table is derived, not authoritative, so it is created rather than
+#: migrated — but CREATE TABLE IF NOT EXISTS is a no-op where one already
+#: exists, which would leave an older deployment without the new column and
+#: every query naming it broken. Each entry is an ALTER that is safe to repeat.
+ADD_COLUMNS_SQL = [
+    "ALTER TABLE catalog_records_analytics "
+    "ADD COLUMN IF NOT EXISTS is_broken BOOLEAN NOT NULL DEFAULT FALSE",
+]
+
+
 def init_analytics_table(db: Session) -> None:
     """Create the analytics table, cube tables, and indexes if they don't exist."""
     db.execute(text(CREATE_TABLE_SQL))
+    for alter_sql in ADD_COLUMNS_SQL:
+        db.execute(text(alter_sql))
     for idx_sql in CREATE_INDEXES_SQL:
         db.execute(text(idx_sql))
     db.execute(text(CREATE_CUBE_SQL))
@@ -219,6 +241,7 @@ def upsert_records(db: Session, record_ids: list[str]) -> None:
             bibliographic_level = EXCLUDED.bibliographic_level,
             is_deleted = EXCLUDED.is_deleted,
             is_processed = EXCLUDED.is_processed,
+            is_broken = EXCLUDED.is_broken,
             authority_link_linkers = EXCLUDED.authority_link_linkers,
             authority_link_bases = EXCLUDED.authority_link_bases,
             comparison_bases = EXCLUDED.comparison_bases,
@@ -263,6 +286,7 @@ _SCALAR_FACETS = ["base", "type_of_record", "bibliographic_level", "review_statu
 _BOOL_FACETS = {
     "is_deleted": ("Active", "Deleted"),
     "is_processed": ("Unprocessed", "Processed"),
+    "is_broken": ("Readable", "Broken"),
 }
 _ARRAY_FACETS = [
     "authority_link_linkers",

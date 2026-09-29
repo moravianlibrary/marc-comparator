@@ -39,6 +39,10 @@ from .models import AuthorityLinkingSettings, AuthorityLinkingTaskData
 
 class LinkActionResult(StrEnum):
     NoLinkFound = "NoLinkFound"
+    #: A lookup that never completed, which is not the same as no match. Kept
+    #: apart in the summary because "found nothing" and "could not look" call
+    #: for opposite responses: the first is an answer, the second is a retry.
+    LinkingFailed = "LinkingFailed"
     DeletedLink = "DeletedLink"
     UpdatedLink = "UpdatedLink"
     ReplacedLink = "ReplacedLink"
@@ -669,6 +673,17 @@ async def authority_linking(task_id: str) -> None:
                     for result in results:
                         counters[result] += 1
 
+                    handle_batch_progress_snippet(ctx)
+
+                except AuthorityLinkingFailed as e:
+                    # find_best_link_for_record raises rather than returning
+                    # None precisely so this is not read as "no match exists" —
+                    # the caller deletes links it no longer finds. Counting it
+                    # keeps that distinction in the summary instead of leaving
+                    # it in the log, where a run that failed a thousand lookups
+                    # reads like one that failed none.
+                    counters[LinkActionResult.LinkingFailed] += 1
+                    ctx.logger.error(f"Linking failed for record {catalog_record.id}: {e}")
                     handle_batch_progress_snippet(ctx)
 
                 except ValueError as e:

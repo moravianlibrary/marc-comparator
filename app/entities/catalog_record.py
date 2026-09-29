@@ -41,6 +41,9 @@ class CatalogRecordState(StrEnum):
     Deleted = "Deleted"
     Unprocessed = "Unprocessed"
     Processed = "Processed"
+    #: The last pass could not read this record. Distinct from Unprocessed,
+    #: which says only that no pass has finished with it yet.
+    Broken = "Broken"
     Reviewed = "Reviewed"
     PartiallyReviewed = "PartiallyReviewed"
     Unreviewed = "Unreviewed"
@@ -66,6 +69,14 @@ class CatalogRecord(
     latest_sync: Mapped[datetime] = mapped_column(TIMESTAMP, default=func.now())
     deleted: Mapped[bool] = mapped_column(Boolean, default=False)
     processed_at: Mapped[datetime | None] = mapped_column(TIMESTAMP)
+    #: Why the last processing attempt could not read this record, or null.
+    #:
+    #: A record whose MARC will not parse produces nothing — no comparisons, no
+    #: validations — and never gets stamped, so without this it reads as merely
+    #: not reached yet and, having no results to review, as needing no review.
+    #: Two readings that are both wrong and neither of which anybody can act on.
+    #: Cleared the moment a pass gets through the record.
+    processing_error: Mapped[str | None] = mapped_column(String)
 
     # source_type is a plain String column, not a DB enum — CatalogRecordSource is only
     # its default, so reads come back as str. Annotating the enum here would be a lie.
@@ -194,6 +205,14 @@ class CatalogRecord(
             states.append(CatalogRecordState.Processed)
         else:
             states.append(CatalogRecordState.Unprocessed)
+
+        if self.processing_error is not None:
+            # No review status at all for a record nobody could read. Every one
+            # of the four below is derived from comparisons and validations, and
+            # a broken record has none — which is how it used to come out as
+            # ReviewNotNeeded and sit in the interface looking clean.
+            states.append(CatalogRecordState.Broken)
+            return states
 
         current_reviews = {r.aspect_name for r in self.reviews if r.status == ReviewStatus.Current}
         # Aspects that need review: non-excellent comparators + validators with issues

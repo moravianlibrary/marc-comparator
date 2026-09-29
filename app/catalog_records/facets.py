@@ -25,6 +25,7 @@ SCALAR_FACETS = ["base", "type_of_record", "bibliographic_level", "review_status
 BOOL_FACETS = {
     "is_deleted": ("Active", "Deleted"),
     "is_processed": ("Unprocessed", "Processed"),
+    "is_broken": ("Readable", "Broken"),
 }
 ARRAY_FACETS = [
     "authority_link_linkers",

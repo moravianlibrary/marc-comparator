@@ -18,6 +18,7 @@ from adapters.tasks import (
 )
 from authority_linking.tasks import (
     LINK_PREFETCH_WINDOW,
+    AuthorityLinkingFailed,
     LinkActionResult,
     announce_link_window,
     announce_window,
@@ -508,9 +509,39 @@ def _settle_window(
         catalog_record = ctx.db_session.get(CatalogRecord, record_id)
         if catalog_record is None:
             continue
-        if results_changed or links_changed or catalog_record.processed_at is None:
+        # Reaching here means the record was read, so whatever stopped the last
+        # pass no longer does. Clearing it is also a change worth stamping for:
+        # a record that was broken and produced nothing still has no results to
+        # differ, so nothing else here would notice it had recovered.
+        recovered = catalog_record.processing_error is not None
+        if recovered:
+            catalog_record.processing_error = None
+        if results_changed or links_changed or recovered or catalog_record.processed_at is None:
             catalog_record.processed_at = config.timestamp
             catalog_record.save(ctx.db_session, commit=False)
+
+
+#: Room for a pydantic error naming a few fields, and a hard stop well short of
+#: a message that would make the row awkward to read or to index.
+_PROCESSING_ERROR_LIMIT = 500
+
+
+def _remember_processing_error(ctx: ManagedTask, record_id: str, reason: str) -> None:
+    """Write on the record why this pass could not read it.
+
+    Committed on its own rather than left to the window's commit. A later
+    record in the same window can fail in a way that rolls the session back,
+    and losing the explanation for record A because record B failed afterwards
+    is exactly the silence this is here to end. Broken records are rare, so the
+    extra write costs nothing at the scale that matters.
+    """
+
+    catalog_record = ctx.db_session.get(CatalogRecord, record_id)
+    if catalog_record is None:
+        return
+
+    catalog_record.processing_error = reason[:_PROCESSING_ERROR_LIMIT]
+    ctx.db_session.commit()
 
 
 async def process_records(task_id: str) -> None:
@@ -708,13 +739,25 @@ async def process_records(task_id: str) -> None:
 
                 # Both handlers report `record_id`, never catalog_record.id: reading
                 # the instance here can raise a second error that buries the first.
+                except AuthorityLinkingFailed as e:
+                    # The record is readable; a lookup it depends on did not
+                    # complete. Marking it broken would blame the record for
+                    # someone else's outage, and the next pass would then
+                    # "recover" it the moment the service came back, which says
+                    # nothing about the record at all.
+                    ctx.logger.error(f"Linking failed for record {record_id}: {e}")
+                    counters[LinkActionResult.LinkingFailed] += 1
+                    handle_batch_progress_snippet(ctx)
+
                 except ValueError as e:
                     ctx.logger.warning(f"Skipping record {record_id}: {e}")
+                    _remember_processing_error(ctx, record_id, str(e))
                     handle_batch_progress_snippet(ctx)
 
                 except Exception as e:
                     ctx.db_session.rollback()
                     ctx.logger.error(f"Failed processing record {record_id}:\n{e}")
+                    _remember_processing_error(ctx, record_id, f"{type(e).__name__}: {e}")
                     handle_batch_progress_snippet(ctx)
 
             _settle_window(ctx, settle, window_links)

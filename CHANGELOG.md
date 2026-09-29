@@ -14,6 +14,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   wrong metadata on the Kramerius side, so rather than guessing, the validator reports the
   identifier, the match count and a sample of the candidate PIDs for a curator to judge —
   and to pass back to the digitisation team.
+- Records that cannot be read say so. `catalog_records.processing_error` holds why the
+  last pass failed on a record, a `Broken` state is derived from it, and it is filterable
+  through `broken` and the `is_broken` facet, with the reason on the record summary. A
+  record whose MARC will not parse used to read as `Unprocessed` — indistinguishable from
+  one no pass had reached — and, having no results to review, as `ReviewNotNeeded`, so it
+  sat in the interface looking finished while every run retried it and failed identically.
+  A broken record now reports no review status at all.
+- Authority-linking runs count failed lookups. `AuthorityLinkingFailed` is raised rather
+  than returned precisely so "the lookup did not complete" is not read as "no match
+  exists"; a generic `except Exception` was discarding that. It is now caught on its own
+  and reported as `LinkingFailed` in the task summary, and during processing it no longer
+  risks marking the record broken — the record is readable, an external service was not.
 - Authority links record how the linker found the record they point at, in a new
   `authority_links.matched_by` column and on the API's link summary — `identifier`,
   `title` or `dedup`. A low confidence means nothing without it: two records that agree

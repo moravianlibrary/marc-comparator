@@ -13,6 +13,7 @@ class FilterField(StrEnum):
     BibliographicLevel = "bibliographic_level"
     Deleted = "deleted"
     Processed = "processed"
+    Broken = "broken"
     ReviewStatuses = "review_statuses"
     AuthorityLinkLinkers = "authority_link_linkers"
     AuthorityLinkBases = "authority_link_bases"
@@ -57,6 +58,8 @@ def parse_filters(filters: RecordFilter) -> list[FilterCondition]:
         conditions.append(FilterCondition(FilterField.Deleted, filters.deleted))
     if filters.processed is not None:
         conditions.append(FilterCondition(FilterField.Processed, filters.processed))
+    if filters.broken is not None:
+        conditions.append(FilterCondition(FilterField.Broken, filters.broken))
     if filters.review_statuses:
         conditions.append(FilterCondition(FilterField.ReviewStatuses, filters.review_statuses))
     if filters.authority_link_linkers:

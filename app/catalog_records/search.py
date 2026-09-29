@@ -132,4 +132,5 @@ def _to_summary(record: CatalogRecord) -> RecordSummary:
         latest_sync=record.latest_sync,
         latest_transaction=record.latest_transaction,
         processed_at=record.processed_at,
+        processing_error=record.processing_error,
     )
