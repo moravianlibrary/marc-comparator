@@ -540,3 +540,74 @@ class TestNothingGoodEnoughIsStillAFinding:
         rows = _rows(db_session, record)
         assert [(r.rank, r.outcome) for r in rows] == [(0, LinkOutcome.Linked)]
         assert rows[0].authority_record_id == candidate.id
+
+
+class TestTheSummaryCarriesTheWholeStory:
+    """What the interface needs to show a cataloguer more than a bare answer."""
+
+    def _summary(self, db_session, record: CatalogRecord):
+        from catalog_records.models import SearchRecordsRequest
+        from catalog_records.search import search_records
+
+        response = search_records(
+            SearchRecordsRequest(filters=RecordFilter(record_ids=[record.id])), db_session
+        )
+        return response.items[0]
+
+    def test_a_gap_is_reported_as_an_attempt_and_not_as_a_link(self, db_session):
+        record = _record(db_session, "000000090")
+        scenario_no_link_no_existing(db_session, record.id, TARGET_BASE)
+        db_session.commit()
+
+        summary = self._summary(db_session, record)
+
+        assert summary.authority_links == []
+        assert [(a.rank, a.outcome) for a in summary.link_attempts] == [
+            (0, LinkOutcome.NoCandidate)
+        ]
+        assert summary.link_attempts[0].linker is None
+
+    def test_a_failed_lookup_carries_its_reason(self, db_session):
+        record = _record(db_session, "000000091")
+        record_lookup_failure(db_session, record.id, TARGET_BASE, "knihovny.cz timed out")
+        db_session.commit()
+
+        attempt = self._summary(db_session, record).link_attempts[0]
+
+        assert attempt.outcome == LinkOutcome.LookupFailed
+        assert attempt.detail == "knihovny.cz timed out"
+
+    def test_an_accepted_link_appears_in_both_lists(self, db_session):
+        """Once as the link it is, once as the first step of how it was chosen."""
+
+        record = _record(db_session, "000000092")
+        won = _record(db_session, "000000093", TARGET_BASE, CatalogRecordSource.AuthorityLinker)
+        lost = _record(db_session, "000000094", TARGET_BASE, CatalogRecordSource.AuthorityLinker)
+
+        handle_catalog_record_link_action(
+            db_session,
+            record,
+            _decision(_candidate(won, 0.71), _candidate(lost, 0.64)),
+            TARGET_BASE,
+        )
+        db_session.commit()
+
+        summary = self._summary(db_session, record)
+
+        assert [link.authority_record_id for link in summary.authority_links] == [won.id]
+        assert [(a.rank, a.outcome, a.authority_sysno) for a in summary.link_attempts] == [
+            (0, LinkOutcome.Linked, won.system_number),
+            (1, LinkOutcome.Rejected, lost.system_number),
+        ]
+        assert summary.link_attempts[0].candidate_count == 2
+        assert summary.link_attempts[1].authority_record_id is None
+
+    def test_a_broken_record_says_what_broke(self, db_session):
+        """The message was in the API and unread; a Broken badge alone is not
+        something anybody can act on."""
+
+        record = _record(db_session, "000000095")
+        record.processing_error = "variable_fields.500.0.ind1"
+        db_session.commit()
+
+        assert self._summary(db_session, record).processing_error == ("variable_fields.500.0.ind1")

@@ -11,6 +11,7 @@ from .filter_sql import compile_conditions
 from .models import (
     AuthorityLinkSummary,
     ComparisonSummary,
+    LinkAttemptSummary,
     RecordFilter,
     RecordSummary,
     SearchRecordsRequest,
@@ -75,6 +76,7 @@ def search_records(request: SearchRecordsRequest, db: Session) -> SearchRecordsR
     # lazy loading costs 4 extra queries per record.
     query = query.options(
         selectinload(CatalogRecord.authority_links),
+        selectinload(CatalogRecord.link_attempts),
         selectinload(CatalogRecord.comparisons),
         selectinload(CatalogRecord.validations),
         selectinload(CatalogRecord.reviews),
@@ -113,6 +115,22 @@ def _to_summary(record: CatalogRecord) -> RecordSummary:
                 matched_by=al.matched_by,
             )
             for al in record.authority_links
+        ],
+        link_attempts=[
+            LinkAttemptSummary(
+                base=la.base,
+                rank=la.rank,
+                outcome=la.outcome,
+                linker=la.linker,
+                authority_record_id=la.authority_record_id,
+                authority_base=la.authority_base,
+                authority_sysno=la.authority_sysno,
+                confidence=la.confidence,
+                matched_by=la.matched_by,
+                candidate_count=la.candidate_count,
+                detail=la.detail,
+            )
+            for la in record.link_attempts
         ],
         comparisons=[
             ComparisonSummary(

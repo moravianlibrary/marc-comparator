@@ -11,6 +11,8 @@ export interface RecordFilter {
   review_statuses?: string[];
   authority_link_linkers?: string[];
   authority_link_bases?: string[];
+  /** What came of trying to link, including the records that got no link. */
+  link_outcomes?: string[];
   comparison_bases?: string[];
   match_qualities?: string[];
   field_explanations?: string[];
@@ -28,6 +30,29 @@ export interface AuthorityLinkSummary {
   authority_record_id: string;
   /** How sure the linker was; null for linkers that report nothing. */
   confidence: number | null;
+}
+
+/** What came of trying to link a record to one base. */
+export type LinkOutcome = 'Linked' | 'Rejected' | 'BelowFloor' | 'NoCandidate' | 'LookupFailed';
+
+export interface LinkAttemptSummary {
+  base: string;
+  /** 0 is the answer, whatever it says; above it are the runner-ups. */
+  rank: number;
+  outcome: LinkOutcome;
+  /** Null where no linker owns the row — all were asked, none answered. */
+  linker: string | null;
+  /** Set only on an accepted link; a candidate is identified by the key below. */
+  authority_record_id: string | null;
+  authority_base: string | null;
+  authority_sysno: string | null;
+  confidence: number | null;
+  matched_by: string | null;
+  /** How many were weighed in total, on the answer row. Not derivable from
+   *  the rows: an unambiguous winner keeps none of its runner-ups. */
+  candidate_count: number | null;
+  /** The error text of a lookup that never completed. */
+  detail: string | null;
 }
 
 export interface ComparisonSummary {
@@ -54,11 +79,16 @@ export interface RecordSummary {
   bibliographic_level: string | null;
   state: string[];
   authority_links: AuthorityLinkSummary[];
+  /** Links and gaps alike, in rank order. The accepted link appears here too. */
+  link_attempts: LinkAttemptSummary[];
   comparisons: ComparisonSummary[];
   validations: ValidationSummary[];
   latest_sync: string | null;
   latest_transaction: string | null;
   processed_at: string | null;
+  /** Why the last pass could not read this record. The only thing that turns
+   *  a Broken badge into something somebody can act on: it names the field. */
+  processing_error: string | null;
 }
 
 export interface SearchRecordsRequest {
@@ -214,4 +244,14 @@ export const STATE_COLORS: Record<string, string> = {
   PartiallyReviewed: 'state-partially-reviewed',
   Unreviewed: 'state-unreviewed',
   ReviewNotNeeded: 'state-review-not-needed',
+  Broken: 'state-broken',
+};
+
+/** Colours for the answers that are not a link. `Linked` is absent on
+ *  purpose: a record that linked says so through its own badge, and
+ *  `Rejected` never sits at the answer rank. */
+export const LINK_OUTCOME_COLORS: Record<string, string> = {
+  BelowFloor: 'link-outcome-below-floor',
+  NoCandidate: 'link-outcome-no-candidate',
+  LookupFailed: 'link-outcome-lookup-failed',
 };

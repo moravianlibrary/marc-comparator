@@ -10,6 +10,7 @@ export const SECTION_GROUPS = {
     'validators',
     'authority_link_linkers',
     'authority_link_bases',
+    'link_outcomes',
     'comparison_bases',
   ],
   records: ['record_status', 'type_of_record', 'bibliographic_level'],

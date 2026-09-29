@@ -2,7 +2,8 @@ import type { ColumnDef } from '@tanstack/react-table';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { confidenceLabel } from '../authority-links';
-import { type RecordSummary, STATE_COLORS } from '../types';
+import { linkGaps } from '../link-attempts';
+import { LINK_OUTCOME_COLORS, type RecordSummary, STATE_COLORS } from '../types';
 import { COMPARISON_BADGE_CLASS, groupValidations, VALIDATION_BADGE_CLASS } from '../utils';
 
 /** Column IDs that the backend can sort by. */
@@ -69,11 +70,25 @@ export function createColumns(
       enableSorting: false,
       cell: ({ row }) => {
         const links = row.original.authority_links;
-        if (links.length === 0) {
+        // A record with no link is not an empty cell any more: it says which
+        // way it ended up without one, which is the whole point of the column
+        // for the records that need work.
+        const gaps = linkGaps(row.original);
+        if (links.length === 0 && gaps.length === 0) {
           return '-';
         }
         return (
           <div className="flex flex-wrap gap-1">
+            {gaps.map(gap => (
+              <Badge
+                key={`gap-${gap.base}`}
+                variant="outline"
+                className={cn('text-xs', LINK_OUTCOME_COLORS[gap.outcome])}
+                title={gap.detail ?? undefined}
+              >
+                {[gap.base, t(`records:link-outcome-short.${gap.outcome}`)].join(' ')}
+              </Badge>
+            ))}
             {links.map(al => {
               const systemNumber = al.authority_record_id.startsWith(`${al.base}-`)
                 ? al.authority_record_id.slice(al.base.length + 1)

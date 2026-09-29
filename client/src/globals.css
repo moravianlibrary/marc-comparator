@@ -200,6 +200,28 @@
   background-color: color-mix(in oklch, var(--status-gray) 10%, transparent);
   color: var(--status-gray);
 }
+.state-broken {
+  border-color: var(--status-danger);
+  background-color: color-mix(in oklch, var(--status-danger) 10%, transparent);
+  color: var(--status-danger);
+}
+/* Link outcome badges. Only the ones that are not a link get a colour: a
+   record that linked says so through its authority-link badge already. */
+.link-outcome-below-floor {
+  border-color: var(--status-warning);
+  background-color: color-mix(in oklch, var(--status-warning) 10%, transparent);
+  color: var(--status-warning);
+}
+.link-outcome-no-candidate {
+  border-color: var(--status-slate);
+  background-color: color-mix(in oklch, var(--status-slate) 10%, transparent);
+  color: var(--status-slate);
+}
+.link-outcome-lookup-failed {
+  border-color: var(--status-danger);
+  background-color: color-mix(in oklch, var(--status-danger) 10%, transparent);
+  color: var(--status-danger);
+}
 
 html[data-font-size="small"] {
   font-size: 87.5%;

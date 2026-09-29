@@ -132,6 +132,8 @@ class SearchRecordsRequest(BaseModel):
 
 
 class AuthorityLinkSummary(BaseModel):
+    """An accepted link: these two records describe the same work."""
+
     linker: str
     base: str
     authority_record_id: str
@@ -144,6 +146,42 @@ class AuthorityLinkSummary(BaseModel):
     #: ISBN and disagree about everything else are a cataloguing difference
     #: worth reviewing, not a doubtful link.
     matched_by: str | None = None
+
+
+class LinkAttemptSummary(BaseModel):
+    """One row of what came of trying to link this record to one base.
+
+    Wider than `AuthorityLinkSummary` and kept beside it rather than folded
+    into it: every reader of that one means "the same work", and most of
+    these are not. The accepted link appears in both — once as the link it
+    is, once as the first entry in the story of how it was chosen.
+    """
+
+    base: str
+    #: Position in this record's list for the base. 0 is the answer, whatever
+    #: it says; anything above is a runner-up it was chosen over.
+    rank: int
+    #: Linked, Rejected, BelowFloor, NoCandidate or LookupFailed.
+    outcome: str
+    #: Null where no linker owns the row — every one of them was asked and
+    #: none of them answered.
+    linker: str | None = None
+    #: Set only on the accepted link. A candidate is identified by its natural
+    #: key below; persisting a copy of a record nobody chose costs 189 ms and
+    #: buys nothing.
+    authority_record_id: str | None = None
+    authority_base: str | None = None
+    authority_sysno: str | None = None
+    confidence: float | None = None
+    matched_by: str | None = None
+    #: How many candidates were weighed in total, on the answer row. Not
+    #: derivable from the rows: an unambiguous winner keeps no runner-ups, so
+    #: without this "one candidate" and "eight, seven of them pruned" look
+    #: the same.
+    candidate_count: int | None = None
+    #: Why, for an outcome that has something to explain — the error text of
+    #: a lookup that never completed, and nothing for the rest.
+    detail: str | None = None
 
 
 class ComparisonSummary(BaseModel):
@@ -170,6 +208,10 @@ class RecordSummary(BaseModel):
     bibliographic_level: str | None = None
     state: list[str] = []
     authority_links: list[AuthorityLinkSummary] = []
+    #: Everything the linkers had to say, links and gaps alike, in rank order.
+    #: What `authority_links` leaves out: the records with no link and the
+    #: reason, and the alternatives an accepted link was chosen over.
+    link_attempts: list[LinkAttemptSummary] = []
     comparisons: list[ComparisonSummary] = []
     validations: list[ValidationSummary] = []
     latest_sync: datetime | None = None

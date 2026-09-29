@@ -162,7 +162,10 @@
       "history": "Historie revizí",
       "created": "Revize uložena",
       "deleted": "Revize zrušena"
-    }
+    },
+    "processing-error": "Záznam nelze načíst",
+    "weighed": "posouzeno {{count}}",
+    "candidates": "Další zvažované záznamy"
   },
   "addition": {
     "title": "Přidání záznamů",
@@ -203,7 +206,8 @@
     "validation_target_tags": "Validační cílový tag",
     "validation_reasons": "Vysvětlení validací",
     "field_explanations": "Vysvětlení výsledku",
-    "overall_score": "Celkové skóre porovnání"
+    "overall_score": "Celkové skóre porovnání",
+    "link_outcomes": "Výsledek propojení"
   },
   "state": {
     "Active": "Aktivní",
@@ -213,7 +217,8 @@
     "Reviewed": "Revidováno",
     "PartiallyReviewed": "Částečně revidováno",
     "Unreviewed": "Nerevidováno",
-    "ReviewNotNeeded": "Revize není potřeba"
+    "ReviewNotNeeded": "Revize není potřeba",
+    "Broken": "Nečitelný"
   },
   "match-quality": {
     "Excellent": "Výborná",
@@ -310,5 +315,19 @@
     "wrong_server_found": "Aktualizujte odkaz tak, aby vedl na správný server: {{url}}",
     "wrong_server_not_found": "Aktualizujte odkaz tak, aby vedl na správný server: {{url}}",
     "foreign_digital_library": "Není třeba nic měnit. Pokud dokument máte i ve svém Krameriu, doplňte vedle tohoto odkazu ještě odkaz vlastní."
+  },
+  "link-outcome": {
+    "Linked": "Propojeno ({{base}})",
+    "Rejected": "Zamítnuto",
+    "BelowFloor": "{{base}}: nález pod prahem",
+    "NoCandidate": "{{base}}: nic nenalezeno",
+    "LookupFailed": "{{base}}: vyhledání selhalo"
+  },
+  "link-outcome-short": {
+    "Linked": "Propojeno",
+    "Rejected": "Zamítnuto",
+    "BelowFloor": "Pod prahem",
+    "NoCandidate": "Nic nenalezeno",
+    "LookupFailed": "Vyhledání selhalo"
   }
 }

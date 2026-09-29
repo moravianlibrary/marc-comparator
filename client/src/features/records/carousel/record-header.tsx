@@ -7,8 +7,9 @@ import { useHasPermission } from '@/hooks/use-permissions';
 import { cn } from '@/lib/utils';
 import { Permission } from '@/types/permission';
 import { confidenceLabel } from '../authority-links';
+import { allCandidates, candidateLabel, linkGaps, scoreLabel } from '../link-attempts';
 import { AdvancedTaskActions, RecordTaskActions } from '../record-task-actions';
-import { type RecordSummary, STATE_COLORS } from '../types';
+import { LINK_OUTCOME_COLORS, type RecordSummary, STATE_COLORS } from '../types';
 import { COMPARISON_BADGE_CLASS, groupValidations, VALIDATION_BADGE_CLASS } from '../utils';
 
 interface RecordHeaderProps {
@@ -56,6 +57,12 @@ export function RecordHeader({ record, onSelectView }: RecordHeaderProps) {
         <p className="text-sm text-muted-foreground">{record.authors.join(', ')}</p>
       )}
 
+      {record.processing_error && (
+        <p className="rounded-md border border-[var(--status-danger)] bg-[color-mix(in_oklch,var(--status-danger)_8%,transparent)] px-2 py-1 text-xs text-[var(--status-danger)]">
+          {t('carousel.processing-error')}: <code>{record.processing_error}</code>
+        </p>
+      )}
+
       <div className="flex flex-wrap gap-1">
         {record.type_of_record && (
           <Badge variant="outline" className="text-xs">
@@ -95,6 +102,22 @@ export function RecordHeader({ record, onSelectView }: RecordHeaderProps) {
             </Badge>
           );
         })}
+        {linkGaps(record).map(gap => (
+          <Badge
+            key={`gap-${gap.base}`}
+            variant="outline"
+            className={cn('text-xs', LINK_OUTCOME_COLORS[gap.outcome])}
+            title={gap.detail ?? undefined}
+          >
+            {[
+              t(`link-outcome.${gap.outcome}`, { base: gap.base }),
+              scoreLabel(gap),
+              gap.candidate_count ? t('carousel.weighed', { count: gap.candidate_count }) : null,
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+          </Badge>
+        ))}
         {record.comparisons.map(c => {
           const viewKey = `comp:${c.comparator}:${c.other_record_id}`;
           return (
@@ -136,6 +159,23 @@ export function RecordHeader({ record, onSelectView }: RecordHeaderProps) {
           );
         })}
       </div>
+
+      {allCandidates(record).length > 0 && (
+        <div className="space-y-1">
+          <p className="text-xs font-medium text-muted-foreground">{t('carousel.candidates')}</p>
+          <div className="flex flex-wrap gap-1">
+            {allCandidates(record).map(candidate => (
+              <Badge
+                key={`cand-${candidate.base}-${candidate.rank}`}
+                variant="outline"
+                className="text-xs font-normal text-muted-foreground"
+              >
+                {[candidateLabel(candidate), scoreLabel(candidate)].filter(Boolean).join(' · ')}
+              </Badge>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="flex gap-4 text-xs text-muted-foreground">
         {record.latest_sync && (
