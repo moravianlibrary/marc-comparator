@@ -450,6 +450,32 @@ class TestCatalogEndpoints:
         assert response.status_code == 200
 
     @pytest.mark.asyncio
+    async def test_get_marc_record_that_will_not_read_is_not_reported_as_missing(
+        self,
+        db_session: DatabaseSession,
+        user,
+        client: AsyncClient,
+    ):
+        """A record in the catalogue whose stored MARC is unusable.
+
+        This answered 404 — the same as a system number that was never here —
+        so the obvious reading was that the record had gone, when it was sitting
+        in the list the caller had just clicked.
+        """
+
+        from entities.catalog_record import CatalogRecord
+
+        # A row with nothing in sector storage behind it.
+        CatalogRecord(base="TEST", system_number="000000404").save(db_session)
+        db_session.flush()
+
+        response = await client.get("/catalog-records/TEST/000000404/marc")
+
+        assert response.status_code == 422
+        assert "cannot be read" in response.json()["detail"]
+        assert "TEST-000000404" in response.json()["detail"]
+
+    @pytest.mark.asyncio
     async def test_fetch_batch_endpoint(
         self,
         db_session,

@@ -1,5 +1,6 @@
 from fastapi import HTTPException
 from marcdantic import MarcRecord
+from pydantic import ValidationError
 
 from adapters.database import DatabaseSession
 from adapters.lock_server import one_at_a_time_lock
@@ -12,6 +13,7 @@ from entities.validation import Validation
 
 from .exceptions import (
     CatalogRecordNotFoundException,
+    CatalogRecordUnreadableException,
     SyncTaskAlreadyRunningException,
 )
 from .models import (
@@ -24,6 +26,29 @@ from .models import (
     SyncRecordsData,
 )
 
+#: Field errors quoted back to the caller. One is almost always the whole story,
+#: and a record that fails validation in fifty places should not answer with
+#: fifty lines of it.
+_REPORTED_MARC_ERRORS = 3
+
+
+def _describe_marc_errors(error: ValidationError) -> str:
+    """Name the fields pydantic rejected, in the shape MARC people read.
+
+    ``loc`` is already the path through the parsed record —
+    ``("variable_fields", "500", 0, "ind1")`` is field 500, first occurrence,
+    first indicator — so joining it says where to look without translation.
+    """
+
+    reported = error.errors(include_url=False, include_context=False, include_input=False)
+    described = [
+        f"{'.'.join(str(part) for part in item['loc'])}: {item['msg']}"
+        for item in reported[:_REPORTED_MARC_ERRORS]
+    ]
+    if len(reported) > _REPORTED_MARC_ERRORS:
+        described.append(f"and {len(reported) - _REPORTED_MARC_ERRORS} more")
+    return "; ".join(described)
+
 
 def get_marc_record(base: str, system_number: str, db_session: DatabaseSession) -> MarcRecord:
     catalog_record = CatalogRecord.find_by_base_and_system_number(db_session, base, system_number)
@@ -33,10 +58,15 @@ def get_marc_record(base: str, system_number: str, db_session: DatabaseSession) 
 
     try:
         return catalog_record.get_record(db_session)
+    except ValidationError as e:
+        # Caught before ValueError, which it subclasses — that inheritance is
+        # the whole bug: a record whose MARC parsed but did not validate landed
+        # in the ValueError branch below and was reported as missing.
+        raise CatalogRecordUnreadableException(base, system_number, _describe_marc_errors(e)) from e
     except ValueError as e:
-        # `from e` keeps "record body will not decode" distinguishable from
-        # "no such record" in logs — both surface as the same 404 to the client.
-        raise CatalogRecordNotFoundException(base, system_number) from e
+        # Malformed bytes, an undecodable body, or no stored MARC at all. The
+        # record row exists either way, so this is not a 404 either.
+        raise CatalogRecordUnreadableException(base, system_number, str(e)) from e
 
 
 def get_comparisons(base: str, system_number: str, db_session: DatabaseSession) -> list[dict]:

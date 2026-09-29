@@ -2,13 +2,14 @@ from adapters.database import DatabaseSession
 from auth.models import UserSchema
 from common.models import Page, PageRequestParams
 from entities.role import Role, resolve_permissions
-from entities.user import User
+from entities.user import SYSTEM_USER_ID, User
 
 from .exceptions import (
     ImmutableRoleDeletionException,
     ImmutableRoleModificationException,
     ProtectedRoleDeletionException,
     ProtectedRoleRenameException,
+    SystemUserRoleModificationException,
 )
 from .models import EditRole, RoleSchema, UsersRequestParams
 
@@ -61,7 +62,10 @@ def delete_role(role_id: int, db_session: DatabaseSession) -> Role:
 
 
 def get_users(params: UsersRequestParams, db_session: DatabaseSession) -> Page[UserSchema]:
-    query_base = db_session.query(User)
+    # The scheduler's account is not a person and cannot be administered — it
+    # never logs in and its roles are fixed — so listing it among the accounts
+    # someone manages only invites an edit that will be refused.
+    query_base = db_session.query(User).filter(User.id != SYSTEM_USER_ID)
     if params.email:
         query_base = query_base.filter(User.email.ilike(f"{params.email}%"))
 
@@ -80,7 +84,15 @@ def assign_role_to_user(user_id: str, role_id: int, db_session: DatabaseSession)
     user = User.get(db_session, user_id)
     role = Role.get(db_session, role_id)
 
-    user.roles.append(role)
+    if user.id == SYSTEM_USER_ID:
+        raise SystemUserRoleModificationException()
+
+    # `user_roles` is keyed on (user_id, role_id), so appending a role the user
+    # already holds raised IntegrityError, which nothing catches — assigning a
+    # role twice answered 500. Granting a role someone has is not a failure,
+    # and unassign has always been silent about the mirror case.
+    if role not in user.roles:
+        user.roles.append(role)
 
     return user.save(db_session)
 
@@ -88,6 +100,9 @@ def assign_role_to_user(user_id: str, role_id: int, db_session: DatabaseSession)
 def unassign_role_from_user(user_id: str, role_id: int, db_session: DatabaseSession) -> User:
     user = User.get(db_session, user_id)
     role = Role.get(db_session, role_id)
+
+    if user.id == SYSTEM_USER_ID:
+        raise SystemUserRoleModificationException()
 
     if role in user.roles:
         user.roles.remove(role)

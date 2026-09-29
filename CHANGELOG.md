@@ -71,6 +71,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- The system user's roles can no longer be edited. Taking Admin from
+  `system@marc-comparator.local` left every scheduled task without permission to do
+  anything until the next restart, which put the role back — making the damage
+  temporary, silent and hard to attribute. The guard is in the service now, not only
+  in the startup repair, and the account is no longer listed among the users someone
+  administers.
+- Assigning a user a role they already have no longer answers 500. `user_roles` is
+  keyed on `(user_id, role_id)` and nothing in the app catches `IntegrityError`;
+  assignment is now idempotent, as unassignment always was.
+- A catalog record whose stored MARC will not read answers 422 with the field that
+  was rejected, instead of 404. Pydantic's `ValidationError` subclasses `ValueError`,
+  so a record that parsed but failed validation was landing in the same branch as
+  "no such record" — reporting a record as missing while it sat in the catalogue
+  list. A record that is genuinely absent or deleted still answers 404.
 - **Kramerius link discovery proposed links to unrelated documents.** Identifiers were
   OR-ed into one query and every hit became a proposed 856, so a single unreliable
   identifier invented dozens of links per record. MZK's Kramerius has ČNB numbers shared
