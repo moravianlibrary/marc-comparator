@@ -1,7 +1,8 @@
 from datetime import datetime
+from enum import StrEnum
 from typing import TYPE_CHECKING, Optional
 
-from sqlalchemy import TIMESTAMP, Float, ForeignKey, String, func
+from sqlalchemy import TIMESTAMP, Float, ForeignKey, Index, Integer, String, func, text
 from sqlalchemy.orm import Mapped, joinedload, mapped_column, relationship
 
 from adapters.database import Base, DatabaseSession
@@ -11,16 +12,86 @@ if TYPE_CHECKING:
     from .catalog_record import CatalogRecord
 
 
+class LinkOutcome(StrEnum):
+    """What came of trying to link one record to one target base.
+
+    The table used to hold only the first of these, so every other way of
+    ending up without a link — the lookup found nothing, the lookup never
+    completed, the best candidate was not good enough — was stored as the
+    absence of a row, and read back as the same thing.
+    """
+
+    #: This is the match. Carries an authority record.
+    Linked = "Linked"
+    #: Considered and scored, but another candidate was chosen.
+    Rejected = "Rejected"
+    #: The best candidate did not clear its route's minimum confidence.
+    BelowFloor = "BelowFloor"
+    #: The lookup completed and found nothing to consider.
+    NoCandidate = "NoCandidate"
+    #: The lookup did not complete, which is not an answer about the record.
+    LookupFailed = "LookupFailed"
+
+
+#: The rank of the row that answers "what is this record linked to".
+#:
+#: Named because it is a claim, not an index: exactly one row per record and
+#: base sits here, and the primary key is what enforces that. Everything below
+#: it is a runner-up.
+ANSWER_RANK = 0
+
+
 class AuthorityLink(Base, BaseOperationsMixin):
     __tablename__ = "authority_links"
+
+    __table_args__ = (
+        # One row per candidate per record and base, however many linkers
+        # propose it. Partial, because the rows this must not constrain are
+        # exactly the ones naming no candidate — and the primary key already
+        # allows a record only one of those.
+        Index(
+            "uq_authority_links_candidate",
+            "main_record_id",
+            "base",
+            "authority_base",
+            "authority_sysno",
+            unique=True,
+            postgresql_where=text("authority_sysno IS NOT NULL"),
+        ),
+        Index("ix_authority_links_outcome", "outcome"),
+    )
 
     main_record_id: Mapped[str] = mapped_column(
         String, ForeignKey("catalog_records.id"), primary_key=True
     )
-    linker: Mapped[str] = mapped_column(String, primary_key=True)
     base: Mapped[str] = mapped_column(String, primary_key=True)
+    #: Position in this record's list for this base, ``ANSWER_RANK`` first.
+    #:
+    #: In the key rather than alongside it so that "there is one answer" is a
+    #: property of the schema. A flag saying the same thing can disagree with
+    #: the ordering; a key cannot.
+    rank: Mapped[int] = mapped_column(Integer, primary_key=True, default=ANSWER_RANK)
 
-    authority_record_id: Mapped[str] = mapped_column(
+    #: Who proposed this row, or nothing where no one did.
+    #:
+    #: Deliberately not part of the key: both linkers run for every record and
+    #: may propose the same authority record, and the interface has to show a
+    #: cataloguer one ordered list either way. Null on a row that records the
+    #: absence of a link, because every linker was asked and none of them
+    #: answered — naming one of them would blame it for a unanimous silence.
+    linker: Mapped[str | None] = mapped_column(String)
+    outcome: Mapped[str] = mapped_column(String, default=LinkOutcome.Linked)
+
+    #: The candidate's natural key, which is what identifies it.
+    #:
+    #: ``CatalogRecord.generate_id`` is ``f"{base}-{system_number}"``, so the
+    #: foreign key below carries no information these two do not — it only
+    #: forces a row to exist. A row that never became the answer therefore
+    #: needs no persisted copy of the record, and a row that says why there is
+    #: no answer names no record at all.
+    authority_base: Mapped[str | None] = mapped_column(String)
+    authority_sysno: Mapped[str | None] = mapped_column(String)
+    authority_record_id: Mapped[str | None] = mapped_column(
         String,
         ForeignKey("catalog_records.id"),
     )
@@ -32,38 +103,88 @@ class AuthorityLink(Base, BaseOperationsMixin):
     #: ever shared a title. Null on links written before the linkers reported
     #: it, and by linkers that do not.
     matched_by: Mapped[str | None] = mapped_column(String)
+    #: How many candidates were weighed in total, which the stored rows do not
+    #: say: an unambiguous winner is stored without its runner-ups, so without
+    #: this "there were four and three were not worth keeping" is
+    #: indistinguishable from "there was only one".
+    candidate_count: Mapped[int | None] = mapped_column(Integer)
+    #: Free text for an outcome that has something to explain — the error a
+    #: failed lookup raised, and nothing at all for the rest.
+    detail: Mapped[str | None] = mapped_column(String)
+
     updated_at: Mapped[datetime] = mapped_column(TIMESTAMP, default=func.now(), onupdate=func.now())
 
     main_record: Mapped["CatalogRecord"] = relationship(
         "CatalogRecord",
         foreign_keys=[main_record_id],
-        back_populates="authority_links",
+        back_populates="link_attempts",
         lazy="select",
     )
 
-    authority_record: Mapped["CatalogRecord"] = relationship(
+    authority_record: Mapped[Optional["CatalogRecord"]] = relationship(
         "CatalogRecord",
         foreign_keys=[authority_record_id],
         lazy="select",
     )
 
-    @property
-    def system_number(self) -> str:
-        return self.authority_record.system_number
+    def _as_link(self) -> None:
+        """Raise unless this row is an accepted link.
 
-    @classmethod
-    def find_by_linker_and_base(
-        cls,
-        db_session: DatabaseSession,
-        main_record_id: str,
-        linker: str,
-        base: str,
-    ) -> Optional["AuthorityLink"]:
-        return (
-            db_session.query(cls)
-            .filter_by(main_record_id=main_record_id, linker=linker, base=base)
-            .one_or_none()
-        )
+        Every row now has an outcome, and only one of them means "these two
+        records are the same work". The accessors below are how a caller that
+        means that says so: they are reached through the scoped relationship
+        and the scoped finders, so a row without a record here is a reader that
+        escaped the scoping, not data anyone can fix.
+        """
+
+        if self.outcome != LinkOutcome.Linked:
+            raise ValueError(
+                f"{self.main_record_id} -> {self.base} is a {self.outcome} row, not a link"
+            )
+
+    @property
+    def linked_record(self) -> "CatalogRecord":
+        """The authority record this link points at."""
+
+        self._as_link()
+        if self.authority_record is None:
+            raise ValueError(f"{self.main_record_id} -> {self.base} has no authority record")
+        return self.authority_record
+
+    @property
+    def linked_record_id(self) -> str:
+        """The id of the record this link points at, without loading it.
+
+        Separate from ``linked_record`` because the search listing reads only
+        the id, and reaching it through the relationship would be one query per
+        link on the busiest read in the system.
+        """
+
+        self._as_link()
+        if self.authority_record_id is None:
+            raise ValueError(f"{self.main_record_id} -> {self.base} has no authority record")
+        return self.authority_record_id
+
+    @property
+    def linked_by(self) -> str:
+        """The linker that proposed this link."""
+
+        self._as_link()
+        if self.linker is None:
+            raise ValueError(f"{self.main_record_id} -> {self.base} names no linker")
+        return self.linker
+
+    @property
+    def system_number(self) -> str | None:
+        """The candidate's system number, without loading the record for it.
+
+        Rows written before ``authority_sysno`` existed fall back to the record
+        they point at; rows that point at nothing have neither and say so.
+        """
+
+        if self.authority_sysno is not None:
+            return self.authority_sysno
+        return self.authority_record.system_number if self.authority_record else None
 
     @classmethod
     def find_by_main_record_and_base(
@@ -72,16 +193,45 @@ class AuthorityLink(Base, BaseOperationsMixin):
         main_record_id: str,
         base: str,
     ) -> Optional["AuthorityLink"]:
-        """Return the single authority link for this record and base, if any.
+        """Return the accepted link for this record and base, if there is one.
+
+        A record with no link still has a row at ``ANSWER_RANK`` saying why,
+        and that row is not a link: callers here mean "what is this record
+        linked to", and answering with a ``NoCandidate`` row would report a
+        link to nothing.
 
         The authority record comes with it: callers reach straight through to
-        it — ``system_number`` below is a property that does — and the
-        relationship is lazy, so leaving it out costs a second query per link
-        to read one column.
+        it, and the relationship is lazy, so leaving it out costs a second
+        query per link to read one column.
         """
         return (
             db_session.query(cls)
             .options(joinedload(cls.authority_record))
-            .filter_by(main_record_id=main_record_id, base=base)
+            .filter_by(
+                main_record_id=main_record_id,
+                base=base,
+                rank=ANSWER_RANK,
+                outcome=LinkOutcome.Linked,
+            )
             .first()
+        )
+
+    @classmethod
+    def find_answer(
+        cls,
+        db_session: DatabaseSession,
+        main_record_id: str,
+        base: str,
+    ) -> Optional["AuthorityLink"]:
+        """The row at ``ANSWER_RANK``, whatever it says.
+
+        Distinct from ``find_by_main_record_and_base``: this is for the writer,
+        which has to clear whatever is sitting in that slot before putting its
+        own answer there, and for which a gap row is just as much in the way as
+        a link.
+        """
+        return (
+            db_session.query(cls)
+            .filter_by(main_record_id=main_record_id, base=base, rank=ANSWER_RANK)
+            .one_or_none()
         )

@@ -42,11 +42,23 @@ class _Link:
         confidence: float = 0.95,
         source_name: str = "marcxml-dump",
         matched_by: str | None = MatchRoute.Identifier.value,
+        authority_base: str = "SKC",
+        authority_sysno: str = "000000001",
     ):
+        self.main_record_id = "MZK01-000000042"
+        self.base = "SKC"
+        self.outcome = "Linked"
         self.confidence = confidence
         self.matched_by = matched_by
+        self.authority_base = authority_base
+        self.authority_sysno = authority_sysno
         self.authority_record = _AuthorityRecord(source_name)
         self.saves = 0
+
+    @property
+    def linked_record(self):
+        """What the entity exposes for a row that is an accepted link."""
+        return self.authority_record
 
     def save(self, _db, commit=False):  # noqa: FBT002
         self.saves += 1
@@ -56,8 +68,12 @@ def _found(
     marc: bytes = STORED,
     confidence: float = 0.95,
     matched_by: MatchRoute | None = MatchRoute.Identifier,
+    base: str = "SKC",
+    system_number: str = "000000001",
 ):
     return SimpleNamespace(
+        base=base,
+        system_number=system_number,
         confidence=confidence,
         matched_by=matched_by,
         record=SimpleNamespace(_marc=marc),
@@ -157,6 +173,24 @@ class TestEveryRealChangeStillLands:
             cast(Any, _linker()),
             cast(Any, link),
             cast(Any, _Buffer(holding=True)),
+            {link.authority_record.id: STORED},
+        )
+
+    def test_a_link_predating_the_natural_key_is_written(self):
+        """A link from before the candidate's own key was stored fills it in.
+
+        Nothing else moved — same record, same confidence, same route — so
+        without this the two columns would stay empty for as long as the link
+        went on being re-found, and the candidate would have no key of its own.
+        """
+
+        link = _Link(authority_base=None, authority_sysno=None)  # pyright: ignore[reportArgumentType]
+
+        assert not _link_update_would_write_nothing(
+            cast(Any, _found()),
+            cast(Any, _linker()),
+            cast(Any, link),
+            cast(Any, _Buffer()),
             {link.authority_record.id: STORED},
         )
 

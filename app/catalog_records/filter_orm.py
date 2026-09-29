@@ -17,6 +17,9 @@ MATCH_QUALITY_RANGES = {
 RELATIONSHIP_FILTERS = {
     FilterField.AuthorityLinkLinkers: (CatalogRecord.authority_links, AuthorityLink.linker),
     FilterField.AuthorityLinkBases: (CatalogRecord.authority_links, AuthorityLink.base),
+    # Over every attempt rather than the accepted links: an outcome that is
+    # not `Linked` has no link to be found through, which is the point of it.
+    FilterField.LinkOutcomes: (CatalogRecord.link_attempts, AuthorityLink.outcome),
     FilterField.Validators: (CatalogRecord.validations, Validation.validator),
 }
 
@@ -87,6 +90,7 @@ def _compile_one(query, c: FilterCondition):
         case (
             FilterField.AuthorityLinkLinkers
             | FilterField.AuthorityLinkBases
+            | FilterField.LinkOutcomes
             | FilterField.Validators
         ):
             relationship, column = RELATIONSHIP_FILTERS[c.field]

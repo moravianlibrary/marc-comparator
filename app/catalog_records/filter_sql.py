@@ -49,6 +49,7 @@ def _compile_one(c: FilterCondition) -> tuple[str | None, dict]:
         case (
             FilterField.AuthorityLinkLinkers
             | FilterField.AuthorityLinkBases
+            | FilterField.LinkOutcomes
             | FilterField.ComparisonBases
             | FilterField.MatchQualities
             | FilterField.FieldExplanations

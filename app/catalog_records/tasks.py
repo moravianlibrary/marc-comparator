@@ -27,6 +27,7 @@ from authority_linking.tasks import (
     load_authority_linkers,
     load_confident_threshold,
     prefetch_linked_authority_marc,
+    record_lookup_failure,
     windows,
 )
 from catalog_records.models import (
@@ -43,7 +44,7 @@ from comparison.tasks import (
     load_gate_comparator,
 )
 from config import config
-from entities.authority_link import AuthorityLink
+from entities.authority_link import ANSWER_RANK, AuthorityLink, LinkOutcome
 from entities.catalog_record import CatalogRecord
 from entities.record_review import RecordReview
 from entities.result_snapshot import ResultSnapshot
@@ -132,9 +133,13 @@ def _link_fingerprint(links: Sequence[AuthorityLink]) -> str:
     to answer whether a pass found anything new.
     """
 
+    # `or ""` rather than the value itself: a row with no authority record is
+    # not a link, and sorting one against a row that has one compares None with
+    # a string, which raises.
     return json.dumps(
         sorted(
-            (link.linker, link.base, link.authority_record_id, link.confidence) for link in links
+            (link.linker or "", link.base, link.authority_record_id or "", link.confidence)
+            for link in links
         ),
         sort_keys=True,
     )
@@ -147,7 +152,16 @@ def _link_fingerprints_for(db_session, record_ids: Sequence[str]) -> dict[str, s
     by_record: defaultdict[str, list[AuthorityLink]] = defaultdict(list)
     if wanted:
         for link in (
-            db_session.query(AuthorityLink).filter(AuthorityLink.main_record_id.in_(wanted)).all()
+            db_session.query(AuthorityLink)
+            .filter(
+                AuthorityLink.main_record_id.in_(wanted),
+                # The same rows the fingerprint is recomputed over afterwards.
+                # Read wider than that and every gap row would make a pass look
+                # like it had found something.
+                AuthorityLink.rank == ANSWER_RANK,
+                AuthorityLink.outcome == LinkOutcome.Linked,
+            )
+            .all()
         ):
             by_record[link.main_record_id].append(link)
     return {record_id: _link_fingerprint(by_record.get(record_id, [])) for record_id in wanted}
@@ -687,7 +701,11 @@ async def process_records(task_id: str) -> None:
                     authority_links = (
                         ctx.db_session.query(AuthorityLink)
                         .options(joinedload(AuthorityLink.authority_record))
-                        .filter_by(main_record_id=catalog_record.id)
+                        .filter_by(
+                            main_record_id=catalog_record.id,
+                            rank=ANSWER_RANK,
+                            outcome=LinkOutcome.Linked,
+                        )
                         .all()
                     )
 
@@ -697,8 +715,8 @@ async def process_records(task_id: str) -> None:
                     if any(
                         authority_link.base not in measured
                         and sectors.holds(
-                            authority_link.authority_record.base,
-                            authority_link.authority_record.system_number,
+                            authority_link.linked_record.base,
+                            authority_link.linked_record.system_number,
                         )
                         for authority_link in authority_links
                     ):
@@ -745,6 +763,7 @@ async def process_records(task_id: str) -> None:
                     # someone else's outage, and the next pass would then
                     # "recover" it the moment the service came back, which says
                     # nothing about the record at all.
+                    record_lookup_failure(ctx.db_session, record_id, e.target_base, str(e))
                     ctx.logger.error(f"Linking failed for record {record_id}: {e}")
                     counters[LinkActionResult.LinkingFailed] += 1
                     handle_batch_progress_snippet(ctx)

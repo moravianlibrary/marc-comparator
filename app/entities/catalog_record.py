@@ -12,6 +12,7 @@ from sqlalchemy import (
     Boolean,
     Index,
     String,
+    and_,
     event,
     func,
     select,
@@ -25,7 +26,7 @@ from ._operations import (
     BaseOperationsMixin,
     RetrievalOperationsMixin,
 )
-from .authority_link import AuthorityLink
+from .authority_link import ANSWER_RANK, AuthorityLink, LinkOutcome
 from .comparison import Comparison
 from .record_review import RecordReview, ReviewStatus
 from .validation import Validation
@@ -95,10 +96,31 @@ class CatalogRecord(
     search_text: Mapped[str | None] = mapped_column(String)
     search_vector: Mapped[str | None] = mapped_column(TSVECTOR)
 
+    #: What this record was found to be the same work as.
+    #:
+    #: Scoped to the answer rows that are links. The table also holds rows
+    #: saying why a record has no link, and every reader of this relationship
+    #: means "the same work" — listing them, filtering on them, comparing
+    #: against them. Putting the guard here puts it in one place; leaving it to
+    #: the call sites means each of them can forget it, and the one that does
+    #: reports a link to nothing.
     authority_links: Mapped[list[AuthorityLink]] = relationship(
+        "AuthorityLink",
+        primaryjoin=lambda: and_(
+            CatalogRecord.id == AuthorityLink.main_record_id,
+            AuthorityLink.rank == ANSWER_RANK,
+            AuthorityLink.outcome == LinkOutcome.Linked,
+        ),
+        viewonly=True,
+        lazy="select",
+    )
+    #: Everything the linkers had to say about this record, links and gaps
+    #: alike, in the order they would be shown.
+    link_attempts: Mapped[list[AuthorityLink]] = relationship(
         "AuthorityLink",
         foreign_keys=[AuthorityLink.main_record_id],
         back_populates="main_record",
+        order_by=lambda: (AuthorityLink.base, AuthorityLink.rank),
         lazy="select",
     )
     comparisons: Mapped[list[Comparison]] = relationship(

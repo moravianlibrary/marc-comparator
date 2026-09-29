@@ -93,7 +93,7 @@ async def handle_catalog_record_comparison(
     # included — so the caller may hand that result in instead.
     result = precomputed or await comparator.run(
         record if record is not None else catalog_record.get_record(db_session),
-        link.authority_record.get_record(db_session),
+        link.linked_record.get_record(db_session),
     )
 
     comparison = Comparison.find(
@@ -104,14 +104,14 @@ async def handle_catalog_record_comparison(
     )
 
     if comparison:
-        comparison.other_record_id = link.authority_record.id
+        comparison.other_record_id = link.linked_record.id
         comparison.result = result.model_dump()
     else:
         comparison = Comparison(
             main_record_id=catalog_record.id,
             comparator=UsedComparator.value,
             base=target_base,
-            other_record_id=link.authority_record.id,
+            other_record_id=link.linked_record.id,
             result=result.model_dump(),
         )
 

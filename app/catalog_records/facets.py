@@ -30,6 +30,7 @@ BOOL_FACETS = {
 ARRAY_FACETS = [
     "authority_link_linkers",
     "authority_link_bases",
+    "link_outcomes",
     "comparison_bases",
     "match_qualities",
     "validators",

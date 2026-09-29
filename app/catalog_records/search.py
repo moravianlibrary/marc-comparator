@@ -103,9 +103,12 @@ def _to_summary(record: CatalogRecord) -> RecordSummary:
         state=[s.value for s in record.state],
         authority_links=[
             AuthorityLinkSummary(
-                linker=al.linker,
+                linker=al.linked_by,
                 base=al.base,
-                authority_record_id=al.authority_record_id,
+                # A summary describes a link to a record. The relationship
+                # only yields those, and these accessors are how this reader
+                # says so rather than assuming it.
+                authority_record_id=al.linked_record_id,
                 confidence=al.confidence,
                 matched_by=al.matched_by,
             )

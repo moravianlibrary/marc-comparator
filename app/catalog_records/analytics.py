@@ -22,6 +22,7 @@ CREATE TABLE IF NOT EXISTS catalog_records_analytics (
 
     authority_link_linkers  TEXT[],
     authority_link_bases    TEXT[],
+    link_outcomes           TEXT[],
 
     comparison_bases        TEXT[],
     match_qualities         TEXT[],
@@ -50,6 +51,7 @@ CREATE_INDEXES_SQL = [
     "CREATE INDEX IF NOT EXISTS idx_analytics_review_status ON catalog_records_analytics (review_status) WHERE review_status != 'ReviewNotNeeded'",
     "CREATE INDEX IF NOT EXISTS idx_analytics_auth_linkers ON catalog_records_analytics USING gin (authority_link_linkers)",
     "CREATE INDEX IF NOT EXISTS idx_analytics_auth_bases ON catalog_records_analytics USING gin (authority_link_bases)",
+    "CREATE INDEX IF NOT EXISTS idx_analytics_link_outcomes ON catalog_records_analytics USING gin (link_outcomes)",
     "CREATE INDEX IF NOT EXISTS idx_analytics_comp_bases ON catalog_records_analytics USING gin (comparison_bases)",
     "CREATE INDEX IF NOT EXISTS idx_analytics_match_qual ON catalog_records_analytics USING gin (match_qualities)",
     "CREATE INDEX IF NOT EXISTS idx_analytics_validators ON catalog_records_analytics USING gin (validators)",
@@ -104,6 +106,15 @@ _ANALYTICS_SELECT = """
             FILTER (WHERE al.linker IS NOT NULL)            AS authority_link_linkers,
         array_agg(DISTINCT al.base)
             FILTER (WHERE al.base IS NOT NULL)              AS authority_link_bases,
+
+        -- Every outcome, not only the linked ones `al` is scoped to: this is
+        -- the column that answers "which records did linking fail on". A
+        -- subquery rather than a second join, which would multiply the rows
+        -- every array_agg above is computed over.
+        (SELECT array_agg(DISTINCT al2.outcome)
+         FROM authority_links al2
+         WHERE al2.main_record_id = cr.id
+        ) AS link_outcomes,
 
         array_agg(DISTINCT cmp.base)
             FILTER (WHERE cmp.base IS NOT NULL)             AS comparison_bases,
@@ -188,7 +199,11 @@ _ANALYTICS_SELECT = """
         cr.processed_at,
         cr.updated_at
     FROM catalog_records cr
-    LEFT JOIN authority_links al ON al.main_record_id = cr.id
+    -- Scoped to the accepted links, matching `CatalogRecord.authority_links`:
+    -- the linker and base facets mean "linked by", and a gap row would put
+    -- the linker that failed among the linkers that succeeded.
+    LEFT JOIN authority_links al
+           ON al.main_record_id = cr.id AND al.rank = 0 AND al.outcome = 'Linked'
     LEFT JOIN comparisons cmp ON cmp.main_record_id = cr.id
     LEFT JOIN validations v ON v.catalog_record_id = cr.id
     LEFT JOIN record_reviews rr ON rr.record_id = cr.id AND rr.status = 'current'
@@ -207,7 +222,7 @@ _ANALYTICS_GROUP_BY = "GROUP BY cr.id"
 _ANALYTICS_COLUMNS = """
     id, base, system_number, type_of_record, bibliographic_level,
     is_deleted, is_processed, is_broken,
-    authority_link_linkers, authority_link_bases,
+    authority_link_linkers, authority_link_bases, link_outcomes,
     comparison_bases, match_qualities, overall_scores, field_explanations,
     validators, validation_statuses, validation_target_tags, validation_reasons,
     reviewed_aspects, review_status,
@@ -224,6 +239,7 @@ _ANALYTICS_COLUMNS = """
 ADD_COLUMNS_SQL = [
     "ALTER TABLE catalog_records_analytics "
     "ADD COLUMN IF NOT EXISTS is_broken BOOLEAN NOT NULL DEFAULT FALSE",
+    "ALTER TABLE catalog_records_analytics ADD COLUMN IF NOT EXISTS link_outcomes TEXT[]",
 ]
 
 
@@ -261,6 +277,7 @@ def upsert_records(db: Session, record_ids: list[str]) -> None:
             is_broken = EXCLUDED.is_broken,
             authority_link_linkers = EXCLUDED.authority_link_linkers,
             authority_link_bases = EXCLUDED.authority_link_bases,
+            link_outcomes = EXCLUDED.link_outcomes,
             comparison_bases = EXCLUDED.comparison_bases,
             match_qualities = EXCLUDED.match_qualities,
             overall_scores = EXCLUDED.overall_scores,
@@ -308,6 +325,7 @@ _BOOL_FACETS = {
 _ARRAY_FACETS = [
     "authority_link_linkers",
     "authority_link_bases",
+    "link_outcomes",
     "comparison_bases",
     "match_qualities",
     "validators",

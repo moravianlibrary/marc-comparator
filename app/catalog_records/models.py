@@ -71,6 +71,10 @@ class RecordFilter(BaseModel):
     # Relationship
     authority_link_linkers: list[str] | None = None
     authority_link_bases: list[str] | None = None
+    #: What came of trying to link — see `LinkOutcome`. Selects on every
+    #: attempt, not only the ones that produced a link, so `NoCandidate` and
+    #: `LookupFailed` are as findable as `Linked` is.
+    link_outcomes: list[str] | None = None
     comparison_bases: list[str] | None = None
     match_qualities: list[str] | None = None
     field_explanations: list[str] | None = None

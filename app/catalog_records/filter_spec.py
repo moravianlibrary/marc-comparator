@@ -17,6 +17,7 @@ class FilterField(StrEnum):
     ReviewStatuses = "review_statuses"
     AuthorityLinkLinkers = "authority_link_linkers"
     AuthorityLinkBases = "authority_link_bases"
+    LinkOutcomes = "link_outcomes"
     ComparisonBases = "comparison_bases"
     MatchQualities = "match_qualities"
     FieldExplanations = "field_explanations"
@@ -70,6 +71,8 @@ def parse_filters(filters: RecordFilter) -> list[FilterCondition]:
         conditions.append(
             FilterCondition(FilterField.AuthorityLinkBases, filters.authority_link_bases)
         )
+    if filters.link_outcomes:
+        conditions.append(FilterCondition(FilterField.LinkOutcomes, filters.link_outcomes))
     if filters.comparison_bases:
         conditions.append(FilterCondition(FilterField.ComparisonBases, filters.comparison_bases))
     if filters.match_qualities:

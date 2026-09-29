@@ -31,7 +31,7 @@ from adapters.tasks import (
 )
 from catalog_records.search import build_filtered_query
 from config import config
-from entities.authority_link import AuthorityLink
+from entities.authority_link import ANSWER_RANK, AuthorityLink, LinkOutcome
 from entities.catalog_record import CatalogRecord, CatalogRecordSource
 from entities.settings import Settings, SettingsScope
 
@@ -60,7 +60,16 @@ class AuthorityLinkerInstance:
 
 
 class AuthorityLinkingFailed(RuntimeError):
-    """No linker produced a result and at least one of them failed."""
+    """No linker produced a result and at least one of them failed.
+
+    Carries the base that was being tried, because the row recording the
+    failure is written by the handler, and in the processing task that handler
+    sits outside the loop which knows what was being looked up.
+    """
+
+    def __init__(self, message: str, target_base: str) -> None:
+        super().__init__(message)
+        self.target_base = target_base
 
 
 #: Confidence at which the first stage stops looking. Matches the bottom of the
@@ -285,7 +294,7 @@ async def find_best_link_for_record(
     if not candidates:
         if failures:
             raise AuthorityLinkingFailed(
-                f"Every linker failed for record {catalog_record.id}"
+                f"Every linker failed for record {catalog_record.id}", target_base
             ) from failures[0]
         return None, None
 
@@ -309,8 +318,85 @@ def get_existing_link(
     return AuthorityLink.find_by_main_record_and_base(db_session, main_record_id, base)
 
 
-def scenario_no_link_no_existing() -> list[LinkActionResult]:
-    """No link found and no existing links."""
+def _answer_row(db_session: DatabaseSession, main_record_id: str, base: str) -> AuthorityLink:
+    """The row holding this record's answer for this base, created if absent.
+
+    Every outcome is written by rewriting this one row rather than deleting it
+    and inserting another. That is not only cheaper: a delete and an insert of
+    the same key in one flush are ordered by the unit of work, not by the code,
+    and rewriting sidesteps the question entirely.
+    """
+
+    row = AuthorityLink.find_answer(db_session, main_record_id, base)
+    if row is None:
+        row = AuthorityLink(main_record_id=main_record_id, base=base, rank=ANSWER_RANK)
+    return row
+
+
+def _make_gap(row: AuthorityLink, outcome: LinkOutcome, detail: str | None) -> None:
+    """Turn a row into a statement that there is no link, and why.
+
+    Everything a link put there is cleared, including the linker: no single
+    linker owns a gap. All of them were asked and none of them answered, so a
+    name in that column would say one of them is responsible for a silence
+    that was unanimous.
+    """
+
+    row.linker = None
+    row.outcome = outcome
+    row.authority_base = None
+    row.authority_sysno = None
+    row.authority_record_id = None
+    row.confidence = None
+    row.matched_by = None
+    row.candidate_count = None
+    row.detail = detail
+
+
+def record_link_gap(
+    db_session: DatabaseSession,
+    main_record_id: str,
+    target_base: str,
+    outcome: LinkOutcome,
+    detail: str | None = None,
+) -> None:
+    """Put the reason there is no link where the link would have been."""
+
+    row = _answer_row(db_session, main_record_id, target_base)
+    _make_gap(row, outcome, detail)
+    row.save(db_session, commit=False)
+
+
+def record_lookup_failure(
+    db_session: DatabaseSession,
+    main_record_id: str,
+    target_base: str,
+    detail: str,
+) -> None:
+    """Record that the lookup never completed — unless the record is linked.
+
+    A lookup that failed says nothing about the record, which is why the
+    caller does not delete an existing link over one. For exactly the same
+    reason it must not overwrite one: where a link stands, the failure belongs
+    in the log and the counters and nowhere else.
+    """
+
+    row = AuthorityLink.find_answer(db_session, main_record_id, target_base)
+    if row is not None and row.outcome == LinkOutcome.Linked:
+        return
+    if row is None:
+        row = AuthorityLink(main_record_id=main_record_id, base=target_base, rank=ANSWER_RANK)
+    _make_gap(row, LinkOutcome.LookupFailed, detail)
+    row.save(db_session, commit=False)
+
+
+def scenario_no_link_no_existing(
+    db_session: DatabaseSession,
+    main_record_id: str,
+    target_base: str,
+) -> list[LinkActionResult]:
+    """No link found and none to remove; say so where the link would be."""
+    record_link_gap(db_session, main_record_id, target_base, LinkOutcome.NoCandidate)
     return [LinkActionResult.NoLinkFound]
 
 
@@ -318,8 +404,15 @@ def scenario_no_link_with_existing(
     db_session: DatabaseSession,
     existing_link: AuthorityLink,
 ) -> list[LinkActionResult]:
-    """No link found but an existing link exists; delete it."""
-    existing_link.delete(db_session, commit=False)
+    """No link found but one exists; retract it, and leave the reason behind.
+
+    The link goes, which is the behaviour this has always had — a record the
+    linkers no longer match is not linked. What is new is that the row stays,
+    saying the lookup found nothing, so a link disappearing between passes is
+    something a cataloguer can see rather than infer from its absence.
+    """
+    _make_gap(existing_link, LinkOutcome.NoCandidate, None)
+    existing_link.save(db_session, commit=False)
     return [LinkActionResult.DeletedLink]
 
 
@@ -374,6 +467,11 @@ def prefetch_linked_authority_marc(
         .where(
             AuthorityLink.main_record_id.in_(record_ids),
             AuthorityLink.base.in_(target_bases),
+            # Only the accepted links have an authority record behind them to
+            # read; the join would drop the rest anyway, and saying so lets the
+            # outcome index carry the work.
+            AuthorityLink.rank == ANSWER_RANK,
+            AuthorityLink.outcome == LinkOutcome.Linked,
         )
     ).all()
 
@@ -413,12 +511,20 @@ def _link_update_would_write_nothing(
     if stored_marc is None:
         return False
 
-    authority_record = current_link.authority_record
+    authority_record = current_link.linked_record
     if current_link.confidence != found_link.confidence:
         return False
     # A link written before the route was recorded has the same confidence it
     # always had, so without this the row would keep its null forever.
     if current_link.matched_by != _matched_by_of(found_link):
+        return False
+    # Likewise for the natural key, which older rows were backfilled with and
+    # which nothing but this writes. Checking it here is what makes a row that
+    # somehow lost it heal on the next pass instead of keeping the gap.
+    if (current_link.authority_base, current_link.authority_sysno) != (
+        found_link.base,
+        found_link.system_number,
+    ):
         return False
     if authority_record.source_name != linker_instance.linker.value:
         return False
@@ -455,7 +561,9 @@ def scenario_found_link_update(
 
     current_link.confidence = found_link.confidence
     current_link.matched_by = _matched_by_of(found_link)
-    authority_record = current_link.authority_record
+    current_link.authority_base = found_link.base
+    current_link.authority_sysno = found_link.system_number
+    authority_record = current_link.linked_record
     authority_record.latest_sync = config.timestamp
     authority_record.source_name = linker_instance.linker.value
     authority_record.update_search_text_from(found_link.record)
@@ -511,15 +619,19 @@ def _upsert_authority_record_and_link(
         sectors,
     )
 
-    new_link = AuthorityLink(
-        main_record_id=catalog_record.id,
-        linker=linker_instance.linker.value,
-        base=target_base,
-        authority_record_id=authority_record.id,
-        confidence=found_link.confidence,
-        matched_by=_matched_by_of(found_link),
-    )
-    new_link.save(db_session, commit=False)
+    # Into the answer slot, whatever is in it: a link this pass replaces, or a
+    # row from the last pass saying there was nothing to link to.
+    link = _answer_row(db_session, catalog_record.id, target_base)
+    link.linker = linker_instance.linker.value
+    link.outcome = LinkOutcome.Linked
+    link.authority_base = found_link.base
+    link.authority_sysno = found_link.system_number
+    link.authority_record_id = authority_record.id
+    link.confidence = found_link.confidence
+    link.matched_by = _matched_by_of(found_link)
+    link.candidate_count = None
+    link.detail = None
+    link.save(db_session, commit=False)
     return authority_record, record_result
 
 
@@ -528,12 +640,15 @@ def scenario_found_link_replace(
     catalog_record: CatalogRecord,
     found_link: SdkAuthorityLink,
     linker_instance: AuthorityLinkerInstance,
-    existing_link: AuthorityLink,
     target_base: str,
     sectors: SectorBuffer | None = None,
 ) -> list[LinkActionResult]:
-    """Found link has different authority than existing; replace."""
-    existing_link.delete(db_session, commit=False)
+    """Found link points at a different authority record; take over the row.
+
+    There is nothing to delete first. The link being replaced sits at the
+    answer rank, which is exactly where the new one goes, so the write below
+    overwrites it in place.
+    """
     _, record_result = _upsert_authority_record_and_link(
         db_session, catalog_record, found_link, linker_instance, target_base, sectors
     )
@@ -574,7 +689,7 @@ def handle_catalog_record_link_action(
     # neither, so one being None means there is no found link at all.
     if found_link is None or linker_instance is None:
         if existing_link is None:
-            return scenario_no_link_no_existing()
+            return scenario_no_link_no_existing(db_session, catalog_record.id, target_base)
         return scenario_no_link_with_existing(db_session, existing_link)
 
     if existing_link is None:
@@ -597,7 +712,6 @@ def handle_catalog_record_link_action(
         catalog_record,
         found_link,
         linker_instance,
-        existing_link,
         target_base,
         sectors,
     )
@@ -684,6 +798,7 @@ async def authority_linking(task_id: str) -> None:
                     # it in the log, where a run that failed a thousand lookups
                     # reads like one that failed none.
                     counters[LinkActionResult.LinkingFailed] += 1
+                    record_lookup_failure(ctx.db_session, catalog_record.id, e.target_base, str(e))
                     ctx.logger.error(f"Linking failed for record {catalog_record.id}: {e}")
                     handle_batch_progress_snippet(ctx)
 

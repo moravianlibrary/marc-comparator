@@ -113,7 +113,7 @@ class TestComparisonUsesTheSuppliedRecordAndLink:
 
         class Link:
             base = "SKC"
-            authority_record = Authority()
+            linked_record = Authority()
 
         saved: list[dict] = []
 

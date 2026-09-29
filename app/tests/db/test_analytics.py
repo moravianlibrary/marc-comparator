@@ -14,10 +14,11 @@ from catalog_records.analytics import (
     rebuild_all,
     upsert_records,
 )
+from entities.authority_link import ANSWER_RANK, AuthorityLink, LinkOutcome
 from entities.catalog_record import CatalogRecord, CatalogRecordSource
 from entities.comparison import Comparison
 
-_NEWEST_COLUMN_DDL = "    is_broken       BOOLEAN NOT NULL DEFAULT FALSE,\n"
+_NEWEST_COLUMN_DDL = "    link_outcomes           TEXT[],\n"
 
 
 def _validation_result(status: ValidityStatus) -> dict:
@@ -226,8 +227,9 @@ class TestTheTableSurvivesGainingAColumn:
     """
 
     def test_a_rebuild_is_correct_on_a_table_that_predates_the_column(self, db_session):
-        _create_record(db_session, sysno="000009001", processing_error="will not decode")
-        _create_record(db_session, sysno="000009002")
+        broken = _create_record(db_session, sysno="000009001", processing_error="will not decode")
+        unlinked = _create_record(db_session, sysno="000009002")
+        _gap(db_session, unlinked, LinkOutcome.NoCandidate)
 
         # Recreate the older shape: same table, without the newest column.
         db_session.execute(text(f"DROP TABLE IF EXISTS {TABLE} CASCADE"))
@@ -237,12 +239,19 @@ class TestTheTableSurvivesGainingAColumn:
         init_analytics_table(db_session)
         rebuild_all(db_session)
 
-        rows = dict(
-            db_session.execute(
-                text(f"SELECT system_number, is_broken FROM {TABLE} ORDER BY system_number")
+        rows = {
+            row[0]: (row[1], row[2])
+            for row in db_session.execute(
+                text(
+                    f"SELECT system_number, is_broken, link_outcomes "
+                    f"FROM {TABLE} ORDER BY system_number"
+                )
             ).all()
-        )
-        assert rows == {"000009001": True, "000009002": False}
+        }
+        assert rows == {
+            broken.system_number: (True, None),
+            unlinked.system_number: (False, ["NoCandidate"]),
+        }
 
     def test_every_named_column_exists_on_the_table(self, db_session):
         init_analytics_table(db_session)
@@ -258,3 +267,73 @@ class TestTheTableSurvivesGainingAColumn:
 
         assert named <= actual, f"the insert names columns the table lacks: {named - actual}"
         assert actual <= named, f"the insert never fills: {actual - named}"
+
+
+def _gap(db_session, record, outcome: LinkOutcome, base: str = "SKC") -> None:
+    db_session.add(
+        AuthorityLink(
+            main_record_id=record.id,
+            base=base,
+            rank=ANSWER_RANK,
+            outcome=outcome,
+        )
+    )
+    db_session.commit()
+
+
+@pytest.mark.db
+class TestLinkOutcomes:
+    """A gap row is an outcome, not a link.
+
+    The linker and base facets answer "what is this linked to", so the join
+    behind them is scoped to the accepted links. Without that, a record the
+    linkers failed on would be counted under the linker that failed — filed
+    beside the records it succeeded on.
+    """
+
+    def test_a_gap_row_is_counted_as_its_outcome(self, db_session):
+        record = _create_record(db_session, sysno="000008001")
+        _gap(db_session, record, LinkOutcome.LookupFailed)
+
+        rebuild_all(db_session)
+
+        row = db_session.execute(
+            text(f"SELECT link_outcomes, authority_link_linkers FROM {TABLE}")
+        ).one()
+        assert row[0] == ["LookupFailed"]
+        assert row[1] is None, "a lookup that failed is not a link a linker made"
+
+    def test_an_accepted_link_is_counted_both_ways(self, db_session):
+        record = _create_record(db_session, sysno="000008002")
+        authority = CatalogRecord(
+            base="SKC",
+            system_number="000008003",
+            source_type=CatalogRecordSource.AuthorityLinker,
+        )
+        db_session.add(authority)
+        db_session.commit()
+        db_session.add(
+            AuthorityLink(
+                main_record_id=record.id,
+                base="SKC",
+                rank=ANSWER_RANK,
+                linker="marcxml-dump",
+                outcome=LinkOutcome.Linked,
+                authority_base=authority.base,
+                authority_sysno=authority.system_number,
+                authority_record_id=authority.id,
+            )
+        )
+        db_session.commit()
+
+        rebuild_all(db_session)
+
+        row = db_session.execute(
+            text(
+                f"SELECT link_outcomes, authority_link_linkers, authority_link_bases "
+                f"FROM {TABLE} WHERE system_number = '000008002'"
+            )
+        ).one()
+        assert row[0] == ["Linked"]
+        assert row[1] == ["marcxml-dump"]
+        assert row[2] == ["SKC"]

@@ -93,7 +93,10 @@ class TestPrecomputedComparison:
 
         class Link:
             base = "SKC"
-            authority_record = type("R", (), {"id": "SKC-1", "get_record": lambda self, db: None})()
+            # `linked_record` is what a reader meaning "the record this link
+            # points at" goes through; on the entity it is the accessor that
+            # refuses a row recording why there is no link.
+            linked_record = type("R", (), {"id": "SKC-1", "get_record": lambda self, db: None})()
 
         class Record:
             id = "MZK01-1"
