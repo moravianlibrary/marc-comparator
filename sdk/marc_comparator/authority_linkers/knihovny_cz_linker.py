@@ -20,7 +20,13 @@ from pydantic import BaseModel, Field
 
 from ..comparators import RecordComparisonResult
 from ..comparators.default import DefaultComparator, DefaultComparatorConfig
-from ._base import AuthorityLink, BaseAuthorityLinker, LinkRequest, MatchRoute
+from ._base import (
+    CANDIDATE_MARC_CONTEXT,
+    AuthorityLink,
+    BaseAuthorityLinker,
+    LinkRequest,
+    MatchRoute,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -67,7 +73,7 @@ def _is_record_not_found(response: httpx.Response) -> bool:
 
 
 def _parse_full_record(xml: str) -> MarcRecord | None:
-    return MarcRecord.from_xml(etree.fromstring(xml.encode("utf-8")))
+    return MarcRecord.from_xml(etree.fromstring(xml.encode("utf-8")), CANDIDATE_MARC_CONTEXT)
 
 
 class KnihovnyCZBaseMapping(BaseModel):

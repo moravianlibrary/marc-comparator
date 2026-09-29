@@ -21,6 +21,7 @@ from adapters.marc_sectors import (
     marc_bytes_of,
     read_marc_for_ids,
     read_marc_many,
+    read_stored_marc,
     upsert_record_in_sector,
 )
 from adapters.tasks import (
@@ -126,7 +127,7 @@ async def announce_link_window(
     # not turn one record's problem into the batch's.
     for record_id, (base, system_number, raw) in read_marc_for_ids(db_session, record_ids).items():
         try:
-            marc_record = MarcRecord.from_mrc(raw)
+            marc_record = read_stored_marc(raw)
         except ValueError:
             continue
 

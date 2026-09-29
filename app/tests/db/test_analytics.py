@@ -251,10 +251,7 @@ class TestTheTableSurvivesGainingAColumn:
         actual = {
             row[0]
             for row in db_session.execute(
-                text(
-                    "SELECT column_name FROM information_schema.columns "
-                    "WHERE table_name = :t"
-                ),
+                text("SELECT column_name FROM information_schema.columns WHERE table_name = :t"),
                 {"t": TABLE},
             ).all()
         }

@@ -92,9 +92,7 @@ async def rebuild_search_vectors(task_id: str) -> None:
     """Rebuild search_text for all catalog records from their MARC data."""
     from collections import defaultdict
 
-    from marcdantic import MarcRecord
-
-    from adapters.marc_sectors import read_marc_many
+    from adapters.marc_sectors import read_marc_many, read_stored_marc
     from adapters.pipelining import chunks
 
     async with ManagedTask(task_id=task_id) as ctx:
@@ -125,7 +123,7 @@ async def rebuild_search_vectors(task_id: str) -> None:
                 marc_bytes = marc_of.get((record.base, record.system_number))
                 if marc_bytes:
                     try:
-                        marc = MarcRecord.from_mrc(marc_bytes)
+                        marc = read_stored_marc(marc_bytes)
                         record.update_search_text_from(marc)
                     except Exception as e:
                         ctx.logger.warning(

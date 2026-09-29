@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from marcdantic import MarcRecord
+from marcdantic.context import MarcContext
 from pydantic import BaseModel
 
 from ..comparators import BaseComparator, RecordComparisonResult
@@ -29,6 +30,20 @@ class MatchRoute(StrEnum):
     Title = "title"
     #: The target catalogue already considers the two records the same work.
     Dedup = "dedup"
+
+
+#: How to parse a record belonging to somebody else's catalogue.
+#:
+#: Records we sync are ours to fix, so they are held to marcdantic's default
+#: of 001, 005 and 008 — one that will not parse is broken, and says so. A
+#: match candidate fetched from the union catalogue is neither ours to fix nor
+#: ours to record: there is no row to call broken, so refusing it only removes
+#: it from the pool and lowers recall on *our* records, silently.
+#:
+#: 005 is the date and time of the record's latest transaction and 008 is its
+#: fixed-length data elements. Neither says anything about whether two records
+#: describe the same book, which is the only question asked of a candidate.
+CANDIDATE_MARC_CONTEXT = MarcContext(mandatory_fields=["001"])
 
 
 @dataclass(slots=True)

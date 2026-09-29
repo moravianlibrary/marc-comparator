@@ -48,7 +48,13 @@ from pydantic import BaseModel, Field
 from ..comparators import RecordComparisonResult
 from ..comparators.default import DefaultComparator, DefaultComparatorConfig
 from ..harvest import HarvestContext, HarvestResult, HarvestStorageUnavailable
-from ._base import AuthorityLink, BaseAuthorityLinker, LinkRequest, MatchRoute
+from ._base import (
+    CANDIDATE_MARC_CONTEXT,
+    AuthorityLink,
+    BaseAuthorityLinker,
+    LinkRequest,
+    MatchRoute,
+)
 
 if TYPE_CHECKING:
     from sqlalchemy import Connection, Index, MetaData, Table
@@ -975,7 +981,12 @@ class MarcXmlDumpLinker(BaseAuthorityLinker):
         for row in rows:
             try:
                 element = etree.fromstring(zlib.decompress(row["marc"]))
-                candidates.append(_Candidate(row["sysno"], MarcRecord.from_xml(element)))
+                candidates.append(
+                    _Candidate(
+                        row["sysno"],
+                        MarcRecord.from_xml(element, CANDIDATE_MARC_CONTEXT),
+                    )
+                )
             except Exception:
                 # One unparseable union-catalogue record must not fail the record
                 # being linked; the remaining candidates are still comparable.

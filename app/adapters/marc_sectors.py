@@ -4,6 +4,7 @@ from collections.abc import Callable, Sequence
 
 import zstandard as zstd
 from marcdantic import MarcRecord
+from marcdantic.context import MarcContext
 from sqlalchemy import select, tuple_
 from sqlalchemy.orm import Session
 
@@ -24,6 +25,23 @@ _compressor = zstd.ZstdCompressor(level=ZSTD_LEVEL)
 _decompressor = zstd.ZstdDecompressor()
 
 CACHE_PREFIX = "marc:"
+
+
+#: How to parse a record read back out of our own storage.
+#:
+#: The mandatory-field check belongs at the door, not on every read: a record
+#: in sector storage was already accepted once, by whichever path put it there.
+#: Re-imposing the default 001/005/008 on the way out would make a row we
+#: chose to keep unreadable — and authority records harvested from the union
+#: catalogue are admitted without 005 on purpose (CANDIDATE_MARC_CONTEXT),
+#: so holding their stored form to a stricter rule than their accepted form
+#: would fail every later read of a record that linked perfectly well.
+STORED_MARC_CONTEXT = MarcContext(mandatory_fields=[])
+
+
+def read_stored_marc(raw: bytes) -> MarcRecord:
+    """Parse MARC bytes that came out of sector storage."""
+    return MarcRecord.from_mrc(raw, STORED_MARC_CONTEXT)
 
 
 def marc_bytes_of(record: MarcRecord) -> bytes:

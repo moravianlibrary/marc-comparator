@@ -11,7 +11,7 @@ from marc_comparator.validators import (
 from marcdantic import MarcRecord
 
 from adapters.database import DatabaseSession
-from adapters.marc_sectors import read_marc_for_ids
+from adapters.marc_sectors import read_marc_for_ids, read_stored_marc
 from adapters.tasks import (
     ManagedTask,
     handle_batch_progress_snippet,
@@ -116,7 +116,7 @@ async def announce_validation_window(
     # is a hint, and must not turn one record's problem into the batch's.
     for _base, _system_number, raw in read_marc_for_ids(db_session, record_ids).values():
         try:
-            records.append(MarcRecord.from_mrc(raw))
+            records.append(read_stored_marc(raw))
         except ValueError:
             continue
 

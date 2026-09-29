@@ -174,7 +174,9 @@ class CatalogRecord(
 
     def get_record(self, db_session: Session) -> MarcRecord:
         """Parse MARC record from sector storage."""
-        return MarcRecord.from_mrc(self.get_marc(db_session))
+        from adapters.marc_sectors import read_stored_marc
+
+        return read_stored_marc(self.get_marc(db_session))
 
     @property
     def type_of_record(self) -> str | None:

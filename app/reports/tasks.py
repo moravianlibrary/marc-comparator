@@ -5,10 +5,9 @@ from collections.abc import Iterator, Sequence
 
 from marc_comparator.comparators import ComparisonReportInput, ReportFile
 from marc_comparator.validators import ReportInput, ValidationResult, Validator
-from marcdantic import MarcRecord
 
 from adapters.database import DatabaseSession
-from adapters.marc_sectors import read_marc_for_ids
+from adapters.marc_sectors import read_marc_for_ids, read_stored_marc
 from adapters.tasks import (
     ManagedTask,
     handle_batch_progress_snippet,
@@ -125,7 +124,7 @@ def _validator_report_files(ctx: ManagedTask, data: CreateReportData) -> list[Re
                     yield ReportInput(
                         catalog_record_id=record_id,
                         base=base,
-                        marc=MarcRecord.from_mrc(raw),
+                        marc=read_stored_marc(raw),
                         results=results,
                     )
                 handle_batch_progress_snippet(ctx)
