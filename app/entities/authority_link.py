@@ -26,6 +26,12 @@ class AuthorityLink(Base, BaseOperationsMixin):
     )
 
     confidence: Mapped[float | None] = mapped_column(Float)
+    #: How the linker found this candidate — see the SDK's ``MatchRoute``.
+    #: Without it a low confidence is unreadable: it could mean two records
+    #: that share an ISBN and describe it differently, or a candidate that only
+    #: ever shared a title. Null on links written before the linkers reported
+    #: it, and by linkers that do not.
+    matched_by: Mapped[str | None] = mapped_column(String)
     updated_at: Mapped[datetime] = mapped_column(TIMESTAMP, default=func.now(), onupdate=func.now())
 
     main_record: Mapped["CatalogRecord"] = relationship(

@@ -75,6 +75,16 @@ def _confidence_of(link: SdkAuthorityLink) -> float:
     return link.confidence if link.confidence is not None else 0.0
 
 
+def _matched_by_of(link: SdkAuthorityLink) -> str | None:
+    """The route as it is stored: a plain string, or nothing at all.
+
+    A linker that retrieves one way has nothing to report here, and the column
+    stays null rather than carrying a route invented on its behalf.
+    """
+
+    return link.matched_by.value if link.matched_by is not None else None
+
+
 #: Records announced to the linkers in one go.
 #:
 #: A linker that asks a remote service per record is what a full pass spends
@@ -384,10 +394,10 @@ def _link_update_would_write_nothing(
 ) -> bool:
     """Whether re-running this link would store exactly what is already there.
 
-    Everything the update writes is derived from these three: the confidence
-    on the link, the linker that produced it, and the authority record's MARC.
-    If none of them moved, the row, its search text and its sector all already
-    say what this pass would say.
+    Everything the update writes is derived from these four: the confidence on
+    the link, the route the linker matched by, the linker that produced it, and
+    the authority record's MARC. If none of them moved, the row, its search
+    text and its sector all already say what this pass would say.
 
     Without a prefetched ``stored_marc`` this declines to decide rather than
     reading the record itself — one read per link to save one write per link
@@ -400,6 +410,10 @@ def _link_update_would_write_nothing(
 
     authority_record = current_link.authority_record
     if current_link.confidence != found_link.confidence:
+        return False
+    # A link written before the route was recorded has the same confidence it
+    # always had, so without this the row would keep its null forever.
+    if current_link.matched_by != _matched_by_of(found_link):
         return False
     if authority_record.source_name != linker_instance.linker.value:
         return False
@@ -435,6 +449,7 @@ def scenario_found_link_update(
         return [LinkActionResult.UnchangedLink]
 
     current_link.confidence = found_link.confidence
+    current_link.matched_by = _matched_by_of(found_link)
     authority_record = current_link.authority_record
     authority_record.latest_sync = config.timestamp
     authority_record.source_name = linker_instance.linker.value
@@ -497,6 +512,7 @@ def _upsert_authority_record_and_link(
         base=target_base,
         authority_record_id=authority_record.id,
         confidence=found_link.confidence,
+        matched_by=_matched_by_of(found_link),
     )
     new_link.save(db_session, commit=False)
     return authority_record, record_result

@@ -10,6 +10,7 @@ from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
+from marc_comparator.authority_linkers import MatchRoute
 
 from authority_linking.tasks import (
     LinkActionResult,
@@ -36,8 +37,14 @@ class _AuthorityRecord:
 
 
 class _Link:
-    def __init__(self, confidence: float = 0.95, source_name: str = "marcxml-dump"):
+    def __init__(
+        self,
+        confidence: float = 0.95,
+        source_name: str = "marcxml-dump",
+        matched_by: str | None = MatchRoute.Identifier.value,
+    ):
         self.confidence = confidence
+        self.matched_by = matched_by
         self.authority_record = _AuthorityRecord(source_name)
         self.saves = 0
 
@@ -45,8 +52,16 @@ class _Link:
         self.saves += 1
 
 
-def _found(marc: bytes = STORED, confidence: float = 0.95):
-    return SimpleNamespace(confidence=confidence, record=SimpleNamespace(_marc=marc))
+def _found(
+    marc: bytes = STORED,
+    confidence: float = 0.95,
+    matched_by: MatchRoute | None = MatchRoute.Identifier,
+):
+    return SimpleNamespace(
+        confidence=confidence,
+        matched_by=matched_by,
+        record=SimpleNamespace(_marc=marc),
+    )
 
 
 def _linker(name: str = "marcxml-dump"):
@@ -92,6 +107,12 @@ class TestEveryRealChangeStillLands:
             (_found(marc=b"new bytes"), _linker(), STORED, "the authority MARC changed"),
             (_found(confidence=0.5), _linker(), STORED, "the confidence changed"),
             (_found(), _linker("knihovny-cz"), STORED, "a different linker answered"),
+            (
+                _found(matched_by=MatchRoute.Title),
+                _linker(),
+                STORED,
+                "the same record was found a different way",
+            ),
             (_found(), _linker(), None, "nothing was prefetched to compare against"),
         ],
     )
@@ -136,5 +157,36 @@ class TestEveryRealChangeStillLands:
             cast(Any, _linker()),
             cast(Any, link),
             cast(Any, _Buffer(holding=True)),
+            {link.authority_record.id: STORED},
+        )
+
+    def test_a_link_predating_the_route_is_written(self):
+        """A link from before the route was recorded has to pick one up.
+
+        Its confidence is the same one it has always had, so the route is the
+        only thing that moved; without it the column would keep its null for as
+        long as the link went on agreeing with the linker.
+        """
+
+        link = _Link(matched_by=None)
+
+        assert not _link_update_would_write_nothing(
+            cast(Any, _found()),
+            cast(Any, _linker()),
+            cast(Any, link),
+            cast(Any, _Buffer()),
+            {link.authority_record.id: STORED},
+        )
+
+    def test_a_linker_that_reports_no_route_leaves_the_column_alone(self):
+        """Nothing to record is not a change worth a write."""
+
+        link = _Link(matched_by=None)
+
+        assert _link_update_would_write_nothing(
+            cast(Any, _found(matched_by=None)),
+            cast(Any, _linker()),
+            cast(Any, link),
+            cast(Any, _Buffer()),
             {link.authority_record.id: STORED},
         )

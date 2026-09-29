@@ -20,7 +20,7 @@ from pydantic import BaseModel, Field
 
 from ..comparators import RecordComparisonResult
 from ..comparators.default import DefaultComparator, DefaultComparatorConfig
-from ._base import AuthorityLink, BaseAuthorityLinker, LinkRequest
+from ._base import AuthorityLink, BaseAuthorityLinker, LinkRequest, MatchRoute
 
 logger = logging.getLogger(__name__)
 
@@ -367,4 +367,7 @@ class KnihovnyCZLinker(BaseAuthorityLinker):
             confidence=best_score,
             # The pair chosen here is the pair the pipeline compares next.
             comparison=best_comparison,
+            # Every candidate here comes from one place, so unlike the dump
+            # linker there is nothing to tell apart and one floor is enough.
+            matched_by=MatchRoute.Dedup,
         )

@@ -30,7 +30,8 @@
         "system_number_subfield": "a",
         "system_number_pattern": "doc_number=(\\d+)",
         "system_number_padding": 9,
-        "minimum_confidence": 0.7,
+        "identifier_minimum_confidence": 0.0,
+        "title_minimum_confidence": 0.55,
         "candidate_limit": 10
     },
     "confident_threshold": 0.9

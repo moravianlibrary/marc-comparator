@@ -52,7 +52,8 @@ export const marcDumpLinkerConfigSchema = z.object({
   system_number_subfield: z.string().length(1),
   system_number_pattern: z.string().nullable(),
   system_number_padding: z.number().int().min(0).max(16),
-  minimum_confidence: z.number().min(0).max(1),
+  identifier_minimum_confidence: z.number().min(0).max(1),
+  title_minimum_confidence: z.number().min(0).max(1),
   candidate_limit: z.number().int().min(1).max(100),
 });
 

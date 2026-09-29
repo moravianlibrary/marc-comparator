@@ -45,8 +45,10 @@ export interface MarcXmlDumpLinkerConfig {
   system_number_pattern: string | null;
   /** Left-pad the number to this width; 0 stores it verbatim. */
   system_number_padding: number;
-  /** Lowest comparator score this linker will report at all. */
-  minimum_confidence: number;
+  /** Lowest score reported for a candidate found by a shared identifier. */
+  identifier_minimum_confidence: number;
+  /** Lowest score reported for a candidate found by title alone. */
+  title_minimum_confidence: number;
   /** How many retrieved records are compared per catalog record. */
   candidate_limit: number;
 }

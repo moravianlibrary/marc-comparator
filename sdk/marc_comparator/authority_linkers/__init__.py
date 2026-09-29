@@ -1,6 +1,6 @@
 from enum import StrEnum
 
-from ._base import AuthorityLink, BaseAuthorityLinker, LinkRequest
+from ._base import AuthorityLink, BaseAuthorityLinker, LinkRequest, MatchRoute
 from .knihovny_cz_linker import KnihovnyCZLinker
 from .marcxml_dump_linker import MarcXmlDumpLinker, MarcXmlDumpLinkerConfig
 
@@ -25,4 +25,5 @@ __all__ = [
     "LinkRequest",
     "MarcXmlDumpLinker",
     "MarcXmlDumpLinkerConfig",
+    "MatchRoute",
 ]

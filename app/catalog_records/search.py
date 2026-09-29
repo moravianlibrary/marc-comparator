@@ -107,6 +107,7 @@ def _to_summary(record: CatalogRecord) -> RecordSummary:
                 base=al.base,
                 authority_record_id=al.authority_record_id,
                 confidence=al.confidence,
+                matched_by=al.matched_by,
             )
             for al in record.authority_links
         ],

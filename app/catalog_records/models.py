@@ -131,6 +131,11 @@ class AuthorityLinkSummary(BaseModel):
     #: ones that score a match report what they measured, and anything below
     #: certainty is worth showing rather than hiding behind an ordinary link.
     confidence: float | None = None
+    #: What found the record: "identifier", "title" or "dedup". This is what
+    #: makes a low confidence mean something — two records that agree on an
+    #: ISBN and disagree about everything else are a cataloguing difference
+    #: worth reviewing, not a doubtful link.
+    matched_by: str | None = None
 
 
 class ComparisonSummary(BaseModel):

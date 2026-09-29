@@ -18,8 +18,10 @@ from running the MARC comparator over both records. Retrieval is allowed to be
 generous because the score is what survives.
 
 The reported confidence is that score, so the caller can tell a certain match
-from a plausible one. This linker only declines to report at all below
-``minimum_confidence``.
+from a plausible one. What the linker declines to report at all depends on how
+the candidate was found: a pair sharing an identifier is the same work whatever
+it scores, while a pair sharing only a title is nothing until the score says
+otherwise, so the two have separate floors.
 """
 
 from __future__ import annotations
@@ -46,7 +48,7 @@ from pydantic import BaseModel, Field
 from ..comparators import RecordComparisonResult
 from ..comparators.default import DefaultComparator, DefaultComparatorConfig
 from ..harvest import HarvestContext, HarvestResult, HarvestStorageUnavailable
-from ._base import AuthorityLink, BaseAuthorityLinker, LinkRequest
+from ._base import AuthorityLink, BaseAuthorityLinker, LinkRequest, MatchRoute
 
 if TYPE_CHECKING:
     from sqlalchemy import Connection, Index, MetaData, Table
@@ -150,12 +152,19 @@ class MarcXmlDumpLinkerConfig(BaseModel):
     #: Left-pad the extracted number to this width, so the dump and a link
     #: written earlier agree on "123" versus "000000123". 0 stores it verbatim.
     system_number_padding: int = Field(default=9, ge=0, le=16)
-    #: Lowest comparator score worth reporting at all. 0.7 is the bottom of the
-    #: comparator's "Moderate" band; below it a candidate is no better than two
-    #: unrelated records, which score around 0.55. Whether a reported link is
-    #: confident enough to accept without consulting other linkers is the
-    #: caller's decision, not this one's.
-    minimum_confidence: float = Field(default=0.7, ge=0.0, le=1.0)
+    #: Lowest score worth reporting for a candidate both catalogues give the
+    #: same identifier. Retrieval has already answered "same work" here, so the
+    #: score is not evidence about whether the link is real — it measures how
+    #: far the two descriptions have drifted, and a low one is the most useful
+    #: thing this linker can report rather than a reason to say nothing. The
+    #: default keeps every one of them; raise it to hide the noisy tail.
+    identifier_minimum_confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    #: Lowest score worth reporting for a candidate found only by its title.
+    #: Nothing here has established the two records are the same work, so the
+    #: score is the only evidence there is, and generic titles produce
+    #: plausible-looking candidates in quantity. 0.55 is what two unrelated
+    #: records score.
+    title_minimum_confidence: float = Field(default=0.55, ge=0.0, le=1.0)
     #: Candidates compared per record. Retrieval by title alone can return many
     #: rows for a generic title, and every candidate costs a full comparison.
     candidate_limit: int = Field(default=10, ge=1, le=100)
@@ -206,6 +215,18 @@ class _SystemNumberSpec:
 class _Candidate:
     sysno: str
     record: MarcRecord
+
+
+@dataclass(frozen=True, slots=True)
+class _Retrieval:
+    """One record's candidates, and which of the two paths produced them.
+
+    Retrieval takes the identifier path or the title path, never both, so the
+    route belongs to the attempt rather than to each candidate.
+    """
+
+    route: MatchRoute | None
+    candidates: list[_Candidate]
 
 
 @dataclass(slots=True)
@@ -516,10 +537,11 @@ class MarcXmlDumpLinker(BaseAuthorityLinker):
         )
 
         #: Rows for the window the host last announced, keyed by the record
-        #: they belong to. Replaced wholesale by each prefetch, so it holds one
-        #: window and not a run. Rows rather than parsed candidates: the MARC
-        #: is kept compressed until the record it belongs to is reached.
-        self._rows_cache: dict[tuple[str, str], list[dict[str, Any]]] = {}
+        #: they belong to, and paired with the path that found them. Replaced
+        #: wholesale by each prefetch, so it holds one window and not a run.
+        #: Rows rather than parsed candidates: the MARC is kept compressed
+        #: until the record it belongs to is reached.
+        self._rows_cache: dict[tuple[str, str], tuple[MatchRoute | None, list[dict[str, Any]]]] = {}
 
     @classmethod
     async def get_target_bases(cls, config: MarcXmlDumpLinkerConfig) -> list[str]:
@@ -810,6 +832,9 @@ class MarcXmlDumpLinker(BaseAuthorityLinker):
                 by_kind[kind.value].update(values)
 
         chosen: dict[tuple[str, str], list[str]] = {}
+        #: Which path filled each key. The identifier pass claims a key before
+        #: the title pass is offered what is left, so this is written once.
+        routes: dict[tuple[str, str], MatchRoute] = {}
 
         with storage.connection() as connection:
             # The value comes back alongside the sysno because it is what
@@ -843,8 +868,9 @@ class MarcXmlDumpLinker(BaseAuthorityLinker):
                 ranked = sorted(best.items(), key=lambda item: (item[1], item[0]))
                 if ranked:
                     chosen[key] = [sysno for sysno, _ in ranked[: self.config.candidate_limit]]
+                    routes[key] = MatchRoute.Identifier
 
-            self._load_window_titles(connection, records, requests, chosen)
+            self._load_window_titles(connection, records, requests, chosen, routes)
 
             # One read of the MARC for every survivor of both paths. Ranking
             # first and reading blobs second is what keeps a placeholder ISBN
@@ -859,11 +885,14 @@ class MarcXmlDumpLinker(BaseAuthorityLinker):
                 )
 
         for key in wanted:
-            self._rows_cache[key] = [
-                {"sysno": sysno, "marc": marc_by_sysno[sysno]}
-                for sysno in chosen.get(key, ())
-                if sysno in marc_by_sysno
-            ]
+            self._rows_cache[key] = (
+                routes.get(key),
+                [
+                    {"sysno": sysno, "marc": marc_by_sysno[sysno]}
+                    for sysno in chosen.get(key, ())
+                    if sysno in marc_by_sysno
+                ],
+            )
 
     def _load_window_titles(
         self,
@@ -871,6 +900,7 @@ class MarcXmlDumpLinker(BaseAuthorityLinker):
         records: Table,
         requests: Sequence[LinkRequest],
         chosen: dict[tuple[str, str], list[str]],
+        routes: dict[tuple[str, str], MatchRoute],
     ) -> None:
         """Fill in the records no identifier matched, from their titles.
 
@@ -912,14 +942,20 @@ class MarcXmlDumpLinker(BaseAuthorityLinker):
             )
             if ranked:
                 chosen[key] = [row["sysno"] for row in ranked[: self.config.candidate_limit]]
+                routes[key] = MatchRoute.Title
 
-    def _candidates(
-        self, record: MarcRecord, key: tuple[str, str] | None = None
-    ) -> list[_Candidate]:
-        """Retrieve comparable records: identifiers first, title as a fallback."""
+    def _candidates(self, record: MarcRecord, key: tuple[str, str] | None = None) -> _Retrieval:
+        """Retrieve comparable records: identifiers first, title as a fallback.
 
-        rows = self._rows_cache.get(key) if key is not None else None
-        if rows is None:
+        The path taken comes back with the candidates because it is what the
+        caller's floor is chosen by, and it cannot be recovered afterwards from
+        the rows themselves.
+        """
+
+        cached = self._rows_cache.get(key) if key is not None else None
+        if cached is not None:
+            route, rows = cached
+        else:
             storage = self.harvest_storage
             if storage is None:
                 raise HarvestStorageUnavailable("Local dump data is no longer bound")
@@ -930,8 +966,10 @@ class MarcXmlDumpLinker(BaseAuthorityLinker):
 
             with storage.connection() as connection:
                 rows = self._rows_by_identifier(connection, records, identifiers, record)
+                route = MatchRoute.Identifier if rows else None
                 if not rows:
                     rows = self._rows_by_title(connection, records, record)
+                    route = MatchRoute.Title if rows else None
 
         candidates: list[_Candidate] = []
         for row in rows:
@@ -942,7 +980,7 @@ class MarcXmlDumpLinker(BaseAuthorityLinker):
                 # One unparseable union-catalogue record must not fail the record
                 # being linked; the remaining candidates are still comparable.
                 logger.warning("Skipping unparseable dump record %s", row["sysno"], exc_info=True)
-        return candidates
+        return _Retrieval(route, candidates)
 
     def _rows_by_identifier(
         self,
@@ -1039,19 +1077,19 @@ class MarcXmlDumpLinker(BaseAuthorityLinker):
                 "union catalogue; run the 'skc' harvest first"
             )
 
-        candidates = await asyncio.to_thread(self._candidates, record, (base, system_number))
-        if not candidates:
+        retrieval = await asyncio.to_thread(self._candidates, record, (base, system_number))
+        if not retrieval.candidates:
             return None
 
         best: _Candidate | None = None
         best_comparison: RecordComparisonResult | None = None
         best_score = 0.0
-        for candidate in candidates:
+        for candidate in retrieval.candidates:
             comparison = await self._comparator.run(record, candidate.record)
             if best is None or comparison.overall_score > best_score:
                 best, best_comparison, best_score = candidate, comparison, comparison.overall_score
 
-        if best is None or best_score < self.config.minimum_confidence:
+        if best is None or best_score < self._minimum_confidence_for(retrieval.route):
             return None
 
         return AuthorityLink(
@@ -1061,4 +1099,17 @@ class MarcXmlDumpLinker(BaseAuthorityLinker):
             confidence=best_score,
             # The pair chosen here is the pair the pipeline compares next.
             comparison=best_comparison,
+            matched_by=retrieval.route,
         )
+
+    def _minimum_confidence_for(self, route: MatchRoute | None) -> float:
+        """The floor this candidate has to clear, given how it was found.
+
+        An unknown route is treated as the title one: the floors only differ
+        because the identifier path brings evidence with it, so anything that
+        cannot show which path it took does not get the benefit of that.
+        """
+
+        if route is MatchRoute.Identifier:
+            return self.config.identifier_minimum_confidence
+        return self.config.title_minimum_confidence

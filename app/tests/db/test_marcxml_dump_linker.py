@@ -7,7 +7,7 @@ from typing import cast
 import httpx
 import pytest
 from lxml import etree  # pyright: ignore[reportAttributeAccessIssue]  # lxml ships no stubs
-from marc_comparator.authority_linkers import LinkRequest
+from marc_comparator.authority_linkers import LinkRequest, MatchRoute
 from marc_comparator.authority_linkers.marcxml_dump_linker import (
     IDENTIFIERS_TABLE,
     RECORDS_TABLE,
@@ -37,6 +37,12 @@ def run_thread_calls_inline(monkeypatch):
         return function(*args, **kwargs)
 
     monkeypatch.setattr(asyncio, "to_thread", inline)
+
+
+def _seen(retrieval) -> tuple[MatchRoute | None, list[str]]:
+    """A retrieval reduced to what a test can compare: the route and the hits."""
+
+    return retrieval.route, [c.sysno for c in retrieval.candidates]
 
 
 def dump_record(
@@ -376,26 +382,29 @@ class TestWindowedRetrieval:
 
         requests = self.window()
         one_at_a_time = {
-            (r.base, r.system_number): [
-                c.sysno for c in ready_linker(harvest_engine)._candidates(r.record)
-            ]
+            (r.base, r.system_number): _seen(ready_linker(harvest_engine)._candidates(r.record))
             for r in requests
         }
 
         linker = ready_linker(harvest_engine)
         await linker.prefetch(requests)
         windowed = {
-            (r.base, r.system_number): [
-                c.sysno for c in linker._candidates(r.record, (r.base, r.system_number))
-            ]
+            (r.base, r.system_number): _seen(
+                linker._candidates(r.record, (r.base, r.system_number))
+            )
             for r in requests
         }
 
+        # The route is compared too: a floor is chosen by it, so a window that
+        # retrieved the same records by a different path is not the same answer.
         assert windowed == one_at_a_time
         # Both retrieval paths and the record that matches neither.
-        assert one_at_a_time[("MZK01", "000000101")] == ["000000001"]
-        assert one_at_a_time[("MZK01", "000000103")] == ["000000003", "000000004"]
-        assert one_at_a_time[("MZK01", "000000104")] == []
+        assert one_at_a_time[("MZK01", "000000101")] == (MatchRoute.Identifier, ["000000001"])
+        assert one_at_a_time[("MZK01", "000000103")] == (
+            MatchRoute.Title,
+            ["000000003", "000000004"],
+        )
+        assert one_at_a_time[("MZK01", "000000104")] == (None, [])
 
     @pytest.mark.asyncio
     async def test_window_opens_one_connection_not_one_per_record(
@@ -440,9 +449,9 @@ class TestWindowedRetrieval:
         # A window is a hint: a record never announced still has to resolve.
         linker = ready_linker(harvest_engine)
         await linker.prefetch([])
-        candidates = linker._candidates(
+        retrieval = linker._candidates(
             query_record(isbn="978-80-87186-82-4", title="Elektromagnetické záření :"),
             ("MZK01", "000000999"),
         )
 
-        assert [c.sysno for c in candidates] == ["000000001"]
+        assert _seen(retrieval) == (MatchRoute.Identifier, ["000000001"])

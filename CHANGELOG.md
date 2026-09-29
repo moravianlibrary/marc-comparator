@@ -14,6 +14,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   wrong metadata on the Kramerius side, so rather than guessing, the validator reports the
   identifier, the match count and a sample of the candidate PIDs for a curator to judge —
   and to pass back to the digitisation team.
+- Authority links record how the linker found the record they point at, in a new
+  `authority_links.matched_by` column and on the API's link summary — `identifier`,
+  `title` or `dedup`. A low confidence means nothing without it: two records that agree
+  on an ISBN and disagree about everything else are a cataloguing difference worth
+  reviewing, not a doubtful link.
 - `make check` quality gate (`format-check` + `lint` + `typecheck`) and the supporting
   `format` / `lint-fix` targets.
 - Release targets: `set-version`, `tag-version`, `tag-latest`, `release`.
@@ -22,6 +27,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- The MARCXML dump linker gates each retrieval path separately:
+  `identifier_minimum_confidence` (default `0.0`) and `title_minimum_confidence`
+  (default `0.55`) replace the single `minimum_confidence` of `0.7`. Retrieval and
+  scoring answer different questions — whether the candidate is the same work, and how
+  far the two descriptions have drifted — and one floor conflated them. Measured over
+  400 records that had no link, 359 had a candidate carrying the same ČNB, ISBN, ISSN,
+  OCLC number or UUID, discarded for scoring below 0.7; those now link. Expect roughly
+  half as many links again, concentrated in the band the review queue exists to show.
+  The knihovny.cz linker retrieves one way only and keeps its single floor.
 - Ruff lint selection extended with `B` (bugbear) and `SIM` (simplify).
 - Client tooling migrated from npm to Bun, and from ESLint + Prettier to Biome.
 - Python dependencies migrated from `requirements*.txt` to PEP 621 with `uv`.
@@ -39,6 +53,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Removed
 
+- `MarcXmlDumpLinkerConfig.minimum_confidence`, superseded by the two per-route floors.
+  A stored value is ignored rather than rejected, so existing settings load unchanged and
+  pick up the new defaults; set the replacements to restore a floor of your own.
 - `deploy/docker-compose/app.env` and `app.oidc.env` are no longer tracked; copy them
   from `app.env.example` instead.
 

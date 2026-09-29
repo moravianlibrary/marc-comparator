@@ -7,6 +7,7 @@ from typing import cast
 import httpx
 import pytest
 from lxml import etree  # pyright: ignore[reportAttributeAccessIssue]  # lxml ships no stubs
+from marc_comparator.authority_linkers import MatchRoute
 from marc_comparator.authority_linkers.marcxml_dump_linker import (
     DumpIdentifier,
     MarcXmlDumpLinker,
@@ -18,6 +19,7 @@ from marc_comparator.authority_linkers.marcxml_dump_linker import (
     _parse_dump_record,
     _record_identifiers,
     _reject_unreadable_dump,
+    _Retrieval,
     _SystemNumberSpec,
 )
 from marc_comparator.comparators import RecordComparisonResult
@@ -78,7 +80,10 @@ class ScriptedComparator:
 
 
 def linker_with_candidates(
-    monkeypatch: pytest.MonkeyPatch, scores: list[float], **config: object
+    monkeypatch: pytest.MonkeyPatch,
+    scores: list[float],
+    route: MatchRoute | None = MatchRoute.Identifier,
+    **config: object,
 ) -> tuple[MarcXmlDumpLinker, ScriptedComparator]:
     linker = MarcXmlDumpLinker(MarcXmlDumpLinkerConfig(**config))  # pyright: ignore[reportArgumentType]
     comparator = ScriptedComparator(scores)
@@ -91,7 +96,8 @@ def linker_with_candidates(
         type("Candidate", (), {"sysno": f"00000000{index}", "record": marc_record()})()
         for index in range(len(scores))
     ]
-    monkeypatch.setattr(MarcXmlDumpLinker, "_candidates", lambda self, record, key=None: candidates)
+    retrieval = _Retrieval(route, candidates)  # pyright: ignore[reportArgumentType]
+    monkeypatch.setattr(MarcXmlDumpLinker, "_candidates", lambda self, record, key=None: retrieval)
     return linker, comparator
 
 
@@ -205,7 +211,9 @@ def test_source_identity_follows_the_dump_but_not_the_thresholds():
     baseline = MarcXmlDumpLinker(MarcXmlDumpLinkerConfig()).harvest_source_identity()
 
     assert (
-        MarcXmlDumpLinker(MarcXmlDumpLinkerConfig(minimum_confidence=0.5)).harvest_source_identity()
+        MarcXmlDumpLinker(
+            MarcXmlDumpLinkerConfig(identifier_minimum_confidence=0.5)
+        ).harvest_source_identity()
         == baseline
     )
     assert (
@@ -258,20 +266,76 @@ async def test_run_reports_a_plausible_match_with_its_real_score(monkeypatch):
 
 
 @pytest.mark.asyncio
-async def test_run_stays_silent_below_the_minimum(monkeypatch):
-    linker, _ = linker_with_candidates(monkeypatch, [0.69, 0.55])
+async def test_a_shared_identifier_is_reported_however_badly_it_scores(monkeypatch):
+    # Both catalogues gave this record the same identifier, so they are
+    # describing the same work and the score measures how far their two
+    # descriptions have drifted. That is the finding, not a reason to withhold
+    # it: under one floor for everything, these were the records the pipeline
+    # threw away and left looking unmatched.
+    linker, _ = linker_with_candidates(monkeypatch, [0.31], route=MatchRoute.Identifier)
+
+    link = await linker.run("MZK01", "000123456", marc_record(), "SKC")
+
+    assert link is not None
+    assert link.confidence == 0.31
+
+
+@pytest.mark.asyncio
+async def test_a_title_match_below_its_floor_is_not_reported(monkeypatch):
+    # Nothing here says the two records are the same work, so the score is the
+    # only evidence there is and 0.42 is not enough of it.
+    linker, _ = linker_with_candidates(monkeypatch, [0.42], route=MatchRoute.Title)
 
     assert await linker.run("MZK01", "000123456", marc_record(), "SKC") is None
 
 
 @pytest.mark.asyncio
-async def test_minimum_is_inclusive(monkeypatch):
-    linker, _ = linker_with_candidates(monkeypatch, [0.7])
+async def test_the_title_floor_is_inclusive(monkeypatch):
+    linker, _ = linker_with_candidates(monkeypatch, [0.55], route=MatchRoute.Title)
 
     link = await linker.run("MZK01", "000123456", marc_record(), "SKC")
 
     assert link is not None
-    assert link.confidence == 0.7
+    assert link.confidence == 0.55
+
+
+@pytest.mark.asyncio
+async def test_each_route_is_held_to_its_own_floor(monkeypatch):
+    # The same score, accepted one way and refused the other.
+    identified, _ = linker_with_candidates(monkeypatch, [0.5], route=MatchRoute.Identifier)
+    assert await identified.run("MZK01", "000123456", marc_record(), "SKC") is not None
+
+    by_title, _ = linker_with_candidates(monkeypatch, [0.5], route=MatchRoute.Title)
+    assert await by_title.run("MZK01", "000123456", marc_record(), "SKC") is None
+
+
+@pytest.mark.asyncio
+async def test_the_identifier_floor_can_still_be_raised(monkeypatch):
+    linker, _ = linker_with_candidates(
+        monkeypatch, [0.7], route=MatchRoute.Identifier, identifier_minimum_confidence=0.8
+    )
+
+    assert await linker.run("MZK01", "000123456", marc_record(), "SKC") is None
+
+
+@pytest.mark.asyncio
+async def test_a_candidate_that_cannot_say_how_it_was_found_gets_the_stricter_floor(monkeypatch):
+    # The floors differ only because the identifier path brings evidence with
+    # it; something that cannot show it took that path does not get the benefit.
+    linker, _ = linker_with_candidates(monkeypatch, [0.5], route=None)
+
+    assert await linker.run("MZK01", "000123456", marc_record(), "SKC") is None
+
+
+@pytest.mark.asyncio
+async def test_the_link_carries_the_route_that_found_it(monkeypatch):
+    # Stored alongside the score, this is what makes a low one readable.
+    linker, _ = linker_with_candidates(monkeypatch, [0.4], route=MatchRoute.Identifier)
+
+    link = await linker.run("MZK01", "000123456", marc_record(), "SKC")
+
+    assert link is not None
+    assert link.matched_by is MatchRoute.Identifier
 
 
 def _inflate(data: bytes) -> bytes:

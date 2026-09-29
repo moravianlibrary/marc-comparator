@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Form,
   FormControl,
+  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -44,7 +45,8 @@ export function AuthorityLinkingSettingsForm({ data, onDirtyChange, onFormRef, o
         system_number_subfield: 'a',
         system_number_pattern: 'doc_number=(\\d+)',
         system_number_padding: 9,
-        minimum_confidence: 0.7,
+        identifier_minimum_confidence: 0,
+        title_minimum_confidence: 0.55,
         candidate_limit: 10,
       },
       confident_threshold: data.confident_threshold ?? 0.9,
@@ -342,10 +344,12 @@ export function AuthorityLinkingSettingsForm({ data, onDirtyChange, onFormRef, o
             </div>
             <FormField
               control={form.control}
-              name="marcxml-dump.minimum_confidence"
+              name="marcxml-dump.identifier_minimum_confidence"
               render={({ field }) => (
                 <FormItem className="max-w-xs">
-                  <FormLabel>{t('authority-linkers.marcxml-dump.minimum-confidence')}</FormLabel>
+                  <FormLabel>
+                    {t('authority-linkers.marcxml-dump.identifier-minimum-confidence')}
+                  </FormLabel>
                   <FormControl>
                     <Input
                       type="number"
@@ -356,6 +360,34 @@ export function AuthorityLinkingSettingsForm({ data, onDirtyChange, onFormRef, o
                       onChange={e => field.onChange(Number(e.target.value))}
                     />
                   </FormControl>
+                  <FormDescription>
+                    {t('authority-linkers.marcxml-dump.identifier-minimum-confidence-help')}
+                  </FormDescription>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="marcxml-dump.title_minimum_confidence"
+              render={({ field }) => (
+                <FormItem className="max-w-xs">
+                  <FormLabel>
+                    {t('authority-linkers.marcxml-dump.title-minimum-confidence')}
+                  </FormLabel>
+                  <FormControl>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      max="1"
+                      {...field}
+                      onChange={e => field.onChange(Number(e.target.value))}
+                    />
+                  </FormControl>
+                  <FormDescription>
+                    {t('authority-linkers.marcxml-dump.title-minimum-confidence-help')}
+                  </FormDescription>
                   <FormMessage />
                 </FormItem>
               )}

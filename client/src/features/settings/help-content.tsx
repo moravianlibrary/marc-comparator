@@ -165,8 +165,12 @@ export function MarcXmlDumpLinkerHelp() {
           {t('help.authority-linkers.marcxml-dump.system-number')}
         </li>
         <li>
-          <strong>{t('authority-linkers.marcxml-dump.minimum-confidence')}</strong> —{' '}
-          {t('help.authority-linkers.marcxml-dump.minimum-confidence')}
+          <strong>{t('authority-linkers.marcxml-dump.identifier-minimum-confidence')}</strong> —{' '}
+          {t('help.authority-linkers.marcxml-dump.identifier-minimum-confidence')}
+        </li>
+        <li>
+          <strong>{t('authority-linkers.marcxml-dump.title-minimum-confidence')}</strong> —{' '}
+          {t('help.authority-linkers.marcxml-dump.title-minimum-confidence')}
         </li>
         <li>
           <strong>{t('authority-linkers.marcxml-dump.candidate-limit')}</strong> —{' '}

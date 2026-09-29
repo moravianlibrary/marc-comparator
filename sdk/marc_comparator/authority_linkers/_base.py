@@ -1,12 +1,34 @@
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from dataclasses import dataclass
+from enum import StrEnum
 
 from marcdantic import MarcRecord
 from pydantic import BaseModel
 
 from ..comparators import BaseComparator, RecordComparisonResult
 from ..harvest import HarvestCapable
+
+
+class MatchRoute(StrEnum):
+    """What found the candidate, which is not the same as how good it is.
+
+    Retrieval and scoring answer different questions: retrieval answers "is
+    this the same work", scoring answers "how far apart are these two records".
+    A pair both catalogues give the same ISBN scores low when they describe the
+    same book very differently — which is a finding, not a bad link — while two
+    unrelated books sharing a generic title score low because they are
+    unrelated. Only the route tells those apart, so a linker that retrieves
+    several ways reports which one it used and lets the caller set a floor per
+    route.
+    """
+
+    #: Both records carry the same ISBN, ISSN, ČNB, OCLC number or UUID.
+    Identifier = "identifier"
+    #: Nothing identified the record; the titles normalize alike.
+    Title = "title"
+    #: The target catalogue already considers the two records the same work.
+    Dedup = "dedup"
 
 
 @dataclass(slots=True)
@@ -38,6 +60,11 @@ class AuthorityLink:
     #: compare; carrying the result lets the host decide whether to recompute
     #: it. Only usable when the linker was given the host's own comparator.
     comparison: RecordComparisonResult | None = None
+
+    #: How the candidate was retrieved. Read alongside ``confidence`` it says
+    #: what a low score means: weak agreement between records known to be the
+    #: same work, or a candidate that was never more than a guess.
+    matched_by: MatchRoute | None = None
 
 
 @dataclass(slots=True)

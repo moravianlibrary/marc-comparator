@@ -317,7 +317,9 @@ class MarcXmlDumpLinkerConfig(BaseModel):
     system_number_subfield: str = "a"
     system_number_pattern: str | None = r"doc_number=(\d+)"
     system_number_padding: int = 9  # 0 stores the number verbatim
-    minimum_confidence: float = 0.7  # bottom of the comparator's Moderate band
+    # One floor per retrieval path — see "Two floors, not one" below.
+    identifier_minimum_confidence: float = 0.0
+    title_minimum_confidence: float = 0.55
     candidate_limit: int = 10
 ```
 
@@ -328,9 +330,28 @@ Everything else the linker reads is standard MARC21 — identifiers in 015/020/0
 1. Retrieve candidates by hard identifier — ČNB (015), digital-library UUID (856$u), OCLC (035), ISBN (020), ISSN (022)
 2. Fall back to an identical normalized title (245$a) when no identifier matches, ordered by agreeing year and author
 3. Compare each candidate against the source record with the default comparator
-4. Return an `AuthorityLink` for the best-scoring candidate, if it reaches `minimum_confidence`; its `confidence` is that score
+4. Return an `AuthorityLink` for the best-scoring candidate, if it reaches the floor belonging to the path that found it; its `confidence` is that score and its `matched_by` is that path
 
 Retrieval never decides a link on its own — it only proposes candidates for the comparator to judge. The score is reported rather than reduced to a yes/no, so a caller weighing several linkers can tell a certain match from a plausible one.
+
+#### Two floors, not one
+
+Retrieval and scoring answer different questions. Retrieval answers "is this the
+same work"; scoring answers "how far apart are these two records". A single
+floor conflates them, and the conflation is not symmetric between the two paths:
+
+- **Identifier.** Both catalogues gave the record the same ČNB, ISBN, ISSN, OCLC
+  number or UUID, so they are describing the same work before the comparator
+  runs. A low score here measures how far the two descriptions have drifted —
+  which is the finding, not a reason to withhold it. The default floor of `0.0`
+  keeps all of them.
+- **Title.** Nothing has established the two records are the same work, and
+  generic titles produce plausible-looking candidates in quantity. The score is
+  the only evidence there is, so the floor stays at `0.55` — what two unrelated
+  records score.
+
+Raise `identifier_minimum_confidence` to hide the noisy tail; the floor is a
+display choice, not a correctness one.
 
 #### Harvesting
 
