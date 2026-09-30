@@ -38,6 +38,11 @@ from entities.settings import Settings, SettingsScope
 
 from .models import AuthorityLinkingSettings, AuthorityLinkingTaskData
 
+#: Everything here that can log takes a logger, because a task's logger writes
+#: to that task's own log. The writers below sit under a caller that has none
+#: to hand, and what they have to say is about the code rather than the run.
+logger = logging.getLogger(__name__)
+
 
 class LinkActionResult(StrEnum):
     NoLinkFound = "NoLinkFound"
@@ -470,8 +475,13 @@ def _apply_candidate(
     The same fields describe the accepted link, the best one that missed its
     floor and the runner-ups: what record it is, who proposed it, how it was
     found and what it scored. Only ``authority_record_id`` differs, and only
-    because a candidate nobody accepted is not worth a persisted copy of the
-    record — 189 ms each, for records the union catalogue dump already holds.
+    because a candidate nobody accepted does not need a row in our catalogue:
+    it has no comparison, no validation and no search text, and creating one
+    would put it in every listing of records we hold.
+
+    Its MARC is kept all the same — see ``store_candidate_marc``. The row is
+    cheap because there is no catalogue entry, not because we let somebody
+    else hold the record.
     """
 
     row.linker = candidate.linker.linker.value
@@ -528,6 +538,22 @@ def candidates_worth_keeping(
     if best < confident_threshold:
         return runners
     return [c for c in runners if best - _confidence_of(c.link) <= margin]
+
+
+def candidates_on_record(decision: "LinkDecision", wanted: list["Candidate"]) -> list["Candidate"]:
+    """Every candidate this record ends up carrying a row for.
+
+    Usually that is just the kept runner-ups. When nothing cleared its floor
+    the best candidate is at the answer rank as well, holding the reason there
+    is no link, and it is as much a stored candidate as the ones below it.
+
+    The accepted link is not here: it has a catalogue record of its own, and
+    the scenarios that write it store its MARC along with it.
+    """
+
+    if decision.accepted is None and decision.below_floor:
+        return [decision.candidates[0], *wanted]
+    return wanted
 
 
 def _candidate_shape(row: AuthorityLink) -> tuple:
@@ -723,6 +749,52 @@ def store_authority_marc(
         upsert_record_in_sector(db_session, base, system_number, marc)
         return
     sectors.add(base, system_number, marc)
+
+
+def store_candidate_marc(
+    db_session: DatabaseSession,
+    candidates: Sequence["Candidate"],
+    sectors: SectorBuffer | None,
+) -> None:
+    """Keep our own copy of the MARC behind every candidate we record.
+
+    A candidate still gets no ``catalog_records`` row — that is what keeps one
+    cheap. What it must not be is a pointer into somebody else's table. The
+    linker that found it holds the union catalogue in a plugin schema, and a
+    plugin's tables are its own: to re-harvest, to rebuild, to drop when the
+    plugin is disabled. A row saying "this record was nearly linked to SKC
+    123456" is worth nothing the moment the only copy of SKC 123456 leaves
+    with the harvest that fetched it.
+
+    Sector storage is keyed by base and system number alone, with no foreign
+    key to the catalogue, so a candidate's MARC lands beside the linked
+    records' without a catalogue entry, a search vector or a comparison. At
+    roughly half a kilobyte compressed that is the whole price of showing a
+    cataloguer the alternative — and of promoting one later without asking a
+    plugin for the record back.
+
+    Written on every pass rather than only when the rows change: the store is
+    keyed by what the record is, so re-storing an unchanged one is a no-op the
+    sector buffer drops, and a candidate row written before this existed picks
+    up its MARC the next time the record is linked.
+    """
+
+    for candidate in candidates:
+        try:
+            marc = marc_bytes_of(candidate.link.record)
+        except ValueError:
+            # A linker that assembles candidates rather than parsing them has
+            # no bytes to keep. Worth saying out loud, because that candidate
+            # cannot be promoted later — but not worth losing the row over.
+            logger.warning(
+                "Candidate %s:%s carries no raw MARC and was not stored",
+                candidate.link.base,
+                candidate.link.system_number,
+            )
+            continue
+        store_authority_marc(
+            db_session, candidate.link.base, candidate.link.system_number, marc, sectors
+        )
 
 
 def prefetch_linked_authority_marc(
@@ -1010,6 +1082,11 @@ def handle_catalog_record_link_action(
         sectors,
         stored_marc,
     )
+
+    # Independent of whether the rows changed: the MARC store is keyed by the
+    # record, not by the row, and this is what stops a candidate row from
+    # being a pointer into a plugin's tables.
+    store_candidate_marc(db_session, candidates_on_record(decision, wanted), sectors)
 
     if candidates_need_writing:
         write_candidates(db_session, catalog_record.id, target_base, wanted)

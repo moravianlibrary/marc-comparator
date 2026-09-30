@@ -14,6 +14,7 @@ from typing import Any, cast
 import pytest
 from marc_comparator.authority_linkers import MatchRoute
 
+from adapters.marc_sectors import marc_bytes_of, read_marc
 from authority_linking.tasks import (
     Candidate,
     LinkActionResult,
@@ -26,6 +27,7 @@ from catalog_records.models import RecordFilter
 from catalog_records.search import build_filtered_query
 from entities.authority_link import ANSWER_RANK, AuthorityLink, LinkOutcome
 from entities.catalog_record import CatalogRecord, CatalogRecordSource
+from entities.marc_sector import MarcRecordIndex
 from tests.conftest import load_test_record
 
 pytestmark = pytest.mark.db
@@ -104,6 +106,25 @@ def _candidate(
     authority: CatalogRecord, confidence: float = 0.91, linker: str = "marcxml-dump"
 ) -> Candidate:
     return Candidate(_found_link(authority, confidence), _linker_instance(linker))
+
+
+def _bare_candidate(system_number: str, confidence: float = 0.91) -> Candidate:
+    """A candidate our catalogue has never heard of, which is the usual case.
+
+    Every other helper here builds its candidates out of records that already
+    exist, because those tests are about the link rows. These ones are about
+    what we hold of the record itself, and holding it must not depend on
+    having a catalogue row for it.
+    """
+
+    link = SimpleNamespace(
+        base=TARGET_BASE,
+        system_number=system_number,
+        record=load_test_record("MZK01-001217709.mrc"),
+        confidence=confidence,
+        matched_by=MatchRoute.Identifier,
+    )
+    return Candidate(cast(Any, link), _linker_instance())
 
 
 def _decision(*candidates: Candidate) -> LinkDecision:
@@ -540,6 +561,119 @@ class TestNothingGoodEnoughIsStillAFinding:
         rows = _rows(db_session, record)
         assert [(r.rank, r.outcome) for r in rows] == [(0, LinkOutcome.Linked)]
         assert rows[0].authority_record_id == candidate.id
+
+
+class TestTheCandidateMarcIsOurs:
+    """A candidate row must not be a pointer into a plugin's tables.
+
+    The linker that proposes a candidate holds the union catalogue in a schema
+    it owns and is free to re-harvest, rebuild or drop. A row saying "this
+    record was nearly linked to SKC 123456" outlives that, and is worth
+    nothing if the only copy of SKC 123456 went with the harvest.
+
+    So the MARC goes into our own sector store, which is keyed by base and
+    system number and has no foreign key to the catalogue — the candidate
+    stays cheap, and what it refers to is ours.
+    """
+
+    def _stored(self, db_session, system_number: str) -> bytes | None:
+        return read_marc(db_session, TARGET_BASE, system_number)
+
+    def test_a_kept_runner_up_leaves_its_marc_behind(self, db_session):
+        record = _record(db_session, "000000200")
+
+        handle_catalog_record_link_action(
+            db_session,
+            record,
+            _decision(_bare_candidate("000000201", 0.95), _bare_candidate("000000202", 0.93)),
+            TARGET_BASE,
+        )
+        db_session.commit()
+
+        assert self._stored(db_session, "000000202") == marc_bytes_of(
+            load_test_record("MZK01-001217709.mrc")
+        )
+
+    def test_it_is_still_not_a_record_in_our_catalogue(self, db_session):
+        """Cheap for the reason it always was: no catalogue row, no search text."""
+
+        record = _record(db_session, "000000203")
+
+        handle_catalog_record_link_action(
+            db_session,
+            record,
+            _decision(_bare_candidate("000000204", 0.95), _bare_candidate("000000205", 0.93)),
+            TARGET_BASE,
+        )
+        db_session.commit()
+        db_session.expire_all()
+
+        assert (
+            CatalogRecord.find_by_base_and_system_number(db_session, TARGET_BASE, "000000205")
+            is None
+        )
+        rows = _rows(db_session, record)
+        assert [(r.rank, r.authority_sysno, r.authority_record_id) for r in rows] == [
+            (0, "000000204", f"{TARGET_BASE}-000000204"),
+            (1, "000000205", None),
+        ]
+
+    def test_a_candidate_not_worth_keeping_is_not_worth_storing(self, db_session):
+        """The union catalogue is nine million records; we keep what we show."""
+
+        record = _record(db_session, "000000206")
+
+        handle_catalog_record_link_action(
+            db_session,
+            record,
+            _decision(_bare_candidate("000000207", 0.95), _bare_candidate("000000208", 0.40)),
+            TARGET_BASE,
+        )
+        db_session.commit()
+
+        assert [r.rank for r in _rows(db_session, record)] == [ANSWER_RANK]
+        assert self._stored(db_session, "000000208") is None
+
+    def test_the_record_that_missed_its_floor_is_kept_too(self, db_session):
+        """It sits at the answer rank, but it is a candidate like any other."""
+
+        record = _record(db_session, "000000209")
+
+        handle_catalog_record_link_action(
+            db_session,
+            record,
+            _rejected(_bare_candidate("000000210", 0.42), _bare_candidate("000000211", 0.31)),
+            TARGET_BASE,
+        )
+        db_session.commit()
+
+        assert self._stored(db_session, "000000210") is not None
+        assert self._stored(db_session, "000000211") is not None
+
+    def test_a_candidate_stored_without_its_marc_heals_on_the_next_pass(self, db_session):
+        """Rows written before this existed, and any other way one goes missing.
+
+        The MARC is written every pass rather than only when the rows change,
+        because the store is keyed by the record and re-storing an unchanged
+        one costs nothing.
+        """
+
+        record = _record(db_session, "000000212")
+        decision = _decision(_bare_candidate("000000213", 0.95), _bare_candidate("000000214", 0.93))
+
+        handle_catalog_record_link_action(db_session, record, decision, TARGET_BASE)
+        db_session.commit()
+
+        db_session.query(MarcRecordIndex).filter_by(
+            base=TARGET_BASE, system_number="000000214"
+        ).delete()
+        db_session.commit()
+        assert self._stored(db_session, "000000214") is None
+
+        handle_catalog_record_link_action(db_session, record, decision, TARGET_BASE)
+        db_session.commit()
+
+        assert self._stored(db_session, "000000214") is not None
 
 
 class TestTheSummaryCarriesTheWholeStory:
