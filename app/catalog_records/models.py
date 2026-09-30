@@ -75,6 +75,7 @@ class RecordFilter(BaseModel):
     #: attempt, not only the ones that produced a link, so `NoCandidate` and
     #: `LookupFailed` are as findable as `Linked` is.
     link_outcomes: list[str] | None = None
+    link_agencies: list[str] | None = None
     comparison_bases: list[str] | None = None
     match_qualities: list[str] | None = None
     field_explanations: list[str] | None = None

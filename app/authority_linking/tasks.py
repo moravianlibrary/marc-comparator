@@ -639,19 +639,45 @@ def record_below_floor(
     best: "Candidate",
     candidate_count: int,
 ) -> None:
-    """Record that something was found and none of it was good enough.
+    """Record that something was found and none of it was accepted.
 
     Unlike the other two gaps this one names a record, because there is one to
     name. It is deliberately not a link — no ``authority_record_id``, so no
     reader scoped to accepted links can reach it — while still telling a
     cataloguer which record was nearly chosen and what it scored. Without it,
-    a floor set too high is invisible: the records it rejects look exactly
+    a rule set too strict is invisible: the records it refuses look exactly
     like the ones with no match in the catalogue at all.
+
+    Which rule refused it matters, so the outcome distinguishes them. A score
+    below the floor is a weak match and worth a look; a conflicting national
+    bibliography number is a statement that these are different works, and no
+    amount of looking will change it.
     """
 
     row = _answer_row(db_session, main_record_id, target_base)
-    _apply_candidate(row, best, LinkOutcome.BelowFloor, candidate_count)
+    conflicts = _conflicts_of(best)
+    _apply_candidate(
+        row,
+        best,
+        LinkOutcome.Conflicting if conflicts else LinkOutcome.BelowFloor,
+        candidate_count,
+    )
+    # _apply_candidate clears detail, so the reason goes on afterwards. It is
+    # the only place the specific conflict survives: the outcome says a rule
+    # refused this pair, and this says which.
+    row.detail = ", ".join(conflicts) if conflicts else None
     row.save(db_session, commit=False)
+
+
+def _conflicts_of(candidate: "Candidate") -> list[str]:
+    """What disqualified this candidate, as plain strings for the row.
+
+    A linker that predates the veto reports nothing here, and a hand-rolled
+    test double has no attribute at all — neither is a conflict, and neither
+    should make the writer fail.
+    """
+
+    return [str(conflict) for conflict in getattr(candidate.link, "conflicts", None) or []]
 
 
 def record_link_gap(

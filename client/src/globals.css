@@ -212,6 +212,11 @@
   background-color: color-mix(in oklch, var(--status-warning) 10%, transparent);
   color: var(--status-warning);
 }
+.link-outcome-conflicting {
+  border-color: var(--status-danger);
+  background-color: color-mix(in oklch, var(--status-danger) 10%, transparent);
+  color: var(--status-danger);
+}
 .link-outcome-no-candidate {
   border-color: var(--status-slate);
   background-color: color-mix(in oklch, var(--status-slate) 10%, transparent);

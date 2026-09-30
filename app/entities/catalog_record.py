@@ -90,6 +90,17 @@ class CatalogRecord(
         onupdate=func.now(),
     )
     _type_of_record: Mapped[str | None] = mapped_column("type_of_record", String)
+    #: 040 $a — who originally catalogued this record.
+    #:
+    #: Worth its own column because it answers a question about the union
+    #: catalogue's copy that nothing else can: 14,230 of 47,777 links point at
+    #: an SKC record MZK itself catalogued, and 12,624 of those score exactly
+    #: 1.00. For those the comparison is self-comparison — our record against
+    #: the copy we contributed — and there is no second opinion to report.
+    #:
+    #: 040 is in the comparator's IGNORE_TAG_PATTERNS, so it cannot have
+    #: influenced any score, which is what makes it a clean signal.
+    cataloguing_agency: Mapped[str | None] = mapped_column(String)
     _bibliographic_level: Mapped[str | None] = mapped_column("bibliographic_level", String)
     latest_transaction: Mapped[datetime | None] = mapped_column(TIMESTAMP)
 
@@ -281,8 +292,11 @@ class CatalogRecord(
         subtitle_vals = record.variable_fields.query_subfield_values(SubtitleJq)
         author_vals = record.variable_fields.query_subfield_values('.["100"]?[]?.subfields.a[]?')
 
+        agencies = record.variable_fields.query_subfield_values('.["040"]?[]?.subfields.a[]?')
+
         self.title = title_vals[0] if title_vals else None
         self.authors = author_vals or []
+        self.cataloguing_agency = agencies[0] if agencies else None
 
         parts = [self.system_number]
         if title_vals:

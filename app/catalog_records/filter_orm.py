@@ -107,6 +107,18 @@ def _compile_one(query, c: FilterCondition):
                 )
             return query
 
+        case FilterField.LinkAgencies:
+            # Through the accepted links only, matching the analytics
+            # subquery: the question is who catalogued the record we linked
+            # to, and a candidate we refused is not one we linked to.
+            for val in c.value:
+                query = query.filter(
+                    CatalogRecord.authority_links.any(
+                        AuthorityLink.authority_record.has(CatalogRecord.cataloguing_agency == val)
+                    )
+                )
+            return query
+
         case FilterField.ComparisonBases:
             for val in c.value:
                 query = query.filter(CatalogRecord.comparisons.any(Comparison.base == val))

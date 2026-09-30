@@ -207,7 +207,8 @@
     "validation_reasons": "Vysvětlení validací",
     "field_explanations": "Vysvětlení výsledku",
     "overall_score": "Celkové skóre porovnání",
-    "link_outcomes": "Výsledek propojení"
+    "link_outcomes": "Výsledek propojení",
+    "link_agencies": "Katalogizoval (propojený záznam)"
   },
   "state": {
     "Active": "Aktivní",
@@ -320,6 +321,7 @@
     "Linked": "Propojeno ({{base}})",
     "Rejected": "Zamítnuto",
     "BelowFloor": "{{base}}: nález pod prahem",
+    "Conflicting": "{{base}}: nález v rozporu",
     "NoCandidate": "{{base}}: nic nenalezeno",
     "LookupFailed": "{{base}}: vyhledání selhalo"
   },
@@ -327,6 +329,7 @@
     "Linked": "Propojeno",
     "Rejected": "Zamítnuto",
     "BelowFloor": "Pod prahem",
+    "Conflicting": "V rozporu",
     "NoCandidate": "Nic nenalezeno",
     "LookupFailed": "Vyhledání selhalo"
   }

@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from ..comparators import BaseComparator, RecordComparisonResult
 from ..harvest import HarvestCapable
+from .identity import IdentityConflict
 
 
 class MatchRoute(StrEnum):
@@ -80,6 +81,15 @@ class AuthorityLink:
     #: what a low score means: weak agreement between records known to be the
     #: same work, or a candidate that was never more than a guess.
     matched_by: MatchRoute | None = None
+
+    #: Why this pair cannot be the same work, where anything says so.
+    #:
+    #: Carried on the candidate rather than applied by the linker alone,
+    #: because a vetoed candidate is still worth handing over: the record ends
+    #: up saying "this is what was found and this is why it was refused",
+    #: which is the only way a rule set too strict is ever visible. A linker
+    #: never accepts one — ``link`` is the best candidate with none of these.
+    conflicts: list[IdentityConflict] = field(default_factory=list)
 
 
 @dataclass(slots=True)

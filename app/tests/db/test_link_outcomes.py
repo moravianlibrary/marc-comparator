@@ -86,7 +86,9 @@ def _rows(db_session, main: CatalogRecord) -> list[AuthorityLink]:
     )
 
 
-def _found_link(authority: CatalogRecord, confidence: float = 0.91) -> Any:
+def _found_link(
+    authority: CatalogRecord, confidence: float = 0.91, conflicts: list[Any] | None = None
+) -> Any:
     """What a linker hands back, over a record the storage layer can write."""
 
     return SimpleNamespace(
@@ -95,6 +97,7 @@ def _found_link(authority: CatalogRecord, confidence: float = 0.91) -> Any:
         record=load_test_record("MZK01-001217709.mrc"),
         confidence=confidence,
         matched_by=MatchRoute.Identifier,
+        conflicts=conflicts or [],
     )
 
 
@@ -563,6 +566,96 @@ class TestNothingGoodEnoughIsStillAFinding:
         assert rows[0].authority_record_id == candidate.id
 
 
+class TestARefusalOnEvidenceIsNotARefusalOnScore:
+    """A low score invites a look; a contradiction says stop looking.
+
+    Measured over 47,777 links, 90 carried a conflicting identifier and 78 of
+    those agreed on a different one. Reading them by hand the national
+    bibliography number was right every time — so the veto outranks both the
+    score and the identifier that retrieved the pair, and the row has to say
+    which rule refused it or a rule set too strict is invisible.
+    """
+
+    def _refused(self, db_session, record: CatalogRecord, *candidates: Candidate):
+        handle_catalog_record_link_action(db_session, record, _rejected(*candidates), TARGET_BASE)
+        db_session.commit()
+        db_session.expire_all()
+        return _rows(db_session, record)
+
+    def test_a_conflicting_candidate_says_so(self, db_session):
+        record = _record(db_session, "000000300")
+        other = _record(db_session, "000000301", TARGET_BASE, CatalogRecordSource.AuthorityLinker)
+
+        rows = self._refused(
+            db_session,
+            record,
+            Candidate(_found_link(other, 0.42, ["nbn"]), _linker_instance()),
+        )
+
+        assert rows[0].outcome == LinkOutcome.Conflicting
+        assert rows[0].detail == "nbn"
+        assert rows[0].authority_sysno == other.system_number, "name what was refused"
+        assert rows[0].authority_record_id is None, "refused is not linked"
+
+    def test_every_reason_reaches_the_row(self, db_session):
+        record = _record(db_session, "000000302")
+        other = _record(db_session, "000000303", TARGET_BASE, CatalogRecordSource.AuthorityLinker)
+
+        rows = self._refused(
+            db_session,
+            record,
+            Candidate(_found_link(other, 0.42, ["nbn", "year"]), _linker_instance()),
+        )
+
+        assert rows[0].detail == "nbn, year"
+
+    def test_a_weak_candidate_is_still_only_weak(self, db_session):
+        """Nothing disqualified it, so it stays the invitation to look it up."""
+
+        record = _record(db_session, "000000304")
+        other = _record(db_session, "000000305", TARGET_BASE, CatalogRecordSource.AuthorityLinker)
+
+        rows = self._refused(db_session, record, _candidate(other, 0.42))
+
+        assert rows[0].outcome == LinkOutcome.BelowFloor
+        assert rows[0].detail is None
+
+    def test_the_two_refusals_are_separate_buckets(self, db_session):
+        conflicting = _record(db_session, "000000306")
+        weak = _record(db_session, "000000307")
+        a = _record(db_session, "000000308", TARGET_BASE, CatalogRecordSource.AuthorityLinker)
+        b = _record(db_session, "000000309", TARGET_BASE, CatalogRecordSource.AuthorityLinker)
+
+        self._refused(
+            db_session, conflicting, Candidate(_found_link(a, 0.42, ["nbn"]), _linker_instance())
+        )
+        self._refused(db_session, weak, _candidate(b, 0.42))
+
+        assert build_filtered_query(
+            db_session, RecordFilter(link_outcomes=[LinkOutcome.Conflicting.value])
+        ).all() == [conflicting]
+        assert build_filtered_query(
+            db_session, RecordFilter(link_outcomes=[LinkOutcome.BelowFloor.value])
+        ).all() == [weak]
+
+    def test_a_link_found_later_clears_the_contradiction(self, db_session):
+        record = _record(db_session, "000000310")
+        other = _record(db_session, "000000311", TARGET_BASE, CatalogRecordSource.AuthorityLinker)
+
+        self._refused(
+            db_session, record, Candidate(_found_link(other, 0.42, ["nbn"]), _linker_instance())
+        )
+        handle_catalog_record_link_action(
+            db_session, record, _decision(_candidate(other, 0.95)), TARGET_BASE
+        )
+        db_session.commit()
+        db_session.expire_all()
+
+        rows = _rows(db_session, record)
+        assert [(r.rank, r.outcome) for r in rows] == [(0, LinkOutcome.Linked)]
+        assert rows[0].detail is None
+
+
 class TestTheCandidateMarcIsOurs:
     """A candidate row must not be a pointer into a plugin's tables.
 
@@ -805,3 +898,66 @@ class TestTheOutcomeFacetPartitionsTheRecords:
         assert build_filtered_query(
             db_session, RecordFilter(link_outcomes=[LinkOutcome.Linked.value])
         ).all() == [record]
+
+
+class TestWhoCataloguedTheOtherRecord:
+    """A third of our links point at a record MZK itself catalogued.
+
+    14,230 of 47,777, and 12,624 of those score exactly 1.00 — 52% of the
+    whole perfect-score population. For those the comparison is our record
+    against the copy we contributed to the union catalogue, so there is no
+    second opinion in it and nothing to report to anyone. Without a way to
+    see them the review queue is 30% larger than it needs to be.
+    """
+
+    def _linked_to(self, db_session, main: CatalogRecord, agency: str | None) -> CatalogRecord:
+        authority = _record(
+            db_session,
+            main.system_number + "9",
+            TARGET_BASE,
+            CatalogRecordSource.AuthorityLinker,
+        )
+        authority.cataloguing_agency = agency
+        _link(db_session, main, authority)
+        db_session.commit()
+        db_session.expire_all()
+        return authority
+
+    def test_the_agency_is_read_off_the_record(self, db_session):
+        """040 $a, which is in the comparator's IGNORE_TAG_PATTERNS.
+
+        It cannot have influenced any score, which is exactly what makes it
+        usable as a signal about the scores.
+        """
+
+        record = _record(db_session, "000000400")
+        record.update_search_text_from(load_test_record("MZK01-001217709.mrc"))
+
+        assert record.cataloguing_agency == "OLA001"
+
+    def test_records_are_findable_by_who_catalogued_their_counterpart(self, db_session):
+        ours = _record(db_session, "000000401")
+        theirs = _record(db_session, "000000402")
+        self._linked_to(db_session, ours, "BOA001")
+        self._linked_to(db_session, theirs, "ABA001")
+
+        assert build_filtered_query(db_session, RecordFilter(link_agencies=["ABA001"])).all() == [
+            theirs
+        ]
+        assert build_filtered_query(db_session, RecordFilter(link_agencies=["BOA001"])).all() == [
+            ours
+        ]
+
+    def test_a_refused_candidate_is_not_somebody_we_linked_to(self, db_session):
+        """The question is who catalogued what we linked to, not what we saw."""
+
+        record = _record(db_session, "000000403")
+        refused = _record(db_session, "000000404", TARGET_BASE, CatalogRecordSource.AuthorityLinker)
+        refused.cataloguing_agency = "ABA001"
+        handle_catalog_record_link_action(
+            db_session, record, _rejected(_candidate(refused, 0.42)), TARGET_BASE
+        )
+        db_session.commit()
+        db_session.expire_all()
+
+        assert build_filtered_query(db_session, RecordFilter(link_agencies=["ABA001"])).all() == []

@@ -35,6 +35,7 @@ const FACET_TO_URL_PARAM: Partial<Record<string, FilterKey>> = {
   authority_link_linkers: 'authorityLinkLinkers',
   authority_link_bases: 'authorityLinkBases',
   link_outcomes: 'linkOutcomes',
+  link_agencies: 'linkAgencies',
   comparison_bases: 'comparisonBases',
   match_qualities: 'matchQualities',
   field_explanations: 'fieldExplanations',
@@ -232,6 +233,10 @@ export function PlotsView() {
       field: 'link_outcomes',
       label: t('facet-fields.link_outcomes'),
       formatLabel: k => t(`link-outcome-short.${k}`, { defaultValue: k }),
+    },
+    {
+      field: 'link_agencies',
+      label: t('facet-fields.link_agencies'),
     },
     {
       field: 'comparison_bases',

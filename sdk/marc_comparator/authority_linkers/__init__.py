@@ -7,6 +7,7 @@ from ._base import (
     LinkRequest,
     MatchRoute,
 )
+from .identity import IdentityConflict, find_identity_conflicts
 from .knihovny_cz_linker import KnihovnyCZLinker
 from .marcxml_dump_linker import MarcXmlDumpLinker, MarcXmlDumpLinkerConfig
 
@@ -27,6 +28,8 @@ __all__ = [
     "AUTHORITY_LINKER_DISPATCHER",
     "AuthorityLinker",
     "BaseAuthorityLinker",
+    "find_identity_conflicts",
+    "IdentityConflict",
     "KnihovnyCZLinker",
     "LinkProposal",
     "LinkRequest",

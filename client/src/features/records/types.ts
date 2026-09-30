@@ -13,6 +13,10 @@ export interface RecordFilter {
   authority_link_bases?: string[];
   /** What came of trying to link, including the records that got no link. */
   link_outcomes?: string[];
+  /** Who catalogued the record on the other end. Our own code means the
+   *  comparison is our record against the copy we contributed, so there is
+   *  no second opinion in it. */
+  link_agencies?: string[];
   comparison_bases?: string[];
   match_qualities?: string[];
   field_explanations?: string[];
@@ -33,7 +37,13 @@ export interface AuthorityLinkSummary {
 }
 
 /** What came of trying to link a record to one base. */
-export type LinkOutcome = 'Linked' | 'Rejected' | 'BelowFloor' | 'NoCandidate' | 'LookupFailed';
+export type LinkOutcome =
+  | 'Linked'
+  | 'Rejected'
+  | 'BelowFloor'
+  | 'Conflicting'
+  | 'NoCandidate'
+  | 'LookupFailed';
 
 export interface LinkAttemptSummary {
   base: string;
@@ -252,6 +262,7 @@ export const STATE_COLORS: Record<string, string> = {
  *  `Rejected` never sits at the answer rank. */
 export const LINK_OUTCOME_COLORS: Record<string, string> = {
   BelowFloor: 'link-outcome-below-floor',
+  Conflicting: 'link-outcome-conflicting',
   NoCandidate: 'link-outcome-no-candidate',
   LookupFailed: 'link-outcome-lookup-failed',
 };

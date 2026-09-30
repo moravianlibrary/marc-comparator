@@ -23,6 +23,7 @@ CREATE TABLE IF NOT EXISTS catalog_records_analytics (
     authority_link_linkers  TEXT[],
     authority_link_bases    TEXT[],
     link_outcomes           TEXT[],
+    link_agencies           TEXT[],
 
     comparison_bases        TEXT[],
     match_qualities         TEXT[],
@@ -50,6 +51,7 @@ CREATE_INDEXES_SQL = [
     "CREATE INDEX IF NOT EXISTS idx_analytics_broken ON catalog_records_analytics (is_broken) WHERE is_broken",
     "CREATE INDEX IF NOT EXISTS idx_analytics_review_status ON catalog_records_analytics (review_status) WHERE review_status != 'ReviewNotNeeded'",
     "CREATE INDEX IF NOT EXISTS idx_analytics_auth_linkers ON catalog_records_analytics USING gin (authority_link_linkers)",
+    "CREATE INDEX IF NOT EXISTS idx_analytics_link_agencies ON catalog_records_analytics USING gin (link_agencies)",
     "CREATE INDEX IF NOT EXISTS idx_analytics_auth_bases ON catalog_records_analytics USING gin (authority_link_bases)",
     "CREATE INDEX IF NOT EXISTS idx_analytics_link_outcomes ON catalog_records_analytics USING gin (link_outcomes)",
     "CREATE INDEX IF NOT EXISTS idx_analytics_comp_bases ON catalog_records_analytics USING gin (comparison_bases)",
@@ -118,6 +120,17 @@ _ANALYTICS_SELECT = """
          FROM authority_links al2
          WHERE al2.main_record_id = cr.id AND al2.rank = 0
         ) AS link_outcomes,
+
+        -- Who catalogued the record on the other end of each accepted link.
+        -- A subquery for the same reason as link_outcomes: a second join
+        -- would multiply the rows every array_agg above is computed over.
+        (SELECT array_agg(DISTINCT auth.cataloguing_agency)
+         FROM authority_links al3
+         JOIN catalog_records auth ON auth.id = al3.authority_record_id
+         WHERE al3.main_record_id = cr.id
+           AND al3.rank = 0 AND al3.outcome = 'Linked'
+           AND auth.cataloguing_agency IS NOT NULL
+        ) AS link_agencies,
 
         array_agg(DISTINCT cmp.base)
             FILTER (WHERE cmp.base IS NOT NULL)             AS comparison_bases,
@@ -225,7 +238,7 @@ _ANALYTICS_GROUP_BY = "GROUP BY cr.id"
 _ANALYTICS_COLUMNS = """
     id, base, system_number, type_of_record, bibliographic_level,
     is_deleted, is_processed, is_broken,
-    authority_link_linkers, authority_link_bases, link_outcomes,
+    authority_link_linkers, authority_link_bases, link_outcomes, link_agencies,
     comparison_bases, match_qualities, overall_scores, field_explanations,
     validators, validation_statuses, validation_target_tags, validation_reasons,
     reviewed_aspects, review_status,
@@ -243,6 +256,7 @@ ADD_COLUMNS_SQL = [
     "ALTER TABLE catalog_records_analytics "
     "ADD COLUMN IF NOT EXISTS is_broken BOOLEAN NOT NULL DEFAULT FALSE",
     "ALTER TABLE catalog_records_analytics ADD COLUMN IF NOT EXISTS link_outcomes TEXT[]",
+    "ALTER TABLE catalog_records_analytics ADD COLUMN IF NOT EXISTS link_agencies TEXT[]",
 ]
 
 
@@ -281,6 +295,7 @@ def upsert_records(db: Session, record_ids: list[str]) -> None:
             authority_link_linkers = EXCLUDED.authority_link_linkers,
             authority_link_bases = EXCLUDED.authority_link_bases,
             link_outcomes = EXCLUDED.link_outcomes,
+            link_agencies = EXCLUDED.link_agencies,
             comparison_bases = EXCLUDED.comparison_bases,
             match_qualities = EXCLUDED.match_qualities,
             overall_scores = EXCLUDED.overall_scores,

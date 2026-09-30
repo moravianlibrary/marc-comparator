@@ -27,6 +27,7 @@ from ._base import (
     LinkRequest,
     MatchRoute,
 )
+from .identity import find_identity_conflicts
 
 logger = logging.getLogger(__name__)
 
@@ -362,6 +363,7 @@ class KnihovnyCZLinker(BaseAuthorityLinker):
                     # dump linker there is nothing to tell apart and one floor
                     # is enough.
                     matched_by=MatchRoute.Dedup,
+                    conflicts=find_identity_conflicts(record, target_record),
                 )
             )
 
@@ -372,14 +374,28 @@ class KnihovnyCZLinker(BaseAuthorityLinker):
             return LinkProposal.nothing_found()
 
         scored.sort(key=lambda link: link.confidence or 0.0, reverse=True)
-        best = scored[0]
+
+        # A dedup group is knihovny.cz asserting that these records are the
+        # same work, and a conflicting national bibliography number contradicts
+        # it outright. The veto wins: dedup groups are built by an algorithm
+        # and ČNB is assigned per bibliographic unit by the national library.
+        #
+        # Unmeasured on this route, unlike the dump linker's — only 336 of the
+        # 47,777 links measured came through dedup, too few to say anything.
+        # Applied here for consistency rather than on evidence, which is worth
+        # revisiting once this route carries enough links to count.
+        best = next((link for link in scored if not link.conflicts), None)
 
         # The dedup group says these records belong together; the comparator
         # says how far this catalogue agrees. Disagreement below the floor
         # withholds the link, but the group still comes back as candidates —
         # a group the comparator dislikes is a finding, not an absence.
         return LinkProposal(
-            link=best if (best.confidence or 0.0) >= self.config.minimum_confidence else None,
+            link=(
+                best
+                if best is not None and (best.confidence or 0.0) >= self.config.minimum_confidence
+                else None
+            ),
             candidates=scored,
             candidate_count=len(target_system_numbers),
         )

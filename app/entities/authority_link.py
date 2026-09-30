@@ -28,6 +28,12 @@ class LinkOutcome(StrEnum):
     Rejected = "Rejected"
     #: The best candidate did not clear its route's minimum confidence.
     BelowFloor = "BelowFloor"
+    #: Something disqualified every candidate — a conflicting national
+    #: bibliography number, publication years too far apart, a different kind
+    #: of record. Kept apart from ``BelowFloor`` because the two call for
+    #: opposite responses: a low score invites a look, a contradiction says
+    #: the catalogue holds no counterpart and the search was pointed wrong.
+    Conflicting = "Conflicting"
     #: The lookup completed and found nothing to consider.
     NoCandidate = "NoCandidate"
     #: The lookup did not complete, which is not an answer about the record.

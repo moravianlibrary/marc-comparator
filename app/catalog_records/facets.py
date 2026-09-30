@@ -31,6 +31,7 @@ ARRAY_FACETS = [
     "authority_link_linkers",
     "authority_link_bases",
     "link_outcomes",
+    "link_agencies",
     "comparison_bases",
     "match_qualities",
     "validators",

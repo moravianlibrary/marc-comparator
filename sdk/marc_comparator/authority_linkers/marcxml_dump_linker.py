@@ -55,6 +55,9 @@ from ._base import (
     LinkRequest,
     MatchRoute,
 )
+from .identity import find_identity_conflicts
+from .identity import normalize_identifier as _normalize_plain
+from .identity import year_from_008 as _year_from_008
 
 if TYPE_CHECKING:
     from sqlalchemy import Connection, Index, MetaData, Table
@@ -272,20 +275,6 @@ def _normalize_isbn(value: str) -> str | None:
     token = next(iter(head.split()), "")
     normalized = re.sub(r"[^0-9Xx]", "", token).upper()
     return normalized or None
-
-
-def _normalize_plain(value: str) -> str | None:
-    normalized = re.sub(r"[^\w]", "", value).lower()
-    return normalized or None
-
-
-def _year_from_008(field: str | None) -> int | None:
-    """Date 1 from the fixed-length data elements, when it is a plain year."""
-
-    if field is None or len(field) < 11:
-        return None
-    candidate = field[7:11]
-    return int(candidate) if candidate.isdigit() else None
 
 
 def _dump_edition(headers: httpx.Headers) -> str | None:
@@ -1111,19 +1100,27 @@ class MarcXmlDumpLinker(BaseAuthorityLinker):
                     # runner-up later does not have to recompute it.
                     comparison=comparison,
                     matched_by=retrieval.route,
+                    conflicts=find_identity_conflicts(record, candidate.record),
                 )
             )
 
         scored.sort(key=lambda link: link.confidence or 0.0, reverse=True)
-        best = scored[0]
         floor = self._minimum_confidence_for(retrieval.route)
 
+        # The best candidate nothing disqualifies — not simply the best one.
+        # A conflicting national bibliography number outranks the score and
+        # outranks the identifier that retrieved the pair: 78 of the 90
+        # conflicting links measured agree on some other identifier, and the
+        # ČNB was right in every one read by hand.
+        best = next((link for link in scored if not link.conflicts), None)
+
         return LinkProposal(
-            # Below the floor the shortlist still comes back. The host records
-            # that something was found and rejected, which reads very
+            # Below the floor the shortlist still comes back, and so does a
+            # shortlist every member of which was disqualified. The host
+            # records that something was found and rejected, which reads very
             # differently from finding nothing — and is the only way anyone
-            # can tell a floor is set too high.
-            link=best if (best.confidence or 0.0) >= floor else None,
+            # can tell a floor, or a rule, is set too strict.
+            link=best if best is not None and (best.confidence or 0.0) >= floor else None,
             candidates=scored,
             candidate_count=len(retrieval.candidates),
         )
