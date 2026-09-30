@@ -2,6 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from access_control.controller import router as access_control_router
+from adapters.errors import register_error_handlers
 from adapters.logger import configure_logging
 from app_lifespan import lifespan
 from auth.controller import router as auth_router
@@ -32,6 +33,8 @@ app.add_middleware(
     allow_methods=config.cors.allow_methods,
     allow_headers=config.cors.allow_headers,
 )
+
+register_error_handlers(app)
 
 # Register routers
 app.include_router(access_control_router)
