@@ -93,7 +93,24 @@ REBUILD_WINDOW = 200
 
 
 async def rebuild_search_vectors(task_id: str) -> None:
-    """Rebuild search_text for all catalog records from their MARC data."""
+    """Rebuild search_text for all catalog records from their MARC data.
+
+    Nothing here holds an ORM instance across a record, because
+    ``handle_batch_progress_snippet`` commits and cycles the session every
+    ``commit_interval`` of them — the rule ``CatalogRecord.warm`` states.
+    Holding a window of them, which this did, meant that the first cycle
+    landing inside a window detached every record after it and the next read
+    of ``record.base`` raised ``DetachedInstanceError``. With a window of 200
+    and a commit interval of 500 that is the third window: the task died 0.5%
+    in, every time it was run.
+
+    So the window is walked twice. The first pass reads the three columns it
+    needs as plain tuples, which survive a cycle, and batches the MARC read by
+    sector from them. The second looks each record up again by id — answered
+    from the identity map while the window is warm, and from the database
+    after a cycle has emptied it.
+    """
+
     from collections import defaultdict
 
     from adapters.marc_sectors import read_marc_many, read_stored_marc
@@ -105,12 +122,18 @@ async def rebuild_search_vectors(task_id: str) -> None:
         ctx.logger.info(f"Rebuilding search vectors for {ctx.total} records...")
 
         for window in chunks(record_ids, REBUILD_WINDOW):
-            records = [ctx.db_session.get(CatalogRecord, record_id) for record_id in window]
-            present = [record for record in records if record is not None]
+            located = {
+                row.id: (row.base, row.system_number)
+                for row in ctx.db_session.query(
+                    CatalogRecord.id, CatalogRecord.base, CatalogRecord.system_number
+                )
+                .filter(CatalogRecord.id.in_(window))
+                .all()
+            }
 
             by_base: defaultdict[str, list[str]] = defaultdict(list)
-            for record in present:
-                by_base[record.base].append(record.system_number)
+            for base, system_number in located.values():
+                by_base[base].append(system_number)
             marc_of = {
                 (base, system_number): marc
                 for base, system_numbers in by_base.items()
@@ -119,22 +142,27 @@ async def rebuild_search_vectors(task_id: str) -> None:
                 ).items()
             }
 
-            for record in records:
-                if record is None:
+            CatalogRecord.warm(ctx.db_session, window)
+
+            for record_id in window:
+                where = located.get(record_id)
+                record = ctx.db_session.get(CatalogRecord, record_id) if where else None
+                if record is None or where is None:
+                    # Deleted between listing the ids and getting here.
                     handle_batch_progress_snippet(ctx)
                     continue
 
-                marc_bytes = marc_of.get((record.base, record.system_number))
+                marc_bytes = marc_of.get(where)
                 if marc_bytes:
                     try:
-                        marc = read_stored_marc(marc_bytes)
-                        record.update_search_text_from(marc)
+                        record.update_search_text_from(read_stored_marc(marc_bytes))
                     except Exception as e:
                         ctx.logger.warning(
-                            f"Failed to rebuild search for "
-                            f"{record.base}/{record.system_number}: {e}"
+                            f"Failed to rebuild search for {where[0]}/{where[1]}: {e}"
                         )
 
+                # Commits and cycles the session on its own schedule; `record`
+                # must not be touched after this.
                 handle_batch_progress_snippet(ctx)
 
         handle_final_batch_snippet(ctx)
