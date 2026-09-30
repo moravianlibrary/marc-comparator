@@ -1,4 +1,5 @@
 import logging
+from collections import deque
 from collections.abc import Callable
 from contextlib import AbstractContextManager as ContextManager
 from typing import Any
@@ -148,14 +149,47 @@ LEVEL_NO_TO_SEVERITY = {
 }
 
 
+#: How much of a task's log is kept, in characters, at each end.
+#:
+#: The log used to grow without limit, and the column was rewritten whole on
+#: every flush — so a task that logged N times wrote O(N²) bytes, each version
+#: leaving the previous one dead. Measured on the local cluster: 36 task rows
+#: holding 20 MB of text occupied **215 MB of TOAST**, and one task's log had
+#: reached 7.5 MB on its own.
+#:
+#: Both ends are kept because both are read. The head is what the task set out
+#: to do and what it complained about early; the tail is what it was doing
+#: when it stopped, which is the first thing anyone looks at. The middle of a
+#: long run is mostly "Processed N records so far", and what is dropped is
+#: counted and said so.
+#:
+#: 64 KB in total is roughly 800 lines. Of the 35 logs on the local cluster,
+#: 22 are already smaller than that and would be kept whole.
+TRACEBACK_HEAD_CHARS = 32 * 1024
+TRACEBACK_TAIL_CHARS = 32 * 1024
+
+#: Marker written where the middle was dropped. Takes the count, so a reader
+#: can tell a log that was trimmed from one that simply ended.
+TRACEBACK_ELISION = "\n[... {count} earlier lines dropped ...]\n\n"
+
+
 class TaskHandler(logging.Handler):
     """
     Logging handler that writes messages to a Task.traceback field.
-    Batches flushes to reduce DB overhead — flushes every `flush_interval`
+    Batches flushes to reduce DB overhead — flushes every `FLUSH_INTERVAL`
     entries, on severity escalation, and on close.
+
+    What it stores is bounded; see ``TRACEBACK_HEAD_CHARS``. The handler keeps
+    the composed value rather than appending to the column, because appending
+    is what made the writes quadratic.
     """
 
-    FLUSH_INTERVAL = 10
+    #: Entries between routine flushes. Liveness for a running task comes from
+    #: the progress event and `Task.progress`, not from this, so the log does
+    #: not need writing as often as it is written to — and each write is a
+    #: fresh copy of the whole column. Anything that raises the severity still
+    #: flushes at once, because that is what somebody is waiting to see.
+    FLUSH_INTERVAL = 50
 
     def __init__(self, db: Session, task: Task, managed_task: "ManagedTask", level=logging.DEBUG):
         super().__init__(level)
@@ -166,14 +200,47 @@ class TaskHandler(logging.Handler):
         self._pending = 0
         self._buffer: list[str] = []
 
+        self._head: list[str] = []
+        self._head_chars = 0
+        self._tail: deque[str] = deque()
+        self._tail_chars = 0
+        self._dropped = 0
+
+        # A retried task keeps what its earlier attempt wrote, which is what
+        # makes "it failed the same way three times" visible.
+        if task.traceback:
+            self._keep(task.traceback)
+
+    def _keep(self, entry: str) -> None:
+        """Take one entry into the bounded log, dropping the oldest middle."""
+
+        if self._head_chars < TRACEBACK_HEAD_CHARS:
+            self._head.append(entry)
+            self._head_chars += len(entry)
+            return
+
+        self._tail.append(entry)
+        self._tail_chars += len(entry)
+        while self._tail_chars > TRACEBACK_TAIL_CHARS and len(self._tail) > 1:
+            self._tail_chars -= len(self._tail.popleft())
+            self._dropped += 1
+
+    def _compose(self) -> str:
+        head = "".join(self._head)
+        if not self._tail:
+            return head
+        if not self._dropped:
+            return head + "".join(self._tail)
+        return head + TRACEBACK_ELISION.format(count=self._dropped) + "".join(self._tail)
+
     def _flush_traceback(self):
         if self._buffer:
-            batch = "".join(self._buffer)
-            if self.task.traceback:
-                self.task.traceback += batch
-            else:
-                self.task.traceback = batch
+            for entry in self._buffer:
+                self._keep(entry)
             self._buffer.clear()
+            # Assigned, not appended: the value is already the whole log, and
+            # appending to the column is what grew it without limit.
+            self.task.traceback = self._compose()
         try:
             self.db_session.flush()
         except Exception:
