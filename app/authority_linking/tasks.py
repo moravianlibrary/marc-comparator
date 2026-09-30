@@ -33,7 +33,11 @@ from adapters.tasks import (
 from catalog_records.search import build_filtered_query
 from config import config
 from entities.authority_link import ANSWER_RANK, AuthorityLink, LinkOutcome
-from entities.catalog_record import CatalogRecord, CatalogRecordSource
+from entities.catalog_record import (
+    CatalogRecord,
+    CatalogRecordSource,
+    cataloguing_agency_of,
+)
 from entities.settings import Settings, SettingsScope
 
 from .models import AuthorityLinkingSettings, AuthorityLinkingTaskData
@@ -916,6 +920,12 @@ def _link_update_would_write_nothing(
     if current_link.candidate_count != candidate_count:
         return False
     if authority_record.source_name != linker_instance.linker.value:
+        return False
+    # Same reasoning as `matched_by` above: a link written before this column
+    # existed has the same confidence and the same MARC it always had, so
+    # without this the authority record keeps its null agency forever and the
+    # facet stays empty over 47,777 links that will never be rewritten.
+    if authority_record.cataloguing_agency != cataloguing_agency_of(found_link.record):
         return False
 
     # A record waiting in the buffer still reads as its previous self, so the

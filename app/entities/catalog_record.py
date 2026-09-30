@@ -292,11 +292,9 @@ class CatalogRecord(
         subtitle_vals = record.variable_fields.query_subfield_values(SubtitleJq)
         author_vals = record.variable_fields.query_subfield_values('.["100"]?[]?.subfields.a[]?')
 
-        agencies = record.variable_fields.query_subfield_values('.["040"]?[]?.subfields.a[]?')
-
         self.title = title_vals[0] if title_vals else None
         self.authors = author_vals or []
-        self.cataloguing_agency = agencies[0] if agencies else None
+        self.cataloguing_agency = cataloguing_agency_of(record)
 
         parts = [self.system_number]
         if title_vals:
@@ -305,6 +303,19 @@ class CatalogRecord(
             parts.append(subtitle_vals[0])
         parts.extend(author_vals)
         self.search_text = " ".join(filter(None, parts))
+
+
+def cataloguing_agency_of(record: MarcRecord) -> str | None:
+    """040 $a — who originally catalogued this record.
+
+    A function rather than a method because two callers need it: the writer
+    that stores it, and the guard that decides whether re-storing an unchanged
+    link would write anything. Computing it two ways is how the displayed field
+    caps drifted from the scoring engine.
+    """
+
+    agencies = record.variable_fields.query_subfield_values('.["040"]?[]?.subfields.a[]?')
+    return agencies[0] if agencies else None
 
 
 @event.listens_for(CatalogRecord, "before_insert")

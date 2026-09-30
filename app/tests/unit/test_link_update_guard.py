@@ -19,6 +19,7 @@ from authority_linking.tasks import (
 )
 
 STORED = b"\x00\x01authority-as-stored"
+AGENCY = "ABA001"
 #: What the linker reports having weighed, matching `_Link`'s own column.
 CANDIDATES = 1
 NO_SESSION = cast(Any, object())
@@ -29,8 +30,9 @@ class _AuthorityRecord:
     base = "SKC"
     system_number = "000000001"
 
-    def __init__(self, source_name: str = "marcxml-dump"):
+    def __init__(self, source_name: str = "marcxml-dump", agency: str | None = AGENCY):
         self.source_name = source_name
+        self.cataloguing_agency = agency
         self.latest_sync = None
         self.rewrites = 0
 
@@ -43,6 +45,7 @@ class _Link:
         self,
         confidence: float = 0.95,
         source_name: str = "marcxml-dump",
+        agency: str | None = AGENCY,
         matched_by: str | None = MatchRoute.Identifier.value,
         authority_base: str = "SKC",
         authority_sysno: str = "000000001",
@@ -56,7 +59,7 @@ class _Link:
         self.matched_by = matched_by
         self.authority_base = authority_base
         self.authority_sysno = authority_sysno
-        self.authority_record = _AuthorityRecord(source_name)
+        self.authority_record = _AuthorityRecord(source_name, agency)
         self.saves = 0
 
     @property
@@ -68,19 +71,30 @@ class _Link:
         self.saves += 1
 
 
+class _VariableFields:
+    """Just enough of the MARC accessor for the agency reader."""
+
+    def __init__(self, agency: str | None):
+        self._agency = agency
+
+    def query_subfield_values(self, _jq):
+        return [self._agency] if self._agency else []
+
+
 def _found(
     marc: bytes = STORED,
     confidence: float = 0.95,
     matched_by: MatchRoute | None = MatchRoute.Identifier,
     base: str = "SKC",
     system_number: str = "000000001",
+    agency: str | None = AGENCY,
 ):
     return SimpleNamespace(
         base=base,
         system_number=system_number,
         confidence=confidence,
         matched_by=matched_by,
-        record=SimpleNamespace(_marc=marc),
+        record=SimpleNamespace(_marc=marc, variable_fields=_VariableFields(agency)),
     )
 
 
@@ -251,6 +265,40 @@ class TestEveryRealChangeStillLands:
             cast(Any, _linker()),
             cast(Any, link),
             cast(Any, _Buffer()),
+            {link.authority_record.id: STORED},
+            CANDIDATES,
+        )
+
+
+class TestAColumnAddedLaterStillFills:
+    def test_a_link_predating_the_agency_is_written(self):
+        """47,777 links already exist and nothing else would ever rewrite them.
+
+        The authority record's cataloguing agency is read off the same MARC
+        that is already stored byte for byte, so every other check here passes
+        and the column would stay null forever — taking the facet built on it
+        with it.
+        """
+
+        link = _Link(agency=None)
+
+        assert not _link_update_would_write_nothing(
+            cast(Any, _found()),
+            cast(Any, _linker()),
+            cast(Any, link),
+            None,
+            {link.authority_record.id: STORED},
+            CANDIDATES,
+        )
+
+    def test_an_agency_already_stored_is_not_a_change(self):
+        link = _Link()
+
+        assert _link_update_would_write_nothing(
+            cast(Any, _found()),
+            cast(Any, _linker()),
+            cast(Any, link),
+            None,
             {link.authority_record.id: STORED},
             CANDIDATES,
         )
