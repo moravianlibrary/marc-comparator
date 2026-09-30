@@ -185,7 +185,7 @@ async def test_identifier_lookup_finds_the_record_without_a_network_call(
         ).scalars()
         assert "ix_marcxml_dump_records_title_key" in set(indexes)
 
-    linked = ready_linker(harvest_engine, {"000000001": 0.95})
+    linked = ready_linker(harvest_engine, {"000000001": 14.0})
     link = (
         await linked.run(
             "MZK01",
@@ -197,7 +197,7 @@ async def test_identifier_lookup_finds_the_record_without_a_network_call(
 
     assert link is not None
     assert link.system_number == "000000001"
-    assert link.confidence == 0.95
+    assert link.confidence == 14.0
     # The app stores the linked record from its raw MARC bytes.
     assert link.record._marc
 
@@ -214,7 +214,7 @@ async def test_title_fallback_applies_only_without_identifier_hits(harvest_engin
     linker = MarcXmlDumpLinker(MarcXmlDumpLinkerConfig())
     assert (await harvest(linker, harvest_engine))[0].records == 2
 
-    linked = ready_linker(harvest_engine, {"000000010": 0.93, "000000011": 0.91})
+    linked = ready_linker(harvest_engine, {"000000010": 13.0, "000000011": 12.5})
     link = (await linked.run("MZK01", "000000999", query_record(title="Sborník prací"), "SKC")).link
 
     assert link is not None

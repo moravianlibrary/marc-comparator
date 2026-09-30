@@ -37,7 +37,7 @@
       "actions": [
         "Šipkami nebo klávesami A / D přecházíte mezi záznamy — při přechodu se automaticky zachová vybraný pohled",
         "V rozbalovacím menu přepínáte mezi MARC záznamem, autoritními záznamy, porovnáními a validacemi",
-        "U porovnání: každé pole zobrazuje zdrojovou hodnotu, hodnotu z autority, procentuální skóre a klasifikaci odchylky",
+        "U porovnání: každé pole zobrazuje zdrojovou hodnotu, hodnotu z autority, skóre shody (0–15) a klasifikaci odchylky",
         "U validací: zobrazuje se stav (validní/nevalidní), důvod, detaily s prokliky na Kramerius a nápověda",
         "Zaškrtnutím \"Pouze cílová pole\" zobrazíte jen pole s anotacemi",
         "Trvalý odkaz na záznam zkopírujete ikonou odkazu — záznam lze také přímo zpracovat, propojit s autoritami nebo validovat"

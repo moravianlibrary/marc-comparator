@@ -45,6 +45,7 @@ from marcdantic import MarcRecord
 from marcdantic.selectors import IsbnActiveJq, IssnActiveJq, NbnActiveJq, TitleJq
 from pydantic import BaseModel, Field
 
+from ..comparators._base import MATCH_SCALE_MAX
 from ..comparators.default import DefaultComparator, DefaultComparatorConfig
 from ..harvest import HarvestContext, HarvestResult, HarvestStorageUnavailable
 from ._base import (
@@ -167,13 +168,13 @@ class MarcXmlDumpLinkerConfig(BaseModel):
     #: far the two descriptions have drifted, and a low one is the most useful
     #: thing this linker can report rather than a reason to say nothing. The
     #: default keeps every one of them; raise it to hide the noisy tail.
-    identifier_minimum_confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    identifier_minimum_confidence: float = Field(default=0.0, ge=0.0, le=MATCH_SCALE_MAX)
     #: Lowest score worth reporting for a candidate found only by its title.
     #: Nothing here has established the two records are the same work, so the
     #: score is the only evidence there is, and generic titles produce
-    #: plausible-looking candidates in quantity. 0.55 is what two unrelated
-    #: records score.
-    title_minimum_confidence: float = Field(default=0.55, ge=0.0, le=1.0)
+    #: plausible-looking candidates in quantity. 7 out of 15 is what two
+    #: unrelated records score.
+    title_minimum_confidence: float = Field(default=7.0, ge=0.0, le=MATCH_SCALE_MAX)
     #: Candidates compared per record. Retrieval by title alone can return many
     #: rows for a generic title, and every candidate costs a full comparison.
     candidate_limit: int = Field(default=10, ge=1, le=100)

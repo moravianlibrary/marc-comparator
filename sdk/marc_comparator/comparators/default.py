@@ -6,11 +6,16 @@ from marcdantic import MarcRecord
 from pydantic import BaseModel
 
 from ._base import (
+    EXCELLENT_MATCH,
+    MATCH_SCALE_MAX,
+    MODERATE_MATCH,
     BaseComparator,
     Explanation,
     FieldComparisonResult,
+    MatchQuality,
     RecordComparisonResult,
     SubfieldComparisonResult,
+    match_from_penalty,
 )
 from .intiim_engine.engine import compare_records
 from .intiim_engine.llm import set_ollama_url
@@ -39,12 +44,50 @@ def _is_fixed_field_tag(tag: str) -> bool:
     return tag.isdigit() and int(tag) < 10
 
 
+def _match(spent: float) -> float:
+    """A spent share of a budget, as a score on the match scale.
+
+    Rounded, because these are stored: `15 * (1 - 0.8)` is 2.999999999999999
+    in binary floating point, and a stored score is read back by people as
+    well as by code. Four places is finer than anything displayed and matches
+    what the scoring engine rounds its own output to.
+    """
+
+    return round(MATCH_SCALE_MAX * (1.0 - min(1.0, spent)), 4)
+
+
+def _explain(group: dict[str, Any]) -> str | None:
+    """What the engine measured about this difference, in one line.
+
+    The reason it recorded, plus the numbers behind it where there are any.
+    A label on its own — "TYPO" — says what the engine concluded; `sim` and
+    `jaccard` say how close the two strings actually were, which is what
+    tells a cataloguer whether to believe the conclusion. The checks that
+    compare text record both; the ones that decide on structure record
+    neither, so this stays a reason string for them.
+    """
+
+    details = group.get("details") or {}
+    parts = [str(details["reason"])] if details.get("reason") else []
+
+    if isinstance(details.get("sim"), (int, float)):
+        parts.append(f"sim {float(details['sim']):.0f}%")
+    if isinstance(details.get("jaccard"), (int, float)):
+        parts.append(f"jaccard {float(details['jaccard']):.2f}")
+
+    return ", ".join(parts) or None
+
+
 class DefaultComparatorConfig(BaseModel):
     ollama_url: str = "http://localhost:11434"
     llm_enabled: bool = False
     nonstandard_llm_enabled: bool = False
-    excellent_threshold: int = 6
-    moderate_threshold: int = 12
+    #: Where the quality bands sit on the 0-15 match scale. Both used to be
+    #: penalties, read the other way round — 6 and 12 out of 30 — and they were
+    #: the two ends of a curve this comparator laid over the engine's output.
+    #: There is no curve now, so all they do is cut the scale into bands.
+    excellent_threshold: float = EXCELLENT_MATCH
+    moderate_threshold: float = MODERATE_MATCH
 
 
 class DefaultComparator(BaseComparator):
@@ -109,25 +152,27 @@ class DefaultComparator(BaseComparator):
         )
 
         scoring = await asyncio.to_thread(score_differences, comparison.get("differences", []))
-        field_score_caps = {
-            f["tag"]: f.get("cap") or 10.0 for f in scoring.get("field_contributions", [])
-        }
+
+        # Every score below is the same arithmetic the record score is built
+        # from, read at a different level: what share of a budget a difference
+        # spent. The engine prices each difference at `cost` out of the field's
+        # `cap`, and `share` is that as a fraction; a field's `spent` is the
+        # sum of its differences' shares, clipped at its budget. So a subfield,
+        # its field and the record are one story told three times, and a field
+        # showing 7.5 means it used half of what it had.
+        #
+        # What stood here instead was a second curve — `normalize_score` —
+        # with its own thresholds, applied on top of the engine's own hinge,
+        # against a cap of 10.0 that the engine had not necessarily used. For
+        # the twelve tags absent from the weight table altogether — 856, 505,
+        # 520, 310, 362, 501, 550, 561, 765, 780, 810, 222 — the engine scores
+        # against a budget of 1.0, and normalizing that against 10.0 showed a
+        # field that had spent everything it had as 0.95 out of 1.
         field_scoring = {
-            f["tag"]: normalize_score(
-                f.get("applied", 0.0),
-                excellent_threshold=self.config.excellent_threshold / 3,
-                moderate_threshold=self.config.moderate_threshold / 3,
-                cap=field_score_caps.get(f["tag"], 10.0),
-            )
-            for f in scoring.get("field_contributions", [])
+            f["tag"]: _match(f["spent"]) for f in scoring.get("field_contributions", [])
         }
-        subfield_scoring = {
-            f"{s['tag']}|{s['code']}|{s['value_main']}": normalize_score(
-                s.get("weight", 0.0),
-                excellent_threshold=self.config.excellent_threshold / 3,
-                moderate_threshold=self.config.moderate_threshold / 3,
-                cap=field_score_caps.get(s["tag"], 10.0),
-            )
+        subfield_shares = {
+            f"{s['tag']}|{s['code']}|{s['value_main']}": min(1.0, s["share"])
             for s in scoring.get("components", [])
         }
 
@@ -159,9 +204,9 @@ class DefaultComparator(BaseComparator):
                         idxB=0 if group.get("value_test", "") != "" else None,
                         value_a=group.get("value_main") or None,
                         value_b=group.get("value_test") or None,
-                        score=field_scoring.get(tag, 1.0),
+                        score=field_scoring.get(tag, MATCH_SCALE_MAX),
                         explanation=_LABEL_TO_EXPLANATION.get(group.get("label")),
-                        details=group.get("details", {}).get("reason"),
+                        details=_explain(group),
                     )
                 )
                 continue
@@ -181,11 +226,16 @@ class DefaultComparator(BaseComparator):
             )
 
             subfield_results: list[SubfieldComparisonResult] = []
+            group_shares: list[float] = []
             # strict=True: these are parallel per-group lists built from `groups`, so a
             # length mismatch means a bug — silently comparing fewer subfields is worse.
             for group, (idxA, idxB) in zip(
                 groups, zip(indexes_A, indexes_B, strict=True), strict=True
             ):
+                # A group the engine reported no difference for spent nothing,
+                # which is what the 0.0 default means.
+                share = subfield_shares.get(f"{tag}|{group['code']}|{group.get('value_main')}", 0.0)
+                group_shares.append(share)
                 subfield_results.append(
                     SubfieldComparisonResult(
                         code=group["code"],
@@ -193,12 +243,9 @@ class DefaultComparator(BaseComparator):
                         idxB=idxB[2],
                         value_a=group.get("value_main"),
                         value_b=group.get("value_test"),
-                        score=subfield_scoring.get(
-                            f"{tag}|{group['code']}|{group.get('value_main')}",
-                            1.0,
-                        ),
+                        score=_match(share),
                         explanation=_LABEL_TO_EXPLANATION.get(group.get("label")),
-                        details=group.get("details", {}).get("reason"),
+                        details=_explain(group),
                     )
                 )
 
@@ -207,18 +254,23 @@ class DefaultComparator(BaseComparator):
                 tuple[str, int | None, str, int | None],
                 list[SubfieldComparisonResult],
             ] = defaultdict(list)
-            for subfield, (idxA, idxB) in zip(
-                subfield_results, zip(indexes_A, indexes_B, strict=True), strict=True
+            # The shares of the same subfields, kept beside them so each field
+            # instance can be scored the way the tag as a whole was: a tag that
+            # occurs once then reads exactly as its `field_contributions` entry,
+            # and one that occurs several times splits between them instead of
+            # showing the same number on each.
+            shares_by_idx: dict[tuple[str, int | None, str, int | None], list[float]] = defaultdict(
+                list
+            )
+            for subfield, share, (idxA, idxB) in zip(
+                subfield_results, group_shares, zip(indexes_A, indexes_B, strict=True), strict=True
             ):
                 fields_by_idx[(idxA[0], idxA[1], idxB[0], idxB[1])].append(subfield)
+                shares_by_idx[(idxA[0], idxA[1], idxB[0], idxB[1])].append(share)
 
             # Build FieldComparisonResult objects
-            for (
-                field_tagA,
-                field_idxA,
-                field_tagB,
-                field_idxB,
-            ), subfields in fields_by_idx.items():
+            for key, subfields in fields_by_idx.items():
+                field_tagA, field_idxA, field_tagB, field_idxB = key
                 # Use first subfield's tag for the field tag (all same)
                 field_results.append(
                     FieldComparisonResult(
@@ -226,19 +278,19 @@ class DefaultComparator(BaseComparator):
                         tagB=field_tagB if field_tagA != field_tagB else None,
                         idxA=field_idxA,
                         idxB=field_idxB,
-                        score=(sum(subfield.score for subfield in subfields) / len(subfields)),
+                        score=_match(sum(shares_by_idx[key])),
                         subfield_results=subfields,
                     )
                 )
 
-        score_30 = scoring["record_score_30_exact"]
+        overall_score = round(match_from_penalty(scoring["record_score_30_exact"]), 4)
 
         return RecordComparisonResult(
-            overall_score=normalize_score(
-                score_30,
-                self.config.excellent_threshold,
-                self.config.moderate_threshold,
-                30,
+            overall_score=overall_score,
+            quality=MatchQuality.of(
+                overall_score,
+                excellent=self.config.excellent_threshold,
+                moderate=self.config.moderate_threshold,
             ),
             field_results=field_results,
         )
@@ -295,30 +347,3 @@ def get_field_and_subfield_indexes(
             results.append((used_tag, None, None))
 
     return results
-
-
-def normalize_score(
-    score: float,
-    excellent_threshold: float,
-    moderate_threshold: float,
-    cap: float,
-) -> float:
-    """
-    Piecewise linear mapping:
-    0 → 1.0
-    excellent_threshold → 0.9
-    moderate_threshold → 0.7
-    cap → 0.0
-    """
-    score = max(0.0, min(score, cap))
-
-    if score <= excellent_threshold:
-        t = score / excellent_threshold if excellent_threshold else 0.0
-        return 1.0 - 0.1 * t
-
-    if score <= moderate_threshold:
-        t = (score - excellent_threshold) / (moderate_threshold - excellent_threshold)
-        return 0.9 - 0.2 * t
-
-    t = (score - moderate_threshold) / (cap - moderate_threshold)
-    return 0.7 * (1.0 - t)

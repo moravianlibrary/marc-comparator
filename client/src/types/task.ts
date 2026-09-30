@@ -11,6 +11,7 @@ export const TaskType = {
   RebuildAnalyticalData: 'RebuildAnalyticalData',
   CreateReport: 'CreateReport',
   HarvestPlugin: 'HarvestPlugin',
+  RescoreComparisons: 'RescoreComparisons',
 } as const;
 
 export interface ReportArtifact {

@@ -14,6 +14,7 @@ import { TableView } from './table/table-view';
 import type { RecordTab } from './types';
 import { useRecordFilters } from './use-record-filters';
 import { useRecordsSearch } from './use-records-query';
+import { MATCH_SCALE_MAX } from './score';
 
 function countActiveFilters(filters: ReturnType<typeof useRecordFilters>['filters']): number {
   let count = 0;
@@ -62,7 +63,7 @@ function countActiveFilters(filters: ReturnType<typeof useRecordFilters>['filter
   if (filters.scoreMin > 0) {
     count++;
   }
-  if (filters.scoreMax < 1) {
+  if (filters.scoreMax < MATCH_SCALE_MAX) {
     count++;
   }
   if (filters.recordId) {

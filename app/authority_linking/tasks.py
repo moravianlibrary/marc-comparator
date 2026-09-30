@@ -40,7 +40,12 @@ from entities.catalog_record import (
 )
 from entities.settings import Settings, SettingsScope
 
-from .models import AuthorityLinkingSettings, AuthorityLinkingTaskData
+from .models import (
+    DEFAULT_CANDIDATE_MARGIN,
+    DEFAULT_CONFIDENT_THRESHOLD,
+    AuthorityLinkingSettings,
+    AuthorityLinkingTaskData,
+)
 
 #: Everything here that can log takes a logger, because a task's logger writes
 #: to that task's own log. The writers below sit under a caller that has none
@@ -80,18 +85,6 @@ class AuthorityLinkingFailed(RuntimeError):
     def __init__(self, message: str, target_base: str) -> None:
         super().__init__(message)
         self.target_base = target_base
-
-
-#: Confidence at which the first stage stops looking. Matches the bottom of the
-#: comparator's "Excellent" band, which is what scoring linkers report against.
-DEFAULT_CONFIDENT_THRESHOLD = 0.9
-
-#: How close behind a confident winner a runner-up has to be to be kept.
-#:
-#: A guess, and deliberately a setting rather than a constant. It can be tuned
-#: once a pass has run with candidates stored, by looking at how often a kept
-#: runner-up is ever consulted.
-DEFAULT_CANDIDATE_MARGIN = 0.05
 
 
 def _confidence_of(link: SdkAuthorityLink) -> float:

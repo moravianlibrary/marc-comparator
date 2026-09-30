@@ -1,3 +1,4 @@
+from marc_comparator.comparators import MatchQuality
 from sqlalchemy import String, and_, bindparam, func, or_, text
 
 from entities.authority_link import ANSWER_RANK, AuthorityLink
@@ -66,8 +67,13 @@ def _compile_one(query, c: FilterCondition):
 
         case FilterField.ReviewStatuses:
             has_current = CatalogRecord.reviews.any(RecordReview.status == ReviewStatus.Current)
+            # The band the comparator recorded, not a threshold repeated
+            # here. This was the fifth copy of `>= 0.9`, and the analytics SQL
+            # that answers the same question for the facet cube held three of
+            # the others — a filter and a facet that could disagree about
+            # which records need review.
             has_bad_comparisons = CatalogRecord.comparisons.any(
-                Comparison._result["overall_score"].as_float() < 0.9
+                Comparison._result["quality"].as_string() != MatchQuality.Excellent.value
             )
             has_bad_validations = CatalogRecord.validations.any(
                 Validation._result["status"].as_string().notin_(["Valid", "AdditionalInfo"])

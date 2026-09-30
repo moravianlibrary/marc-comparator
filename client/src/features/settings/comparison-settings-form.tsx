@@ -16,6 +16,7 @@ import { ComparatorsHelp } from './help-content';
 import { HelpDialog } from './help-dialog';
 import { type ComparisonSettingsFormValues, comparisonSettingsSchema } from './schemas';
 import { useSettingsForm } from './use-settings-form';
+import { EXCELLENT_MATCH, MODERATE_MATCH } from '../records/score';
 
 interface Props {
   data: ComparisonSettings;
@@ -33,8 +34,8 @@ export function ComparisonSettingsForm({ data, onDirtyChange, onFormRef, onSubmi
         ollama_url: 'http://localhost:11434',
         llm_enabled: false,
         nonstandard_llm_enabled: false,
-        excellent_threshold: 6,
-        moderate_threshold: 12,
+        excellent_threshold: EXCELLENT_MATCH,
+        moderate_threshold: MODERATE_MATCH,
       },
     }),
     [data],

@@ -1,4 +1,5 @@
 import pytest
+from marc_comparator.comparators import RecordComparisonResult
 from marc_comparator.validators import (
     ValidationResult,
     ValidationTarget,
@@ -73,7 +74,11 @@ class TestRebuildAll:
             comparator="Default",
             base="NKC01",
             other_record_id=r.id,
-            _result={"overall_score": 0.5, "field_results": []},
+            # 7.5 out of 15 is Poor, so this record needs looking at. The
+            # band is read from the result rather than re-derived in SQL, so
+            # it has to be here — a comparison with no band recorded is not
+            # evidence that anything needs review.
+            _result=RecordComparisonResult(overall_score=7.5, field_results=[]).model_dump(),
         )
         db_session.add(comp)
         db_session.commit()

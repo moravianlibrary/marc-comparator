@@ -20,6 +20,7 @@ import { AuthorityLinkersHelp, LinkingDecisionHelp, MarcXmlDumpLinkerHelp } from
 import { HelpDialog } from './help-dialog';
 import { type AuthorityLinkingSettingsFormValues, authorityLinkingSettingsSchema } from './schemas';
 import { useSettingsForm } from './use-settings-form';
+import { EXCELLENT_MATCH, MODERATE_MATCH } from '../records/score';
 
 interface Props {
   data: AuthorityLinkingSettings;
@@ -35,7 +36,7 @@ export function AuthorityLinkingSettingsForm({ data, onDirtyChange, onFormRef, o
     () => ({
       'knihovny-cz': data['knihovny-cz'] ?? {
         api_url: 'https://www.knihovny.cz/api/v1',
-        minimum_confidence: 0.7,
+        minimum_confidence: MODERATE_MATCH,
         mappings: [{ base: '', id_template: '', pattern: '', is_target: false }],
       },
       'marcxml-dump': data['marcxml-dump'] ?? {
@@ -46,11 +47,11 @@ export function AuthorityLinkingSettingsForm({ data, onDirtyChange, onFormRef, o
         system_number_pattern: 'doc_number=(\\d+)',
         system_number_padding: 9,
         identifier_minimum_confidence: 0,
-        title_minimum_confidence: 0.55,
+        title_minimum_confidence: 7.0,
         candidate_limit: 10,
       },
-      confident_threshold: data.confident_threshold ?? 0.9,
-      candidate_margin: data.candidate_margin ?? 0.05,
+      confident_threshold: data.confident_threshold ?? EXCELLENT_MATCH,
+      candidate_margin: data.candidate_margin ?? 1.5,
     }),
     [data],
   );

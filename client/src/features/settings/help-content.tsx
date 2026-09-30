@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next';
 import { TypographyH3, TypographyList, TypographyP } from '@/components/ui/typography';
+import { EXCELLENT_MATCH, MATCH_SCALE_MAX, MODERATE_MATCH } from '../records/score';
 
 export function CatalogHelp() {
   const { t } = useTranslation('settings');
@@ -222,13 +223,19 @@ export function ComparatorsHelp() {
       <TypographyP>{t('help.comparator.normalization-intro')}</TypographyP>
       <TypographyList>
         <li>
-          <strong>Excellent (0.9–1.0)</strong> — {t('help.comparator.normalization-excellent')}
+          <strong>
+            Excellent ({EXCELLENT_MATCH}–{MATCH_SCALE_MAX})
+          </strong>{' '}
+          — {t('help.comparator.normalization-excellent')}
         </li>
         <li>
-          <strong>Moderate (0.7–0.9)</strong> — {t('help.comparator.normalization-moderate')}
+          <strong>
+            Moderate ({MODERATE_MATCH}–{EXCELLENT_MATCH})
+          </strong>{' '}
+          — {t('help.comparator.normalization-moderate')}
         </li>
         <li>
-          <strong>Poor (0.0–0.7)</strong> — {t('help.comparator.normalization-poor')}
+          <strong>Poor (0–{MODERATE_MATCH})</strong> — {t('help.comparator.normalization-poor')}
         </li>
       </TypographyList>
     </>

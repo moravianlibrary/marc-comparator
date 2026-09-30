@@ -10,7 +10,7 @@ from marc_comparator.authority_linkers.knihovny_cz_linker import (
     KnihovnyCZLinker,
     KnihovnyCZLinkerConfig,
 )
-from marc_comparator.comparators import RecordComparisonResult
+from marc_comparator.comparators import MODERATE_MATCH, RecordComparisonResult
 from marcdantic import MarcRecord
 
 MARC_XML = """
@@ -88,26 +88,26 @@ class TestConfidenceGate:
     async def test_reports_the_measured_score_not_certainty(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        linker, _, _ = linker_with_dedup(monkeypatch, ["caslin.SKC01-001217729"], [0.83])
+        linker, _, _ = linker_with_dedup(monkeypatch, ["caslin.SKC01-001217729"], [12.5])
 
         link = await run_linker(linker)
 
         assert link is not None
         assert link.system_number == "001217729"
-        assert link.confidence == pytest.approx(0.83)
+        assert link.confidence == pytest.approx(12.5)
 
     async def test_dedup_group_below_the_floor_is_no_link(
         self, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         # Somebody else's deduplication grouped two records this catalogue does
         # not consider the same thing. Reporting it would launder their mistake.
-        linker, _, _ = linker_with_dedup(monkeypatch, ["caslin.SKC01-001217729"], [0.55])
+        linker, _, _ = linker_with_dedup(monkeypatch, ["caslin.SKC01-001217729"], [7.0])
 
         assert await run_linker(linker) is None
 
     async def test_the_floor_is_inclusive(self, monkeypatch: pytest.MonkeyPatch) -> None:
         linker, _, _ = linker_with_dedup(
-            monkeypatch, ["caslin.SKC01-001217729"], [0.7], minimum_confidence=0.7
+            monkeypatch, ["caslin.SKC01-001217729"], [9.0], minimum_confidence=9.0
         )
 
         link = await run_linker(linker)
@@ -116,13 +116,13 @@ class TestConfidenceGate:
 
     async def test_floor_is_configurable(self, monkeypatch: pytest.MonkeyPatch) -> None:
         linker, _, _ = linker_with_dedup(
-            monkeypatch, ["caslin.SKC01-001217729"], [0.55], minimum_confidence=0.5
+            monkeypatch, ["caslin.SKC01-001217729"], [7.0], minimum_confidence=6.0
         )
 
         link = await run_linker(linker)
 
         assert link is not None
-        assert link.confidence == pytest.approx(0.55)
+        assert link.confidence == pytest.approx(7.0)
 
 
 class TestCandidateSelection:
@@ -134,14 +134,14 @@ class TestCandidateSelection:
         linker, comparator, fetched = linker_with_dedup(
             monkeypatch,
             ["caslin.SKC01-000000111", "caslin.SKC01-000000222", "caslin.SKC01-000000333"],
-            [0.75, 0.95, 0.80],
+            [10.5, 14.0, 12.0],
         )
 
         link = await run_linker(linker)
 
         assert link is not None
         assert link.system_number == "000000222"
-        assert link.confidence == pytest.approx(0.95)
+        assert link.confidence == pytest.approx(14.0)
         assert comparator.compared == 3
         assert len(fetched) == 3
 
@@ -151,7 +151,7 @@ class TestCandidateSelection:
         linker, comparator, fetched = linker_with_dedup(
             monkeypatch,
             ["caslin.SKC01-000000111", "caslin.SKC01-000000111"],
-            [0.95],
+            [14.0],
         )
 
         link = await run_linker(linker)
@@ -178,7 +178,7 @@ class TestCandidateSelection:
 
 class TestConfigDefaults:
     def test_default_floor_matches_the_moderate_band(self) -> None:
-        assert KnihovnyCZLinkerConfig().minimum_confidence == pytest.approx(0.7)
+        assert KnihovnyCZLinkerConfig().minimum_confidence == pytest.approx(MODERATE_MATCH)
 
     def test_client_is_built_without_touching_the_network(self) -> None:
         linker = KnihovnyCZLinker(KnihovnyCZLinkerConfig())
@@ -246,7 +246,7 @@ class TestUnknownRecords:
         linker, comparator, _ = linker_with_dedup(
             monkeypatch,
             ["caslin.SKC01-000000000", "caslin.SKC01-001217729"],
-            [0.9],
+            [13.0],
         )
 
         records = iter([None, marc_record("skc2")])

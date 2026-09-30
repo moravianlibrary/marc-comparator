@@ -5,6 +5,7 @@ import { confidenceLabel } from '../authority-links';
 import { linkGaps } from '../link-attempts';
 import { LINK_OUTCOME_COLORS, type RecordSummary, STATE_COLORS } from '../types';
 import { COMPARISON_BADGE_CLASS, groupValidations, VALIDATION_BADGE_CLASS } from '../utils';
+import { formatScoreShort } from '../score';
 
 /** Column IDs that the backend can sort by. */
 const SORTABLE_COLUMNS = new Set(['base', 'system_number', 'latest_sync', 'comparison_score']);
@@ -148,7 +149,7 @@ export function createColumns(
                       : undefined
                   }
                 >
-                  {c.base}: {(c.overall_score * 100).toFixed(0)}%
+                  {c.base}: {formatScoreShort(c.overall_score)}
                 </Badge>
               );
             })}

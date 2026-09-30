@@ -4,7 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 from sqlalchemy import RowMapping, text
 from sqlalchemy.orm import Session
 
-from .analytics import CUBE_HIST_TABLE, CUBE_TABLE
+from .analytics import CUBE_HIST_TABLE, CUBE_TABLE, SCORE_BUCKET
 from .filter_spec import parse_filters
 from .filter_sql import compile_conditions
 from .models import (
@@ -155,8 +155,8 @@ def _facets_live(where: str, params: dict, db: Session) -> FacetsResponse:
     }
 
     hist_sql = (
-        f"SELECT floor(val / 0.05) * 0.05 AS bucket_min, "
-        f"       floor(val / 0.05) * 0.05 + 0.05 AS bucket_max, "
+        f"SELECT floor(val / {SCORE_BUCKET}) * {SCORE_BUCKET} AS bucket_min, "
+        f"       floor(val / {SCORE_BUCKET}) * {SCORE_BUCKET} + {SCORE_BUCKET} AS bucket_max, "
         f"       count(*) AS cnt "
         f"FROM {TABLE}, unnest(overall_scores) AS t(val) "
         f"{where} GROUP BY bucket_min, bucket_max ORDER BY bucket_min"
@@ -332,8 +332,8 @@ def _preview_live_grouped(
 
     q3_sql = (
         f"SELECT {target_col} AS target_value, "
-        f"       floor(t3.val / 0.05) * 0.05 AS bucket_min, "
-        f"       floor(t3.val / 0.05) * 0.05 + 0.05 AS bucket_max, "
+        f"       floor(t3.val / {SCORE_BUCKET}) * {SCORE_BUCKET} AS bucket_min, "
+        f"       floor(t3.val / {SCORE_BUCKET}) * {SCORE_BUCKET} + {SCORE_BUCKET} AS bucket_max, "
         f"       count(*) AS cnt "
         f"FROM {TABLE}, unnest(overall_scores) AS t3(val) {where} "
         f"GROUP BY {target_col}, bucket_min, bucket_max ORDER BY bucket_min"
@@ -460,8 +460,8 @@ def _preview_live_per_value(
             hist_rows = (
                 conn.execute(
                     text(
-                        f"SELECT floor(t3.val / 0.05) * 0.05 AS bucket_min, "
-                        f"       floor(t3.val / 0.05) * 0.05 + 0.05 AS bucket_max, "
+                        f"SELECT floor(t3.val / {SCORE_BUCKET}) * {SCORE_BUCKET} AS bucket_min, "
+                        f"       floor(t3.val / {SCORE_BUCKET}) * {SCORE_BUCKET} + {SCORE_BUCKET} AS bucket_max, "
                         f"       count(*) AS cnt "
                         f"FROM {TABLE}, unnest(overall_scores) AS t3(val) "
                         f"{where_any} "

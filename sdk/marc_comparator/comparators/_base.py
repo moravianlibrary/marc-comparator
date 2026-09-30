@@ -3,11 +3,40 @@ import io
 from abc import ABC, abstractmethod
 from collections.abc import Iterable
 from enum import StrEnum
+from typing import Any
 
 from marcdantic import MarcRecord
-from pydantic import BaseModel
+from pydantic import BaseModel, model_validator
 
 from ..reports import ReportFile
+
+#: The top of the match scale: two records the comparator found nothing to
+#: separate. Scores run 0 to 15, bigger is better, and the number is a
+#: re-expression of the scoring engine's own output rather than a curve laid
+#: over it — see ``MATCH_SCALE`` below.
+MATCH_SCALE_MAX = 15.0
+
+#: The engine scores a *penalty* from 0 to ``RECORD_CAP`` (30), bigger meaning
+#: further apart. A match score is that penalty turned the right way up and
+#: halved, so the two scales are one affine map apart and nothing is lost:
+#:
+#:     match = MATCH_SCALE_MAX - penalty / 2
+#:
+#: Halving is what puts 0-30 onto 0-15; the direction flip is what makes the
+#: number answer "how good is this match" instead of "how bad".
+MATCH_SCALE = "match15"
+
+#: A match at least this good is Excellent — the engine's penalty 6 or less.
+EXCELLENT_MATCH = 12.0
+
+#: A match at least this good is Moderate — the engine's penalty 12 or less.
+MODERATE_MATCH = 9.0
+
+
+def match_from_penalty(penalty: float) -> float:
+    """Turn the engine's 0-30 penalty into a 0-15 match score."""
+
+    return MATCH_SCALE_MAX - penalty / 2.0
 
 
 class MatchQuality(StrEnum):
@@ -18,18 +47,40 @@ class MatchQuality(StrEnum):
     ----------
     Excellent : str
         Indicates an excellent match.
-        Score range: 0.9 - 1.0.
+        Score range: 12 - 15.
     Moderate : str
         Indicates a moderate match.
-        Score range: 0.7 - 0.9.
+        Score range: 9 - 12.
     Poor : str
         Indicates a poor match.
-        Score range: 0.0 - 0.7.
+        Score range: 0 - 9.
     """
 
     Excellent = "Excellent"
     Moderate = "Moderate"
     Poor = "Poor"
+
+    @classmethod
+    def of(
+        cls,
+        score: float,
+        *,
+        excellent: float = EXCELLENT_MATCH,
+        moderate: float = MODERATE_MATCH,
+    ) -> "MatchQuality":
+        """Which band a match score falls in.
+
+        The one place the bands are applied. They used to be written out again
+        in the entity that stores a comparison and a third time in the
+        analytics SQL, as three copies of the same two literals that nothing
+        kept in step.
+        """
+
+        if score >= excellent:
+            return cls.Excellent
+        if score >= moderate:
+            return cls.Moderate
+        return cls.Poor
 
 
 class Explanation(StrEnum):
@@ -56,7 +107,8 @@ class SubfieldComparisonResult(BaseModel):
     idxB: int | None
         The index of the subfield in record B, if applicable.
     score: float
-        The similarity score for this subfield.
+        How good this subfield's match is, 0 to 15, on the same scale as the
+        record score and derived from the same arithmetic.
     explanation: Explanation | None
         Classification of the comparison result.
     details: str | None
@@ -88,7 +140,8 @@ class FieldComparisonResult(BaseModel):
     idxB: int | None
         The index of the field in record B, if applicable.
     score: float
-        The similarity score for this field.
+        How good this field's match is, 0 to 15, on the same scale as the
+        record score and derived from the same arithmetic.
     explanation: Explanation | None
         Classification of the comparison result.
     details: str | None
@@ -116,7 +169,16 @@ class RecordComparisonResult(BaseModel):
     Attributes
     ----------
     overall_score: float
-        The overall similarity score between the two records.
+        How good the match is, 0 to 15, bigger is better.
+    quality: MatchQuality
+        Which band ``overall_score`` falls in, decided once here so that
+        everything downstream reads the same answer.
+    scale: str
+        Which scale ``overall_score`` and every nested score are on. Stored
+        results are read back long after they were written, and the scale this
+        carries has changed once already — from a 0-1 similarity to the 0-15
+        match score. The two ranges overlap, so a stale row cannot be told from
+        a current one by its value alone. This is how it is told.
     summary: str | None
         Optional summary of the comparison results.
     field_results: List[FieldResult] | None
@@ -124,8 +186,29 @@ class RecordComparisonResult(BaseModel):
     """
 
     overall_score: float
+    #: The default is unreachable: ``overall_score`` is required, so the
+    #: validator below always has something to band and always replaces it.
+    #: It is here so that a caller building a result by hand does not have to
+    #: repeat an answer this class can work out.
+    quality: MatchQuality = MatchQuality.Poor
+    scale: str = MATCH_SCALE
     summary: str | None = None
     field_results: list[FieldComparisonResult] | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _band_the_score(cls, data: Any) -> Any:
+        """Fill in ``quality`` from ``overall_score`` when nobody said.
+
+        A comparator with thresholds of its own passes the band it decided on;
+        everyone else — a caller building a result by hand, a stored row from
+        before the field existed — gets the default bands rather than having
+        to repeat them.
+        """
+
+        if isinstance(data, dict) and data.get("quality") is None and "overall_score" in data:
+            return {**data, "quality": MatchQuality.of(float(data["overall_score"]))}
+        return data
 
 
 class ComparisonReportInput(BaseModel):

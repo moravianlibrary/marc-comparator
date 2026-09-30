@@ -1,7 +1,7 @@
 {
   "knihovny-cz": {
     "api_url": "https://api.knihovny.cz/v1/",
-    "minimum_confidence": 0.7,
+    "minimum_confidence": 9.0,
     "mappings": [
       {
         "base": "MZK01",
@@ -31,9 +31,9 @@
     "system_number_pattern": "doc_number=(\\d+)",
     "system_number_padding": 9,
     "identifier_minimum_confidence": 0.0,
-    "title_minimum_confidence": 0.55,
+    "title_minimum_confidence": 7.0,
     "candidate_limit": 10
   },
-  "confident_threshold": 0.9,
-  "candidate_margin": 0.05
+  "confident_threshold": 12.0,
+  "candidate_margin": 1.5
 }

@@ -18,6 +18,7 @@ from lxml import etree
 from marcdantic import MarcRecord
 from pydantic import BaseModel, Field
 
+from ..comparators._base import MATCH_SCALE_MAX
 from ..comparators.default import DefaultComparator, DefaultComparatorConfig
 from ._base import (
     CANDIDATE_MARC_CONTEXT,
@@ -87,10 +88,10 @@ class KnihovnyCZBaseMapping(BaseModel):
 class KnihovnyCZLinkerConfig(BaseModel):
     api_url: str = "https://www.knihovny.cz/api/v1"
 
-    #: Lowest comparator score worth reporting at all. 0.7 is the bottom of the
-    #: comparator's "Moderate" band; below it a dedup group has grouped two
-    #: records this catalogue would not call the same thing.
-    minimum_confidence: float = Field(default=0.7, ge=0.0, le=1.0)
+    #: Lowest comparator score worth reporting at all. 9 out of 15 is the
+    #: bottom of the comparator's "Moderate" band; below it a dedup group has
+    #: grouped two records this catalogue would not call the same thing.
+    minimum_confidence: float = Field(default=9.0, ge=0.0, le=MATCH_SCALE_MAX)
 
     mappings: list[KnihovnyCZBaseMapping] = [
         KnihovnyCZBaseMapping(

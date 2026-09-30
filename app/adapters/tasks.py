@@ -739,6 +739,15 @@ def rebuild_search_vectors_task(self: CeleryTask) -> None:
     return async_to_sync(rebuild_search_vectors)(str(self.request.id))
 
 
+@shared_task(name="rescore_comparisons_task", bind=True)
+def rescore_comparisons_task(self: CeleryTask) -> None:
+    from asgiref.sync import async_to_sync
+
+    from maintenance.tasks import rescore_comparisons
+
+    return async_to_sync(rescore_comparisons)(str(self.request.id))
+
+
 @shared_task(name="harvest_plugin_task", bind=True)
 def harvest_plugin_task(self: CeleryTask) -> None:
     from asgiref.sync import async_to_sync
@@ -994,6 +1003,7 @@ TASK_DISPATCH: dict[TaskType, Any] = {
     TaskType.CleanupStaleLocks: cleanup_stale_locks_task,
     TaskType.CompactSectors: compact_sectors_task,
     TaskType.RebuildSearchVectors: rebuild_search_vectors_task,
+    TaskType.RescoreComparisons: rescore_comparisons_task,
     TaskType.CreateReport: create_report_task,
     TaskType.HarvestPlugin: harvest_plugin_task,
 }

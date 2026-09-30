@@ -45,3 +45,14 @@ async def rebuild_search_vectors(created_by: str, db_session: DatabaseSession) -
         ),
         db_session,
     )
+
+
+async def rescore_comparisons(created_by: str, db_session: DatabaseSession) -> TaskSchema:
+    return await enqueue_task(
+        Task(
+            name="Rescoring comparisons",
+            type=TaskType.RescoreComparisons,
+            created_by=created_by,
+        ),
+        db_session,
+    )

@@ -2,6 +2,10 @@ from enum import StrEnum
 
 from ..reports import ReportFile
 from ._base import (
+    EXCELLENT_MATCH,
+    MATCH_SCALE,
+    MATCH_SCALE_MAX,
+    MODERATE_MATCH,
     BaseComparator,
     ComparisonReportInput,
     Explanation,
@@ -9,6 +13,7 @@ from ._base import (
     MatchQuality,
     RecordComparisonResult,
     SubfieldComparisonResult,
+    match_from_penalty,
 )
 from .default import DefaultComparator, DefaultComparatorConfig
 
@@ -23,6 +28,11 @@ COMPARATOR_DISPATCHER: dict[Comparator, type[BaseComparator]] = {
 
 __all__ = [
     "BaseComparator",
+    "EXCELLENT_MATCH",
+    "MATCH_SCALE",
+    "MATCH_SCALE_MAX",
+    "MODERATE_MATCH",
+    "match_from_penalty",
     "COMPARATOR_DISPATCHER",
     "Comparator",
     "ComparisonReportInput",

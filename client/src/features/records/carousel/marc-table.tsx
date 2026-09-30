@@ -1,6 +1,7 @@
 import type { JSX } from 'react';
 import { useTranslation } from 'react-i18next';
 import { cn } from '@/lib/utils';
+import { EXCELLENT_MATCH, formatScoreShort, MODERATE_MATCH } from '../score';
 import type {
   FieldComparisonResult,
   MarcRecordData,
@@ -489,17 +490,18 @@ function ValidationFieldAnnotation({
 }
 
 function ScoreBadge({ score }: { score: number }) {
-  const pct = (score * 100).toFixed(0);
   return (
     <span
       className={cn(
         'font-mono font-medium text-xs',
-        score >= 0.9 && 'text-green-600 dark:text-green-400',
-        score >= 0.7 && score < 0.9 && 'text-yellow-600 dark:text-yellow-400',
-        score < 0.7 && 'text-red-600 dark:text-red-400',
+        score >= EXCELLENT_MATCH && 'text-green-600 dark:text-green-400',
+        score >= MODERATE_MATCH &&
+          score < EXCELLENT_MATCH &&
+          'text-yellow-600 dark:text-yellow-400',
+        score < MODERATE_MATCH && 'text-red-600 dark:text-red-400',
       )}
     >
-      {pct}%
+      {formatScoreShort(score)}
     </span>
   );
 }

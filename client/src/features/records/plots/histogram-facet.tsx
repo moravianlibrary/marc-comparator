@@ -62,7 +62,7 @@ export function HistogramFacet({ data, previewData }: HistogramFacetProps) {
     } else if (bucket.min === 0.95) {
       range = '95–<100%';
     } else {
-      range = `${(bucket.min * 100).toFixed(0)}–${(bucket.max * 100).toFixed(0)}%`;
+      range = `${bucket.min.toFixed(1)}–${bucket.max.toFixed(1)}`;
     }
     const pCount = normalizedPreview?.[index]?.count ?? 0;
     return {

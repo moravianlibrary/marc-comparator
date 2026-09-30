@@ -212,7 +212,7 @@ def test_source_identity_follows_the_dump_but_not_the_thresholds():
 
     assert (
         MarcXmlDumpLinker(
-            MarcXmlDumpLinkerConfig(identifier_minimum_confidence=0.5)
+            MarcXmlDumpLinkerConfig(identifier_minimum_confidence=7.5)
         ).harvest_source_identity()
         == baseline
     )
@@ -242,13 +242,13 @@ async def test_run_rejects_a_target_base_it_does_not_serve():
 
 @pytest.mark.asyncio
 async def test_run_keeps_the_best_scoring_candidate(monkeypatch):
-    linker, comparator = linker_with_candidates(monkeypatch, [0.91, 0.97, 0.93])
+    linker, comparator = linker_with_candidates(monkeypatch, [13.6, 14.6, 14.0])
 
     link = (await linker.run("MZK01", "000123456", marc_record(), "SKC")).link
 
     assert link is not None
     assert link.system_number == "000000001"
-    assert link.confidence == 0.97
+    assert link.confidence == 14.6
     assert link.base == "SKC"
     assert comparator.compared == 3
 
@@ -257,12 +257,12 @@ async def test_run_keeps_the_best_scoring_candidate(monkeypatch):
 async def test_run_reports_a_plausible_match_with_its_real_score(monkeypatch):
     # Reporting the score rather than a yes/no is what lets the caller weigh
     # this linker against another when neither is certain.
-    linker, _ = linker_with_candidates(monkeypatch, [0.72, 0.85])
+    linker, _ = linker_with_candidates(monkeypatch, [9.5, 12.8])
 
     link = (await linker.run("MZK01", "000123456", marc_record(), "SKC")).link
 
     assert link is not None
-    assert link.confidence == 0.85
+    assert link.confidence == 12.8
 
 
 @pytest.mark.asyncio
@@ -272,47 +272,47 @@ async def test_a_shared_identifier_is_reported_however_badly_it_scores(monkeypat
     # descriptions have drifted. That is the finding, not a reason to withhold
     # it: under one floor for everything, these were the records the pipeline
     # threw away and left looking unmatched.
-    linker, _ = linker_with_candidates(monkeypatch, [0.31], route=MatchRoute.Identifier)
+    linker, _ = linker_with_candidates(monkeypatch, [4.6], route=MatchRoute.Identifier)
 
     link = (await linker.run("MZK01", "000123456", marc_record(), "SKC")).link
 
     assert link is not None
-    assert link.confidence == 0.31
+    assert link.confidence == 4.6
 
 
 @pytest.mark.asyncio
 async def test_a_title_match_below_its_floor_is_not_reported(monkeypatch):
     # Nothing here says the two records are the same work, so the score is the
-    # only evidence there is and 0.42 is not enough of it.
-    linker, _ = linker_with_candidates(monkeypatch, [0.42], route=MatchRoute.Title)
+    # only evidence there is and 6.3 out of 15 is not enough of it.
+    linker, _ = linker_with_candidates(monkeypatch, [6.3], route=MatchRoute.Title)
 
     assert (await linker.run("MZK01", "000123456", marc_record(), "SKC")).link is None
 
 
 @pytest.mark.asyncio
 async def test_the_title_floor_is_inclusive(monkeypatch):
-    linker, _ = linker_with_candidates(monkeypatch, [0.55], route=MatchRoute.Title)
+    linker, _ = linker_with_candidates(monkeypatch, [7.0], route=MatchRoute.Title)
 
     link = (await linker.run("MZK01", "000123456", marc_record(), "SKC")).link
 
     assert link is not None
-    assert link.confidence == 0.55
+    assert link.confidence == 7.0
 
 
 @pytest.mark.asyncio
 async def test_each_route_is_held_to_its_own_floor(monkeypatch):
     # The same score, accepted one way and refused the other.
-    identified, _ = linker_with_candidates(monkeypatch, [0.5], route=MatchRoute.Identifier)
+    identified, _ = linker_with_candidates(monkeypatch, [6.5], route=MatchRoute.Identifier)
     assert (await identified.run("MZK01", "000123456", marc_record(), "SKC")).link is not None
 
-    by_title, _ = linker_with_candidates(monkeypatch, [0.5], route=MatchRoute.Title)
+    by_title, _ = linker_with_candidates(monkeypatch, [6.5], route=MatchRoute.Title)
     assert (await by_title.run("MZK01", "000123456", marc_record(), "SKC")).link is None
 
 
 @pytest.mark.asyncio
 async def test_the_identifier_floor_can_still_be_raised(monkeypatch):
     linker, _ = linker_with_candidates(
-        monkeypatch, [0.7], route=MatchRoute.Identifier, identifier_minimum_confidence=0.8
+        monkeypatch, [9.0], route=MatchRoute.Identifier, identifier_minimum_confidence=11.0
     )
 
     assert (await linker.run("MZK01", "000123456", marc_record(), "SKC")).link is None
@@ -322,7 +322,7 @@ async def test_the_identifier_floor_can_still_be_raised(monkeypatch):
 async def test_a_candidate_that_cannot_say_how_it_was_found_gets_the_stricter_floor(monkeypatch):
     # The floors differ only because the identifier path brings evidence with
     # it; something that cannot show it took that path does not get the benefit.
-    linker, _ = linker_with_candidates(monkeypatch, [0.5], route=None)
+    linker, _ = linker_with_candidates(monkeypatch, [6.5], route=None)
 
     assert (await linker.run("MZK01", "000123456", marc_record(), "SKC")).link is None
 
@@ -330,7 +330,7 @@ async def test_a_candidate_that_cannot_say_how_it_was_found_gets_the_stricter_fl
 @pytest.mark.asyncio
 async def test_the_link_carries_the_route_that_found_it(monkeypatch):
     # Stored alongside the score, this is what makes a low one readable.
-    linker, _ = linker_with_candidates(monkeypatch, [0.4], route=MatchRoute.Identifier)
+    linker, _ = linker_with_candidates(monkeypatch, [6.0], route=MatchRoute.Identifier)
 
     link = (await linker.run("MZK01", "000123456", marc_record(), "SKC")).link
 

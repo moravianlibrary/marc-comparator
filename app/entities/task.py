@@ -38,6 +38,7 @@ class TaskType(StrEnum):
     CleanupStaleLocks = "CleanupStaleLocks"
     CompactSectors = "CompactSectors"
     RebuildSearchVectors = "RebuildSearchVectors"
+    RescoreComparisons = "RescoreComparisons"
     CreateReport = "CreateReport"
     HarvestPlugin = "HarvestPlugin"
 

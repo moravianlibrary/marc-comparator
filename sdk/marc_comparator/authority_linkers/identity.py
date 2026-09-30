@@ -7,10 +7,10 @@ scores low when they describe the same book very differently — a finding, not
 a bad link — while two different editions can agree on almost everything.
 
 Measured over all 47,777 accepted links in the local database, every signal
-here fires below 0.80 confidence, so none of them reaches a link a confidence
-floor would miss. They are worth having for precision rather than reach: a
-floor at 0.80 removes 20,865 links to catch the ~470 these find, while these
-remove the ~470.
+here fires below 10.5 of 15, so none of them reaches a link a confidence floor
+would miss. They are worth having for precision rather than reach: a floor at
+10.5 removes 20,865 links to catch the ~470 these find, while these remove the
+~470. (Measured before the re-scaling, at 0.80 on the old 0-1 scale.)
 
 **They gate, they do not score.** Of the 90 links with a conflicting
 identifier, 78 agree on a *different* one — retrieved by a matching OCLC or
@@ -65,7 +65,8 @@ class IdentityConflict(StrEnum):
 
 #: Conflicts deliberately not in the list above.
 #:
-#: **UUID** (12 links, 3 of them at 0.95+ with matching years). UUIDs are read
+#: **UUID** (12 links, 3 of them scoring 13.5 or better out of 15 with matching
+#: years). UUIDs are read
 #: out of 856 ``$u``, where the identifier pollution already known to produce
 #: bad 856 batches lives, and two records for one book legitimately point at
 #: different digitisations. It is not evidence.

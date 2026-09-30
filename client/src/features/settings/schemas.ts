@@ -1,6 +1,7 @@
 import { AuthorityLinker, Validator } from '@/types/settings';
 import { isValidCron } from '@/lib/cron';
 import { z } from 'zod';
+import { MATCH_SCALE_MAX } from '../records/score';
 
 // looseObject: the server stores extra keys the form does not edit
 // (e.g. the MARC parsing `context`) - a strict schema would silently strip
@@ -41,7 +42,7 @@ export const knihovnyCZMappingSchema = z.object({
 
 export const knihovnyCZLinkerConfigSchema = z.object({
   api_url: z.url(),
-  minimum_confidence: z.number().min(0).max(1),
+  minimum_confidence: z.number().min(0).max(MATCH_SCALE_MAX),
   mappings: z.array(knihovnyCZMappingSchema).min(1),
 });
 
@@ -52,16 +53,16 @@ export const marcDumpLinkerConfigSchema = z.object({
   system_number_subfield: z.string().length(1),
   system_number_pattern: z.string().nullable(),
   system_number_padding: z.number().int().min(0).max(16),
-  identifier_minimum_confidence: z.number().min(0).max(1),
-  title_minimum_confidence: z.number().min(0).max(1),
+  identifier_minimum_confidence: z.number().min(0).max(MATCH_SCALE_MAX),
+  title_minimum_confidence: z.number().min(0).max(MATCH_SCALE_MAX),
   candidate_limit: z.number().int().min(1).max(100),
 });
 
 export const authorityLinkingSettingsSchema = z.object({
   'knihovny-cz': knihovnyCZLinkerConfigSchema.nullable(),
   'marcxml-dump': marcDumpLinkerConfigSchema.nullable(),
-  confident_threshold: z.number().min(0).max(1),
-  candidate_margin: z.number().min(0).max(1),
+  confident_threshold: z.number().min(0).max(MATCH_SCALE_MAX),
+  candidate_margin: z.number().min(0).max(MATCH_SCALE_MAX),
 });
 
 export type AuthorityLinkingSettingsFormValues = z.infer<typeof authorityLinkingSettingsSchema>;
@@ -70,8 +71,8 @@ export const comparatorConfigSchema = z.object({
   ollama_url: z.url(),
   llm_enabled: z.boolean(),
   nonstandard_llm_enabled: z.boolean(),
-  excellent_threshold: z.number().int().min(0).max(100),
-  moderate_threshold: z.number().int().min(0).max(100),
+  excellent_threshold: z.number().min(0).max(MATCH_SCALE_MAX),
+  moderate_threshold: z.number().min(0).max(MATCH_SCALE_MAX),
 });
 
 export const comparisonSettingsSchema = z.object({

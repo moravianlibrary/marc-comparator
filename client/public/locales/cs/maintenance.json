@@ -22,6 +22,10 @@
     "rebuild-search-vectors": {
       "title": "Přestavět vyhledávací vektory",
       "description": "Přegenerovat vyhledávací text pro všechny záznamy z MARC dat."
+    },
+    "rescore-comparisons": {
+      "title": "Přepočítat skóre porovnání",
+      "description": "Znovu spočítat všechna uložená porovnání a jistoty propojení z MARC dat. Nutné po změně stupnice skóre nebo prahů kvality shody."
     }
   },
   "run": "Spustit",

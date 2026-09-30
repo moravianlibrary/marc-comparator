@@ -83,12 +83,15 @@ class Comparison(Base, BaseOperationsMixin):
 
     @property
     def match_quality(self) -> MatchQuality:
-        if self.overall_score >= 0.9:
-            return MatchQuality.Excellent
-        elif self.overall_score >= 0.7:
-            return MatchQuality.Moderate
-        else:
-            return MatchQuality.Poor
+        """The band the comparator put this comparison in.
+
+        Read back rather than recomputed. The two literals that used to be
+        here were one of three copies of the same bands — the analytics SQL
+        held the other two — and a comparison's band is now decided once, by
+        the comparator that produced the score, and stored beside it.
+        """
+
+        return self.record_result.quality
 
     @property
     def overall_score(self) -> float:

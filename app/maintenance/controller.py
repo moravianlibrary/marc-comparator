@@ -47,6 +47,14 @@ async def rebuild_search_vectors(
     return await service.rebuild_search_vectors(current_user.user_id, db_session)
 
 
+@router.post("/rescore-comparisons", response_model=TaskSchema)
+async def rescore_comparisons(
+    current_user: CurrentUser,
+    db_session: DatabaseSessionDep,
+):
+    return await service.rescore_comparisons(current_user.user_id, db_session)
+
+
 @router.post("/delete-tasks", response_model=TaskSchema)
 async def delete_tasks(
     current_user: CurrentUser,

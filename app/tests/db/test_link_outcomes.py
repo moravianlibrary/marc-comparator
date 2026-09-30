@@ -62,7 +62,7 @@ def _link(db_session, main: CatalogRecord, authority: CatalogRecord, **kwargs) -
         authority_base=authority.base,
         authority_sysno=authority.system_number,
         authority_record_id=authority.id,
-        confidence=0.95,
+        confidence=14.0,
         matched_by=MatchRoute.Identifier.value,
         **kwargs,
     )
@@ -87,7 +87,7 @@ def _rows(db_session, main: CatalogRecord) -> list[AuthorityLink]:
 
 
 def _found_link(
-    authority: CatalogRecord, confidence: float = 0.91, conflicts: list[Any] | None = None
+    authority: CatalogRecord, confidence: float = 12.5, conflicts: list[Any] | None = None
 ) -> Any:
     """What a linker hands back, over a record the storage layer can write."""
 
@@ -106,12 +106,12 @@ def _linker_instance(name: str = "marcxml-dump") -> Any:
 
 
 def _candidate(
-    authority: CatalogRecord, confidence: float = 0.91, linker: str = "marcxml-dump"
+    authority: CatalogRecord, confidence: float = 12.5, linker: str = "marcxml-dump"
 ) -> Candidate:
     return Candidate(_found_link(authority, confidence), _linker_instance(linker))
 
 
-def _bare_candidate(system_number: str, confidence: float = 0.91) -> Candidate:
+def _bare_candidate(system_number: str, confidence: float = 12.5) -> Candidate:
     """A candidate our catalogue has never heard of, which is the usual case.
 
     Every other helper here builds its candidates out of records that already
@@ -351,7 +351,7 @@ class TestTheRunnerUpsAreKept:
 
     Every candidate was compared to pick the winner; the losing scores were
     thrown away afterwards. A cataloguer told "this is the match" and nothing
-    else cannot see that the runner-up scored 0.99, which is exactly when they
+    else cannot see that the runner-up scored 14.9, which is exactly when they
     need to look — either the union catalogue holds a duplicate or we are
     about to pick the wrong one of a pair.
     """
@@ -364,7 +364,7 @@ class TestTheRunnerUpsAreKept:
         handle_catalog_record_link_action(
             db_session,
             record,
-            _decision(_candidate(won, 0.71), _candidate(lost, 0.64)),
+            _decision(_candidate(won, 10.5), _candidate(lost, 9.5)),
             TARGET_BASE,
         )
         db_session.commit()
@@ -378,7 +378,7 @@ class TestTheRunnerUpsAreKept:
         assert rows[1].authority_record_id is None, (
             "a candidate nobody accepted is not worth a persisted copy of the record"
         )
-        assert rows[1].confidence == 0.64
+        assert rows[1].confidence == 9.5
 
     def test_a_confident_winner_keeps_a_near_tie(self, db_session):
         """Perfect and ambiguous at the same time is the case score alone misses."""
@@ -390,7 +390,7 @@ class TestTheRunnerUpsAreKept:
         handle_catalog_record_link_action(
             db_session,
             record,
-            _decision(_candidate(won, 1.0), _candidate(lost, 0.99)),
+            _decision(_candidate(won, 15.0), _candidate(lost, 14.9)),
             TARGET_BASE,
         )
         db_session.commit()
@@ -405,7 +405,7 @@ class TestTheRunnerUpsAreKept:
         handle_catalog_record_link_action(
             db_session,
             record,
-            _decision(_candidate(won, 1.0), _candidate(lost, 0.40)),
+            _decision(_candidate(won, 15.0), _candidate(lost, 5.0)),
             TARGET_BASE,
         )
         db_session.commit()
@@ -425,14 +425,14 @@ class TestTheRunnerUpsAreKept:
         handle_catalog_record_link_action(
             db_session,
             record,
-            _decision(_candidate(won, 0.71), _candidate(first, 0.64)),
+            _decision(_candidate(won, 10.5), _candidate(first, 9.5)),
             TARGET_BASE,
         )
         db_session.commit()
         handle_catalog_record_link_action(
             db_session,
             record,
-            _decision(_candidate(won, 0.71), _candidate(second, 0.66)),
+            _decision(_candidate(won, 10.5), _candidate(second, 10.0)),
             TARGET_BASE,
         )
         db_session.commit()
@@ -457,14 +457,14 @@ class TestTheRunnerUpsAreKept:
         handle_catalog_record_link_action(
             db_session,
             record,
-            _decision(_candidate(first, 0.71), _candidate(second, 0.64)),
+            _decision(_candidate(first, 10.5), _candidate(second, 9.5)),
             TARGET_BASE,
         )
         db_session.commit()
         handle_catalog_record_link_action(
             db_session,
             record,
-            _decision(_candidate(first, 0.64), _candidate(second, 0.71)),
+            _decision(_candidate(first, 9.5), _candidate(second, 10.5)),
             TARGET_BASE,
         )
         db_session.commit()
@@ -493,7 +493,7 @@ class TestNothingGoodEnoughIsStillAFinding:
         results = handle_catalog_record_link_action(
             db_session,
             record,
-            _rejected(_candidate(best, 0.42), _candidate(rest, 0.31)),
+            _rejected(_candidate(best, 6.0), _candidate(rest, 4.5)),
             TARGET_BASE,
         )
         db_session.commit()
@@ -503,7 +503,7 @@ class TestNothingGoodEnoughIsStillAFinding:
         rows = _rows(db_session, record)
         assert rows[0].outcome == LinkOutcome.BelowFloor
         assert rows[0].authority_sysno == best.system_number
-        assert rows[0].confidence == 0.42
+        assert rows[0].confidence == 6.0
         assert rows[0].candidate_count == 2
         assert rows[0].authority_record_id is None, "refused is not linked"
 
@@ -512,7 +512,7 @@ class TestNothingGoodEnoughIsStillAFinding:
         best = _record(db_session, "000000084", TARGET_BASE, CatalogRecordSource.AuthorityLinker)
 
         handle_catalog_record_link_action(
-            db_session, record, _rejected(_candidate(best, 0.42)), TARGET_BASE
+            db_session, record, _rejected(_candidate(best, 6.0)), TARGET_BASE
         )
         db_session.commit()
         db_session.expire_all()
@@ -533,7 +533,7 @@ class TestNothingGoodEnoughIsStillAFinding:
         handle_catalog_record_link_action(
             db_session,
             record,
-            _rejected(_candidate(best, 0.42), _candidate(rest, 0.05)),
+            _rejected(_candidate(best, 6.0), _candidate(rest, 0.75)),
             TARGET_BASE,
         )
         db_session.commit()
@@ -552,11 +552,11 @@ class TestNothingGoodEnoughIsStillAFinding:
         )
 
         handle_catalog_record_link_action(
-            db_session, record, _rejected(_candidate(candidate, 0.42)), TARGET_BASE
+            db_session, record, _rejected(_candidate(candidate, 6.0)), TARGET_BASE
         )
         db_session.commit()
         handle_catalog_record_link_action(
-            db_session, record, _decision(_candidate(candidate, 0.95)), TARGET_BASE
+            db_session, record, _decision(_candidate(candidate, 14.0)), TARGET_BASE
         )
         db_session.commit()
         db_session.expire_all()
@@ -589,7 +589,7 @@ class TestARefusalOnEvidenceIsNotARefusalOnScore:
         rows = self._refused(
             db_session,
             record,
-            Candidate(_found_link(other, 0.42, ["nbn"]), _linker_instance()),
+            Candidate(_found_link(other, 6.0, ["nbn"]), _linker_instance()),
         )
 
         assert rows[0].outcome == LinkOutcome.Conflicting
@@ -604,7 +604,7 @@ class TestARefusalOnEvidenceIsNotARefusalOnScore:
         rows = self._refused(
             db_session,
             record,
-            Candidate(_found_link(other, 0.42, ["nbn", "year"]), _linker_instance()),
+            Candidate(_found_link(other, 6.0, ["nbn", "year"]), _linker_instance()),
         )
 
         assert rows[0].detail == "nbn, year"
@@ -615,7 +615,7 @@ class TestARefusalOnEvidenceIsNotARefusalOnScore:
         record = _record(db_session, "000000304")
         other = _record(db_session, "000000305", TARGET_BASE, CatalogRecordSource.AuthorityLinker)
 
-        rows = self._refused(db_session, record, _candidate(other, 0.42))
+        rows = self._refused(db_session, record, _candidate(other, 6.0))
 
         assert rows[0].outcome == LinkOutcome.BelowFloor
         assert rows[0].detail is None
@@ -627,9 +627,9 @@ class TestARefusalOnEvidenceIsNotARefusalOnScore:
         b = _record(db_session, "000000309", TARGET_BASE, CatalogRecordSource.AuthorityLinker)
 
         self._refused(
-            db_session, conflicting, Candidate(_found_link(a, 0.42, ["nbn"]), _linker_instance())
+            db_session, conflicting, Candidate(_found_link(a, 6.0, ["nbn"]), _linker_instance())
         )
-        self._refused(db_session, weak, _candidate(b, 0.42))
+        self._refused(db_session, weak, _candidate(b, 6.0))
 
         assert build_filtered_query(
             db_session, RecordFilter(link_outcomes=[LinkOutcome.Conflicting.value])
@@ -643,10 +643,10 @@ class TestARefusalOnEvidenceIsNotARefusalOnScore:
         other = _record(db_session, "000000311", TARGET_BASE, CatalogRecordSource.AuthorityLinker)
 
         self._refused(
-            db_session, record, Candidate(_found_link(other, 0.42, ["nbn"]), _linker_instance())
+            db_session, record, Candidate(_found_link(other, 6.0, ["nbn"]), _linker_instance())
         )
         handle_catalog_record_link_action(
-            db_session, record, _decision(_candidate(other, 0.95)), TARGET_BASE
+            db_session, record, _decision(_candidate(other, 14.0)), TARGET_BASE
         )
         db_session.commit()
         db_session.expire_all()
@@ -678,7 +678,7 @@ class TestTheCandidateMarcIsOurs:
         handle_catalog_record_link_action(
             db_session,
             record,
-            _decision(_bare_candidate("000000201", 0.95), _bare_candidate("000000202", 0.93)),
+            _decision(_bare_candidate("000000201", 14.0), _bare_candidate("000000202", 13.0)),
             TARGET_BASE,
         )
         db_session.commit()
@@ -695,7 +695,7 @@ class TestTheCandidateMarcIsOurs:
         handle_catalog_record_link_action(
             db_session,
             record,
-            _decision(_bare_candidate("000000204", 0.95), _bare_candidate("000000205", 0.93)),
+            _decision(_bare_candidate("000000204", 14.0), _bare_candidate("000000205", 13.0)),
             TARGET_BASE,
         )
         db_session.commit()
@@ -719,7 +719,7 @@ class TestTheCandidateMarcIsOurs:
         handle_catalog_record_link_action(
             db_session,
             record,
-            _decision(_bare_candidate("000000207", 0.95), _bare_candidate("000000208", 0.40)),
+            _decision(_bare_candidate("000000207", 14.0), _bare_candidate("000000208", 5.0)),
             TARGET_BASE,
         )
         db_session.commit()
@@ -735,7 +735,7 @@ class TestTheCandidateMarcIsOurs:
         handle_catalog_record_link_action(
             db_session,
             record,
-            _rejected(_bare_candidate("000000210", 0.42), _bare_candidate("000000211", 0.31)),
+            _rejected(_bare_candidate("000000210", 6.0), _bare_candidate("000000211", 4.5)),
             TARGET_BASE,
         )
         db_session.commit()
@@ -752,7 +752,7 @@ class TestTheCandidateMarcIsOurs:
         """
 
         record = _record(db_session, "000000212")
-        decision = _decision(_bare_candidate("000000213", 0.95), _bare_candidate("000000214", 0.93))
+        decision = _decision(_bare_candidate("000000213", 14.0), _bare_candidate("000000214", 13.0))
 
         handle_catalog_record_link_action(db_session, record, decision, TARGET_BASE)
         db_session.commit()
@@ -814,7 +814,7 @@ class TestTheSummaryCarriesTheWholeStory:
         handle_catalog_record_link_action(
             db_session,
             record,
-            _decision(_candidate(won, 0.71), _candidate(lost, 0.64)),
+            _decision(_candidate(won, 10.5), _candidate(lost, 9.5)),
             TARGET_BASE,
         )
         db_session.commit()
@@ -867,7 +867,7 @@ class TestTheOutcomeFacetPartitionsTheRecords:
         handle_catalog_record_link_action(
             db_session,
             record,
-            _decision(_candidate(won, 0.71), _candidate(lost, 0.64)),
+            _decision(_candidate(won, 10.5), _candidate(lost, 9.5)),
             TARGET_BASE,
         )
         db_session.commit()
@@ -884,7 +884,7 @@ class TestTheOutcomeFacetPartitionsTheRecords:
         handle_catalog_record_link_action(
             db_session,
             record,
-            _decision(_candidate(won, 0.71), _candidate(lost, 0.64)),
+            _decision(_candidate(won, 10.5), _candidate(lost, 9.5)),
             TARGET_BASE,
         )
         db_session.commit()
@@ -955,7 +955,7 @@ class TestWhoCataloguedTheOtherRecord:
         refused = _record(db_session, "000000404", TARGET_BASE, CatalogRecordSource.AuthorityLinker)
         refused.cataloguing_agency = "ABA001"
         handle_catalog_record_link_action(
-            db_session, record, _rejected(_candidate(refused, 0.42)), TARGET_BASE
+            db_session, record, _rejected(_candidate(refused, 6.0)), TARGET_BASE
         )
         db_session.commit()
         db_session.expire_all()

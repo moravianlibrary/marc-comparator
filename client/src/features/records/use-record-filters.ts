@@ -8,6 +8,7 @@ import {
 } from 'nuqs';
 import { useEffect } from 'react';
 import type { RecordFilter, RecordTab, SearchRecordsRequest } from './types';
+import { MATCH_SCALE_MAX } from './score';
 
 const tabValues = ['plots', 'table', 'carousel', 'addition'] as const;
 const sortByValues = [
@@ -76,7 +77,7 @@ export function useRecordFilters() {
       validationReasons: parseAsArrayOf(parseAsString).withDefault([]),
 
       scoreMin: parseAsFloat.withDefault(0),
-      scoreMax: parseAsFloat.withDefault(1),
+      scoreMax: parseAsFloat.withDefault(MATCH_SCALE_MAX),
 
       recordId: parseAsString.withDefault(''),
       recordIndex: parseAsInteger.withDefault(0),
@@ -138,7 +139,7 @@ export function useRecordFilters() {
       validationTargetTags: [],
       validationReasons: [],
       scoreMin: 0,
-      scoreMax: 1,
+      scoreMax: MATCH_SCALE_MAX,
       search: '',
       page: 1,
       recordId: '',
@@ -212,7 +213,7 @@ export function useRecordFilters() {
     if (filters.scoreMin > 0) {
       f.score_min = filters.scoreMin;
     }
-    if (filters.scoreMax < 1) {
+    if (filters.scoreMax < MATCH_SCALE_MAX) {
       f.score_max = filters.scoreMax;
     }
     if (filters.recordId) {

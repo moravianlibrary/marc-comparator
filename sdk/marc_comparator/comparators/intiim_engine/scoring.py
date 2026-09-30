@@ -207,7 +207,15 @@ def score_differences(
 
         proportional_sum = 0.0
         for e in entries:
-            proportional_sum += tag_cap * (float(e["weight"]) / float(max_w))
+            # What this one difference costs, and that cost as a share of the
+            # field's whole budget. Both are recorded on the component so a
+            # caller can show a per-subfield number derived from the same
+            # arithmetic the record score is built from, rather than looking
+            # the weight up against a scale of its own.
+            share = float(e["weight"]) / float(max_w)
+            e["share"] = round(share, 6)
+            e["cost"] = round(tag_cap * share, 6)
+            proportional_sum += tag_cap * share
 
         applied = min(proportional_sum, tag_cap)
         applied_values.append(applied)
@@ -215,10 +223,19 @@ def score_differences(
         contributions.append(
             {
                 "tag": tag,
-                "cap": tag_cap if cap is not None else None,
+                # The budget this field was actually scored against. Reported
+                # unconditionally: it used to be None for a tag with no
+                # `field_X_overall` answer, which left every caller to invent a
+                # replacement for a number this function already knew, and the
+                # one caller there is invented 10.0 while the tag had been
+                # scored against 1.0. Where the budget came from is its own
+                # field now, for callers that care about the difference.
+                "cap": tag_cap,
+                "cap_source": "overall" if cap is not None else "max_weight",
                 "max_weight": max_w,
                 "proportional_sum": round(proportional_sum, 4),
                 "applied": round(applied, 4),
+                "spent": round(applied / tag_cap, 6) if tag_cap else 0.0,
                 "count": len(entries),
             }
         )

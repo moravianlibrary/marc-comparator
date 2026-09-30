@@ -134,12 +134,11 @@ _ANALYTICS_SELECT = """
 
         array_agg(DISTINCT cmp.base)
             FILTER (WHERE cmp.base IS NOT NULL)             AS comparison_bases,
-        array_agg(DISTINCT CASE
-            WHEN (cmp.result->>'overall_score')::float >= 0.9 THEN 'Excellent'
-            WHEN (cmp.result->>'overall_score')::float >= 0.7 THEN 'Moderate'
-            ELSE 'Poor'
-        END)
-            FILTER (WHERE cmp.result->>'overall_score' IS NOT NULL) AS match_qualities,
+        -- The band the comparator recorded, not a second opinion about it.
+        -- Two thresholds were written out here in SQL and again in the entity
+        -- that reads the same column, against a comparator free to move them.
+        array_agg(DISTINCT cmp.result->>'quality')
+            FILTER (WHERE cmp.result->>'quality' IS NOT NULL)       AS match_qualities,
         array_agg((cmp.result->>'overall_score')::float)
             FILTER (WHERE cmp.result->>'overall_score' IS NOT NULL) AS overall_scores,
 
@@ -170,7 +169,7 @@ _ANALYTICS_SELECT = """
             WHEN NOT EXISTS (
                 SELECT 1 FROM comparisons cmp2
                 WHERE cmp2.main_record_id = cr.id
-                  AND (cmp2.result->>'overall_score')::float < 0.9
+                  AND cmp2.result->>'quality' <> 'Excellent'
             ) AND NOT EXISTS (
                 SELECT 1 FROM validations v2
                 WHERE v2.catalog_record_id = cr.id
@@ -181,7 +180,7 @@ _ANALYTICS_SELECT = """
                 SELECT 1 FROM (
                     SELECT cmp2.comparator AS aspect FROM comparisons cmp2
                     WHERE cmp2.main_record_id = cr.id
-                      AND (cmp2.result->>'overall_score')::float < 0.9
+                      AND cmp2.result->>'quality' <> 'Excellent'
                     UNION
                     SELECT v2.validator FROM validations v2
                     WHERE v2.catalog_record_id = cr.id
@@ -199,7 +198,7 @@ _ANALYTICS_SELECT = """
                 AND rr2.aspect_name IN (
                     SELECT cmp2.comparator FROM comparisons cmp2
                     WHERE cmp2.main_record_id = cr.id
-                      AND (cmp2.result->>'overall_score')::float < 0.9
+                      AND cmp2.result->>'quality' <> 'Excellent'
                     UNION
                     SELECT v2.validator FROM validations v2
                     WHERE v2.catalog_record_id = cr.id
@@ -416,6 +415,12 @@ def _build_cube_sql_for_target(target: str) -> str:
     return f"INSERT INTO {CUBE_TABLE} " + " UNION ALL ".join(branches)
 
 
+#: Width of one overall-score histogram bucket. Thirty buckets across the 0-15
+#: match scale, which is the resolution the 0.05 buckets of the old 0-1 scale
+#: gave — and it divides the scale evenly, so no bucket straddles a band edge.
+SCORE_BUCKET = 0.5
+
+
 def _build_cube_hist_sql_for_target(target: str) -> str:
     """Build INSERT ... SELECT for histogram buckets of one target field."""
     t_expr, t_from, t_group = _target_sql(target)
@@ -427,8 +432,8 @@ def _build_cube_hist_sql_for_target(target: str) -> str:
     return (
         f"INSERT INTO {CUBE_HIST_TABLE} "
         f"SELECT {t_lit} AS target_field, {t_expr} AS target_value, "
-        f"floor(_h.val / 0.05) * 0.05 AS bucket_min, "
-        f"floor(_h.val / 0.05) * 0.05 + 0.05 AS bucket_max, "
+        f"floor(_h.val / {SCORE_BUCKET}) * {SCORE_BUCKET} AS bucket_min, "
+        f"floor(_h.val / {SCORE_BUCKET}) * {SCORE_BUCKET} + {SCORE_BUCKET} AS bucket_max, "
         f"count(*) AS cnt "
         f"FROM {TABLE}{t_from}{hist_from}{t_where} "
         f"GROUP BY {t_group}, bucket_min, bucket_max"

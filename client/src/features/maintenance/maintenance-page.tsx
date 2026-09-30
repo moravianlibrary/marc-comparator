@@ -1,4 +1,4 @@
-import { BarChart3, HardDrive, Search, Trash2, Unlock } from 'lucide-react';
+import { BarChart3, HardDrive, Scale, Search, Trash2, Unlock } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { MaintenanceActionCard } from './maintenance-action-card';
 
@@ -39,6 +39,12 @@ export function MaintenancePage() {
           titleKey="actions.rebuild-search-vectors.title"
           descriptionKey="actions.rebuild-search-vectors.description"
           endpoint="/maintenance/rebuild-search-vectors"
+        />
+        <MaintenanceActionCard
+          icon={Scale}
+          titleKey="actions.rescore-comparisons.title"
+          descriptionKey="actions.rescore-comparisons.description"
+          endpoint="/maintenance/rescore-comparisons"
         />
       </div>
     </div>
