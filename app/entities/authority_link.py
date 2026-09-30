@@ -34,6 +34,16 @@ class LinkOutcome(StrEnum):
     #: opposite responses: a low score invites a look, a contradiction says
     #: the catalogue holds no counterpart and the search was pointed wrong.
     Conflicting = "Conflicting"
+    #: A cataloguer looked at the candidates and ruled them out. A reason
+    #: there is no link, like the three above it, and kept apart from them for
+    #: the same reason: a low score invites a look and a contradiction says
+    #: the search was pointed wrong, while this says the question is settled
+    #: and no linker should be re-run hoping for a different answer.
+    #:
+    #: Who decided is not recorded here — that is what ``link_claims`` is for,
+    #: and an accepted claim still reads as ``Linked``. What this records is
+    #: the outcome, not its provenance.
+    Refused = "Refused"
     #: The lookup completed and found nothing to consider.
     NoCandidate = "NoCandidate"
     #: The lookup did not complete, which is not an answer about the record.
@@ -221,6 +231,28 @@ class AuthorityLink(Base, BaseOperationsMixin):
                 outcome=LinkOutcome.Linked,
             )
             .first()
+        )
+
+    @classmethod
+    def for_record_and_base(
+        cls,
+        db_session: DatabaseSession,
+        main_record_id: str,
+        base: str,
+    ) -> Sequence["AuthorityLink"]:
+        """Every row for this record and base, answer first.
+
+        Unlike ``find_by_main_record_and_base`` this is the whole list rather
+        than the accepted link: what was considered, in the order it was
+        ranked, including the row that says why there is no link. What a
+        cataloguer is shown, and what a claim is applied over.
+        """
+
+        return (
+            db_session.query(cls)
+            .filter_by(main_record_id=main_record_id, base=base)
+            .order_by(cls.rank)
+            .all()
         )
 
     @classmethod

@@ -38,8 +38,11 @@ from entities.catalog_record import (
     CatalogRecordSource,
     cataloguing_agency_of,
 )
+from entities.link_claim import LinkClaim
 from entities.settings import Settings, SettingsScope
 
+from .claims import decide_with_claims
+from .decision import Candidate, LinkDecision
 from .models import (
     DEFAULT_CANDIDATE_MARGIN,
     DEFAULT_CONFIDENT_THRESHOLD,
@@ -257,42 +260,6 @@ def init_authority_linkers(
     return authority_linkers
 
 
-@dataclass(frozen=True, slots=True)
-class Candidate:
-    """One record the linkers weighed, and which of them proposed it."""
-
-    link: SdkAuthorityLink
-    linker: AuthorityLinkerInstance
-
-
-@dataclass(frozen=True, slots=True)
-class LinkDecision:
-    """What the linkers between them concluded about one record and base."""
-
-    #: The accepted candidate, or nothing where none qualified.
-    accepted: Candidate | None
-    #: Every candidate any linker handed over, best first and deduplicated by
-    #: the record it names, including ``accepted``.
-    candidates: list[Candidate]
-    #: How many were weighed altogether, across the linkers that answered.
-    candidate_count: int
-
-    @property
-    def below_floor(self) -> bool:
-        """Candidates were found and none of them cleared a floor.
-
-        The distinction the table exists to record: this is a rejection, and a
-        cataloguer looking for a link the system nearly made should find it,
-        where an empty retrieval is nothing to look at.
-        """
-
-        return self.accepted is None and bool(self.candidates)
-
-    @classmethod
-    def nothing_found(cls) -> "LinkDecision":
-        return cls(accepted=None, candidates=[], candidate_count=0)
-
-
 def _merge_candidates(
     proposals: list[tuple[LinkProposal, AuthorityLinkerInstance]],
 ) -> list[Candidate]:
@@ -316,7 +283,7 @@ def _merge_candidates(
             key = (link.base, link.system_number)
             current = best_by_record.get(key)
             if current is None or _confidence_of(link) > _confidence_of(current.link):
-                best_by_record[key] = Candidate(link, linker)
+                best_by_record[key] = Candidate(link, linker.linker.value)
     return sorted(best_by_record.values(), key=lambda c: _confidence_of(c.link), reverse=True)
 
 
@@ -371,7 +338,7 @@ async def find_best_link_for_record(
             # answer, and not asking the others is what makes them the only
             # ones there are.
             return LinkDecision(
-                accepted=Candidate(proposal.link, authority_linker),
+                accepted=Candidate(proposal.link, authority_linker.linker.value),
                 candidates=_merge_candidates([(proposal, authority_linker)]),
                 candidate_count=proposal.candidate_count,
             )
@@ -405,7 +372,7 @@ async def find_best_link_for_record(
         _confidence_of(best_link),
     )
     return LinkDecision(
-        accepted=Candidate(best_link, best_linker),
+        accepted=Candidate(best_link, best_linker.linker.value),
         candidates=candidates,
         candidate_count=candidate_count,
     )
@@ -481,7 +448,7 @@ def _apply_candidate(
     else hold the record.
     """
 
-    row.linker = candidate.linker.linker.value
+    row.linker = candidate.linker
     row.outcome = outcome
     row.authority_base = candidate.link.base
     row.authority_sysno = candidate.link.system_number
@@ -562,7 +529,7 @@ def _wanted_shape(candidate: "Candidate") -> tuple:
         candidate.link.base,
         candidate.link.system_number,
         candidate.link.confidence,
-        candidate.linker.linker.value,
+        candidate.linker,
     )
 
 
@@ -663,6 +630,45 @@ def record_below_floor(
     # the only place the specific conflict survives: the outcome says a rule
     # refused this pair, and this says which.
     row.detail = ", ".join(conflicts) if conflicts else None
+    row.save(db_session, commit=False)
+
+
+def record_refused(
+    db_session: DatabaseSession,
+    main_record_id: str,
+    target_base: str,
+    best: "Candidate | None",
+    candidate_count: int,
+) -> None:
+    """Record that a cataloguer ruled out what was found.
+
+    Named separately from ``record_below_floor`` because the two call for
+    opposite responses. A score below its floor is an invitation to look
+    again, and raising or lowering the floor changes the answer. This is
+    settled: a person read both records and said they are not a pair, and
+    re-running the linkers will only produce the same refused candidate.
+
+    It names a record where one survived the refusal and nothing where none
+    did — a cataloguer who rules out the only candidate leaves a record with
+    no counterpart, and there is nothing to point at.
+    """
+
+    row = _answer_row(db_session, main_record_id, target_base)
+    if best is not None:
+        _apply_candidate(row, best, LinkOutcome.Refused, candidate_count)
+    else:
+        row.linker = None
+        row.outcome = LinkOutcome.Refused
+        row.authority_base = None
+        row.authority_sysno = None
+        row.authority_record_id = None
+        row.confidence = None
+        row.matched_by = None
+        row.candidate_count = candidate_count
+    # _apply_candidate clears detail, so this goes on afterwards. Deliberately
+    # not the claimant's name: who decided lives in `link_claims`, and a row
+    # that answers "what is this record linked to" is not the place to put it.
+    row.detail = "ruled out by a cataloguer"
     row.save(db_session, commit=False)
 
 
@@ -869,7 +875,7 @@ def prefetch_linked_authority_marc(
 
 def _link_update_would_write_nothing(
     found_link: SdkAuthorityLink,
-    linker_instance: AuthorityLinkerInstance,
+    linker_name: str | None,
     current_link: AuthorityLink,
     sectors: SectorBuffer | None,
     stored_marc: dict[str, bytes] | None,
@@ -912,7 +918,7 @@ def _link_update_would_write_nothing(
     # "eight, seven of them not worth keeping".
     if current_link.candidate_count != candidate_count:
         return False
-    if authority_record.source_name != linker_instance.linker.value:
+    if authority_record.source_name != linker_name:
         return False
     # Same reasoning as `matched_by` above: a link written before this column
     # existed has the same confidence and the same MARC it always had, so
@@ -933,7 +939,7 @@ def _link_update_would_write_nothing(
 def scenario_found_link_update(
     db_session: DatabaseSession,
     found_link: SdkAuthorityLink,
-    linker_instance: AuthorityLinkerInstance,
+    linker_name: str | None,
     current_link: AuthorityLink,
     sectors: SectorBuffer | None = None,
     stored_marc: dict[str, bytes] | None = None,
@@ -948,7 +954,7 @@ def scenario_found_link_update(
     nothing, and the search text alone was 9.7% of the task.
     """
     if _link_update_would_write_nothing(
-        found_link, linker_instance, current_link, sectors, stored_marc, candidate_count
+        found_link, linker_name, current_link, sectors, stored_marc, candidate_count
     ):
         return [LinkActionResult.UnchangedLink]
 
@@ -959,7 +965,7 @@ def scenario_found_link_update(
     current_link.candidate_count = candidate_count
     authority_record = current_link.linked_record
     authority_record.latest_sync = config.timestamp
-    authority_record.source_name = linker_instance.linker.value
+    authority_record.source_name = linker_name
     authority_record.update_search_text_from(found_link.record)
 
     store_authority_marc(
@@ -981,7 +987,7 @@ def _upsert_authority_record_and_link(
     db_session: DatabaseSession,
     catalog_record: CatalogRecord,
     found_link: SdkAuthorityLink,
-    linker_instance: AuthorityLinkerInstance,
+    linker_name: str | None,
     target_base: str,
     sectors: SectorBuffer | None = None,
     candidate_count: int | None = None,
@@ -996,12 +1002,12 @@ def _upsert_authority_record_and_link(
             base=found_link.base,
             system_number=found_link.system_number,
             source_type=CatalogRecordSource.AuthorityLinker,
-            source_name=linker_instance.linker.value,
+            source_name=linker_name,
         )
         record_result = LinkActionResult.CreatedAuthorityRecord
     else:
         authority_record.latest_sync = config.timestamp
-        authority_record.source_name = linker_instance.linker.value
+        authority_record.source_name = linker_name
         record_result = LinkActionResult.UpdatedAuthorityRecord
 
     authority_record.update_search_text_from(found_link.record)
@@ -1017,7 +1023,7 @@ def _upsert_authority_record_and_link(
     # Into the answer slot, whatever is in it: a link this pass replaces, or a
     # row from the last pass saying there was nothing to link to.
     link = _answer_row(db_session, catalog_record.id, target_base)
-    link.linker = linker_instance.linker.value
+    link.linker = linker_name
     link.outcome = LinkOutcome.Linked
     link.authority_base = found_link.base
     link.authority_sysno = found_link.system_number
@@ -1034,7 +1040,7 @@ def scenario_found_link_replace(
     db_session: DatabaseSession,
     catalog_record: CatalogRecord,
     found_link: SdkAuthorityLink,
-    linker_instance: AuthorityLinkerInstance,
+    linker_name: str | None,
     target_base: str,
     sectors: SectorBuffer | None = None,
     candidate_count: int | None = None,
@@ -1049,7 +1055,7 @@ def scenario_found_link_replace(
         db_session,
         catalog_record,
         found_link,
-        linker_instance,
+        linker_name,
         target_base,
         sectors,
         candidate_count,
@@ -1061,7 +1067,7 @@ def scenario_found_link_create(
     db_session: DatabaseSession,
     catalog_record: CatalogRecord,
     found_link: SdkAuthorityLink,
-    linker_instance: AuthorityLinkerInstance,
+    linker_name: str | None,
     target_base: str,
     sectors: SectorBuffer | None = None,
     candidate_count: int | None = None,
@@ -1071,7 +1077,7 @@ def scenario_found_link_create(
         db_session,
         catalog_record,
         found_link,
-        linker_instance,
+        linker_name,
         target_base,
         sectors,
         candidate_count,
@@ -1134,6 +1140,21 @@ def _write_answer(
     """Put this record's answer for this base at the answer rank."""
 
     if decision.accepted is None:
+        if decision.refused_by_cataloguer:
+            # Checked before `below_floor`, because a refusal explains the
+            # absent answer whether or not anything survived to be named.
+            record_refused(
+                db_session,
+                catalog_record.id,
+                target_base,
+                decision.candidates[0] if decision.candidates else None,
+                decision.candidate_count,
+            )
+            return [
+                LinkActionResult.DeletedLink
+                if existing_link is not None
+                else LinkActionResult.NoLinkFound
+            ]
         if decision.below_floor:
             # Something was found and refused. Distinct from finding nothing,
             # and the only way a floor set too high ever shows up.
@@ -1156,14 +1177,14 @@ def _write_answer(
         return scenario_no_link_with_existing(db_session, existing_link, decision.candidate_count)
 
     found_link = decision.accepted.link
-    linker_instance = decision.accepted.linker
+    linker_name = decision.accepted.linker
 
     if existing_link is None:
         return scenario_found_link_create(
             db_session,
             catalog_record,
             found_link,
-            linker_instance,
+            linker_name,
             target_base,
             sectors,
             decision.candidate_count,
@@ -1173,7 +1194,7 @@ def _write_answer(
         return scenario_found_link_update(
             db_session,
             found_link,
-            linker_instance,
+            linker_name,
             existing_link,
             sectors,
             stored_marc,
@@ -1184,7 +1205,7 @@ def _write_answer(
         db_session,
         catalog_record,
         found_link,
-        linker_instance,
+        linker_name,
         target_base,
         sectors,
         decision.candidate_count,
@@ -1199,6 +1220,11 @@ async def authority_linking(task_id: str) -> None:
         if not authority_linkers:
             ctx.logger.error("Authority linkers could not be initialized")
             return
+        # The same comparator the linkers rank with, so a candidate rebuilt
+        # from a claim scores on the scale everything else is on.
+        from comparison.tasks import load_gate_comparator
+
+        gate_comparator, _ = load_gate_comparator(ctx.db_session)
         confident_threshold = load_confident_threshold(ctx.db_session)
         candidate_margin = load_candidate_margin(ctx.db_session)
 
@@ -1224,6 +1250,9 @@ async def authority_linking(task_id: str) -> None:
 
             CatalogRecord.warm(ctx.db_session, window)
             stored_marc = prefetch_linked_authority_marc(ctx.db_session, window, [data.target_base])
+            # Most records carry no claim at all; one query per window is what
+            # stops that from costing a query each to find out.
+            claims_by_record = LinkClaim.for_records(ctx.db_session, window, data.target_base)
 
             for record_id in window:
                 catalog_record = ctx.db_session.get(CatalogRecord, record_id)
@@ -1249,6 +1278,17 @@ async def authority_linking(task_id: str) -> None:
                         ctx.logger,
                         confident_threshold,
                     )
+
+                    # Last, and over the top of everything the linkers
+                    # concluded: a claim is a person's verdict, not another
+                    # signal to be weighed against the score.
+                    claims = claims_by_record.get(record_id, [])
+                    if claims:
+                        decision, moved = await decide_with_claims(
+                            ctx.db_session, decision, claims, marc_record, gate_comparator
+                        )
+                        for claim in moved:
+                            claim.save(ctx.db_session, commit=False)
 
                     results = handle_catalog_record_link_action(
                         ctx.db_session,

@@ -98,8 +98,15 @@ def _found(
     )
 
 
-def _linker(name: str = "marcxml-dump"):
-    return SimpleNamespace(linker=SimpleNamespace(value=name))
+def _linker(name: str | None = "marcxml-dump") -> str | None:
+    """The linker as the write path now takes it: a name, or nothing.
+
+    A candidate need not come from a linker — a cataloguer's claim can put one
+    in front of the pipeline that retrieval never returned — so what reaches
+    here is the name to record, which may be None.
+    """
+
+    return name
 
 
 class _Buffer:
@@ -122,7 +129,7 @@ class TestNothingIsWrittenWhenNothingMoved:
         results = scenario_found_link_update(
             NO_SESSION,
             cast(Any, _found()),
-            cast(Any, _linker()),
+            _linker(),
             cast(Any, link),
             cast(Any, _Buffer()),
             stored,
@@ -178,7 +185,7 @@ class TestEveryRealChangeStillLands:
 
         assert not _link_update_would_write_nothing(
             cast(Any, _found()),
-            cast(Any, _linker()),
+            _linker(),
             cast(Any, link),
             cast(Any, _Buffer()),
             {},
@@ -191,7 +198,7 @@ class TestEveryRealChangeStillLands:
 
         assert not _link_update_would_write_nothing(
             cast(Any, _found()),
-            cast(Any, _linker()),
+            _linker(),
             cast(Any, link),
             cast(Any, _Buffer(holding=True)),
             {link.authority_record.id: STORED},
@@ -210,7 +217,7 @@ class TestEveryRealChangeStillLands:
 
         assert not _link_update_would_write_nothing(
             cast(Any, _found()),
-            cast(Any, _linker()),
+            _linker(),
             cast(Any, link),
             cast(Any, _Buffer()),
             {link.authority_record.id: STORED},
@@ -229,7 +236,7 @@ class TestEveryRealChangeStillLands:
 
         assert not _link_update_would_write_nothing(
             cast(Any, _found()),
-            cast(Any, _linker()),
+            _linker(),
             cast(Any, link),
             cast(Any, _Buffer()),
             {link.authority_record.id: STORED},
@@ -248,7 +255,7 @@ class TestEveryRealChangeStillLands:
 
         assert not _link_update_would_write_nothing(
             cast(Any, _found()),
-            cast(Any, _linker()),
+            _linker(),
             cast(Any, link),
             cast(Any, _Buffer()),
             {link.authority_record.id: STORED},
@@ -262,7 +269,7 @@ class TestEveryRealChangeStillLands:
 
         assert _link_update_would_write_nothing(
             cast(Any, _found(matched_by=None)),
-            cast(Any, _linker()),
+            _linker(),
             cast(Any, link),
             cast(Any, _Buffer()),
             {link.authority_record.id: STORED},
@@ -284,7 +291,7 @@ class TestAColumnAddedLaterStillFills:
 
         assert not _link_update_would_write_nothing(
             cast(Any, _found()),
-            cast(Any, _linker()),
+            _linker(),
             cast(Any, link),
             None,
             {link.authority_record.id: STORED},
@@ -296,7 +303,7 @@ class TestAColumnAddedLaterStillFills:
 
         assert _link_update_would_write_nothing(
             cast(Any, _found()),
-            cast(Any, _linker()),
+            _linker(),
             cast(Any, link),
             None,
             {link.authority_record.id: STORED},

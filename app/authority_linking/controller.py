@@ -1,6 +1,6 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Body
+from fastapi import APIRouter, Body, HTTPException, status
 
 from adapters.dependencies import DatabaseSessionDep, WithPermission
 from auth.service import CurrentUser
@@ -8,7 +8,7 @@ from entities.role import Permission
 from entities.task import TaskSchema
 
 from . import service
-from .models import AuthorityLinkingTaskData
+from .models import AuthorityLinkingTaskData, LinkClaimRequest, LinkClaimSummary
 
 router = APIRouter(
     prefix="/authority-linking",
@@ -24,3 +24,61 @@ async def link_records_to_authorities(
     db_session: DatabaseSessionDep,
 ):
     return await service.authority_linking(data, current_user.user_id, db_session)
+
+
+#: Claims live on their own router because they are a cataloguer's job, not an
+#: operator's. The router above is gated on running linking tasks, and a
+#: cataloguer who reviews records has no reason to hold that permission —
+#: hanging these endpoints off it would have made the feature unreachable by
+#: exactly the people it is for.
+claims_router = APIRouter(
+    prefix="/authority-linking",
+    tags=["Authority Linking"],
+    dependencies=[WithPermission(Permission.ReviewRecords)],
+)
+
+
+@claims_router.post(
+    "/records/{main_record_id}/claims",
+    response_model=LinkClaimSummary,
+)
+async def claim_link(
+    main_record_id: str,
+    request: Annotated[LinkClaimRequest, Body(...)],
+    current_user: CurrentUser,
+    db_session: DatabaseSessionDep,
+):
+    """Say whether a candidate is the match, and have the record say so too."""
+
+    try:
+        return await service.claim_link(main_record_id, request, current_user.user_id, db_session)
+    except ValueError as e:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
+
+
+@claims_router.delete(
+    "/records/{main_record_id}/claims/{base}/{authority_base}/{authority_sysno}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def withdraw_claim(
+    main_record_id: str,
+    base: str,
+    authority_base: str,
+    authority_sysno: str,
+    current_user: CurrentUser,
+    db_session: DatabaseSessionDep,
+):
+    """Take a verdict back and let the linkers answer for themselves again."""
+
+    await service.withdraw_claim(
+        main_record_id, base, authority_base, authority_sysno, current_user.user_id, db_session
+    )
+
+
+@claims_router.get("/records/{main_record_id}/claims", response_model=list[LinkClaimSummary])
+async def list_claims(
+    main_record_id: str,
+    db_session: DatabaseSessionDep,
+    base: str | None = None,
+):
+    return service.claims_for_record(db_session, main_record_id, base)

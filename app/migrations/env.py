@@ -9,6 +9,7 @@ from config import config as app_config
 from entities.authority_link import AuthorityLink  # noqa: F401
 from entities.catalog_record import CatalogRecord  # noqa: F401
 from entities.comparison import Comparison  # noqa: F401
+from entities.link_claim import LinkClaim  # noqa: F401
 from entities.marc_sector import MarcRecordIndex, MarcSector  # noqa: F401
 from entities.plugin_harvest import PluginHarvestState  # noqa: F401
 from entities.record_review import RecordReview  # noqa: F401

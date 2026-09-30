@@ -94,7 +94,7 @@ async def test_a_confident_first_linker_stops_the_rest():
 
     assert link is not None
     assert link.system_number == "000000111"
-    assert linker is not None and linker.linker == AuthorityLinker.KnihovnyCz
+    assert linker == AuthorityLinker.KnihovnyCz.value
     # Even a higher-scoring rival is never consulted: the answer was already
     # good enough, and asking costs a lookup per record.
     assert second.calls == 0
@@ -128,7 +128,7 @@ async def test_without_confidence_every_linker_is_consulted_and_the_best_wins():
     assert link is not None
     assert link.system_number == "000000222"
     assert link.confidence == 0.86
-    assert linker is not None and linker.linker == AuthorityLinker.MarcXmlDump
+    assert linker == AuthorityLinker.MarcXmlDump.value
     assert first.calls == 1
     assert second.calls == 1
 

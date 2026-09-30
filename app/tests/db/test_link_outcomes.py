@@ -101,14 +101,20 @@ def _found_link(
     )
 
 
-def _linker_instance(name: str = "marcxml-dump") -> Any:
-    return SimpleNamespace(linker=SimpleNamespace(value=name))
+def _linker_name(name: str | None = "marcxml-dump") -> str | None:
+    """A candidate carries the name of what proposed it, or nothing.
+
+    Nothing is a real case: a cataloguer's claim can put a record in front of
+    the pipeline that no linker returned.
+    """
+
+    return name
 
 
 def _candidate(
     authority: CatalogRecord, confidence: float = 12.5, linker: str = "marcxml-dump"
 ) -> Candidate:
-    return Candidate(_found_link(authority, confidence), _linker_instance(linker))
+    return Candidate(_found_link(authority, confidence), _linker_name(linker))
 
 
 def _bare_candidate(system_number: str, confidence: float = 12.5) -> Candidate:
@@ -127,7 +133,7 @@ def _bare_candidate(system_number: str, confidence: float = 12.5) -> Candidate:
         confidence=confidence,
         matched_by=MatchRoute.Identifier,
     )
-    return Candidate(cast(Any, link), _linker_instance())
+    return Candidate(cast(Any, link), _linker_name())
 
 
 def _decision(*candidates: Candidate) -> LinkDecision:
@@ -589,7 +595,7 @@ class TestARefusalOnEvidenceIsNotARefusalOnScore:
         rows = self._refused(
             db_session,
             record,
-            Candidate(_found_link(other, 6.0, ["nbn"]), _linker_instance()),
+            Candidate(_found_link(other, 6.0, ["nbn"]), _linker_name()),
         )
 
         assert rows[0].outcome == LinkOutcome.Conflicting
@@ -604,7 +610,7 @@ class TestARefusalOnEvidenceIsNotARefusalOnScore:
         rows = self._refused(
             db_session,
             record,
-            Candidate(_found_link(other, 6.0, ["nbn", "year"]), _linker_instance()),
+            Candidate(_found_link(other, 6.0, ["nbn", "year"]), _linker_name()),
         )
 
         assert rows[0].detail == "nbn, year"
@@ -627,7 +633,7 @@ class TestARefusalOnEvidenceIsNotARefusalOnScore:
         b = _record(db_session, "000000309", TARGET_BASE, CatalogRecordSource.AuthorityLinker)
 
         self._refused(
-            db_session, conflicting, Candidate(_found_link(a, 6.0, ["nbn"]), _linker_instance())
+            db_session, conflicting, Candidate(_found_link(a, 6.0, ["nbn"]), _linker_name())
         )
         self._refused(db_session, weak, _candidate(b, 6.0))
 
@@ -643,7 +649,7 @@ class TestARefusalOnEvidenceIsNotARefusalOnScore:
         other = _record(db_session, "000000311", TARGET_BASE, CatalogRecordSource.AuthorityLinker)
 
         self._refused(
-            db_session, record, Candidate(_found_link(other, 6.0, ["nbn"]), _linker_instance())
+            db_session, record, Candidate(_found_link(other, 6.0, ["nbn"]), _linker_name())
         )
         handle_catalog_record_link_action(
             db_session, record, _decision(_candidate(other, 14.0)), TARGET_BASE

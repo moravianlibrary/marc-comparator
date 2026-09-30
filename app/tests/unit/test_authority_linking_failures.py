@@ -114,7 +114,7 @@ async def test_a_found_link_survives_another_linker_failing():
     )
 
     assert decision.accepted is not None
-    assert decision.accepted.linker.linker == AuthorityLinker.MarcXmlDump
+    assert decision.accepted.linker == AuthorityLinker.MarcXmlDump.value
 
 
 @pytest.mark.asyncio
