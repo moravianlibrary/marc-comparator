@@ -33,7 +33,7 @@ def _error(sqlstate: str | None, constraint: str | None = None) -> IntegrityErro
 
 async def _answer(error: IntegrityError):
     response = await integrity_error_handler(_request(), error)
-    return response.status_code, response.body.decode()
+    return response.status_code, bytes(response.body).decode()
 
 
 class TestAConflictIsReportedAsOne:
