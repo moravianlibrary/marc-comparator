@@ -104,6 +104,7 @@ _ANALYTICS_SELECT = """
         (cr.processed_at IS NOT NULL) AS is_processed,
         (cr.processing_error IS NOT NULL) AS is_broken,
 
+
         array_agg(DISTINCT al.linker)
             FILTER (WHERE al.linker IS NOT NULL)            AS authority_link_linkers,
         array_agg(DISTINCT al.base)
@@ -131,6 +132,7 @@ _ANALYTICS_SELECT = """
            AND al3.rank = 0 AND al3.outcome = 'Linked'
            AND auth.cataloguing_agency IS NOT NULL
         ) AS link_agencies,
+
 
         array_agg(DISTINCT cmp.base)
             FILTER (WHERE cmp.base IS NOT NULL)             AS comparison_bases,
@@ -332,17 +334,29 @@ def rebuild_all(db: Session) -> None:
 # Facet co-occurrence cube
 # ---------------------------------------------------------------------------
 
-# Facet field definitions — must match catalog_records.facets constants.
-_SCALAR_FACETS = ["base", "type_of_record", "bibliographic_level", "review_status"]
-_BOOL_FACETS = {
+#: Which analytics columns are facets, and of what shape.
+#:
+#: Defined here rather than in ``catalog_records.facets`` because both
+#: modules need them and this is the one they can both see: the cube is
+#: built from these lists and the live queries read the same columns. They
+#: used to be written out in each module with a comment asking the next
+#: person to keep them in step, and they drifted — ``link_agencies`` was
+#: added to the live list alone, so the facet was computed for a filtered
+#: query and silently missing from the unfiltered one, which is the view
+#: almost everybody opens first.
+SCALAR_FACETS = ["base", "type_of_record", "bibliographic_level", "review_status"]
+
+#: Boolean columns, mapped to the labels their two buckets carry.
+BOOL_FACETS = {
     "is_deleted": ("Active", "Deleted"),
     "is_processed": ("Unprocessed", "Processed"),
     "is_broken": ("Readable", "Broken"),
 }
-_ARRAY_FACETS = [
+ARRAY_FACETS = [
     "authority_link_linkers",
     "authority_link_bases",
     "link_outcomes",
+    "link_agencies",
     "comparison_bases",
     "match_qualities",
     "validators",
@@ -351,26 +365,38 @@ _ARRAY_FACETS = [
     "validation_reasons",
     "field_explanations",
 ]
-_ALL_FACET_FIELDS = _SCALAR_FACETS + list(_BOOL_FACETS.keys()) + _ARRAY_FACETS
+ALL_FACET_FIELDS = SCALAR_FACETS + list(BOOL_FACETS.keys()) + ARRAY_FACETS
+
+
+def _quoted(label: str) -> str:
+    """A bucket label as a SQL string literal.
+
+    The cube's SQL is assembled by hand around these labels, so one
+    carrying an apostrophe would close the literal early and break the
+    statement. They are ours, not anybody's input, but writing a label
+    should not mean knowing that.
+    """
+
+    return "'" + label.replace("'", "''") + "'"
 
 
 def _target_sql(field: str) -> tuple[str, str, str]:
     """Return (select_expr, from_extra, group_col) for a target field."""
-    if field in _ARRAY_FACETS:
+    if field in ARRAY_FACETS:
         return "tv::text", f", unnest({field}) AS _t(tv)", "tv"
-    if field in _BOOL_FACETS:
-        fl, tl = _BOOL_FACETS[field]
-        return f"CASE WHEN {field} THEN '{tl}' ELSE '{fl}' END", "", field
+    if field in BOOL_FACETS:
+        fl, tl = BOOL_FACETS[field]
+        return f"CASE WHEN {field} THEN {_quoted(tl)} ELSE {_quoted(fl)} END", "", field
     return f"{field}::text", "", field
 
 
 def _facet_sql(field: str) -> tuple[str, str, str]:
     """Return (select_expr, from_extra, group_col) for a facet field."""
-    if field in _ARRAY_FACETS:
+    if field in ARRAY_FACETS:
         return "fv::text", f", unnest({field}) AS _f(fv)", "fv"
-    if field in _BOOL_FACETS:
-        fl, tl = _BOOL_FACETS[field]
-        return f"CASE WHEN {field} THEN '{tl}' ELSE '{fl}' END", "", field
+    if field in BOOL_FACETS:
+        fl, tl = BOOL_FACETS[field]
+        return f"CASE WHEN {field} THEN {_quoted(tl)} ELSE {_quoted(fl)} END", "", field
     return f"{field}::text", "", field
 
 
@@ -380,7 +406,7 @@ def _build_cube_sql_for_target(target: str) -> str:
     t_lit = f"'{target}'"
 
     # NULL filter for scalar targets (array/bool can't be NULL in practice)
-    t_where = f" WHERE {target} IS NOT NULL" if target in _SCALAR_FACETS else ""
+    t_where = f" WHERE {target} IS NOT NULL" if target in SCALAR_FACETS else ""
 
     branches = []
 
@@ -391,7 +417,7 @@ def _build_cube_sql_for_target(target: str) -> str:
         f"FROM {TABLE}{t_from}{t_where} GROUP BY {t_group}"
     )
 
-    for facet in _ALL_FACET_FIELDS:
+    for facet in ALL_FACET_FIELDS:
         if facet == target:
             continue
         f_expr, f_from, f_group = _facet_sql(facet)
@@ -399,9 +425,9 @@ def _build_cube_sql_for_target(target: str) -> str:
 
         # For scalar facets, filter NULLs
         where_parts = []
-        if target in _SCALAR_FACETS:
+        if target in SCALAR_FACETS:
             where_parts.append(f"{target} IS NOT NULL")
-        if facet in _SCALAR_FACETS:
+        if facet in SCALAR_FACETS:
             where_parts.append(f"{facet} IS NOT NULL")
         where = (" WHERE " + " AND ".join(where_parts)) if where_parts else ""
 
@@ -427,7 +453,7 @@ def _build_cube_hist_sql_for_target(target: str) -> str:
     t_lit = f"'{target}'"
 
     hist_from = ", unnest(overall_scores) AS _h(val)"
-    t_where = f" WHERE {target} IS NOT NULL" if target in _SCALAR_FACETS else ""
+    t_where = f" WHERE {target} IS NOT NULL" if target in SCALAR_FACETS else ""
 
     return (
         f"INSERT INTO {CUBE_HIST_TABLE} "
@@ -455,17 +481,18 @@ def _build_pairs_sql() -> str:
     """
 
     branches = []
-    for field in _ALL_FACET_FIELDS:
-        if field in _ARRAY_FACETS:
+    for field in ALL_FACET_FIELDS:
+        if field in ARRAY_FACETS:
             branches.append(
                 f"SELECT id, '{field}' AS field, v::text AS value "
                 f"FROM {TABLE}, unnest({field}) AS _u(v)"
             )
-        elif field in _BOOL_FACETS:
-            false_label, true_label = _BOOL_FACETS[field]
+        elif field in BOOL_FACETS:
+            false_label, true_label = BOOL_FACETS[field]
             branches.append(
                 f"SELECT id, '{field}' AS field, "
-                f"CASE WHEN {field} THEN '{true_label}' ELSE '{false_label}' END AS value "
+                f"CASE WHEN {field} THEN {_quoted(true_label)} "
+                f"ELSE {_quoted(false_label)} END AS value "
                 f"FROM {TABLE}"
             )
         else:
@@ -516,7 +543,7 @@ def rebuild_cube(db: Session) -> None:
     """)
     )
 
-    for target in _ALL_FACET_FIELDS:
+    for target in ALL_FACET_FIELDS:
         db.execute(text(_build_cube_hist_sql_for_target(target)))
 
     # The pairs table is ON COMMIT DROP, so this is also what clears it.

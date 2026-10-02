@@ -4,7 +4,15 @@ from concurrent.futures import ThreadPoolExecutor
 from sqlalchemy import RowMapping, text
 from sqlalchemy.orm import Session
 
-from .analytics import CUBE_HIST_TABLE, CUBE_TABLE, SCORE_BUCKET
+from .analytics import (
+    ALL_FACET_FIELDS,
+    ARRAY_FACETS,
+    BOOL_FACETS,
+    CUBE_HIST_TABLE,
+    CUBE_TABLE,
+    SCALAR_FACETS,
+    SCORE_BUCKET,
+)
 from .filter_spec import parse_filters
 from .filter_sql import compile_conditions
 from .models import (
@@ -21,29 +29,8 @@ from .models import (
 
 TABLE = "catalog_records_analytics"
 
-SCALAR_FACETS = ["base", "type_of_record", "bibliographic_level", "review_status"]
-BOOL_FACETS = {
-    "is_deleted": ("Active", "Deleted"),
-    "is_processed": ("Unprocessed", "Processed"),
-    "is_broken": ("Readable", "Broken"),
-}
-ARRAY_FACETS = [
-    "authority_link_linkers",
-    "authority_link_bases",
-    "link_outcomes",
-    "link_agencies",
-    "comparison_bases",
-    "match_qualities",
-    "validators",
-    "validation_statuses",
-    "validation_target_tags",
-    "validation_reasons",
-    "field_explanations",
-]
-
 # ---- GROUPING SETS column list for scalar + bool facets ----
 _GS_COLUMNS = SCALAR_FACETS + list(BOOL_FACETS.keys())
-_ALL_FACET_FIELDS = SCALAR_FACETS + list(BOOL_FACETS.keys()) + ARRAY_FACETS
 
 
 def get_facets(request: FacetsRequest, db: Session) -> FacetsResponse:
@@ -209,7 +196,7 @@ def _facets_live(where: str, params: dict, db: Session) -> FacetsResponse:
 
 def get_facets_preview(request: FacetsPreviewRequest, db: Session) -> FacetsPreviewResponse:
     target = request.target_field
-    if target not in _ALL_FACET_FIELDS:
+    if target not in ALL_FACET_FIELDS:
         return FacetsPreviewResponse(target_field=target, previews=[])
 
     conditions = parse_filters(request.filters)
@@ -272,7 +259,7 @@ def _preview_from_cube(target: str, db: Session) -> FacetsPreviewResponse:
         )
 
     # Build ordered facet field list (same order as live queries)
-    other_fields = [f for f in _ALL_FACET_FIELDS if f != target]
+    other_fields = [f for f in ALL_FACET_FIELDS if f != target]
 
     previews = []
     for tv in sorted(totals):
