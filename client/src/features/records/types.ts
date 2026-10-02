@@ -8,6 +8,14 @@ export interface RecordFilter {
   bibliographic_level?: string[];
   deleted?: boolean;
   processed?: boolean;
+  /** Records where linking kept a runner-up behind its answer — the ones
+   *  where there was a choice to make. */
+  has_alternatives?: boolean;
+  /** Records a cataloguer has ruled on. Their answer stands whatever the
+   *  linker now computes. */
+  has_claim?: boolean;
+  /** Claims the evidence has moved against since they were made. */
+  claim_needs_review?: boolean;
   review_statuses?: string[];
   authority_link_linkers?: string[];
   authority_link_bases?: string[];
@@ -67,6 +75,18 @@ export interface LinkAttemptSummary {
   detail: string | null;
 }
 
+export interface RecordClaimSummary {
+  /** With the two below, the key that joins a claim to a link attempt. */
+  base: string;
+  authority_base: string;
+  authority_sysno: string;
+  verdict: 'SameWork' | 'NotSameWork';
+  note: string | null;
+  claimed_at: string;
+  /** The evidence has moved against this claim; the claim still decides. */
+  needs_review: boolean;
+}
+
 export interface ComparisonSummary {
   comparator: string;
   base: string;
@@ -93,6 +113,9 @@ export interface RecordSummary {
   authority_links: AuthorityLinkSummary[];
   /** Links and gaps alike, in rank order. The accepted link appears here too. */
   link_attempts: LinkAttemptSummary[];
+  /** What cataloguers said about those attempts. Kept separate because a
+   *  claim can name a record no linker returned, which has no row here. */
+  claims: RecordClaimSummary[];
   comparisons: ComparisonSummary[];
   validations: ValidationSummary[];
   latest_sync: string | null;

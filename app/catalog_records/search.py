@@ -12,6 +12,7 @@ from .models import (
     AuthorityLinkSummary,
     ComparisonSummary,
     LinkAttemptSummary,
+    RecordClaimSummary,
     RecordFilter,
     RecordSummary,
     SearchRecordsRequest,
@@ -73,10 +74,11 @@ def search_records(request: SearchRecordsRequest, db: Session) -> SearchRecordsR
         query = query.order_by(sort_col)
 
     # Eager-load everything _to_summary touches (state also reads reviews) —
-    # lazy loading costs 4 extra queries per record.
+    # lazy loading costs one extra query per relationship per record.
     query = query.options(
         selectinload(CatalogRecord.authority_links),
         selectinload(CatalogRecord.link_attempts),
+        selectinload(CatalogRecord.claims),
         selectinload(CatalogRecord.comparisons),
         selectinload(CatalogRecord.validations),
         selectinload(CatalogRecord.reviews),
@@ -132,6 +134,18 @@ def _to_summary(record: CatalogRecord) -> RecordSummary:
                 detail=la.detail,
             )
             for la in record.link_attempts
+        ],
+        claims=[
+            RecordClaimSummary(
+                base=lc.base,
+                authority_base=lc.authority_base,
+                authority_sysno=lc.authority_sysno,
+                verdict=lc.verdict,
+                note=lc.note,
+                claimed_at=lc.claimed_at,
+                needs_review=lc.needs_review,
+            )
+            for lc in record.claims
         ],
         comparisons=[
             ComparisonSummary(

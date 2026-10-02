@@ -1,3 +1,5 @@
+import re
+
 import pytest
 from marc_comparator.comparators import RecordComparisonResult
 from marc_comparator.validators import (
@@ -9,6 +11,7 @@ from sqlalchemy import text
 
 from catalog_records.analytics import (
     _ANALYTICS_COLUMNS,
+    ADD_COLUMNS_SQL,
     CREATE_TABLE_SQL,
     TABLE,
     init_analytics_table,
@@ -19,7 +22,22 @@ from entities.authority_link import ANSWER_RANK, AuthorityLink, LinkOutcome
 from entities.catalog_record import CatalogRecord, CatalogRecordSource
 from entities.comparison import Comparison
 
-_NEWEST_COLUMN_DDL = "    link_outcomes           TEXT[],\n"
+
+def _create_table_sql_without_added_columns() -> str:
+    """`CREATE_TABLE_SQL` as it read before any of the added columns existed.
+
+    Derived from `ADD_COLUMNS_SQL` rather than naming a column here, because
+    a constant naming one goes stale the day the next column lands — and it
+    goes stale silently, still passing, over the older shape it no longer
+    describes.
+    """
+
+    sql = CREATE_TABLE_SQL
+    for alter in ADD_COLUMNS_SQL:
+        match = re.search(r"ADD COLUMN IF NOT EXISTS (\w+)", alter)
+        assert match, alter
+        sql = re.sub(rf"^\s*{match.group(1)}\s+[^\n]*\n", "", sql, flags=re.MULTILINE)
+    return sql
 
 
 def _validation_result(status: ValidityStatus) -> dict:
@@ -236,9 +254,9 @@ class TestTheTableSurvivesGainingAColumn:
         unlinked = _create_record(db_session, sysno="000009002")
         _gap(db_session, unlinked, LinkOutcome.NoCandidate)
 
-        # Recreate the older shape: same table, without the newest column.
+        # Recreate the older shape: same table, without any added column.
         db_session.execute(text(f"DROP TABLE IF EXISTS {TABLE} CASCADE"))
-        db_session.execute(text(CREATE_TABLE_SQL.replace(_NEWEST_COLUMN_DDL, "")))
+        db_session.execute(text(_create_table_sql_without_added_columns()))
         db_session.commit()
 
         init_analytics_table(db_session)

@@ -209,7 +209,10 @@
     "overall_score": "Celkové skóre porovnání",
     "link_outcomes": "Výsledek propojení",
     "link_agencies": "Katalogizoval (propojený záznam)",
-    "link_identifiers": "Nalezeno podle identifikátoru"
+    "link_identifiers": "Nalezeno podle identifikátoru",
+    "has_alternatives": "Další kandidáti",
+    "has_claim": "Rozhodnutí katalogizátora",
+    "claim_needs_review": "Rozhodnutí k přehodnocení"
   },
   "state": {
     "Active": "Aktivní",
@@ -340,5 +343,17 @@
     "issn": "ISSN",
     "oclc": "OCLC",
     "uuid": "UUID"
+  },
+  "alternatives": {
+    "Has alternatives": "Má další kandidáty",
+    "Single candidate": "Jediný kandidát"
+  },
+  "claim-presence": {
+    "Cataloguer's answer": "Rozhodl katalogizátor",
+    "Machine answer": "Rozhodl stroj"
+  },
+  "claim-review": {
+    "Claim needs review": "Vyžaduje přehodnocení",
+    "Claim holds": "Rozhodnutí platí"
   }
 }

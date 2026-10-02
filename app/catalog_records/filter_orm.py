@@ -4,6 +4,7 @@ from sqlalchemy import String, and_, bindparam, func, or_, text
 from entities.authority_link import ANSWER_RANK, AuthorityLink
 from entities.catalog_record import CatalogRecord
 from entities.comparison import Comparison
+from entities.link_claim import LinkClaim
 from entities.record_review import RecordReview, ReviewStatus
 from entities.validation import Validation
 
@@ -64,6 +65,20 @@ def _compile_one(query, c: FilterCondition):
                 if c.value
                 else CatalogRecord.processing_error.is_(None)
             )
+
+        case FilterField.HasAlternatives:
+            # `link_candidates` is already scoped to rank > 0, so this asks
+            # the relationship rather than repeating the rank here.
+            has_alternatives = CatalogRecord.link_candidates.any()
+            return query.filter(has_alternatives if c.value else ~has_alternatives)
+
+        case FilterField.HasClaim:
+            has_claim = CatalogRecord.claims.any()
+            return query.filter(has_claim if c.value else ~has_claim)
+
+        case FilterField.ClaimNeedsReview:
+            needs_review = CatalogRecord.claims.any(LinkClaim.needs_review)
+            return query.filter(needs_review if c.value else ~needs_review)
 
         case FilterField.ReviewStatuses:
             has_current = CatalogRecord.reviews.any(RecordReview.status == ReviewStatus.Current)

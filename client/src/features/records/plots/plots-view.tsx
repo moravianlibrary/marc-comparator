@@ -7,7 +7,7 @@ import {
 } from '@/components/skeletons/skeleton-plots-section';
 import type { FacetBucket, FacetResult, HistogramBucket } from '../types';
 import type { ArrayFilterKey, BoolFilterKey } from '../use-record-filters';
-import { useRecordFilters } from '../use-record-filters';
+import { isBoolFilterKey, useRecordFilters } from '../use-record-filters';
 import { type ActiveFilter, ActiveFiltersBar } from './active-filters-bar';
 import { ComparisonSection } from './comparison-section';
 import { ContextSection, type PillGroup } from './context-section';
@@ -31,6 +31,9 @@ const FACET_TO_URL_PARAM: Partial<Record<string, FilterKey>> = {
   bibliographic_level: 'bibliographicLevel',
   is_deleted: 'deleted',
   is_processed: 'processed',
+  has_alternatives: 'hasAlternatives',
+  has_claim: 'hasClaim',
+  claim_needs_review: 'claimNeedsReview',
   review_status: 'reviewStatuses',
   authority_link_linkers: 'authorityLinkLinkers',
   authority_link_bases: 'authorityLinkBases',
@@ -46,9 +49,15 @@ const FACET_TO_URL_PARAM: Partial<Record<string, FilterKey>> = {
   validation_reasons: 'validationReasons',
 };
 
+// The bucket labels a boolean facet comes back with, mapped to the tri-state
+// the URL carries. Membership here is also what marks a param as boolean, so
+// adding a boolean facet is one entry rather than one entry and two `||`s.
 const BOOL_LABEL_TO_VALUE: Record<string, Record<string, string>> = {
   deleted: { Deleted: 'true', Active: 'false' },
   processed: { Processed: 'true', Unprocessed: 'false' },
+  hasAlternatives: { 'Has alternatives': 'true', 'Single candidate': 'false' },
+  hasClaim: { "Cataloguer's answer": 'true', 'Machine answer': 'false' },
+  claimNeedsReview: { 'Claim needs review': 'true', 'Claim holds': 'false' },
 };
 
 const EXPLANATION_ORDER: Record<string, number> = {
@@ -99,7 +108,7 @@ export function PlotsView() {
       return [];
     }
     const paramValue = filters[paramKey];
-    if (paramKey === 'deleted' || paramKey === 'processed') {
+    if (isBoolFilterKey(paramKey)) {
       if (!paramValue) {
         return [];
       }
@@ -116,7 +125,7 @@ export function PlotsView() {
     if (!paramKey) {
       return;
     }
-    if (paramKey === 'deleted' || paramKey === 'processed') {
+    if (isBoolFilterKey(paramKey)) {
       const targetValue = BOOL_LABEL_TO_VALUE[paramKey]![value] ?? '';
       const currentValue = filters[paramKey];
       setBoolFilter(paramKey, currentValue === targetValue ? '' : targetValue);
@@ -185,6 +194,9 @@ export function PlotsView() {
   const VALUE_TRANSLATORS: Record<string, (v: string) => string> = {
     is_deleted: v => t(`state.${v}`),
     is_processed: v => t(`state.${v}`),
+    has_alternatives: v => t(`alternatives.${v}`, { defaultValue: v }),
+    has_claim: v => t(`claim-presence.${v}`, { defaultValue: v }),
+    claim_needs_review: v => t(`claim-review.${v}`, { defaultValue: v }),
     review_status: v => t(`state.${v}`),
     type_of_record: v => t(`type-of-record.${v}`, { defaultValue: v }),
     bibliographic_level: v => t(`bibliographic-level.${v}`, { defaultValue: v }),
@@ -243,6 +255,21 @@ export function PlotsView() {
       field: 'link_identifiers',
       label: t('facet-fields.link_identifiers'),
       formatLabel: k => t(`match-identifier.${k}`, { defaultValue: k }),
+    },
+    {
+      field: 'has_alternatives',
+      label: t('facet-fields.has_alternatives'),
+      formatLabel: k => t(`alternatives.${k}`, { defaultValue: k }),
+    },
+    {
+      field: 'has_claim',
+      label: t('facet-fields.has_claim'),
+      formatLabel: k => t(`claim-presence.${k}`, { defaultValue: k }),
+    },
+    {
+      field: 'claim_needs_review',
+      label: t('facet-fields.claim_needs_review'),
+      formatLabel: k => t(`claim-review.${k}`, { defaultValue: k }),
     },
     {
       field: 'comparison_bases',

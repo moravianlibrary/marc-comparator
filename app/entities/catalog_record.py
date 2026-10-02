@@ -28,6 +28,7 @@ from ._operations import (
 )
 from .authority_link import ANSWER_RANK, AuthorityLink, LinkOutcome
 from .comparison import Comparison
+from .link_claim import LinkClaim
 from .record_review import RecordReview, ReviewStatus
 from .validation import Validation
 
@@ -149,6 +150,20 @@ class CatalogRecord(
         foreign_keys=[AuthorityLink.main_record_id],
         back_populates="main_record",
         order_by=lambda: (AuthorityLink.base, AuthorityLink.rank),
+        lazy="select",
+    )
+    #: What cataloguers have said about this record's links.
+    #:
+    #: Not an opinion the pipeline formed, so it is never recomputed and
+    #: never overwritten by a pass. A reader showing links needs these
+    #: beside them: an answer a person asserted and an answer a linker
+    #: computed look identical in the link row, and only one of them is
+    #: worth arguing with.
+    claims: Mapped[list[LinkClaim]] = relationship(
+        "LinkClaim",
+        foreign_keys=lambda: [LinkClaim.main_record_id],
+        order_by=lambda: (LinkClaim.base, LinkClaim.claimed_at),
+        viewonly=True,
         lazy="select",
     )
     comparisons: Mapped[list[Comparison]] = relationship(

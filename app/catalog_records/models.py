@@ -64,6 +64,17 @@ class RecordFilter(BaseModel):
     #: it could. Separate from `processed`, which a broken record also fails —
     #: "not reached yet" and "cannot be read" are not the same work item.
     broken: bool | None = None
+    #: True selects records where linking kept a runner-up behind its answer.
+    #: Those are the records where there was a choice to make, which is where
+    #: a second opinion is worth anybody's time.
+    has_alternatives: bool | None = None
+    #: True selects records a cataloguer has ruled on. Their answer stands
+    #: whatever the linker now computes, so a reader needs to know which
+    #: answers are a person's before arguing with one.
+    has_claim: bool | None = None
+    #: True selects claims the evidence has since moved against. The claim
+    #: still decides the answer; this is the queue of ones worth re-reading.
+    claim_needs_review: bool | None = None
 
     # Review status
     review_statuses: list[str] | None = None
@@ -193,6 +204,30 @@ class LinkAttemptSummary(BaseModel):
     detail: str | None = None
 
 
+class RecordClaimSummary(BaseModel):
+    """One cataloguer's verdict about one pair, as a record reader sees it.
+
+    Its own model rather than `authority_linking.LinkClaimSummary`, which
+    says the same thing: that module imports this one, so reusing it would
+    close a cycle. The reader here also needs less — who claimed it and the
+    confidences it was weighed against belong on the claim screen, not on
+    every row of a result list.
+    """
+
+    #: The target base, matching `LinkAttemptSummary.base`. Together with the
+    #: two below this is the key a reader joins on to mark an attempt row.
+    base: str
+    authority_base: str
+    authority_sysno: str
+    #: SameWork or NotSameWork.
+    verdict: str
+    note: str | None = None
+    claimed_at: datetime
+    #: Whether the evidence has moved against this claim since it was made.
+    #: The claim still decides the answer; this only asks for a look.
+    needs_review: bool = False
+
+
 class ComparisonSummary(BaseModel):
     comparator: str
     base: str
@@ -221,6 +256,11 @@ class RecordSummary(BaseModel):
     #: What `authority_links` leaves out: the records with no link and the
     #: reason, and the alternatives an accepted link was chosen over.
     link_attempts: list[LinkAttemptSummary] = []
+    #: What cataloguers have said about those attempts. Carried separately
+    #: rather than folded into the rows because a claim can name a record no
+    #: linker returned — ruling the machine's answer out in favour of one of
+    #: those is the point — and such a claim has no row to sit on.
+    claims: list[RecordClaimSummary] = []
     comparisons: list[ComparisonSummary] = []
     validations: list[ValidationSummary] = []
     latest_sync: datetime | None = None

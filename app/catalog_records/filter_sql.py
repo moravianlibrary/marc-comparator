@@ -43,6 +43,15 @@ def _compile_one(c: FilterCondition) -> tuple[str | None, dict]:
         case FilterField.Broken:
             return "is_broken = :is_broken", {"is_broken": c.value}
 
+        case FilterField.HasAlternatives:
+            return "has_alternatives = :has_alternatives", {"has_alternatives": c.value}
+
+        case FilterField.HasClaim:
+            return "has_claim = :has_claim", {"has_claim": c.value}
+
+        case FilterField.ClaimNeedsReview:
+            return "claim_needs_review = :claim_needs_review", {"claim_needs_review": c.value}
+
         case FilterField.ReviewStatuses:
             return "review_status = ANY(:review_statuses)", {"review_statuses": c.value}
 

@@ -19,6 +19,9 @@ CREATE TABLE IF NOT EXISTS catalog_records_analytics (
     is_deleted      BOOLEAN NOT NULL DEFAULT FALSE,
     is_processed    BOOLEAN NOT NULL DEFAULT FALSE,
     is_broken       BOOLEAN NOT NULL DEFAULT FALSE,
+    has_alternatives BOOLEAN NOT NULL DEFAULT FALSE,
+    has_claim       BOOLEAN NOT NULL DEFAULT FALSE,
+    claim_needs_review BOOLEAN NOT NULL DEFAULT FALSE,
 
     authority_link_linkers  TEXT[],
     authority_link_bases    TEXT[],
@@ -51,6 +54,9 @@ CREATE_INDEXES_SQL = [
     "CREATE INDEX IF NOT EXISTS idx_analytics_processed ON catalog_records_analytics (is_processed)",
     "CREATE INDEX IF NOT EXISTS idx_analytics_broken ON catalog_records_analytics (is_broken) WHERE is_broken",
     "CREATE INDEX IF NOT EXISTS idx_analytics_review_status ON catalog_records_analytics (review_status) WHERE review_status != 'ReviewNotNeeded'",
+    "CREATE INDEX IF NOT EXISTS idx_analytics_has_alternatives ON catalog_records_analytics (has_alternatives) WHERE has_alternatives",
+    "CREATE INDEX IF NOT EXISTS idx_analytics_has_claim ON catalog_records_analytics (has_claim) WHERE has_claim",
+    "CREATE INDEX IF NOT EXISTS idx_analytics_claim_needs_review ON catalog_records_analytics (claim_needs_review) WHERE claim_needs_review",
     "CREATE INDEX IF NOT EXISTS idx_analytics_auth_linkers ON catalog_records_analytics USING gin (authority_link_linkers)",
     "CREATE INDEX IF NOT EXISTS idx_analytics_link_agencies ON catalog_records_analytics USING gin (link_agencies)",
     "CREATE INDEX IF NOT EXISTS idx_analytics_link_identifiers ON catalog_records_analytics USING gin (link_identifiers)",
@@ -106,6 +112,31 @@ _ANALYTICS_SELECT = """
         (cr.processed_at IS NOT NULL) AS is_processed,
         (cr.processing_error IS NOT NULL) AS is_broken,
 
+        -- Whether linking kept anything behind the answer. A runner-up is
+        -- the whole reason the candidates are stored, and until now the
+        -- only way to the records that have one was to read the rows one
+        -- at a time: `rank` is on the link, not on the record.
+        EXISTS (
+            SELECT 1 FROM authority_links alt
+            WHERE alt.main_record_id = cr.id AND alt.rank > 0
+        ) AS has_alternatives,
+
+        -- Whether a cataloguer has ruled on this record. The answer a
+        -- person asserted and the answer a linker computed are not the
+        -- same kind of thing, and a list that cannot tell them apart
+        -- invites re-deciding what somebody already decided.
+        EXISTS (
+            SELECT 1 FROM link_claims lc WHERE lc.main_record_id = cr.id
+        ) AS has_claim,
+
+        -- Whether the evidence has moved against one of those rulings
+        -- since it was made. The claim still decides the answer; this
+        -- only asks for a second look, and it is the one worklist the
+        -- claim feature exists to produce.
+        EXISTS (
+            SELECT 1 FROM link_claims lc2
+            WHERE lc2.main_record_id = cr.id AND lc2.needs_review
+        ) AS claim_needs_review,
 
         array_agg(DISTINCT al.linker)
             FILTER (WHERE al.linker IS NOT NULL)            AS authority_link_linkers,
@@ -248,6 +279,7 @@ _ANALYTICS_GROUP_BY = "GROUP BY cr.id"
 _ANALYTICS_COLUMNS = """
     id, base, system_number, type_of_record, bibliographic_level,
     is_deleted, is_processed, is_broken,
+    has_alternatives, has_claim, claim_needs_review,
     authority_link_linkers, authority_link_bases, link_outcomes, link_agencies,
     link_identifiers,
     comparison_bases, match_qualities, overall_scores, field_explanations,
@@ -269,6 +301,12 @@ ADD_COLUMNS_SQL = [
     "ALTER TABLE catalog_records_analytics ADD COLUMN IF NOT EXISTS link_outcomes TEXT[]",
     "ALTER TABLE catalog_records_analytics ADD COLUMN IF NOT EXISTS link_agencies TEXT[]",
     "ALTER TABLE catalog_records_analytics ADD COLUMN IF NOT EXISTS link_identifiers TEXT[]",
+    "ALTER TABLE catalog_records_analytics "
+    "ADD COLUMN IF NOT EXISTS has_alternatives BOOLEAN NOT NULL DEFAULT FALSE",
+    "ALTER TABLE catalog_records_analytics "
+    "ADD COLUMN IF NOT EXISTS has_claim BOOLEAN NOT NULL DEFAULT FALSE",
+    "ALTER TABLE catalog_records_analytics "
+    "ADD COLUMN IF NOT EXISTS claim_needs_review BOOLEAN NOT NULL DEFAULT FALSE",
 ]
 
 
@@ -304,6 +342,9 @@ def upsert_records(db: Session, record_ids: list[str]) -> None:
             is_deleted = EXCLUDED.is_deleted,
             is_processed = EXCLUDED.is_processed,
             is_broken = EXCLUDED.is_broken,
+            has_alternatives = EXCLUDED.has_alternatives,
+            has_claim = EXCLUDED.has_claim,
+            claim_needs_review = EXCLUDED.claim_needs_review,
             authority_link_linkers = EXCLUDED.authority_link_linkers,
             authority_link_bases = EXCLUDED.authority_link_bases,
             link_outcomes = EXCLUDED.link_outcomes,
@@ -363,6 +404,9 @@ BOOL_FACETS = {
     "is_deleted": ("Active", "Deleted"),
     "is_processed": ("Unprocessed", "Processed"),
     "is_broken": ("Readable", "Broken"),
+    "has_alternatives": ("Single candidate", "Has alternatives"),
+    "has_claim": ("Machine answer", "Cataloguer's answer"),
+    "claim_needs_review": ("Claim holds", "Claim needs review"),
 }
 ARRAY_FACETS = [
     "authority_link_linkers",

@@ -14,6 +14,9 @@ class FilterField(StrEnum):
     Deleted = "deleted"
     Processed = "processed"
     Broken = "broken"
+    HasAlternatives = "has_alternatives"
+    HasClaim = "has_claim"
+    ClaimNeedsReview = "claim_needs_review"
     ReviewStatuses = "review_statuses"
     AuthorityLinkLinkers = "authority_link_linkers"
     AuthorityLinkBases = "authority_link_bases"
@@ -63,6 +66,12 @@ def parse_filters(filters: RecordFilter) -> list[FilterCondition]:
         conditions.append(FilterCondition(FilterField.Processed, filters.processed))
     if filters.broken is not None:
         conditions.append(FilterCondition(FilterField.Broken, filters.broken))
+    if filters.has_alternatives is not None:
+        conditions.append(FilterCondition(FilterField.HasAlternatives, filters.has_alternatives))
+    if filters.has_claim is not None:
+        conditions.append(FilterCondition(FilterField.HasClaim, filters.has_claim))
+    if filters.claim_needs_review is not None:
+        conditions.append(FilterCondition(FilterField.ClaimNeedsReview, filters.claim_needs_review))
     if filters.review_statuses:
         conditions.append(FilterCondition(FilterField.ReviewStatuses, filters.review_statuses))
     if filters.authority_link_linkers:

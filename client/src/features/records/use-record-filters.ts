@@ -45,7 +45,19 @@ const ARRAY_FILTER_KEYS = [
 export type ArrayFilterKey = (typeof ARRAY_FILTER_KEYS)[number];
 
 /** Filter keys holding a tri-state string: '' (any), 'true' or 'false'. */
-export type BoolFilterKey = 'deleted' | 'processed';
+export const BOOL_FILTER_KEYS = [
+  'deleted',
+  'processed',
+  'hasAlternatives',
+  'hasClaim',
+  'claimNeedsReview',
+] as const;
+
+export type BoolFilterKey = (typeof BOOL_FILTER_KEYS)[number];
+
+export function isBoolFilterKey(key: string): key is BoolFilterKey {
+  return (BOOL_FILTER_KEYS as readonly string[]).includes(key);
+}
 
 export function useRecordFilters() {
   const [filters, setFilters] = useQueryStates(
@@ -64,6 +76,9 @@ export function useRecordFilters() {
       reviewStatuses: parseAsArrayOf(parseAsString).withDefault([]),
       deleted: parseAsString.withDefault(''),
       processed: parseAsString.withDefault(''),
+      hasAlternatives: parseAsString.withDefault(''),
+      hasClaim: parseAsString.withDefault(''),
+      claimNeedsReview: parseAsString.withDefault(''),
 
       authorityLinkLinkers: parseAsArrayOf(parseAsString).withDefault([]),
       authorityLinkBases: parseAsArrayOf(parseAsString).withDefault([]),
@@ -129,6 +144,9 @@ export function useRecordFilters() {
       reviewStatuses: [],
       deleted: '',
       processed: '',
+      hasAlternatives: '',
+      hasClaim: '',
+      claimNeedsReview: '',
       authorityLinkLinkers: [],
       authorityLinkBases: [],
       linkOutcomes: [],
@@ -176,6 +194,15 @@ export function useRecordFilters() {
     }
     if (filters.processed === 'false') {
       f.processed = false;
+    }
+    if (filters.hasAlternatives) {
+      f.has_alternatives = filters.hasAlternatives === 'true';
+    }
+    if (filters.hasClaim) {
+      f.has_claim = filters.hasClaim === 'true';
+    }
+    if (filters.claimNeedsReview) {
+      f.claim_needs_review = filters.claimNeedsReview === 'true';
     }
     if (filters.reviewStatuses.length) {
       f.review_statuses = filters.reviewStatuses;

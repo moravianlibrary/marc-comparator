@@ -913,6 +913,57 @@ class TestTheOutcomeFacetPartitionsTheRecords:
         ).all() == [record]
 
 
+class TestTheRecordsWithAChoiceAreFindable:
+    """A kept runner-up is the reason the candidates are stored at all.
+
+    `rank` lives on the link, so until there was a facet for it the only
+    way to the records where linking had a choice to make was to read the
+    rows one at a time — and those are exactly the records where a second
+    opinion is worth somebody's afternoon.
+    """
+
+    def _has_alternatives(self, db_session, record: CatalogRecord) -> bool:
+        from sqlalchemy import text
+
+        from catalog_records.analytics import TABLE, upsert_records
+
+        upsert_records(db_session, [record.id])
+        return db_session.execute(
+            text(f"SELECT has_alternatives FROM {TABLE} WHERE id = :i"), {"i": record.id}
+        ).scalar()
+
+    def test_a_record_whose_answer_beat_nobody_has_no_alternatives(self, db_session):
+        record = _record(db_session, "000000150")
+        won = _record(db_session, "000000151", TARGET_BASE, CatalogRecordSource.AuthorityLinker)
+
+        handle_catalog_record_link_action(
+            db_session, record, _decision(_candidate(won, 12.5)), TARGET_BASE
+        )
+        db_session.commit()
+
+        assert self._has_alternatives(db_session, record) is False
+        assert build_filtered_query(db_session, RecordFilter(has_alternatives=True)).all() == []
+
+    def test_a_record_with_a_kept_runner_up_has_alternatives(self, db_session):
+        record = _record(db_session, "000000152")
+        won = _record(db_session, "000000153", TARGET_BASE, CatalogRecordSource.AuthorityLinker)
+        lost = _record(db_session, "000000154", TARGET_BASE, CatalogRecordSource.AuthorityLinker)
+
+        handle_catalog_record_link_action(
+            db_session,
+            record,
+            _decision(_candidate(won, 10.5), _candidate(lost, 9.5)),
+            TARGET_BASE,
+        )
+        db_session.commit()
+
+        assert self._has_alternatives(db_session, record) is True
+        assert build_filtered_query(db_session, RecordFilter(has_alternatives=True)).all() == [
+            record
+        ]
+        assert build_filtered_query(db_session, RecordFilter(has_alternatives=False)).all() == []
+
+
 class TestWhoCataloguedTheOtherRecord:
     """A third of our links point at a record MZK itself catalogued.
 

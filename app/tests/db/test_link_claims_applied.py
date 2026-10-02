@@ -21,6 +21,8 @@ from authority_linking.claims import decide_with_claims
 from authority_linking.decision import Candidate, LinkDecision
 from authority_linking.models import LinkClaimRequest
 from authority_linking.tasks import handle_catalog_record_link_action, store_authority_marc
+from catalog_records.models import RecordFilter
+from catalog_records.search import _to_summary, build_filtered_query
 from entities.authority_link import ANSWER_RANK, AuthorityLink, LinkOutcome
 from entities.catalog_record import CatalogRecord, CatalogRecordSource
 from entities.link_claim import ClaimVerdict, LinkClaim
@@ -206,6 +208,66 @@ class TestAPassHonoursTheClaim:
         db_session.refresh(claim)
         assert claim.needs_review
         assert _answer(db_session, record).authority_sysno == "000000919"
+
+
+class TestAClaimIsFindableAndVisible:
+    """A verdict nobody can search for or see is a verdict nobody will act on.
+
+    The flag that says a claim wants re-reading was written by the pass that
+    noticed, into an indexed column, and then read by nothing at all.
+    """
+
+    def _flags(self, db_session, record: CatalogRecord) -> tuple[bool, bool]:
+        from sqlalchemy import text
+
+        from catalog_records.analytics import TABLE, upsert_records
+
+        upsert_records(db_session, [record.id])
+        row = db_session.execute(
+            text(f"SELECT has_claim, claim_needs_review FROM {TABLE} WHERE id = :i"),
+            {"i": record.id},
+        ).one()
+        return row[0], row[1]
+
+    def test_a_record_nobody_ruled_on_is_a_machine_answer(self, db_session):
+        record = _record(db_session, "000000831")
+        _write(db_session, record, _decision(_candidate("000000931", 13.0)))
+        db_session.commit()
+
+        assert self._flags(db_session, record) == (False, False)
+        assert build_filtered_query(db_session, RecordFilter(has_claim=True)).all() == []
+
+    def test_a_claimed_record_says_so_and_is_filterable(self, db_session):
+        record = _record(db_session, "000000832")
+        _write(db_session, record, _decision(_candidate("000000932", 13.0)))
+        _claim_row(db_session, record, "000000932", ClaimVerdict.SameWork)
+
+        assert self._flags(db_session, record) == (True, False)
+        assert build_filtered_query(db_session, RecordFilter(has_claim=True)).all() == [record]
+        assert build_filtered_query(db_session, RecordFilter(claim_needs_review=True)).all() == []
+
+    def test_a_claim_the_evidence_moved_against_reaches_the_worklist(self, db_session):
+        record = _record(db_session, "000000833")
+        _write(db_session, record, _decision(_candidate("000000933", 13.0)))
+        claim = _claim_row(db_session, record, "000000933", ClaimVerdict.SameWork)
+        claim.needs_review = True
+        db_session.commit()
+
+        assert self._flags(db_session, record) == (True, True)
+        assert build_filtered_query(db_session, RecordFilter(claim_needs_review=True)).all() == [
+            record
+        ]
+
+    def test_the_record_summary_carries_the_verdict(self, db_session):
+        record = _record(db_session, "000000834")
+        _write(db_session, record, _decision(_candidate("000000934", 13.0)))
+        _claim_row(db_session, record, "000000934", ClaimVerdict.NotSameWork)
+
+        summary = _to_summary(record)
+
+        assert [(c.authority_sysno, c.verdict) for c in summary.claims] == [
+            ("000000934", ClaimVerdict.NotSameWork)
+        ]
 
 
 class TestTheApiRecordsTheVerdictAndHandsOver:
