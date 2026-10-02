@@ -127,6 +127,7 @@ def _to_summary(record: CatalogRecord) -> RecordSummary:
                 authority_sysno=la.authority_sysno,
                 confidence=la.confidence,
                 matched_by=la.matched_by,
+                matched_identifier=la.matched_identifier,
                 candidate_count=la.candidate_count,
                 detail=la.detail,
             )

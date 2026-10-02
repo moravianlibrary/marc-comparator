@@ -32,6 +32,7 @@ const ARRAY_FILTER_KEYS = [
   'authorityLinkBases',
   'linkOutcomes',
   'linkAgencies',
+  'linkIdentifiers',
   'comparisonBases',
   'matchQualities',
   'fieldExplanations',
@@ -68,6 +69,7 @@ export function useRecordFilters() {
       authorityLinkBases: parseAsArrayOf(parseAsString).withDefault([]),
       linkOutcomes: parseAsArrayOf(parseAsString).withDefault([]),
       linkAgencies: parseAsArrayOf(parseAsString).withDefault([]),
+      linkIdentifiers: parseAsArrayOf(parseAsString).withDefault([]),
       comparisonBases: parseAsArrayOf(parseAsString).withDefault([]),
       matchQualities: parseAsArrayOf(parseAsString).withDefault([]),
       fieldExplanations: parseAsArrayOf(parseAsString).withDefault([]),
@@ -131,6 +133,7 @@ export function useRecordFilters() {
       authorityLinkBases: [],
       linkOutcomes: [],
       linkAgencies: [],
+      linkIdentifiers: [],
       comparisonBases: [],
       matchQualities: [],
       fieldExplanations: [],
@@ -185,6 +188,9 @@ export function useRecordFilters() {
     }
     if (filters.linkOutcomes.length) {
       f.link_outcomes = filters.linkOutcomes;
+    }
+    if (filters.linkIdentifiers.length) {
+      f.link_identifiers = filters.linkIdentifiers;
     }
     if (filters.linkAgencies.length) {
       f.link_agencies = filters.linkAgencies;

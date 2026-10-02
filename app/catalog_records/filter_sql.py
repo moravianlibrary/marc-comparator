@@ -51,6 +51,7 @@ def _compile_one(c: FilterCondition) -> tuple[str | None, dict]:
             | FilterField.AuthorityLinkBases
             | FilterField.LinkOutcomes
             | FilterField.LinkAgencies
+            | FilterField.LinkIdentifiers
             | FilterField.ComparisonBases
             | FilterField.MatchQualities
             | FilterField.FieldExplanations

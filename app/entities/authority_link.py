@@ -120,6 +120,14 @@ class AuthorityLink(Base, BaseOperationsMixin):
     #: ever shared a title. Null on links written before the linkers reported
     #: it, and by linkers that do not.
     matched_by: Mapped[str | None] = mapped_column(String)
+    #: Which identifier found it, where `matched_by` says an identifier did.
+    #:
+    #: The route alone cannot be read: a pair sharing a national bibliography
+    #: number and a pair sharing an ISSN are both "found by identifier", and a
+    #: low score means opposite things for the two. Null where the candidate
+    #: was found by title, and on links written before the column existed —
+    #: the update guard refills those.
+    matched_identifier: Mapped[str | None] = mapped_column(String)
     #: How many candidates were weighed in total, which the stored rows do not
     #: say: an unambiguous winner is stored without its runner-ups, so without
     #: this "there were four and three were not worth keeping" is

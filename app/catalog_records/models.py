@@ -76,6 +76,9 @@ class RecordFilter(BaseModel):
     #: `LookupFailed` are as findable as `Linked` is.
     link_outcomes: list[str] | None = None
     link_agencies: list[str] | None = None
+    #: Which identifier retrieved an attempt — `cnb`, `isbn`, `issn`, `oclc`,
+    #: `uuid`. A low score means opposite things for the first and the last.
+    link_identifiers: list[str] | None = None
     comparison_bases: list[str] | None = None
     match_qualities: list[str] | None = None
     field_explanations: list[str] | None = None
@@ -175,6 +178,11 @@ class LinkAttemptSummary(BaseModel):
     authority_sysno: str | None = None
     confidence: float | None = None
     matched_by: str | None = None
+    #: Which identifier found it, where an identifier did. The route alone
+    #: cannot be read: a pair sharing a national bibliography number and a
+    #: pair sharing an ISSN are both "found by identifier", and a low score
+    #: means opposite things for the two.
+    matched_identifier: str | None = None
     #: How many candidates were weighed in total, on the answer row. Not
     #: derivable from the rows: an unambiguous winner keeps no runner-ups, so
     #: without this "one candidate" and "eight, seven of them pruned" look

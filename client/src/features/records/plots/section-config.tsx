@@ -24,6 +24,7 @@ const CHART_LABEL_KEYS: Record<ChartId, string> = {
   authority_link_bases: 'facet-fields.authority_link_bases',
   link_outcomes: 'facet-fields.link_outcomes',
   link_agencies: 'facet-fields.link_agencies',
+  link_identifiers: 'facet-fields.link_identifiers',
   comparison_bases: 'facet-fields.comparison_bases',
   overall_score: 'facet-fields.overall_score',
   field_explanations: 'facet-fields.field_explanations',

@@ -208,7 +208,8 @@
     "field_explanations": "Vysvětlení výsledku",
     "overall_score": "Celkové skóre porovnání",
     "link_outcomes": "Výsledek propojení",
-    "link_agencies": "Katalogizoval (propojený záznam)"
+    "link_agencies": "Katalogizoval (propojený záznam)",
+    "link_identifiers": "Nalezeno podle identifikátoru"
   },
   "state": {
     "Active": "Aktivní",
@@ -332,5 +333,12 @@
     "Conflicting": "V rozporu",
     "NoCandidate": "Nic nenalezeno",
     "LookupFailed": "Vyhledání selhalo"
+  },
+  "match-identifier": {
+    "cnb": "ČNB",
+    "isbn": "ISBN",
+    "issn": "ISSN",
+    "oclc": "OCLC",
+    "uuid": "UUID"
   }
 }

@@ -47,6 +47,7 @@ class _Link:
         source_name: str = "marcxml-dump",
         agency: str | None = AGENCY,
         matched_by: str | None = MatchRoute.Identifier.value,
+        matched_identifier: str | None = "cnb",
         authority_base: str = "SKC",
         authority_sysno: str = "000000001",
         candidate_count: int | None = 1,
@@ -57,6 +58,7 @@ class _Link:
         self.candidate_count = candidate_count
         self.confidence = confidence
         self.matched_by = matched_by
+        self.matched_identifier = matched_identifier
         self.authority_base = authority_base
         self.authority_sysno = authority_sysno
         self.authority_record = _AuthorityRecord(source_name, agency)
@@ -88,12 +90,14 @@ def _found(
     base: str = "SKC",
     system_number: str = "000000001",
     agency: str | None = AGENCY,
+    matched_identifier: str | None = "cnb",
 ):
     return SimpleNamespace(
         base=base,
         system_number=system_number,
         confidence=confidence,
         matched_by=matched_by,
+        matched_identifier=matched_identifier,
         record=SimpleNamespace(_marc=marc, variable_fields=_VariableFields(agency)),
     )
 
@@ -303,6 +307,52 @@ class TestAColumnAddedLaterStillFills:
 
         assert _link_update_would_write_nothing(
             cast(Any, _found()),
+            _linker(),
+            cast(Any, link),
+            None,
+            {link.authority_record.id: STORED},
+            CANDIDATES,
+        )
+
+    def test_a_link_predating_the_identifier_is_written(self):
+        """The same trap as the agency column, one release later.
+
+        Nothing else about an existing link changes when the column is added,
+        so every other check passes and `matched_identifier` would stay null
+        over every link already stored — and the facet built on it would stay
+        empty for good.
+        """
+
+        link = _Link(matched_identifier=None)
+
+        assert not _link_update_would_write_nothing(
+            cast(Any, _found()),
+            _linker(),
+            cast(Any, link),
+            None,
+            {link.authority_record.id: STORED},
+            CANDIDATES,
+        )
+
+    def test_an_identifier_already_stored_is_not_a_change(self):
+        link = _Link()
+
+        assert _link_update_would_write_nothing(
+            cast(Any, _found()),
+            _linker(),
+            cast(Any, link),
+            None,
+            {link.authority_record.id: STORED},
+            CANDIDATES,
+        )
+
+    def test_a_pair_now_found_by_a_different_identifier_is_written(self):
+        # The dump changed and the pair is no longer retrieved by its ČNB.
+        # That is worth recording: it is what the score has to be read against.
+        link = _Link(matched_identifier="cnb")
+
+        assert not _link_update_would_write_nothing(
+            cast(Any, _found(matched_identifier="isbn")),
             _linker(),
             cast(Any, link),
             None,

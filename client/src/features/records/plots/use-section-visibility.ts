@@ -12,6 +12,7 @@ export const SECTION_GROUPS = {
     'authority_link_bases',
     'link_outcomes',
     'link_agencies',
+    'link_identifiers',
     'comparison_bases',
   ],
   records: ['record_status', 'type_of_record', 'bibliographic_level'],

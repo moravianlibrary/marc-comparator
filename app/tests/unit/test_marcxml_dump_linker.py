@@ -12,6 +12,7 @@ from marc_comparator.authority_linkers.marcxml_dump_linker import (
     DumpIdentifier,
     MarcXmlDumpLinker,
     MarcXmlDumpLinkerConfig,
+    _Candidate,
     _dump_edition,
     _DumpStream,
     _fold,
@@ -83,6 +84,7 @@ def linker_with_candidates(
     monkeypatch: pytest.MonkeyPatch,
     scores: list[float],
     route: MatchRoute | None = MatchRoute.Identifier,
+    identifier: DumpIdentifier | None = None,
     **config: object,
 ) -> tuple[MarcXmlDumpLinker, ScriptedComparator]:
     linker = MarcXmlDumpLinker(MarcXmlDumpLinkerConfig(**config))  # pyright: ignore[reportArgumentType]
@@ -93,8 +95,7 @@ def linker_with_candidates(
     )
 
     candidates = [
-        type("Candidate", (), {"sysno": f"00000000{index}", "record": marc_record()})()
-        for index in range(len(scores))
+        _Candidate(f"00000000{index}", marc_record(), identifier) for index in range(len(scores))
     ]
     retrieval = _Retrieval(route, candidates)  # pyright: ignore[reportArgumentType]
     monkeypatch.setattr(MarcXmlDumpLinker, "_candidates", lambda self, record, key=None: retrieval)
@@ -431,3 +432,45 @@ class TestDumpFormat:
     def test_an_iso2709_dump_is_named_rather_than_left_to_the_xml_parser(self):
         with pytest.raises(ValueError, match="ISO 2709"):
             _reject_unreadable_dump(b"00241nam a2200085   4500001000900000")
+
+
+class TestWhichIdentifierFoundIt:
+    """The route says *an* identifier matched; this says which one.
+
+    They are not equally good evidence. A pair sharing a national
+    bibliography number that scores badly is a finding worth acting on — two
+    catalogues describing one book differently. A pair sharing an ISSN that
+    scores badly is usually two issues of one serial, which is not.
+    """
+
+    @pytest.mark.asyncio
+    async def test_the_link_carries_the_identifier_that_retrieved_it(self, monkeypatch):
+        linker, _ = linker_with_candidates(
+            monkeypatch, [13.0], route=MatchRoute.Identifier, identifier=DumpIdentifier.Cnb
+        )
+
+        link = (await linker.run("MZK01", "000123456", marc_record(), "SKC")).link
+
+        assert link is not None
+        assert link.matched_identifier == "cnb"
+
+    @pytest.mark.asyncio
+    async def test_a_title_match_names_no_identifier(self, monkeypatch):
+        linker, _ = linker_with_candidates(monkeypatch, [13.0], route=MatchRoute.Title)
+
+        link = (await linker.run("MZK01", "000123456", marc_record(), "SKC")).link
+
+        assert link is not None
+        assert link.matched_identifier is None
+
+    @pytest.mark.asyncio
+    async def test_every_candidate_carries_its_own(self, monkeypatch):
+        # Not only the winner: a refused candidate that shares a ČNB is the
+        # one a cataloguer most wants to be told about.
+        linker, _ = linker_with_candidates(
+            monkeypatch, [13.0, 9.0], route=MatchRoute.Identifier, identifier=DumpIdentifier.Isbn
+        )
+
+        proposal = await linker.run("MZK01", "000123456", marc_record(), "SKC")
+
+        assert [c.matched_identifier for c in proposal.candidates] == ["isbn", "isbn"]

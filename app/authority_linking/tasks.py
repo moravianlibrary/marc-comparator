@@ -102,6 +102,12 @@ def _confidence_of(link: SdkAuthorityLink) -> float:
     return link.confidence if link.confidence is not None else 0.0
 
 
+def _matched_identifier_of(link: SdkAuthorityLink) -> str | None:
+    """Which identifier retrieved it, where one did and the linker says so."""
+
+    return link.matched_identifier
+
+
 def _matched_by_of(link: SdkAuthorityLink) -> str | None:
     """The route as it is stored: a plain string, or nothing at all.
 
@@ -455,6 +461,7 @@ def _apply_candidate(
     row.authority_record_id = authority_record_id
     row.confidence = candidate.link.confidence
     row.matched_by = _matched_by_of(candidate.link)
+    row.matched_identifier = _matched_identifier_of(candidate.link)
     row.candidate_count = candidate_count
     row.detail = None
 
@@ -521,7 +528,13 @@ def candidates_on_record(decision: "LinkDecision", wanted: list["Candidate"]) ->
 
 
 def _candidate_shape(row: AuthorityLink) -> tuple:
-    return (row.authority_base, row.authority_sysno, row.confidence, row.linker)
+    return (
+        row.authority_base,
+        row.authority_sysno,
+        row.confidence,
+        row.linker,
+        row.matched_identifier,
+    )
 
 
 def _wanted_shape(candidate: "Candidate") -> tuple:
@@ -530,6 +543,7 @@ def _wanted_shape(candidate: "Candidate") -> tuple:
         candidate.link.system_number,
         candidate.link.confidence,
         candidate.linker,
+        _matched_identifier_of(candidate.link),
     )
 
 
@@ -905,6 +919,11 @@ def _link_update_would_write_nothing(
     # always had, so without this the row would keep its null forever.
     if current_link.matched_by != _matched_by_of(found_link):
         return False
+    # Same reasoning as the columns below: without this, every link written
+    # before the column existed keeps a null identifier for good, because
+    # nothing else about it will ever change.
+    if current_link.matched_identifier != _matched_identifier_of(found_link):
+        return False
     # Likewise for the natural key, which older rows were backfilled with and
     # which nothing but this writes. Checking it here is what makes a row that
     # somehow lost it heal on the next pass instead of keeping the gap.
@@ -960,6 +979,7 @@ def scenario_found_link_update(
 
     current_link.confidence = found_link.confidence
     current_link.matched_by = _matched_by_of(found_link)
+    current_link.matched_identifier = _matched_identifier_of(found_link)
     current_link.authority_base = found_link.base
     current_link.authority_sysno = found_link.system_number
     current_link.candidate_count = candidate_count
@@ -1030,6 +1050,7 @@ def _upsert_authority_record_and_link(
     link.authority_record_id = authority_record.id
     link.confidence = found_link.confidence
     link.matched_by = _matched_by_of(found_link)
+    link.matched_identifier = _matched_identifier_of(found_link)
     link.candidate_count = candidate_count
     link.detail = None
     link.save(db_session, commit=False)

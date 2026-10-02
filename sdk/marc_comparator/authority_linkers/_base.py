@@ -62,7 +62,8 @@ class AuthorityLink:
     record:
         The MARC authority record that was linked.
     confidence:
-        An optional numeric score (0-1) indicating confidence in the link.
+        An optional match score on the comparator scale, 0 to
+        ``MATCH_SCALE_MAX``, where bigger is a closer match.
     """
 
     base: str
@@ -81,6 +82,19 @@ class AuthorityLink:
     #: what a low score means: weak agreement between records known to be the
     #: same work, or a candidate that was never more than a guess.
     matched_by: MatchRoute | None = None
+
+    #: *Which* identifier found it, where the route was ``Identifier``.
+    #:
+    #: The route only says the two records share one of several kinds, and
+    #: they are not equally good evidence. A shared national bibliography
+    #: number makes a low-scoring pair a finding worth acting on; a shared
+    #: ISSN makes the same score mean two issues of one serial, and a shared
+    #: ISBN can mean two editions bound together. A cataloguer cannot judge a
+    #: low score without it, and neither can a floor.
+    #:
+    #: A plain string, because the kinds a linker can retrieve by are its own
+    #: business — this class does not enumerate somebody else's catalogue.
+    matched_identifier: str | None = None
 
     #: Why this pair cannot be the same work, where anything says so.
     #:

@@ -9,11 +9,10 @@ What is exercised here is the worker's half against real rows, and the API's
 half up to the point where it hands over.
 """
 
-from types import SimpleNamespace
-from typing import Any, cast
 from uuid import uuid4
 
 import pytest
+from marc_comparator.authority_linkers import AuthorityLink as SdkAuthorityLink
 from marc_comparator.authority_linkers import MatchRoute
 
 from adapters.marc_sectors import marc_bytes_of
@@ -54,15 +53,15 @@ def _record(db_session, system_number: str) -> CatalogRecord:
 
 
 def _candidate(system_number: str, confidence: float, linker: str = "marcxml-dump") -> Candidate:
-    link = SimpleNamespace(
+    link = SdkAuthorityLink(
         base=TARGET_BASE,
         system_number=system_number,
         record=load_test_record("MZK01-001217709.mrc"),
         confidence=confidence,
         matched_by=MatchRoute.Identifier,
-        conflicts=[],
+        matched_identifier="isbn",
     )
-    return Candidate(cast(Any, link), linker)
+    return Candidate(link, linker)
 
 
 def _cataloguer(db_session) -> User:

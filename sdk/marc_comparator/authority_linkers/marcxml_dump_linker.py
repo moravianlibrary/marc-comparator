@@ -225,6 +225,16 @@ class _SystemNumberSpec:
 class _Candidate:
     sysno: str
     record: MarcRecord
+    #: The strongest identifier this candidate was found by, where it was
+    #: found by one at all. The route says a candidate shares *an* identifier;
+    #: this says which, and the difference is what tells a low score apart
+    #: from a wrong link. A shared national bibliography number makes a
+    #: low-scoring pair a finding worth acting on; a shared ISSN makes the
+    #: same score mean two issues of one serial, which is not.
+    #:
+    #: Already computed when candidates are ranked — it decided which of them
+    #: survived the cap — and thrown away afterwards until now.
+    matched_identifier: DumpIdentifier | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -232,7 +242,8 @@ class _Retrieval:
     """One record's candidates, and which of the two paths produced them.
 
     Retrieval takes the identifier path or the title path, never both, so the
-    route belongs to the attempt rather than to each candidate.
+    route belongs to the attempt rather than to each candidate. Which
+    *identifier* matched does not: see ``_Candidate.matched_identifier``.
     """
 
     route: MatchRoute | None
@@ -975,6 +986,7 @@ class MarcXmlDumpLinker(BaseAuthorityLinker):
                     _Candidate(
                         row["sysno"],
                         MarcRecord.from_xml(element, CANDIDATE_MARC_CONTEXT),
+                        row.get("matched_identifier"),
                     )
                 )
             except Exception:
@@ -1020,13 +1032,18 @@ class MarcXmlDumpLinker(BaseAuthorityLinker):
         if not sysnos:
             return []
 
+        by_priority = {priority: kind for kind, priority in _IDENTIFIER_PRIORITY.items()}
         marc_by_sysno = dict(
             connection.execute(
                 select(records.c.sysno, records.c.marc).where(records.c.sysno.in_(sysnos))
             ).all()
         )
         return [
-            {"sysno": sysno, "marc": marc_by_sysno[sysno]}
+            {
+                "sysno": sysno,
+                "marc": marc_by_sysno[sysno],
+                "matched_identifier": by_priority.get(best[sysno]),
+            }
             for sysno in sysnos
             if sysno in marc_by_sysno
         ]
@@ -1101,6 +1118,11 @@ class MarcXmlDumpLinker(BaseAuthorityLinker):
                     # runner-up later does not have to recompute it.
                     comparison=comparison,
                     matched_by=retrieval.route,
+                    matched_identifier=(
+                        candidate.matched_identifier.value
+                        if candidate.matched_identifier is not None
+                        else None
+                    ),
                     conflicts=find_identity_conflicts(record, candidate.record),
                 )
             )

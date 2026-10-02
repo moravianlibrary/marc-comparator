@@ -17,6 +17,7 @@ export interface RecordFilter {
    *  comparison is our record against the copy we contributed, so there is
    *  no second opinion in it. */
   link_agencies?: string[];
+  link_identifiers?: string[];
   comparison_bases?: string[];
   match_qualities?: string[];
   field_explanations?: string[];
@@ -58,6 +59,7 @@ export interface LinkAttemptSummary {
   authority_sysno: string | null;
   confidence: number | null;
   matched_by: string | null;
+  matched_identifier: string | null;
   /** How many were weighed in total, on the answer row. Not derivable from
    *  the rows: an unambiguous winner keeps none of its runner-ups. */
   candidate_count: number | null;

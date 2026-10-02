@@ -125,6 +125,17 @@ def _compile_one(query, c: FilterCondition):
                 )
             return query
 
+        case FilterField.LinkIdentifiers:
+            # Across every rank, matching the analytics subquery: "we refused
+            # a pair that shares a national bibliography number" is one of
+            # the things most worth going to look at, and that row is never
+            # an accepted link.
+            for val in c.value:
+                query = query.filter(
+                    CatalogRecord.link_attempts.any(AuthorityLink.matched_identifier == val)
+                )
+            return query
+
         case FilterField.ComparisonBases:
             for val in c.value:
                 query = query.filter(CatalogRecord.comparisons.any(Comparison.base == val))

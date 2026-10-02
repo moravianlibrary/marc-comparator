@@ -8,10 +8,10 @@ was never found, and a thousand failed lookups left the interface looking
 exactly like a thousand records with no match in the union catalogue.
 """
 
-from types import SimpleNamespace
 from typing import Any, cast
 
 import pytest
+from marc_comparator.authority_linkers import AuthorityLink as SdkAuthorityLink
 from marc_comparator.authority_linkers import MatchRoute
 
 from adapters.marc_sectors import marc_bytes_of, read_marc
@@ -88,15 +88,21 @@ def _rows(db_session, main: CatalogRecord) -> list[AuthorityLink]:
 
 def _found_link(
     authority: CatalogRecord, confidence: float = 12.5, conflicts: list[Any] | None = None
-) -> Any:
-    """What a linker hands back, over a record the storage layer can write."""
+) -> SdkAuthorityLink:
+    """What a linker hands back, over a record the storage layer can write.
 
-    return SimpleNamespace(
+    The linker's own class, not a stand-in: the storage layer reads whatever
+    fields the SDK grows, and a hand-rolled double goes on passing until it
+    does not, at the point where the field is already written everywhere else.
+    """
+
+    return SdkAuthorityLink(
         base=authority.base,
         system_number=authority.system_number,
         record=load_test_record("MZK01-001217709.mrc"),
         confidence=confidence,
         matched_by=MatchRoute.Identifier,
+        matched_identifier="isbn",
         conflicts=conflicts or [],
     )
 
@@ -126,14 +132,15 @@ def _bare_candidate(system_number: str, confidence: float = 12.5) -> Candidate:
     having a catalogue row for it.
     """
 
-    link = SimpleNamespace(
+    link = SdkAuthorityLink(
         base=TARGET_BASE,
         system_number=system_number,
         record=load_test_record("MZK01-001217709.mrc"),
         confidence=confidence,
         matched_by=MatchRoute.Identifier,
+        matched_identifier="ccnb",
     )
-    return Candidate(cast(Any, link), _linker_name())
+    return Candidate(link, _linker_name())
 
 
 def _decision(*candidates: Candidate) -> LinkDecision:

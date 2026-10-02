@@ -24,6 +24,7 @@ CREATE TABLE IF NOT EXISTS catalog_records_analytics (
     authority_link_bases    TEXT[],
     link_outcomes           TEXT[],
     link_agencies           TEXT[],
+    link_identifiers        TEXT[],
 
     comparison_bases        TEXT[],
     match_qualities         TEXT[],
@@ -52,6 +53,7 @@ CREATE_INDEXES_SQL = [
     "CREATE INDEX IF NOT EXISTS idx_analytics_review_status ON catalog_records_analytics (review_status) WHERE review_status != 'ReviewNotNeeded'",
     "CREATE INDEX IF NOT EXISTS idx_analytics_auth_linkers ON catalog_records_analytics USING gin (authority_link_linkers)",
     "CREATE INDEX IF NOT EXISTS idx_analytics_link_agencies ON catalog_records_analytics USING gin (link_agencies)",
+    "CREATE INDEX IF NOT EXISTS idx_analytics_link_identifiers ON catalog_records_analytics USING gin (link_identifiers)",
     "CREATE INDEX IF NOT EXISTS idx_analytics_auth_bases ON catalog_records_analytics USING gin (authority_link_bases)",
     "CREATE INDEX IF NOT EXISTS idx_analytics_link_outcomes ON catalog_records_analytics USING gin (link_outcomes)",
     "CREATE INDEX IF NOT EXISTS idx_analytics_comp_bases ON catalog_records_analytics USING gin (comparison_bases)",
@@ -133,6 +135,13 @@ _ANALYTICS_SELECT = """
            AND auth.cataloguing_agency IS NOT NULL
         ) AS link_agencies,
 
+        -- Which identifier retrieved each attempt, where one did. Every rank,
+        -- not only the answer: "we refused a pair that shares a national
+        -- bibliography number" is exactly the thing worth going to look at.
+        (SELECT array_agg(DISTINCT al4.matched_identifier)
+         FROM authority_links al4
+         WHERE al4.main_record_id = cr.id AND al4.matched_identifier IS NOT NULL
+        ) AS link_identifiers,
 
         array_agg(DISTINCT cmp.base)
             FILTER (WHERE cmp.base IS NOT NULL)             AS comparison_bases,
@@ -240,6 +249,7 @@ _ANALYTICS_COLUMNS = """
     id, base, system_number, type_of_record, bibliographic_level,
     is_deleted, is_processed, is_broken,
     authority_link_linkers, authority_link_bases, link_outcomes, link_agencies,
+    link_identifiers,
     comparison_bases, match_qualities, overall_scores, field_explanations,
     validators, validation_statuses, validation_target_tags, validation_reasons,
     reviewed_aspects, review_status,
@@ -258,6 +268,7 @@ ADD_COLUMNS_SQL = [
     "ADD COLUMN IF NOT EXISTS is_broken BOOLEAN NOT NULL DEFAULT FALSE",
     "ALTER TABLE catalog_records_analytics ADD COLUMN IF NOT EXISTS link_outcomes TEXT[]",
     "ALTER TABLE catalog_records_analytics ADD COLUMN IF NOT EXISTS link_agencies TEXT[]",
+    "ALTER TABLE catalog_records_analytics ADD COLUMN IF NOT EXISTS link_identifiers TEXT[]",
 ]
 
 
@@ -297,6 +308,7 @@ def upsert_records(db: Session, record_ids: list[str]) -> None:
             authority_link_bases = EXCLUDED.authority_link_bases,
             link_outcomes = EXCLUDED.link_outcomes,
             link_agencies = EXCLUDED.link_agencies,
+            link_identifiers = EXCLUDED.link_identifiers,
             comparison_bases = EXCLUDED.comparison_bases,
             match_qualities = EXCLUDED.match_qualities,
             overall_scores = EXCLUDED.overall_scores,
@@ -357,6 +369,7 @@ ARRAY_FACETS = [
     "authority_link_bases",
     "link_outcomes",
     "link_agencies",
+    "link_identifiers",
     "comparison_bases",
     "match_qualities",
     "validators",
