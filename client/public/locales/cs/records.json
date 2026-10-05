@@ -165,7 +165,28 @@
     },
     "processing-error": "Záznam nelze načíst",
     "weighed": "posouzeno {{count}}",
-    "candidates": "Další zvažované záznamy"
+    "decisions": {
+      "title": "Rozhodnutí o propojení",
+      "answer": "Odpověď",
+      "alternative": "Alternativa",
+      "matched-by": "podle {{route}}",
+      "not-in-this-pass": "poslední průchod tento záznam nenašel",
+      "decide": "Rozhodnout",
+      "decide-explained": "Rozhodnutí katalogizátora má přednost před strojovým výsledkem a platí i tehdy, když se skóre později změní.",
+      "note-placeholder": "Poznámka (volitelné)…",
+      "same-work": "Totéž dílo",
+      "not-same-work": "Jiné dílo",
+      "verdict": {
+        "SameWork": "Totéž dílo",
+        "NotSameWork": "Jiné dílo"
+      },
+      "needs-review": "Vyžaduje přehodnocení",
+      "needs-review-explained": "Od tohoto rozhodnutí se důkazy posunuly v jeho neprospěch. Rozhodnutí stále platí, jen si zaslouží další pohled.",
+      "withdraw": "Zrušit rozhodnutí",
+      "withdraw-explained": "Zrušením rozhodnutí se o propojení znovu rozhodne podle linkerů.",
+      "claimed": "Rozhodnutí uloženo. Propojení se přepočítá na pozadí.",
+      "withdrawn": "Rozhodnutí zrušeno. Propojení se přepočítá na pozadí."
+    }
   },
   "addition": {
     "title": "Přidání záznamů",
@@ -338,6 +359,11 @@
     "Refused": "Vyloučeno katalogizátorem",
     "NoCandidate": "Nic nenalezeno",
     "LookupFailed": "Vyhledání selhalo"
+  },
+  "match-route": {
+    "identifier": "identifikátoru",
+    "title": "názvu",
+    "dedup": "deduplikace cílového katalogu"
   },
   "match-identifier": {
     "cnb": "ČNB",

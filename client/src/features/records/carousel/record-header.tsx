@@ -7,10 +7,11 @@ import { useHasPermission } from '@/hooks/use-permissions';
 import { cn } from '@/lib/utils';
 import { Permission } from '@/types/permission';
 import { confidenceLabel } from '../authority-links';
-import { allCandidates, candidateLabel, linkGaps, scoreLabel } from '../link-attempts';
+import { linkGaps, scoreLabel } from '../link-attempts';
 import { AdvancedTaskActions, RecordTaskActions } from '../record-task-actions';
 import { LINK_OUTCOME_COLORS, type RecordSummary, STATE_COLORS } from '../types';
 import { COMPARISON_BADGE_CLASS, groupValidations, VALIDATION_BADGE_CLASS } from '../utils';
+import { LinkDecisions } from './link-decisions';
 
 interface RecordHeaderProps {
   record: RecordSummary;
@@ -96,9 +97,15 @@ export function RecordHeader({ record, onSelectView }: RecordHeaderProps) {
               className={cn('text-xs', onSelectView && 'cursor-pointer hover:bg-accent')}
               onClick={onSelectView ? () => onSelectView(viewKey) : undefined}
             >
-              {[t('carousel.authority-linked', { base: al.base }), confidenceLabel(al)]
+              {[
+                t('carousel.authority-linked', { base: al.base }),
+                confidenceLabel(al),
+                al.matched_by
+                  ? t(`match-route.${al.matched_by}`, { defaultValue: al.matched_by })
+                  : null,
+              ]
                 .filter(Boolean)
-                .join(' ')}
+                .join(' · ')}
             </Badge>
           );
         })}
@@ -160,22 +167,7 @@ export function RecordHeader({ record, onSelectView }: RecordHeaderProps) {
         })}
       </div>
 
-      {allCandidates(record).length > 0 && (
-        <div className="space-y-1">
-          <p className="text-xs font-medium text-muted-foreground">{t('carousel.candidates')}</p>
-          <div className="flex flex-wrap gap-1">
-            {allCandidates(record).map(candidate => (
-              <Badge
-                key={`cand-${candidate.base}-${candidate.rank}`}
-                variant="outline"
-                className="text-xs font-normal text-muted-foreground"
-              >
-                {[candidateLabel(candidate), scoreLabel(candidate)].filter(Boolean).join(' · ')}
-              </Badge>
-            ))}
-          </div>
-        </div>
-      )}
+      <LinkDecisions record={record} onSelectView={onSelectView} />
 
       <div className="flex gap-4 text-xs text-muted-foreground">
         {record.latest_sync && (

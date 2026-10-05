@@ -235,6 +235,27 @@
   color: var(--status-danger);
 }
 
+/* A cataloguer's verdict on one pair. Violet for the same reason
+   `.link-outcome-refused` is violet: it marks what a person decided, which is
+   neither a success nor a failure of the pipeline. The two verdicts differ in
+   weight, not in kind, so the one that rules a pair out is only outlined. */
+.claim-same-work {
+  border-color: var(--status-violet);
+  background-color: color-mix(in oklch, var(--status-violet) 10%, transparent);
+  color: var(--status-violet);
+}
+.claim-not-same-work {
+  border-color: var(--status-violet);
+  color: var(--status-violet);
+}
+/* The evidence has moved against a claim. The claim still decides — this only
+   asks for a second look, so it warns rather than alarms. */
+.claim-needs-review {
+  border-color: var(--status-warning);
+  background-color: color-mix(in oklch, var(--status-warning) 10%, transparent);
+  color: var(--status-warning);
+}
+
 html[data-font-size="small"] {
   font-size: 87.5%;
 }

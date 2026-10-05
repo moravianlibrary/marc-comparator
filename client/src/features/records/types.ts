@@ -43,6 +43,10 @@ export interface AuthorityLinkSummary {
   authority_record_id: string;
   /** How sure the linker was; null for linkers that report nothing. */
   confidence: number | null;
+  /** What found the record. Read beside `confidence` it says what a low
+   *  score means: two records known to be the same work described
+   *  differently, or a candidate that was never more than a guess. */
+  matched_by: string | null;
 }
 
 /** What came of trying to link a record to one base. */
@@ -77,16 +81,32 @@ export interface LinkAttemptSummary {
   detail: string | null;
 }
 
+/** What a cataloguer said about one pair of records. */
+export type ClaimVerdict = 'SameWork' | 'NotSameWork';
+
 export interface RecordClaimSummary {
   /** With the two below, the key that joins a claim to a link attempt. */
   base: string;
   authority_base: string;
   authority_sysno: string;
-  verdict: 'SameWork' | 'NotSameWork';
+  verdict: ClaimVerdict;
   note: string | null;
   claimed_at: string;
   /** The evidence has moved against this claim; the claim still decides. */
   needs_review: boolean;
+}
+
+/** A verdict on its way to the server. */
+export interface LinkClaimRequest {
+  /** The target base the claim is about, matching `LinkAttemptSummary.base`. */
+  base: string;
+  /** The claimed record's natural key. Not a catalogue id: a candidate
+   *  nobody accepted has no catalogue row, and ruling the machine's answer
+   *  out in favour of one of those is the point. */
+  authority_base: string;
+  authority_sysno: string;
+  verdict: ClaimVerdict;
+  note?: string;
 }
 
 export interface ComparisonSummary {

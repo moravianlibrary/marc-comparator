@@ -1,8 +1,10 @@
 import type { ColumnDef } from '@tanstack/react-table';
+import { UserCheck } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import { confidenceLabel } from '../authority-links';
 import { linkGaps } from '../link-attempts';
+import { hasClaimFor } from '../link-decisions';
 import { LINK_OUTCOME_COLORS, type RecordSummary, STATE_COLORS } from '../types';
 import { COMPARISON_BADGE_CLASS, groupValidations, VALIDATION_BADGE_CLASS } from '../utils';
 import { formatScoreShort } from '../score';
@@ -109,6 +111,9 @@ export function createColumns(
                       : undefined
                   }
                 >
+                  {hasClaimFor(row.original, al.base) && (
+                    <UserCheck className="mr-1 h-3 w-3 text-[var(--status-violet)]" />
+                  )}
                   {[al.base, confidenceLabel(al)].filter(Boolean).join(' ')}
                 </Badge>
               );
