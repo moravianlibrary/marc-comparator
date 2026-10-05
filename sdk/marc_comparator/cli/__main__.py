@@ -93,11 +93,11 @@ def init_validator(validator: Validator, config_path: Path | None):
 
     if not config_path.exists():
         typer.echo(f"Config file does not exist: {config_path}", err=True)
-        exit(1)
+        raise typer.Exit(1)
 
     if not config_path.is_file():
         typer.echo(f"Not a file: {config_path}", err=True)
-        exit(1)
+        raise typer.Exit(1)
 
     with config_path.open("r", encoding="utf-8") as f:
         config_data = f.read()
@@ -107,6 +107,10 @@ def init_validator(validator: Validator, config_path: Path | None):
         config_data = json.dumps(data[str(validator)])
 
     validator_cls = VALIDATOR_DISPATCHER[validator]
+    if validator_cls.config_model is None:
+        typer.echo(f"{validator} takes no configuration", err=True)
+        raise typer.Exit(1)
+
     return validator_cls(validator_cls.config_model.model_validate_json(config_data))
 
 
@@ -185,11 +189,11 @@ def link(
     if linker_cls.config_model is not None and linker_config is not None:
         if not linker_config.exists():
             typer.echo(f"Config file does not exist: {linker_config}", err=True)
-            typer.exit(1)
+            raise typer.Exit(1)
 
         if not linker_config.is_file():
             typer.echo(f"Not a file: {linker_config}", err=True)
-            typer.exit(1)
+            raise typer.Exit(1)
 
         with linker_config.open("r", encoding="utf-8") as f:
             config_data = f.read()
@@ -204,15 +208,26 @@ def link(
     with mrc_file_path.open("rb") as f:
         record = MarcRecord.from_mrc(f.read())
 
-    link = asyncio.run(linker_inst.run(base, system_number, record, target_base))
+    proposal = asyncio.run(linker_inst.run(base, system_number, record, target_base))
 
-    if link is not None:
+    if proposal.link is not None:
         typer.echo("Authority link found:")
-        typer.echo(f"  Base: {link.base}")
-        typer.echo(f"  System Number: {link.system_number}")
-        typer.echo(f"  Confidence: {link.confidence}")
+        typer.echo(f"  Base: {proposal.link.base}")
+        typer.echo(f"  System Number: {proposal.link.system_number}")
+        typer.echo(f"  Confidence: {proposal.link.confidence}")
+        typer.echo(f"  Matched by: {proposal.link.matched_by or 'unknown'}")
         typer.echo("  Linked Record:")
-        _print_marc_record(link.record)
+        _print_marc_record(proposal.link.record)
+    elif proposal.candidates:
+        # The third case the proposal can describe: something was retrieved and
+        # none of it cleared the floor. Printing "no link found" for this said
+        # the lookup came back empty, which is the one thing it did not do.
+        typer.echo(f"No authority link accepted, out of {proposal.candidate_count} candidate(s):")
+        for candidate in proposal.candidates:
+            typer.echo(
+                f"  {candidate.base}-{candidate.system_number} "
+                f"confidence {candidate.confidence} via {candidate.matched_by or 'unknown'}"
+            )
     else:
         typer.echo("No authority link found.")
 
@@ -232,14 +247,18 @@ def compare(
 
     if not config.exists():
         typer.echo(f"Config file does not exist: {config}", err=True)
-        typer.exit(1)
+        raise typer.Exit(1)
 
     if not config.is_file():
         typer.echo(f"Not a file: {config}", err=True)
-        typer.exit(1)
+        raise typer.Exit(1)
 
     with config.open("r", encoding="utf-8") as f:
         config_data = f.read()
+
+    if comparator_cls.config_model is None:
+        typer.echo(f"{comparator} takes no configuration", err=True)
+        raise typer.Exit(1)
 
     comparator_inst = comparator_cls(comparator_cls.config_model.model_validate_json(config_data))
 
