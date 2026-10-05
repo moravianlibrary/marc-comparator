@@ -14,7 +14,7 @@ from collections.abc import Sequence
 from typing import Any
 
 import httpx
-from lxml import etree
+import lxml.etree as etree
 from marcdantic import MarcRecord
 from pydantic import BaseModel, Field
 
@@ -198,7 +198,13 @@ class KnihovnyCZLinker(BaseAuthorityLinker[KnihovnyCZLinkerConfig]):
             async with limit:
                 response = await self.client.get(
                     f"{self.config.api_url}/record",
-                    params=[("id[]", id) for id in chunk] + [("field[]", field), ("field[]", "id")],
+                    # A tuple of pairs, not a list: httpx accepts either for a
+                    # repeated query key, but `list` is invariant, so a
+                    # list[tuple[str, str]] is not a
+                    # list[tuple[str, PrimitiveData]] while the tuple form is.
+                    params=tuple(
+                        [("id[]", id) for id in chunk] + [("field[]", field), ("field[]", "id")]
+                    ),
                 )
             if _is_record_not_found(response):
                 return []

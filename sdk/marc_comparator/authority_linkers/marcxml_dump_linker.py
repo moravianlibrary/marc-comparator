@@ -40,7 +40,7 @@ from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 
 import httpx
-from lxml import etree
+import lxml.etree as etree
 from marcdantic import MarcRecord
 from marcdantic.selectors import IsbnActiveJq, IssnActiveJq, NbnActiveJq, TitleJq
 from pydantic import BaseModel, Field
@@ -885,10 +885,16 @@ class MarcXmlDumpLinker(BaseAuthorityLinker[MarcXmlDumpLinkerConfig]):
             needed = sorted({sysno for sysnos in chosen.values() for sysno in sysnos})
             marc_by_sysno: dict[str, bytes] = {}
             if needed:
+                # `.tuples().all()`, not `.all()`: a Row is a 2-tuple at
+                # runtime but not one the type checker will hand to `dict`.
+                # `.tuples()` alone returns the result object, which carries a
+                # `keys()` — so `dict` reads it as a mapping and subscripts it.
                 marc_by_sysno = dict(
                     connection.execute(
                         select(records.c.sysno, records.c.marc).where(records.c.sysno.in_(needed))
-                    ).all()
+                    )
+                    .tuples()
+                    .all()
                 )
 
         for key in wanted:
@@ -1036,7 +1042,9 @@ class MarcXmlDumpLinker(BaseAuthorityLinker[MarcXmlDumpLinkerConfig]):
         marc_by_sysno = dict(
             connection.execute(
                 select(records.c.sysno, records.c.marc).where(records.c.sysno.in_(sysnos))
-            ).all()
+            )
+            .tuples()
+            .all()
         )
         return [
             {

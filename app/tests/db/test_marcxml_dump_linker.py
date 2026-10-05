@@ -5,8 +5,8 @@ import gzip
 from typing import cast
 
 import httpx
+import lxml.etree as etree
 import pytest
-from lxml import etree  # pyright: ignore[reportAttributeAccessIssue]  # lxml ships no stubs
 from marc_comparator.authority_linkers import LinkRequest, MatchRoute
 from marc_comparator.authority_linkers.marcxml_dump_linker import (
     IDENTIFIERS_TABLE,

@@ -10,8 +10,8 @@ There is one scale now, 0 to 15 and bigger is better, and all three levels of
 it come out of the same division.
 """
 
+import lxml.etree as etree
 import pytest
-from lxml import etree  # pyright: ignore[reportAttributeAccessIssue]  # lxml ships no stubs
 from marc_comparator.comparators import (
     EXCELLENT_MATCH,
     MATCH_SCALE,

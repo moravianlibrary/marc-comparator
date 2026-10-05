@@ -7,7 +7,7 @@ import re
 from collections.abc import Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, Protocol, cast
 
 from marc_comparator.authority_linkers import AUTHORITY_LINKER_DISPATCHER
 from marc_comparator.harvest import (
@@ -131,17 +131,30 @@ def find_plugin(name: str) -> HarvestablePlugin | None:
     return next((plugin for plugin in harvestable_plugins() if plugin.name == name), None)
 
 
+class _ConfiguredPlugin(Protocol):
+    """A plugin class that takes its own configuration model.
+
+    `HarvestCapable` is a mixin and declares no constructor, so the registry
+    cannot say through `type[HarvestCapable]` that a plugin holding a
+    `config_model` is built from one. Naming the shape here keeps the call
+    checked — a wrong argument is still an error — where muting the rule on
+    the line stopped checking it at all.
+    """
+
+    def __call__(self, config: SettingsSchema | Any, /) -> HarvestCapable: ...
+
+
 def instantiate(plugin: HarvestablePlugin, db_session: Session) -> HarvestCapable:
     """Build a plugin with the same stored configuration used by task paths."""
 
     config_model = getattr(plugin.cls, "config_model", None)
     if config_model is None:
-        return plugin.cls()  # pyright: ignore[reportCallIssue]
+        return plugin.cls()
 
     settings = Settings.get(db_session, plugin.scope, plugin.settings_model)
     stored = getattr(settings, plugin.name.replace("-", "_"), None) if settings else None
     config = stored if stored is not None else config_model()
-    return plugin.cls(config)  # pyright: ignore[reportCallIssue]
+    return cast(_ConfiguredPlugin, plugin.cls)(config)
 
 
 def source_identity_of(instance: HarvestCapable) -> str:

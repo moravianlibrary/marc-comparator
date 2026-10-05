@@ -7,8 +7,8 @@ refusing it only shrinks the candidate pool and costs recall on our own
 records, silently and at WARNING level.
 """
 
+import lxml.etree as etree
 import pytest
-from lxml import etree  # pyright: ignore[reportAttributeAccessIssue]  # lxml ships no stubs
 from marc_comparator.authority_linkers._base import CANDIDATE_MARC_CONTEXT
 from marcdantic import MarcRecord
 from marcdantic.context import MarcContext

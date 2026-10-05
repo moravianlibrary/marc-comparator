@@ -318,7 +318,9 @@ def get_field_and_subfield_indexes(
 
     # Track used subfield indices per field
     used_subfields: dict[int, dict[str, set[int]]] = {i: {} for i in range(len(variable_fields))}
-    results: list[tuple[int | None, int | None]] = []
+    # Carries the tag it was found under, which may be the alias rather than
+    # the tag asked for; the annotation was left behind when that was added.
+    results: list[tuple[str, int | None, int | None]] = []
 
     for code, expected_value in subfields:
         found = False

@@ -183,8 +183,10 @@ def _compare_heading_tag(
     main_rec: dict[str, Any],
     test_rec: dict[str, Any],
     role_for,
-    label_extra="ADDITION",
-    label_missing="MISSING",
+    #: None suppresses the label entirely, which is how the heading tags ask
+    #: for a difference to be recorded without being called an addition.
+    label_extra: str | None = "ADDITION",
+    label_missing: str | None = "MISSING",
 ) -> list[dict[str, Any]]:
     diffs: list[dict[str, Any]] = []
     A = _gather_occurrences(main_rec, tag)

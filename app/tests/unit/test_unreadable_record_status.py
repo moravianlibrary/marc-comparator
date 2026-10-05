@@ -12,8 +12,8 @@ next, so both halves are covered here.
 
 from typing import Any, cast
 
+import lxml.etree as etree
 import pytest
-from lxml import etree  # pyright: ignore[reportAttributeAccessIssue]  # lxml ships no stubs
 from marcdantic import MarcRecord
 from pydantic import BaseModel, Field, ValidationError
 

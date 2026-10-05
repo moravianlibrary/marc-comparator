@@ -67,7 +67,14 @@ pythonVersion = "3.12"
 # ../sdk is needed because setuptools' editable-install finder is an import hook
 # that static analysis cannot follow — point at the SDK source instead.
 extraPaths = [".", "../sdk"]
-exclude = [".venv", "**/__pycache__"]
+# The SDK is checked, not merely resolved. `extraPaths` only tells the resolver
+# where to find an import; nothing reached that way is ever reported on, so the
+# whole SDK sat outside the gate while ruff linted it — and the editor, whose
+# workspace is the repo root, saw errors `make typecheck` could not.
+include = [".", "../sdk/marc_comparator"]
+# `**/` so this reaches ../sdk/.venv as well; spelled `.venv` it is relative to
+# this file and leaves the SDK's own virtualenv to be type-checked as source.
+exclude = ["**/.venv", "**/__pycache__"]
 
 [tool.ruff]
 target-version = "py312"

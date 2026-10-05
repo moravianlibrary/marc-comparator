@@ -5,8 +5,8 @@ import re
 from typing import cast
 
 import httpx
+import lxml.etree as etree
 import pytest
-from lxml import etree  # pyright: ignore[reportAttributeAccessIssue]  # lxml ships no stubs
 from marc_comparator.authority_linkers import MatchRoute
 from marc_comparator.authority_linkers.marcxml_dump_linker import (
     DumpIdentifier,
@@ -97,7 +97,7 @@ def linker_with_candidates(
     candidates = [
         _Candidate(f"00000000{index}", marc_record(), identifier) for index in range(len(scores))
     ]
-    retrieval = _Retrieval(route, candidates)  # pyright: ignore[reportArgumentType]
+    retrieval = _Retrieval(route, candidates)
     monkeypatch.setattr(MarcXmlDumpLinker, "_candidates", lambda self, record, key=None: retrieval)
     return linker, comparator
 

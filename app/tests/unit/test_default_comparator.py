@@ -1,7 +1,7 @@
 """Which tags the comparator reads positionally, and what it does with the rest."""
 
+import lxml.etree as etree
 import pytest
-from lxml import etree  # pyright: ignore[reportAttributeAccessIssue]  # lxml ships no stubs
 from marc_comparator.comparators import default as default_comparator
 from marc_comparator.comparators.default import (
     DefaultComparator,

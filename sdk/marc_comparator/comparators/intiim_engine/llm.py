@@ -12,7 +12,9 @@ import requests
 logger = logging.getLogger(__name__)
 
 try:
-    from llama_cpp import Llama
+    # An optional extra: absent by design unless the llama_cpp backend is
+    # wanted, which is what the except below is for.
+    from llama_cpp import Llama  # pyright: ignore[reportMissingImports]
 
     _LLAMA_CPP_IMPORT_ERROR = None
 except ImportError as exc:
@@ -84,9 +86,14 @@ def _normalize_backend(value: str | None) -> BackendLiteral:
     if not candidate:
         candidate = "ollama"
     candidate = aliases.get(candidate, candidate)
-    if candidate not in {"ollama", "llama_cpp"}:
-        raise ValueError("Unsupported LLM backend. Use 'ollama' or 'llama_cpp'.")
-    return candidate
+    # Returned one branch per name rather than returning the variable: this
+    # function promises a BackendLiteral, and a membership test does not make
+    # a str into one.
+    if candidate == "ollama":
+        return "ollama"
+    if candidate == "llama_cpp":
+        return "llama_cpp"
+    raise ValueError("Unsupported LLM backend. Use 'ollama' or 'llama_cpp'.")
 
 
 def _has_llama() -> bool:
@@ -96,7 +103,14 @@ def _has_llama() -> bool:
 LLM_BACKEND_DEFAULT = _normalize_backend(None)
 
 
-def _ensure_llama_available() -> None:
+def _ensure_llama_available():
+    """Return the Llama class, or say why the backend cannot be used.
+
+    It returns the class rather than only checking for it: the optional
+    import leaves ``Llama`` as None, and nothing reading the caller can see
+    through this function to know that was ruled out.
+    """
+
     if Llama is None:
         raise RuntimeError(
             "llama_cpp backend requested but llama-cpp-python is not installed. "
@@ -107,6 +121,8 @@ def _ensure_llama_available() -> None:
             "llama_cpp backend requested but no model path is configured. "
             "Set LLM_LLAMA_MODEL (or LLM_LLAMA_MODEL_PATH / LLAMA_CPP_MODEL) to your .gguf file."
         )
+
+    return Llama
 
 
 def _resolve_backend(value: BackendLiteral | None) -> str:
@@ -126,7 +142,7 @@ def _load_llama_model():
     with _LLAMA_LOCK:
         if _LLAMA_MODEL is not None:
             return _LLAMA_MODEL
-        _ensure_llama_available()
+        llama_cls = _ensure_llama_available()
 
         model_path = LLM_LLAMA_MODEL
         if not os.path.exists(model_path):
@@ -149,7 +165,7 @@ def _load_llama_model():
         if LLM_LLAMA_ROPE_SCALE != 1.0:
             kwargs["rope_freq_scale"] = LLM_LLAMA_ROPE_SCALE
 
-        llama = Llama(**kwargs)
+        llama = llama_cls(**kwargs)
         _LLAMA_MODEL = llama
         return _LLAMA_MODEL
 

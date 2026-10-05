@@ -3,8 +3,8 @@
 from typing import cast
 
 import httpx
+import lxml.etree as etree
 import pytest
-from lxml import etree  # pyright: ignore[reportAttributeAccessIssue]  # lxml ships no stubs
 from marc_comparator.authority_linkers import LinkRequest
 from marc_comparator.authority_linkers.knihovny_cz_linker import (
     KnihovnyCZLinker,

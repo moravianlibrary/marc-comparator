@@ -74,7 +74,16 @@ def apply_llm_verification(
     for d in differences:
         lbl = d.get("label")
         tag = str(d.get("tag", ""))
-        if lbl == "IDENTICAL" or not _should_verify(tag) or _presence_only(d):
+        # Named positively, against the same set `CATEGORY` declares, rather
+        # than excluding IDENTICAL alone: the verifier has a prompt for these
+        # four and `verify_label` accepts nothing else. MISSING and ADDITION
+        # never reached it anyway — `_presence_only` catches a difference with
+        # one side absent, which is exactly what those two labels are — but
+        # that was true by coincidence of another rule rather than by saying so.
+        if lbl not in ("TYPO", "INCOMPLETE", "NON_STANDARDIZED", "INCORRECT"):
+            out.append(d)
+            continue
+        if not _should_verify(tag) or _presence_only(d):
             out.append(d)
             continue
 
