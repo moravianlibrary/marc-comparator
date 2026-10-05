@@ -790,12 +790,26 @@ class KrameriusLinksValidator(BaseValidator):
 
             doc = docs[0]
 
-            if doc.level != 0:
+            # Solr declares all three of these optional and leaves them out of
+            # a document it holds incompletely. Reading them as given put a
+            # None where this validator promises an int: `doc.level != 0` is
+            # true for a missing level, so the document was filed as "below the
+            # top" with `level=None`, and the reader downstream asks
+            # `link.level > 0` — which raises rather than compares. The
+            # harvested path has always read a missing level as 0 (see where
+            # `_store_documents` builds its rows); this reads it the same way.
+            if doc.model_path is None or doc.own_pid_path is None:
+                logger.debug("PID %s came back without its hierarchy; skipping", pid)
+                continue
+
+            level = doc.level or 0
+
+            if level != 0:
                 links[pid] = FoundKrameriusLink(
                     pid,
                     model=Model(doc.model_path.split("/")[-1]),
-                    level=doc.level,
-                    top_level_pid=doc.own_pid_path.split("/")[0] if doc.own_pid_path else None,
+                    level=level,
+                    top_level_pid=doc.own_pid_path.split("/")[0],
                 )
                 continue
 

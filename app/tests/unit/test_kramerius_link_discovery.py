@@ -43,13 +43,21 @@ def make_record(*, isbn: str | None = ISBN, nbn: str | None = NBN) -> MarcRecord
     )
 
 
-def doc(pid: str, *, isbn=None, nbn=None, model_path="monograph", own_pid_path=None):
+def doc(
+    pid: str,
+    *,
+    isbn=None,
+    nbn=None,
+    model_path: str | None = "monograph",
+    own_pid_path: str | None = None,
+    level: int | None = 0,
+):
     return KrameriusDocument.model_validate(
         {
             "pid": pid,
-            "own_pid_path": own_pid_path or pid,
+            "own_pid_path": own_pid_path if own_pid_path is not None else pid,
             "own_model_path": model_path,
-            "level": 0,
+            "level": level,
             "id_isbn": isbn,
             "id_ccnb": nbn,
         }
@@ -163,6 +171,53 @@ async def test_root_model_comes_from_the_root_not_the_leaf():
     assert links[0].pid == root
     assert links[0].model == Model.Monograph
     assert links[0].has_wrong_model is False
+
+
+class TestADocumentSolrHoldsIncompletely:
+    """Solr declares level, own_model_path and own_pid_path all optional.
+
+    They were read as given. A document missing its level is not equal to 0,
+    so it was filed as "below the top" carrying `level=None` — and the reader
+    that decides whether to report it asks `link.level > 0`, which raises on
+    None rather than comparing. A document missing a path crashed on `.split`
+    one line earlier. The harvested path has always read a missing level as 0;
+    this now agrees with it.
+    """
+
+    @pytest.mark.asyncio
+    async def test_a_missing_level_is_read_as_the_top_not_as_nothing(self):
+        pid = "uuid:no-level"
+        links, _ = await make_validator([doc(pid, level=None)]).find_kramerius_links(
+            make_record(isbn=None, nbn=None), [pid]
+        )
+
+        assert [(link.pid, link.level) for link in links] == [(pid, 0)]
+
+    @pytest.mark.asyncio
+    async def test_a_level_solr_did_give_is_still_honoured(self):
+        pid = "uuid:page-7"
+        root = "uuid:parent-monograph"
+        links, _ = await make_validator(
+            [
+                doc(
+                    pid,
+                    level=2,
+                    own_pid_path=f"{root}/{pid}",
+                    model_path="monograph/page",
+                )
+            ]
+        ).find_kramerius_links(make_record(isbn=None, nbn=None), [pid])
+
+        assert [(link.pid, link.level, link.top_level_pid) for link in links] == [(pid, 2, root)]
+
+    @pytest.mark.asyncio
+    async def test_a_document_with_no_hierarchy_is_skipped_rather_than_raising(self):
+        pid = "uuid:no-paths"
+        links, _ = await make_validator(
+            [doc(pid, model_path=None, own_pid_path=None)]
+        ).find_kramerius_links(make_record(isbn=None, nbn=None), [pid])
+
+        assert links == []
 
 
 # ── the review result as the curator sees it ──────────────────────────────────
