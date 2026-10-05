@@ -74,7 +74,7 @@ class LinkActionResult(StrEnum):
 @dataclass
 class AuthorityLinkerInstance:
     linker: AuthorityLinker
-    instance: BaseAuthorityLinker
+    instance: BaseAuthorityLinker[Any]
 
 
 class AuthorityLinkingFailed(RuntimeError):

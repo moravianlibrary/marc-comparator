@@ -1,4 +1,5 @@
 from enum import StrEnum
+from typing import Any
 
 from ._base import (
     AuthorityLink,
@@ -17,7 +18,9 @@ class AuthorityLinker(StrEnum):
     MarcXmlDump = "marcxml-dump"
 
 
-AUTHORITY_LINKER_DISPATCHER: dict[AuthorityLinker, type[BaseAuthorityLinker]] = {
+#: Any config: the dispatcher holds every linker regardless of what each
+#: one is configured with, which is what `Any` says here.
+AUTHORITY_LINKER_DISPATCHER: dict[AuthorityLinker, type[BaseAuthorityLinker[Any]]] = {
     AuthorityLinker.KnihovnyCz: KnihovnyCZLinker,
     AuthorityLinker.MarcXmlDump: MarcXmlDumpLinker,
 }

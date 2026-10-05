@@ -1,7 +1,7 @@
 """A linker that fails must not be reported as a linker that found nothing."""
 
 import logging
-from typing import cast
+from typing import Any, cast
 
 import pytest
 from marc_comparator.authority_linkers import (
@@ -44,7 +44,7 @@ def catalog_record() -> CatalogRecord:
 
 def instance(linker: AuthorityLinker, run) -> AuthorityLinkerInstance:
     stub = type("StubLinker", (), {"run": run})()
-    return AuthorityLinkerInstance(linker, cast(BaseAuthorityLinker, stub))
+    return AuthorityLinkerInstance(linker, cast(BaseAuthorityLinker[Any], stub))
 
 
 async def raises(*args, **kwargs):

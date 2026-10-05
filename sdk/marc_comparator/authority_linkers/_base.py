@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from dataclasses import dataclass, field
 from enum import StrEnum
+from typing import ClassVar
 
 from marcdantic import MarcRecord
 from marcdantic.context import MarcContext
@@ -159,17 +160,29 @@ class LinkRequest:
     target_base: str
 
 
-class BaseAuthorityLinker(HarvestCapable, ABC):
+class BaseAuthorityLinker[ConfigT: BaseModel](HarvestCapable, ABC):
     """
     Abstract base class for MARC authority linkers.
 
     Subclasses implement logic to link catalog records to authority records
     based on metadata, identifiers, or heuristics.
+
+    Generic in the configuration it takes, so a linker can say what its own
+    config is without widening the base's promise. Written out as
+    ``BaseAuthorityLinker[MarcXmlDumpLinkerConfig]``; a linker that needs no
+    configuration parameterises on ``BaseModel``. Before this the base said
+    ``BaseModel`` everywhere and every subclass narrowed it, which is
+    unsound — a caller holding the base type could pass any model — and so
+    each one had to suppress the override.
     """
 
-    config_model: type[BaseModel] | None = None
+    #: The model this linker is configured with, read off the class by the
+    #: host before any instance exists. A ClassVar, so it cannot carry
+    #: ``ConfigT`` — the tie between the two is the subclass writing both:
+    #: ``class X(BaseAuthorityLinker[XConfig])`` with ``config_model = XConfig``.
+    config_model: ClassVar[type[BaseModel] | None] = None
 
-    def __init__(self, config: BaseModel | None = None) -> None:
+    def __init__(self, config: ConfigT | None = None) -> None:
         #: Linkers declaring a ``config_model`` are constructed with an
         #: instance of it; the rest take no config at all.
         self.config = config
@@ -212,7 +225,7 @@ class BaseAuthorityLinker(HarvestCapable, ABC):
 
     @classmethod
     @abstractmethod
-    async def get_target_bases(cls, config: BaseModel) -> list[str]:
+    async def get_target_bases(cls, config: ConfigT) -> list[str]:
         """
         Returns a list of authority bases that this linker can target.
 

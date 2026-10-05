@@ -6,6 +6,7 @@ from marc_comparator.authority_linkers import (
     BaseAuthorityLinker,
     LinkProposal,
 )
+from pydantic import BaseModel
 from pytest_mock import MockerFixture
 
 from adapters.database import DatabaseSession
@@ -141,7 +142,7 @@ def authority_link(db_session: DatabaseSession) -> AuthorityLinkEntity:
 
 @pytest.fixture(scope="function")
 def mock_linker_with_link(mocker: MockerFixture) -> None:
-    class MockLinker(BaseAuthorityLinker):
+    class MockLinker(BaseAuthorityLinker[BaseModel]):
         @classmethod
         async def get_target_bases(cls, config):
             return ["SKC"]
@@ -158,7 +159,7 @@ def mock_linker_with_link(mocker: MockerFixture) -> None:
 
 @pytest.fixture(scope="function")
 def mock_linker_with_no_link(mocker: MockerFixture) -> None:
-    class MockLinker(BaseAuthorityLinker):
+    class MockLinker(BaseAuthorityLinker[BaseModel]):
         @classmethod
         async def get_target_bases(cls, config):
             return ["SKC"]

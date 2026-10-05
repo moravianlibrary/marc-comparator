@@ -1,7 +1,7 @@
 """Linking stops at the first confident linker and falls back to the best score."""
 
 import logging
-from typing import cast
+from typing import Any, cast
 
 import pytest
 from marc_comparator.authority_linkers import (
@@ -68,7 +68,7 @@ class SilentLinker:
 
 
 def instance(linker: AuthorityLinker, stub: object) -> AuthorityLinkerInstance:
-    return AuthorityLinkerInstance(linker, cast(BaseAuthorityLinker, stub))
+    return AuthorityLinkerInstance(linker, cast(BaseAuthorityLinker[Any], stub))
 
 
 async def link_with(*stubs: object, confident_threshold: float = 0.9):

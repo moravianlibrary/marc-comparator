@@ -517,7 +517,7 @@ def _record_identifiers(record: MarcRecord) -> dict[DumpIdentifier, set[str]]:
     return found
 
 
-class MarcXmlDumpLinker(BaseAuthorityLinker):
+class MarcXmlDumpLinker(BaseAuthorityLinker[MarcXmlDumpLinkerConfig]):
     """Link catalog records to the union catalogue from a harvested copy."""
 
     config_model = MarcXmlDumpLinkerConfig

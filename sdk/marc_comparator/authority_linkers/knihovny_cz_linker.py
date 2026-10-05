@@ -113,7 +113,7 @@ class KnihovnyCZLinkerConfig(BaseModel):
     ]
 
 
-class KnihovnyCZLinker(BaseAuthorityLinker):
+class KnihovnyCZLinker(BaseAuthorityLinker[KnihovnyCZLinkerConfig]):
     """
     Authority linker for the Knihovny.cz authority base.
     """
