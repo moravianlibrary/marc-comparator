@@ -217,6 +217,13 @@
   background-color: color-mix(in oklch, var(--status-danger) 10%, transparent);
   color: var(--status-danger);
 }
+/* A person ruled the candidates out. Not a failure, so not a danger colour:
+   violet marks the outcomes a cataloguer decided rather than the pipeline. */
+.link-outcome-refused {
+  border-color: var(--status-violet);
+  background-color: color-mix(in oklch, var(--status-violet) 10%, transparent);
+  color: var(--status-violet);
+}
 .link-outcome-no-candidate {
   border-color: var(--status-slate);
   background-color: color-mix(in oklch, var(--status-slate) 10%, transparent);

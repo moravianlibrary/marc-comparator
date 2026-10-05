@@ -326,6 +326,7 @@
     "Rejected": "Zamítnuto",
     "BelowFloor": "{{base}}: nález pod prahem",
     "Conflicting": "{{base}}: nález v rozporu",
+    "Refused": "{{base}}: vyloučeno katalogizátorem",
     "NoCandidate": "{{base}}: nic nenalezeno",
     "LookupFailed": "{{base}}: vyhledání selhalo"
   },
@@ -334,6 +335,7 @@
     "Rejected": "Zamítnuto",
     "BelowFloor": "Pod prahem",
     "Conflicting": "V rozporu",
+    "Refused": "Vyloučeno katalogizátorem",
     "NoCandidate": "Nic nenalezeno",
     "LookupFailed": "Vyhledání selhalo"
   },

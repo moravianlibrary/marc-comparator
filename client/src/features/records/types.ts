@@ -51,6 +51,8 @@ export type LinkOutcome =
   | 'Rejected'
   | 'BelowFloor'
   | 'Conflicting'
+  /** A cataloguer ruled every candidate out. Not a failure to find one. */
+  | 'Refused'
   | 'NoCandidate'
   | 'LookupFailed';
 
@@ -288,6 +290,7 @@ export const STATE_COLORS: Record<string, string> = {
 export const LINK_OUTCOME_COLORS: Record<string, string> = {
   BelowFloor: 'link-outcome-below-floor',
   Conflicting: 'link-outcome-conflicting',
+  Refused: 'link-outcome-refused',
   NoCandidate: 'link-outcome-no-candidate',
   LookupFailed: 'link-outcome-lookup-failed',
 };
