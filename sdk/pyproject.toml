@@ -15,14 +15,14 @@ requires-python = ">=3.12"
 dependencies = [
     "aleph-nought @ git+https://github.com/moravianlibrary/aleph-nought.git@v0.2.15",
     "httpx",
-    "kramerius @ git+https://github.com/moravianlibrary/kramerius-client.git@v0.3.3",
+    "kramerius @ git+https://github.com/moravianlibrary/kramerius-client.git@v0.3.5",
     "lxml",
     "marcdantic @ git+https://github.com/moravianlibrary/marcdantic.git@v0.3.14",
     "pydantic",
     "pymarc>=5",
     "python-stdnum",
     "rapidfuzz",
-    "solrify @ git+https://github.com/moravianlibrary/solrify.git@v0.1.1",
+    "solrify @ git+https://github.com/moravianlibrary/solrify.git@v0.1.3",
     "typer",
 ]
 dynamic = ["description", "readme"]

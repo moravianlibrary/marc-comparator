@@ -83,7 +83,7 @@ jq==1.10.0
     # via marcdantic
 kombu==5.6.2
     # via celery
-kramerius @ git+https://github.com/moravianlibrary/kramerius-client.git@82a7cc0b5e2e62bca999a998bcdf8806a1bc7407
+kramerius @ git+https://github.com/moravianlibrary/kramerius-client.git@1e7e2b3ffe4e2a870011d122103312d26a35a944
     # via marc-comparator-sdk
 lxml==6.0.0
     # via
@@ -167,7 +167,7 @@ shellingham==1.5.4
     # via typer
 six==1.17.0
     # via python-dateutil
-solrify @ git+https://github.com/moravianlibrary/solrify.git@0665d8e4bd08aa23cd10a5fa90a2104de5d3bc6d
+solrify @ git+https://github.com/moravianlibrary/solrify.git@6bfa04ad724b459eddd0cea58cf1b2719f4ada3b
     # via
     #   kramerius
     #   marc-comparator-sdk

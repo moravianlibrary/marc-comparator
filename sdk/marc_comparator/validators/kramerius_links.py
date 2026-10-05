@@ -14,7 +14,7 @@ from kramerius.schemas import KrameriusDocument
 from marcdantic import MarcRecord
 from marcdantic.fields import VariableField
 from marcdantic.selectors import IsbnActiveJq, IssnActiveJq, NbnActiveJq
-from pydantic import BaseModel
+from pydantic import BaseModel, HttpUrl
 from solrify import F, G
 
 from ..harvest import HarvestContext, HarvestResult, HarvestStorageUnavailable
@@ -160,12 +160,7 @@ def _harvest_query(watermark: str | None, upper: str) -> str:
         # Do not filter incremental pages by model: an object that changed from a
         # stored model to page (or any excluded model) must remove its old row.
         return indexed_range
-    # solrify's `F` takes a list of values to mean "any of these" and builds
-    # the OR itself; its `ValueType` alias lists only the scalars.
-    return (
-        f"{indexed_range} AND "
-        f"{F(KrameriusField.Model, TARGET_MODELS)}"  # pyright: ignore[reportArgumentType]
-    )
+    return f"{indexed_range} AND {F(KrameriusField.Model, TARGET_MODELS)}"
 
 
 def _required_scalar(document: dict[str, Any], field: str) -> str:
@@ -330,10 +325,12 @@ class KrameriusLinksValidator(BaseValidator):
         self.own_host_regex = re.compile(config.own_host_pattern)
 
         self.client = KrameriusClient(
-            # KrameriusConfig gives max_retries, retry_timeout and
-            # max_active_processes defaults at runtime; its signature does not.
-            KrameriusConfig(  # pyright: ignore[reportCallIssue]
-                host=config.kramerius_host,
+            KrameriusConfig(
+                # Parsed here rather than handed over as a string. Pydantic
+                # would do it either way; saying so means a host that is not
+                # a URL fails where it was configured, naming this setting,
+                # instead of inside the client's own validation.
+                host=HttpUrl(config.kramerius_host),
                 solr_cloud=config.solr_cloud,
                 search_page_size=config.search_page_size,
                 timeout=config.search_timeout,
@@ -751,12 +748,7 @@ class KrameriusLinksValidator(BaseValidator):
                 if query is None:
                     break
 
-                # As above for the value list; `G(...) & F(...)` is solrify's
-                # own composition and comes back wider than the parameter.
-                query = G(query) & F(  # pyright: ignore[reportArgumentType]
-                    KrameriusField.Model,
-                    TARGET_MODELS,  # pyright: ignore[reportArgumentType]
-                )
+                query = G(query) & F(KrameriusField.Model, TARGET_MODELS)
                 collect_documents(await asyncio.to_thread(self._remote_documents, query))
 
         ambiguous: list[AmbiguousIdentifier] = []
