@@ -22,8 +22,8 @@ wheels = [
 
 [[package]]
 name = "aleph-nought"
-version = "0.2.14"
-source = { git = "https://github.com/moravianlibrary/aleph-nought.git?rev=v0.2.14#a7b977849cf2ba0a28dc612ed562e608fc920333" }
+version = "0.2.15"
+source = { git = "https://github.com/moravianlibrary/aleph-nought.git?rev=v0.2.15#a45d85c03d45f510db2edbf38cff3f885ca76b29" }
 dependencies = [
     { name = "lxml" },
     { name = "marcdantic" },
@@ -910,11 +910,11 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "aleph-nought", git = "https://github.com/moravianlibrary/aleph-nought.git?rev=v0.2.14" },
+    { name = "aleph-nought", git = "https://github.com/moravianlibrary/aleph-nought.git?rev=v0.2.15" },
     { name = "httpx" },
     { name = "kramerius", git = "https://github.com/moravianlibrary/kramerius-client.git?rev=v0.3.3" },
     { name = "lxml" },
-    { name = "marcdantic", git = "https://github.com/moravianlibrary/marcdantic.git?rev=v0.3.13" },
+    { name = "marcdantic", git = "https://github.com/moravianlibrary/marcdantic.git?rev=v0.3.14" },
     { name = "pydantic" },
     { name = "pymarc", specifier = ">=5" },
     { name = "python-stdnum" },
@@ -927,8 +927,8 @@ provides-extras = ["storage"]
 
 [[package]]
 name = "marcdantic"
-version = "0.3.13"
-source = { git = "https://github.com/moravianlibrary/marcdantic.git?rev=v0.3.13#d11b2269126e4d3ecef306d978a2d90679c2da3d" }
+version = "0.3.14"
+source = { git = "https://github.com/moravianlibrary/marcdantic.git?rev=v0.3.14#a4d02a8ac4e993a8950f35d148860b933e8697b5" }
 dependencies = [
     { name = "jq" },
     { name = "lxml" },

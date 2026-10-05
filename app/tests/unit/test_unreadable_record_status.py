@@ -4,13 +4,20 @@
 ValidationError subclasses ValueError, so a record whose MARC parsed but failed
 the model landed in the same branch as "no such record" and was reported the
 same way — sending people to look for something that was never gone.
+
+The record that prompted it reads now: marcdantic 0.3.14 takes the indicator
+as catalogued. The classification still matters for whatever is unreadable
+next, so both halves are covered here.
 """
 
 from typing import Any, cast
 
 import pytest
+from lxml import etree  # pyright: ignore[reportAttributeAccessIssue]  # lxml ships no stubs
+from marcdantic import MarcRecord
 from pydantic import BaseModel, Field, ValidationError
 
+from adapters.marc_sectors import STORED_MARC_CONTEXT, marc_bytes_of, read_stored_marc
 from catalog_records import service
 from catalog_records.exceptions import (
     CatalogRecordNotFoundException,
@@ -118,3 +125,41 @@ class TestTheMessageStaysReadable:
 
         assert described.count(";") == service._REPORTED_MARC_ERRORS
         assert "and 2 more" in described
+
+
+class TestTheRecordThatPromptedThisReadsNow:
+    """ind1="S" on a 500 is why MZK03-001252166 was unreadable at all.
+
+    marcdantic held indicators to the values MARC 21 defines, so one byte
+    outside them lost the whole record — and with it the error, which
+    nobody could be told about while the record would not open. 0.3.14
+    makes the pattern the caller's to set and defaults to taking the byte
+    as catalogued.
+    """
+
+    def _marc_with(self, ind1: str) -> bytes:
+        namespace = "http://www.loc.gov/MARC21/slim"
+        return marc_bytes_of(
+            MarcRecord.from_xml(
+                etree.fromstring(
+                    f'<record xmlns="{namespace}">'
+                    "<leader>00000nam a2200000 a 4500</leader>"
+                    '<controlfield tag="001">001252166</controlfield>'
+                    f'<datafield tag="500" ind1="{ind1}" ind2=" ">'
+                    '<subfield code="a">A note</subfield>'
+                    "</datafield>"
+                    "</record>".encode()
+                ),
+                STORED_MARC_CONTEXT,
+            )
+        )
+
+    def test_an_indicator_outside_the_standard_is_read_back_as_catalogued(self):
+        record = read_stored_marc(self._marc_with("S"))
+
+        assert record.variable_fields.root["500"][0].ind1 == "S"
+
+    def test_a_record_the_standard_does_define_is_unaffected(self):
+        record = read_stored_marc(self._marc_with("1"))
+
+        assert record.variable_fields.root["500"][0].ind1 == "1"
