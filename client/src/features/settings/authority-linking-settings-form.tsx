@@ -20,7 +20,7 @@ import { AuthorityLinkersHelp, LinkingDecisionHelp, MarcXmlDumpLinkerHelp } from
 import { HelpDialog } from './help-dialog';
 import { type AuthorityLinkingSettingsFormValues, authorityLinkingSettingsSchema } from './schemas';
 import { useSettingsForm } from './use-settings-form';
-import { EXCELLENT_MATCH, MODERATE_MATCH } from '../records/score';
+import { EXCELLENT_MATCH, MATCH_SCALE_MAX, MODERATE_MATCH } from '../records/score';
 
 interface Props {
   data: AuthorityLinkingSettings;
@@ -91,7 +91,7 @@ export function AuthorityLinkingSettingsForm({ data, onDirtyChange, onFormRef, o
                       type="number"
                       step="0.01"
                       min="0"
-                      max="1"
+                      max={MATCH_SCALE_MAX}
                       {...field}
                       onChange={e => field.onChange(Number(e.target.value))}
                     />
@@ -111,7 +111,7 @@ export function AuthorityLinkingSettingsForm({ data, onDirtyChange, onFormRef, o
                       type="number"
                       step="0.01"
                       min="0"
-                      max="1"
+                      max={MATCH_SCALE_MAX}
                       {...field}
                       onChange={e => field.onChange(Number(e.target.value))}
                     />
@@ -156,7 +156,7 @@ export function AuthorityLinkingSettingsForm({ data, onDirtyChange, onFormRef, o
                       type="number"
                       step="0.01"
                       min="0"
-                      max="1"
+                      max={MATCH_SCALE_MAX}
                       {...field}
                       onChange={e => field.onChange(Number(e.target.value))}
                     />
@@ -377,7 +377,7 @@ export function AuthorityLinkingSettingsForm({ data, onDirtyChange, onFormRef, o
                       type="number"
                       step="0.01"
                       min="0"
-                      max="1"
+                      max={MATCH_SCALE_MAX}
                       {...field}
                       onChange={e => field.onChange(Number(e.target.value))}
                     />
@@ -402,7 +402,7 @@ export function AuthorityLinkingSettingsForm({ data, onDirtyChange, onFormRef, o
                       type="number"
                       step="0.01"
                       min="0"
-                      max="1"
+                      max={MATCH_SCALE_MAX}
                       {...field}
                       onChange={e => field.onChange(Number(e.target.value))}
                     />
