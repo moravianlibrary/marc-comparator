@@ -578,10 +578,10 @@ async def process_records(task_id: str) -> None:
         filters = RecordFilter.model_validate(ctx.task.data)
         ctx.logger.info("Starting processing of catalog records")
 
+        # No `if not` guard: the loader raises rather than handing back an
+        # empty list, so a run that cannot ask everything it was told to ask
+        # fails here instead of writing `NoCandidate` over the whole corpus.
         authority_linkers = load_authority_linkers(ctx.db_session, settings.authority_linkers)
-        if not authority_linkers:
-            ctx.logger.error("Authority linkers could not be initialized")
-            return
         confident_threshold = load_confident_threshold(ctx.db_session)
         candidate_margin = load_candidate_margin(ctx.db_session)
 

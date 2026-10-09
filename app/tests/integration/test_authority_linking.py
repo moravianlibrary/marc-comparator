@@ -8,6 +8,7 @@ from marc_comparator.authority_linkers import (
 )
 from pydantic import BaseModel
 from pytest_mock import MockerFixture
+from sqlalchemy import select
 
 from adapters.database import DatabaseSession
 from auth.models import TokenData
@@ -18,7 +19,7 @@ from authority_linking.models import (
 from entities.authority_link import AuthorityLink as AuthorityLinkEntity
 from entities.catalog_record import CatalogRecord
 from entities.settings import Settings, SettingsScope
-from entities.task import Task, TaskType
+from entities.task import Task, TaskStatus, TaskType
 from tests.conftest import (
     assert_response,
     create_catalog_record,
@@ -218,7 +219,7 @@ class TestAuthorityLinkingTask:
         await authority_linking(str(task.task_id))
 
     @pytest.mark.asyncio
-    async def test_no_linker_found(
+    async def test_a_linker_that_will_not_load_fails_the_task(
         self,
         db_session,
         tasks_client,
@@ -227,9 +228,26 @@ class TestAuthorityLinkingTask:
         task: Task,
         mock_no_linker: MockerFixture,
     ):
-        from authority_linking.tasks import authority_linking
+        """Asked for a linker, got none, so nothing was looked up.
 
-        await authority_linking(str(task.task_id))
+        This used to log and return, leaving the task Success and the records
+        untouched but unmarked. Carrying on is the worse half: the pass writes
+        `NoCandidate` for records nothing ever asked about.
+        """
+
+        from authority_linking.tasks import AuthorityLinkingNotConfigured, authority_linking
+
+        # Read the status back by id rather than refreshing the instance:
+        # ManagedTask cycles its own session and leaves this one's copy
+        # detached, so `refresh` raises before it can tell us anything.
+        task_id = task.task_id
+        with pytest.raises(AuthorityLinkingNotConfigured):
+            await authority_linking(str(task_id))
+
+        assert (
+            db_session.execute(select(Task.status).where(Task.task_id == task_id)).scalar_one()
+            == TaskStatus.Failure
+        )
 
 
 class TestAuthorityLinkingTaskExistingRecord:
@@ -277,7 +295,7 @@ class TestAuthorityLinkingTaskExistingRecordExistingLink:
 
 class TestAuthorityLinkingTaskNoLinkerSettings:
     @pytest.mark.asyncio
-    async def test_no_linker_settings_found(
+    async def test_unconfigured_linking_fails_the_task(
         self,
         db_session,
         tasks_client,
@@ -285,6 +303,19 @@ class TestAuthorityLinkingTaskNoLinkerSettings:
         task: Task,
         mock_linker_with_no_link: MockerFixture,
     ):
-        from authority_linking.tasks import authority_linking
+        """No stored settings at all. Same reasoning as above — a run that
+        could not ask anything must not report that it found nothing."""
 
-        await authority_linking(str(task.task_id))
+        from authority_linking.tasks import AuthorityLinkingNotConfigured, authority_linking
+
+        # Read the status back by id rather than refreshing the instance:
+        # ManagedTask cycles its own session and leaves this one's copy
+        # detached, so `refresh` raises before it can tell us anything.
+        task_id = task.task_id
+        with pytest.raises(AuthorityLinkingNotConfigured):
+            await authority_linking(str(task_id))
+
+        assert (
+            db_session.execute(select(Task.status).where(Task.task_id == task_id)).scalar_one()
+            == TaskStatus.Failure
+        )

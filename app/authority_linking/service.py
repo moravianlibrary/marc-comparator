@@ -1,11 +1,9 @@
 from collections.abc import Sequence
 from uuid import UUID
 
-from marc_comparator.authority_linkers import AuthorityLinker
-
 from adapters.database import DatabaseSession
 from adapters.tasks import enqueue_task
-from catalog_records.models import RecordFilter
+from catalog_records.models import ProcessRecordsSettings, RecordFilter
 from config import config
 from entities.authority_link import AuthorityLink
 from entities.catalog_record import CatalogRecord
@@ -15,7 +13,6 @@ from entities.task import Task, TaskSchema, TaskType
 from settings.service import get_settings_part
 
 from .models import (
-    AuthorityLinkingSettings,
     AuthorityLinkingTaskData,
     LinkClaimRequest,
     LinkClaimSummary,
@@ -178,15 +175,16 @@ async def _reapply(
     the next full pass applies it.
     """
 
-    settings = Settings.get(db_session, SettingsScope.AuthorityLinking, AuthorityLinkingSettings)
-    if settings is None:
+    # The linkers a full pass would use, not every linker that has a config
+    # object. Those two are not the same thing: every linker's config field
+    # carries a default, so `is not None` was true of all of them and this
+    # asked for linkers the operator had switched off — which on an install
+    # without their harvest made the pass fail and take the record's rows
+    # with it. The processing settings hold the actual choice.
+    processing = Settings.get(db_session, SettingsScope.ProcessRecords, ProcessRecordsSettings)
+    if processing is None:
         return None
-
-    configured = [
-        linker
-        for linker in AuthorityLinker
-        if getattr(settings, linker.value.replace("-", "_"), None) is not None
-    ]
+    configured = list(processing.authority_linkers)
     if not configured:
         return None
 

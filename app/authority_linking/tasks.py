@@ -90,6 +90,42 @@ class AuthorityLinkingFailed(RuntimeError):
         self.target_base = target_base
 
 
+class AuthorityLinkingNotConfigured(RuntimeError):
+    """Nothing was asked for, or nothing asked for exists.
+
+    Separate from `AuthorityLinkerUnavailable` because the answer differs:
+    this one is fixed in the settings, that one by harvesting.
+    """
+
+
+class AuthorityLinkerUnavailable(RuntimeError):
+    """A configured linker has no local dataset to answer from.
+
+    Deliberately not an ``AuthorityLinkingFailed``: that one is per record,
+    and the handlers answer it by writing a ``LookupFailed`` row against the
+    base it carries. There is nothing to write here. This is known before the
+    first record is read and it is true of every one of them.
+
+    It fails the task rather than dropping the linker and carrying on, for
+    the reason ``find_best_link_for_record`` already gives one level down: a
+    lookup that never happened must not be reported as an empty result.
+    Running without a configured linker fills the table with ``NoCandidate``
+    — a positive statement that we looked and found nothing — for records
+    nobody ever asked about, and the next pass has no way to tell those from
+    the records that genuinely have no counterpart.
+    """
+
+    def __init__(self, names: list[str]) -> None:
+        self.linkers = sorted(names)
+        super().__init__(
+            "No harvested dataset for configured authority "
+            f"{'linkers' if len(self.linkers) > 1 else 'linker'} "
+            f"{', '.join(self.linkers)}. Harvest them, or take them out of the "
+            "processing settings — running without one reports every record as "
+            "having no counterpart."
+        )
+
+
 def _confidence_of(link: SdkAuthorityLink) -> float:
     """A linker that reports no confidence is treated as the least certain.
 
@@ -200,12 +236,24 @@ async def announce_window(
 def load_authority_linkers(
     db_session: DatabaseSession,
     linkers: list[AuthorityLinker],
-) -> list[AuthorityLinkerInstance] | None:
-    """Load settings from DB and initialize linkers. Returns None on failure."""
+) -> list[AuthorityLinkerInstance]:
+    """Load settings from DB and initialize linkers, or refuse to run.
+
+    Every way this can go wrong leaves the caller unable to link what it was
+    asked to link, so none of them returns quietly. A task that reported
+    success having silently dropped a linker is how a whole catalogue came
+    back as `NoCandidate`.
+    """
+
     settings = Settings.get(db_session, SettingsScope.AuthorityLinking, AuthorityLinkingSettings)
     if not settings:
-        return None
+        raise AuthorityLinkingNotConfigured("No authority-linking settings are stored.")
     result = init_authority_linkers(settings, linkers)
+    if not result:
+        raise AuthorityLinkingNotConfigured(
+            f"None of the configured linkers could be initialized: "
+            f"{', '.join(linker.value for linker in linkers)}."
+        )
     from comparison.tasks import load_gate_comparator
     from harvest.storage import bind_plugin_storage
 
@@ -213,13 +261,21 @@ def load_authority_linkers(
     # comparator class defaults to: otherwise a linker's minimum_confidence
     # means something other than the score an operator is shown.
     gate_comparator, _ = load_gate_comparator(db_session)
+    unready: list[str] = []
     for linker in result:
-        bind_plugin_storage(
+        bound = bind_plugin_storage(
             linker.linker.value, linker.instance, db_session, logging.getLogger(__name__)
         )
+        # `bind_plugin_storage` returns False for two different situations:
+        # a linker that wants no harvest at all, and one that wants a harvest
+        # and has not got a compatible one. Only the second cannot answer.
+        if linker.instance.needs_harvest and not bound:
+            unready.append(linker.linker.value)
         if gate_comparator is not None:
             linker.instance.bind_comparator(gate_comparator)
-    return result or None
+    if unready:
+        raise AuthorityLinkerUnavailable(unready)
+    return result
 
 
 def load_confident_threshold(db_session: DatabaseSession) -> float:
@@ -1237,10 +1293,10 @@ async def authority_linking(task_id: str) -> None:
     async with ManagedTask(task_id=task_id, lock_key=f"task-run-{task_id}") as ctx:
         data = AuthorityLinkingTaskData.model_validate(ctx.task.data)
 
+        # Raises rather than returning empty — see the loader. A claim that
+        # enqueued this pass stands either way; what it must not do is make
+        # the pass delete the record's rows on its way past.
         authority_linkers = load_authority_linkers(ctx.db_session, data.linkers)
-        if not authority_linkers:
-            ctx.logger.error("Authority linkers could not be initialized")
-            return
         # The same comparator the linkers rank with, so a candidate rebuilt
         # from a claim scores on the scale everything else is on.
         from comparison.tasks import load_gate_comparator
