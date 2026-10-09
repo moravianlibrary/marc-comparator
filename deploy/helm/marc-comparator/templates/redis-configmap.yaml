@@ -9,3 +9,16 @@ data:
   redis.conf: |
     appendonly yes
     appendfsync everysec
+    # Redis is both the Celery broker and the MARC read cache. Without a
+    # maxmemory of its own it grows into the container limit and is
+    # OOMKilled — and then cannot start again, because loading the AOF it
+    # already persisted costs more than the limit allows. Set it below the
+    # cgroup limit so Redis makes the decision rather than the kernel, and
+    # leave room for the fork that an AOF rewrite takes.
+    maxmemory {{ .Values.redis.maxmemory }}
+    # Evict only keys that carry a TTL. That is exactly the MARC cache
+    # (`marc:<base>:<sysno>`, config.marc_cache_ttl_seconds); every broker
+    # and scheduler key — the queue, unacked, the kombu bindings, the
+    # redbeat schedule — is stored without one and is never a candidate.
+    # `allkeys-*` here would drop queued tasks to make room for a cache.
+    maxmemory-policy {{ .Values.redis.maxmemoryPolicy }}

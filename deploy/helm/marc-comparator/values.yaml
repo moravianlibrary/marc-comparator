@@ -81,13 +81,21 @@ redis:
   storage:
     size: 1Gi
     storageClassName: ""
+  # -- Redis' own ceiling, which must stay clearly below the container limit:
+  # an AOF rewrite forks, and the copy-on-write pages count against the same
+  # cgroup. The MARC cache alone reached ~300 MB at 344k records, so 256Mi
+  # was under the working set rather than over it.
+  maxmemory: 512mb
+  # -- See the configmap: only cache keys carry a TTL, so this never evicts
+  # a queued task.
+  maxmemoryPolicy: volatile-lru
   resources:
     requests:
       cpu: 100m
-      memory: 128Mi
+      memory: 512Mi
     limits:
       cpu: 250m
-      memory: 256Mi
+      memory: 1Gi
 
 # -- PostgreSQL via CloudNativePG
 cnpg:
