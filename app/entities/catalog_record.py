@@ -188,6 +188,8 @@ class CatalogRecord(
     __table_args__ = (
         Index("idx_catalog_records_search_vector", "search_vector", postgresql_using="gin"),
         Index("idx_catalog_records_updated_at", "updated_at"),
+        # The record list sorted newest sync first, within the main source.
+        Index("ix_catalog_records_source_type_latest_sync", "source_type", latest_sync.desc()),
     )
 
     @classmethod

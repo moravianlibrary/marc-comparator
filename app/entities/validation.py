@@ -8,7 +8,7 @@ from marc_comparator.validators import (
     ValidationTarget,
     ValidityStatus,
 )
-from sqlalchemy import TIMESTAMP, ForeignKey, Integer, String, func
+from sqlalchemy import TIMESTAMP, ForeignKey, Index, Integer, String, func, text
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -62,6 +62,14 @@ class Validation(Base):
 
     _result: Mapped[dict] = mapped_column("result", JSONB)
     updated_at: Mapped[datetime] = mapped_column(TIMESTAMP, default=func.now(), onupdate=func.now())
+
+    # The record search's reason and status filters. Expression indexes, so
+    # that ANALYZE also keeps statistics on the jsonb fields they read — the
+    # planner otherwise guesses at them and was 130x out for common reasons.
+    __table_args__ = (
+        Index("ix_validations_validator_reason", "validator", text("(result ->> 'reason')")),
+        Index("ix_validations_validator_status", "validator", text("(result ->> 'status')")),
+    )
 
     catalog_record: Mapped["CatalogRecord"] = relationship(
         "CatalogRecord",
