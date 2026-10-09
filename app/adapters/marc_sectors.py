@@ -5,6 +5,7 @@ from collections.abc import Callable, Sequence
 import zstandard as zstd
 from marcdantic import MarcRecord
 from marcdantic.context import MarcContext
+from pydantic import ValidationError
 from sqlalchemy import select, tuple_
 from sqlalchemy.orm import Session
 
@@ -42,6 +43,34 @@ STORED_MARC_CONTEXT = MarcContext(mandatory_fields=[])
 def read_stored_marc(raw: bytes) -> MarcRecord:
     """Parse MARC bytes that came out of sector storage."""
     return MarcRecord.from_mrc(raw, STORED_MARC_CONTEXT)
+
+
+#: Field errors quoted back to the caller. One is almost always the whole
+#: story, and a record that fails validation in fifty places should not
+#: answer with fifty lines of it.
+REPORTED_MARC_ERRORS = 3
+
+
+def describe_marc_errors(error: ValidationError) -> str:
+    """Name the fields pydantic rejected, in the shape MARC people read.
+
+    ``loc`` is already the path through the parsed record —
+    ``("variable_fields", "500", 0, "ind1")`` is field 500, first occurrence,
+    first indicator — so joining it says where to look without translation.
+
+    Lives beside the reader rather than with one of its callers: every path
+    that reads stored MARC can meet a record that parsed and would not
+    validate, and they should all say the same thing about it.
+    """
+
+    reported = error.errors(include_url=False, include_context=False, include_input=False)
+    described = [
+        f"{'.'.join(str(part) for part in item['loc'])}: {item['msg']}"
+        for item in reported[:REPORTED_MARC_ERRORS]
+    ]
+    if len(reported) > REPORTED_MARC_ERRORS:
+        described.append(f"and {len(reported) - REPORTED_MARC_ERRORS} more")
+    return "; ".join(described)
 
 
 def marc_bytes_of(record: MarcRecord) -> bytes:

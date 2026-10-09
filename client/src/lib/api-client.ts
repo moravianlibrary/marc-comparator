@@ -1,5 +1,17 @@
 import axios from 'axios';
 
+declare module 'axios' {
+  export interface AxiosRequestConfig {
+    /**
+     * Handle this request's failures yourself; do not raise the global toast.
+     *
+     * For the calls where a 4xx is an answer rather than a fault — asking
+     * whether we hold a copy of something, and being told we do not.
+     */
+    suppressErrorToast?: boolean;
+  }
+}
+
 const apiClient = axios.create({
   baseURL: '/api',
   headers: { 'Content-Type': 'application/json' },
@@ -109,7 +121,10 @@ apiClient.interceptors.response.use(
 
       // Backend is healthy but this request failed — show error toast
       // Skip 409 Conflict — these are business logic errors handled by the caller
-      if (status !== 409) {
+      // Skip anything the caller said it would handle: a 404 is an ordinary
+      // answer to some questions ("do we hold a copy of this?") and a global
+      // error toast turns the ordinary answer into an incident.
+      if (status !== 409 && !originalRequest.suppressErrorToast) {
         const message =
           error.response?.data?.detail || error.response?.statusText || 'Unknown error';
         dispatchApiError(status, url, message);

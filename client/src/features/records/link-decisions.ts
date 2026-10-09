@@ -106,3 +106,29 @@ export function decisionsByBase(record: RecordSummary): BaseDecision[] {
 export function hasClaimFor(record: RecordSummary, base: string): boolean {
   return record.claims.some(c => c.base === base);
 }
+
+/** The carousel view key for a candidate's own MARC. */
+export function buildCandidateKey(authorityBase: string, authoritySysno: string): string {
+  return `cand:${authorityBase}:${authoritySysno}`;
+}
+
+/**
+ * Whether this record proposed or claimed that pair.
+ *
+ * What the key is checked against, so that a view key carried over from the
+ * previous record does not keep asking for a candidate this one never had.
+ */
+export function hasCandidate(
+  record: RecordSummary,
+  authorityBase: string,
+  authoritySysno: string,
+): boolean {
+  return (
+    record.link_attempts.some(
+      a => a.authority_base === authorityBase && a.authority_sysno === authoritySysno,
+    ) ||
+    record.claims.some(
+      c => c.authority_base === authorityBase && c.authority_sysno === authoritySysno,
+    )
+  );
+}

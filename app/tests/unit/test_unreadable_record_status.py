@@ -17,7 +17,13 @@ import pytest
 from marcdantic import MarcRecord
 from pydantic import BaseModel, Field, ValidationError
 
-from adapters.marc_sectors import STORED_MARC_CONTEXT, marc_bytes_of, read_stored_marc
+from adapters.marc_sectors import (
+    REPORTED_MARC_ERRORS,
+    STORED_MARC_CONTEXT,
+    describe_marc_errors,
+    marc_bytes_of,
+    read_stored_marc,
+)
 from catalog_records import service
 from catalog_records.exceptions import (
     CatalogRecordNotFoundException,
@@ -121,9 +127,9 @@ class TestTheMessageStaysReadable:
         with pytest.raises(ValidationError) as caught:
             _Strict.model_validate({})
 
-        described = service._describe_marc_errors(caught.value)
+        described = describe_marc_errors(caught.value)
 
-        assert described.count(";") == service._REPORTED_MARC_ERRORS
+        assert described.count(";") == REPORTED_MARC_ERRORS
         assert "and 2 more" in described
 
 

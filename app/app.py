@@ -7,6 +7,7 @@ from adapters.logger import configure_logging
 from app_lifespan import lifespan
 from auth.controller import router as auth_router
 from auth.oidc import router as oidc_router
+from authority_linking.controller import candidates_router as link_candidates_router
 from authority_linking.controller import claims_router as link_claims_router
 from authority_linking.controller import router as authority_linking_router
 from catalog_records.controller import router as catalog_router
@@ -42,6 +43,7 @@ app.include_router(auth_router)
 app.include_router(oidc_router)
 app.include_router(authority_linking_router)
 app.include_router(link_claims_router)
+app.include_router(link_candidates_router)
 app.include_router(catalog_router)
 app.include_router(comparison_router)
 app.include_router(harvest_router)

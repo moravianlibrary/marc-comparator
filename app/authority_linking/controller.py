@@ -1,6 +1,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Body, HTTPException, status
+from marcdantic import MarcRecord
 
 from adapters.dependencies import DatabaseSessionDep, WithPermission
 from auth.service import CurrentUser
@@ -82,3 +83,29 @@ async def list_claims(
     base: str | None = None,
 ):
     return service.claims_for_record(db_session, main_record_id, base)
+
+
+#: And a third router, for the same reason there is a second one: a different
+#: question needs a different permission. Reading a candidate is reading a
+#: record we hold, no more privileged than reading our own — gating it on
+#: `ReviewRecords` would hide the evidence from everyone who is not entitled
+#: to rule on it, which is the wrong way round.
+candidates_router = APIRouter(
+    prefix="/authority-linking",
+    tags=["Authority Linking"],
+    dependencies=[WithPermission(Permission.ReadRecords)],
+)
+
+
+@candidates_router.get(
+    "/candidates/{authority_base}/{authority_sysno}/marc",
+    response_model=MarcRecord,
+)
+def get_candidate_marc(
+    authority_base: str,
+    authority_sysno: str,
+    db_session: DatabaseSessionDep,
+):
+    """The MARC of a proposed record, so a verdict can be given on the record."""
+
+    return service.get_candidate_marc(authority_base, authority_sysno, db_session)

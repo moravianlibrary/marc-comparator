@@ -1,7 +1,11 @@
 from collections.abc import Sequence
 from uuid import UUID
 
+from marcdantic import MarcRecord
+from pydantic import ValidationError
+
 from adapters.database import DatabaseSession
+from adapters.marc_sectors import describe_marc_errors, read_marc, read_stored_marc
 from adapters.tasks import enqueue_task
 from catalog_records.models import ProcessRecordsSettings, RecordFilter
 from config import config
@@ -12,6 +16,10 @@ from entities.settings import Settings, SettingsScope
 from entities.task import Task, TaskSchema, TaskType
 from settings.service import get_settings_part
 
+from .exceptions import (
+    CandidateMarcNotStoredException,
+    CandidateMarcUnreadableException,
+)
 from .models import (
     AuthorityLinkingTaskData,
     LinkClaimRequest,
@@ -213,3 +221,42 @@ def claims_for_record(
         LinkClaimSummary.model_validate(claim)
         for claim in query.order_by(LinkClaim.base, LinkClaim.claimed_at).all()
     ]
+
+
+def get_candidate_marc(
+    authority_base: str, authority_sysno: str, db_session: DatabaseSession
+) -> MarcRecord:
+    """The MARC of a record a linker proposed, accepted or not.
+
+    The catalogue's own reader cannot serve these. It resolves a record row
+    first, and a candidate deliberately has none — that is what keeps one
+    cheap enough to store eight of per record. Sector storage has no such
+    requirement: it is keyed by base and system number with no foreign key to
+    the catalogue, which is exactly why ``store_candidate_marc`` writes there.
+    So the bytes have been sitting in the same store as everything else, with
+    nothing able to ask for them.
+
+    Asking for them matters because of what a cataloguer is being asked to
+    do. A claim says two records are or are not the same work, and until now
+    the only thing in front of them was a system number and a score. Nobody
+    can rule on that.
+
+    Deliberately not restricted to the candidates of any one record: the
+    answer does not depend on who is asking, and threading a record id
+    through would only invite the caller to believe it did.
+    """
+
+    raw = read_marc(db_session, authority_base, authority_sysno)
+    if raw is None:
+        raise CandidateMarcNotStoredException(authority_base, authority_sysno)
+
+    try:
+        return read_stored_marc(raw)
+    except ValidationError as e:
+        # Before ValueError, which it subclasses — the same ordering trap the
+        # catalogue's reader documents, and the same wrong answer if missed.
+        raise CandidateMarcUnreadableException(
+            authority_base, authority_sysno, describe_marc_errors(e)
+        ) from e
+    except ValueError as e:
+        raise CandidateMarcUnreadableException(authority_base, authority_sysno, str(e)) from e

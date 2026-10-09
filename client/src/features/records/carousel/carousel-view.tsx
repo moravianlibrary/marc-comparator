@@ -17,6 +17,7 @@ import {
 } from '@/components/ui/select';
 import apiClient from '@/lib/api-client';
 import type { SystemInfo } from '@/types/settings';
+import { buildCandidateKey, decisionsByBase, hasCandidate } from '../link-decisions';
 import type {
   ComparisonDetail,
   FieldComparisonResult,
@@ -36,6 +37,11 @@ import { useRecordReviews } from './use-reviews';
 type ViewOption =
   | { kind: 'marc' }
   | { kind: 'authority'; base: string; systemNumber: string }
+  // A candidate nobody accepted. Its own kind rather than an `authority` with
+  // a different fetch, because the two are not the same record in the two
+  // ways that matter here: one has a catalogue row and one has only the MARC
+  // we kept, and only one of them can be missing entirely.
+  | { kind: 'candidate'; base: string; systemNumber: string }
   | { kind: 'comparison'; comparator: string; otherRecordId: string }
   | { kind: 'validation'; validatorName: string };
 
@@ -44,6 +50,11 @@ function parseViewKey(key: string): ViewOption {
     const rest = key.slice(5);
     const sepIdx = rest.indexOf(':');
     return { kind: 'authority', base: rest.slice(0, sepIdx), systemNumber: rest.slice(sepIdx + 1) };
+  }
+  if (key.startsWith('cand:')) {
+    const rest = key.slice(5);
+    const sepIdx = rest.indexOf(':');
+    return { kind: 'candidate', base: rest.slice(0, sepIdx), systemNumber: rest.slice(sepIdx + 1) };
   }
   if (key.startsWith('comp:')) {
     const rest = key.slice(5);
@@ -84,6 +95,8 @@ function isViewAvailable(
       return record.authority_links.some(
         al => buildAuthorityKey(al.base, al.authority_record_id) === key,
       );
+    case 'candidate':
+      return hasCandidate(record, opt.base, opt.systemNumber);
     case 'comparison':
       return (
         !!comparisons &&
@@ -159,6 +172,28 @@ function RecordDetail({
     enabled: !!authorityBase && !!authoritySystemNumber,
   });
 
+  const candidateBase = viewOpt.kind === 'candidate' ? viewOpt.base : '';
+  const candidateSysno = viewOpt.kind === 'candidate' ? viewOpt.systemNumber : '';
+  const {
+    data: candidateMarcData,
+    isLoading: candidateMarcLoading,
+    isError: candidateMarcMissing,
+  } = useQuery<MarcRecordData>({
+    queryKey: ['catalog-records', 'candidate-marc', candidateBase, candidateSysno],
+    queryFn: () =>
+      apiClient
+        .get<MarcRecordData>(
+          `/authority-linking/candidates/${candidateBase}/${candidateSysno}/marc`,
+          // We keep no copy of some candidates — a linker that assembles one
+          // has no bytes to keep — so a 404 here is an answer, not an
+          // incident, and it says so in place of the table.
+          { suppressErrorToast: true },
+        )
+        .then(r => r.data),
+    enabled: !!candidateBase && !!candidateSysno,
+    retry: false,
+  });
+
   // When switching records, keep selection if available, otherwise try to find
   // a matching view by base/comparator before falling back to "marc"
   const prevRecordId = useRef(record.id);
@@ -208,6 +243,20 @@ function RecordDetail({
     label: `${al.base} - ${al.authority_record_id}`,
   }));
 
+  // Every pair the record names, minus the ones already listed above as
+  // authority records: an accepted link has a catalogue row and reads better
+  // through it, annotations and all.
+  const linkedKeys = new Set(
+    record.authority_links.map(al => buildAuthorityKey(al.base, al.authority_record_id)),
+  );
+  const candidateOptions = decisionsByBase(record)
+    .flatMap(d => d.rows)
+    .filter(row => !linkedKeys.has(`auth:${row.base}:${row.authoritySysno}`))
+    .map(row => ({
+      key: buildCandidateKey(row.authorityBase, row.authoritySysno),
+      label: `${row.authorityBase} - ${row.authoritySysno}`,
+    }));
+
   const comparisonOptions = (comparisons ?? []).map(c => ({
     key: `comp:${c.comparator}:${c.other_record_id}`,
     label: c.base,
@@ -240,11 +289,17 @@ function RecordDetail({
   }
 
   const isAuthority = viewOpt.kind === 'authority';
-  const displayMarc = isAuthority ? authorityMarcData : marcData;
+  const isCandidate = viewOpt.kind === 'candidate';
+  const displayMarc = isCandidate ? candidateMarcData : isAuthority ? authorityMarcData : marcData;
   const annotationLoading =
     (viewOpt.kind === 'comparison' && comparisonsFetching) ||
     (viewOpt.kind === 'validation' && validationsFetching);
-  const displayLoading = (isAuthority ? authorityMarcLoading : marcLoading) || annotationLoading;
+  const ownMarcLoading = isCandidate
+    ? candidateMarcLoading
+    : isAuthority
+      ? authorityMarcLoading
+      : marcLoading;
+  const displayLoading = ownMarcLoading || annotationLoading;
 
   const hasAnnotation = annotationType !== undefined;
   const targetTags = new Set<string>();
@@ -275,6 +330,20 @@ function RecordDetail({
                 <SelectGroup>
                   <SelectLabel>{t('carousel.authority-records')}</SelectLabel>
                   {authorityOptions.map(opt => (
+                    <SelectItem key={opt.key} value={opt.key}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              </>
+            )}
+
+            {candidateOptions.length > 0 && (
+              <>
+                <SelectSeparator />
+                <SelectGroup>
+                  <SelectLabel>{t('carousel.decisions.candidates')}</SelectLabel>
+                  {candidateOptions.map(opt => (
                     <SelectItem key={opt.key} value={opt.key}>
                       {opt.label}
                     </SelectItem>
@@ -369,6 +438,8 @@ function RecordDetail({
             krameriusClientUrl={krameriusClientUrl}
           />
         </div>
+      ) : isCandidate && candidateMarcMissing ? (
+        <p className="text-muted-foreground">{t('carousel.decisions.no-stored-marc')}</p>
       ) : (
         <p className="text-muted-foreground">-</p>
       )}

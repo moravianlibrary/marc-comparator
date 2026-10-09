@@ -169,6 +169,8 @@
       "title": "Rozhodnutí o propojení",
       "answer": "Odpověď",
       "alternative": "Alternativa",
+      "candidates": "Zvažované záznamy",
+      "no-stored-marc": "Kopii tohoto záznamu neuchováváme. Doplní se při dalším průchodu propojování.",
       "matched-by": "podle {{route}}",
       "not-in-this-pass": "poslední průchod tento záznam nenašel",
       "decide": "Rozhodnout",

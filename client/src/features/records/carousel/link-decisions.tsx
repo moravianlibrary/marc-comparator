@@ -8,7 +8,13 @@ import { Textarea } from '@/components/ui/textarea';
 import { useHasPermission } from '@/hooks/use-permissions';
 import { cn } from '@/lib/utils';
 import { Permission } from '@/types/permission';
-import { type BaseDecision, type DecisionRow, decisionsByBase, rowKey } from '../link-decisions';
+import {
+  type BaseDecision,
+  buildCandidateKey,
+  type DecisionRow,
+  decisionsByBase,
+  rowKey,
+} from '../link-decisions';
 import { formatScore } from '../score';
 import { LINK_OUTCOME_COLORS, type ClaimVerdict, type RecordSummary } from '../types';
 import { useClaimLink, useWithdrawClaim } from './use-claims';
@@ -161,12 +167,13 @@ function DecisionRowView({
   const score = attempt && attempt.confidence !== null ? formatScore(attempt.confidence) : null;
   const route = attempt ? routeLabel(attempt.matched_by, attempt.matched_identifier) : null;
 
-  // Only an accepted link has a catalogue record of its own, and only that
-  // one can be opened beside ours. A candidate nobody accepted has its MARC
-  // in storage but no row to address, so there is nothing to navigate to.
+  // An accepted link is opened through its catalogue record, which carries
+  // the comparisons and validations with it. Everything else is read out of
+  // the MARC we kept when the candidate was proposed — the same bytes, a
+  // different way in, and the only one available without a catalogue row.
   const viewKey = attempt?.authority_record_id
     ? `auth:${row.base}:${row.authoritySysno}`
-    : undefined;
+    : buildCandidateKey(row.authorityBase, row.authoritySysno);
 
   return (
     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
