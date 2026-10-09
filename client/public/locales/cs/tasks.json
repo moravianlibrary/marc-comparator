@@ -6,8 +6,8 @@
     "status": "Stav",
     "severity": "Úroveň chyb",
     "run-time": "Doba běhu",
-    "created-by": "Vytvořil",
-    "created-at": "Vytvořeno",
+    "created-by": "Naplánoval",
+    "created-at": "Naplánováno",
     "revoke": "Zrušit"
   },
   "detail": {
@@ -15,7 +15,8 @@
     "task-id": "ID úkolu",
     "select-instructions": "Pro zobrazení podrobností vyberte úkol v tabulce.",
     "no-traceback": "Pro tento úkol není k dispozici žádný traceback.",
-    "reports": "Reporty ke stažení"
+    "reports": "Reporty ke stažení",
+    "download": "Stáhnout report"
   },
   "type": {
     "FetchRecord": "Přidání záznamu",
@@ -59,5 +60,6 @@
     "marcxml-dump": "Katalog z dávky MARCXML",
     "kramerius-links": "Odkazy na Kramerius",
     "knihovny-cz": "Knihovny.cz"
-  }
+  },
+  "system-user": "Systém"
 }

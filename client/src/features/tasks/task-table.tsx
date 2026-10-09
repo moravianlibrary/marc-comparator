@@ -15,7 +15,6 @@ import { taskLabel } from './task-label';
 interface TaskTableProps {
   tasks: Task[];
   selectedTaskId: string | null;
-  showCreatedBy?: boolean;
   userNames?: Map<string, string>;
   onSelectTask: (taskId: string) => void;
   onRevoke: (taskId: string) => void;
@@ -32,7 +31,6 @@ const statusVariantMap: Record<string, 'default' | 'secondary' | 'destructive' |
 export function TaskTable({
   tasks,
   selectedTaskId,
-  showCreatedBy,
   userNames,
   onSelectTask,
   onRevoke,
@@ -46,8 +44,9 @@ export function TaskTable({
           <TableHead>{t('fields.type')}</TableHead>
           <TableHead>{t('fields.status')}</TableHead>
           <TableHead>{t('fields.severity')}</TableHead>
+          <TableHead>{t('fields.created-at')}</TableHead>
+          <TableHead>{t('fields.created-by')}</TableHead>
           <TableHead>{t('fields.run-time')}</TableHead>
-          {showCreatedBy && <TableHead>{t('fields.created-by')}</TableHead>}
           <TableHead>{t('common:actions')}</TableHead>
         </TableRow>
       </TableHeader>
@@ -65,16 +64,17 @@ export function TaskTable({
               </Badge>
             </TableCell>
             <TableCell>{t(`severity.${task.severity}`)}</TableCell>
-            <TableCell>
+            <TableCell className="whitespace-nowrap tabular-nums">
+              {new Date(task.created_at).toLocaleString('cs-CZ')}
+            </TableCell>
+            <TableCell>{userNames?.get(task.created_by) ?? task.created_by}</TableCell>
+            <TableCell className="whitespace-nowrap tabular-nums">
               {task.started_at && task.finished_at
                 ? formatDuration(task.started_at, task.finished_at)
                 : task.started_at
                   ? '...'
                   : '-'}
             </TableCell>
-            {showCreatedBy && (
-              <TableCell>{userNames?.get(task.created_by) ?? task.created_by}</TableCell>
-            )}
             <TableCell>
               {task.status === 'Started' && (
                 <Button

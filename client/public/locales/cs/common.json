@@ -128,7 +128,7 @@
     },
     "tasks": {
       "title": "Úkoly",
-      "description": "Stránka Úkoly zobrazuje přehled všech spuštěných a dokončených úloh. Každý úkol má typ, stav (Čeká, Spuštěn, Úspěch, Selhání, Zrušen), závažnost a dobu běhu.",
+      "description": "Stránka Úkoly zobrazuje přehled všech spuštěných a dokončených úloh. Každý úkol má typ, stav (Naplánováno, Spuštěno, Úspěšně dokončeno, Selhalo, Zrušeno), závažnost, dobu běhu a kdo a kdy jej naplánoval.",
       "tips": [
         "Kliknutím na úkol zobrazíte podrobný výpis (traceback) jeho průběhu.",
         "Probíhající úkoly lze zrušit tlačítkem v řádku.",

@@ -1,9 +1,9 @@
 import { useQuery } from '@tanstack/react-query';
 import { Download } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Progress } from '@/components/ui/progress';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useHasPermission } from '@/hooks/use-permissions';
 import apiClient from '@/lib/api-client';
@@ -67,7 +67,12 @@ export function TaskDetail({ taskId, task }: TaskDetailProps) {
   });
 
   const { data: reports } = useQuery<ReportArtifact[]>({
-    queryKey: ['reports', taskId],
+    // The artifact is committed together with the task's final status, so the
+    // last poll while the task runs can never see it — and once the task stops
+    // running the poll stops too, leaving the empty answer cached for the
+    // app-wide five minutes. Keying on the status asks again the moment the
+    // task finishes.
+    queryKey: ['reports', taskId, current?.status],
     queryFn: () =>
       apiClient
         .get<ReportArtifact[]>('/reports', { params: { task_id: taskId } })
@@ -77,44 +82,47 @@ export function TaskDetail({ taskId, task }: TaskDetailProps) {
   });
 
   return (
-    <Card className="h-full">
+    <Card className="h-full min-w-0 gap-4">
       <CardHeader className="pb-2">
-        <CardTitle className="text-base">
+        <CardTitle className="text-base break-all">
           {t('detail.title')} — {taskId}
         </CardTitle>
         {(percent != null || isRunning) && (
           <div className="flex items-center gap-2">
             <Progress value={percent} className="h-2" />
-            {percent != null && <span className="text-xs text-muted-foreground">{percent}%</span>}
+            <span className="w-9 text-right text-xs tabular-nums text-muted-foreground">
+              {percent != null && `${percent}%`}
+            </span>
           </div>
         )}
       </CardHeader>
-      <CardContent>
+      <CardContent className="flex min-h-0 flex-1 flex-col gap-4">
         {reports && reports.length > 0 && (
-          <div className="mb-4 space-y-2">
-            <p className="text-sm font-medium">{t('detail.reports')}</p>
-            <div className="flex flex-col gap-1">
-              {reports.map(report => (
-                <a
-                  key={report.id}
-                  href={`/api/reports/${report.id}/download`}
-                  className="inline-flex items-center gap-2 text-sm text-primary hover:underline"
-                >
+          <div className="flex flex-wrap gap-2">
+            {reports.map(report => (
+              <Button key={report.id} asChild size="sm" className="max-w-full">
+                <a href={`/api/reports/${report.id}/download`} download={report.filename}>
                   <Download className="h-4 w-4" />
-                  {report.filename} ({Math.round(report.size / 1024)} kB)
+                  {t('detail.download')}
+                  <span className="truncate font-normal opacity-80">
+                    {report.filename} ({Math.round(report.size / 1024)} kB)
+                  </span>
                 </a>
-              ))}
-            </div>
+              </Button>
+            ))}
           </div>
         )}
         {isLoading ? (
-          <Skeleton className="h-[60vh] w-full rounded-md" />
+          <Skeleton className="min-h-0 w-full flex-1 rounded-md" />
         ) : traceback ? (
-          <ScrollArea className="h-[60vh]">
-            <pre className="whitespace-pre-wrap text-xs font-mono bg-muted p-4 rounded-md">
+          // A plain overflow box rather than ScrollArea: Radix wraps the content
+          // in a display:table that grows with the longest line, so an unbroken
+          // path or URL in the log widened the whole panel past the page.
+          <div className="min-h-0 flex-1 overflow-auto rounded-md bg-muted">
+            <pre className="whitespace-pre-wrap p-4 font-mono text-xs [overflow-wrap:anywhere]">
               {traceback}
             </pre>
-          </ScrollArea>
+          </div>
         ) : (
           <p className="text-sm text-muted-foreground">{t('detail.no-traceback')}</p>
         )}

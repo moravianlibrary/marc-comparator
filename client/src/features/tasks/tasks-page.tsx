@@ -4,11 +4,12 @@ import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { SkeletonTable } from '@/components/skeletons/skeleton-table';
 import { Button } from '@/components/ui/button';
+import { useGetMe } from '@/hooks/use-auth';
 import { useHasPermission } from '@/hooks/use-permissions';
 import apiClient from '@/lib/api-client';
 import { Permission } from '@/types/permission';
 import type { Task } from '@/types/task';
-import type { User } from '@/types/user';
+import { SYSTEM_USER_ID, type User } from '@/types/user';
 import { TaskDetail } from './task-detail';
 import { IDLE_POLL_MS, isTaskInFlight, RUNNING_POLL_MS } from './task-status';
 import { TaskTable } from './task-table';
@@ -73,16 +74,22 @@ export function TasksPage() {
           params: { page: 1, page_size: 100 },
         })
         .then(r => r.data),
-    enabled: canSeeAll === true,
+    // The user list sits behind access control; without it the names below
+    // fall back to the viewer's own and to the system account.
+    enabled: canSeeAll === true && hasPermission(Permission.ManageAccessControl) === true,
   });
 
+  const { data: me } = useGetMe();
   const userNames = useMemo(() => {
     const map = new Map<string, string>();
-    for (const u of usersData?.items ?? []) {
-      map.set(u.id, `${u.first_name} ${u.last_name}`);
+    for (const u of [...(usersData?.items ?? []), ...(me ? [me] : [])]) {
+      map.set(u.id, `${u.first_name} ${u.last_name}`.trim() || u.email);
     }
+    // Scheduled runs are created by the system account, whose stored name is
+    // its placeholder email; say what it is instead.
+    map.set(SYSTEM_USER_ID, t('system-user'));
     return map;
-  }, [usersData]);
+  }, [usersData, me, t]);
 
   const revokeMutation = useMutation({
     mutationFn: (taskId: string) => apiClient.patch(`/tasks/${taskId}/revoke`),
@@ -101,17 +108,16 @@ export function TasksPage() {
       <h1 className="text-2xl font-semibold">{t('title')}</h1>
 
       <div
-        className={`grid gap-4 ${selectedTaskId ? 'grid-cols-1 xl:grid-cols-[1fr_1fr]' : 'grid-cols-1'}`}
+        className={`grid gap-4 ${selectedTaskId ? 'grid-cols-1 xl:grid-cols-2' : 'grid-cols-1'}`}
       >
-        <div className="space-y-4">
+        <div className="min-w-0 space-y-4">
           {isLoading ? (
-            <SkeletonTable rows={5} columns={5} />
+            <SkeletonTable rows={5} columns={7} />
           ) : (
             <div className="animate-fade-in">
               <TaskTable
                 tasks={tasks}
                 selectedTaskId={selectedTaskId}
-                showCreatedBy={canSeeAll}
                 userNames={userNames}
                 onSelectTask={handleSelectTask}
                 onRevoke={id => revokeMutation.mutate(id)}
@@ -145,7 +151,10 @@ export function TasksPage() {
           )}
         </div>
         {selectedTaskId && (
-          <div className="xl:sticky xl:top-20 xl:self-start">
+          // Fill the viewport below the sticky banner: top-20 clears the banner
+          // plus the page padding, and the extra 1.5rem leaves that same padding
+          // at the bottom.
+          <div className="h-[80vh] min-w-0 xl:sticky xl:top-20 xl:h-[calc(100vh-6.5rem)] xl:self-start">
             <TaskDetail taskId={selectedTaskId} task={selectedTask} />
           </div>
         )}

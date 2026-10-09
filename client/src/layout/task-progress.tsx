@@ -32,7 +32,10 @@ export function TaskProgress({ runningTasks }: TaskProgressProps) {
           {taskLabel(task, t)}
         </span>
         <Progress value={percent} className="w-24 h-2" />
-        {percent != null && <span className="text-xs text-muted-foreground">{percent}%</span>}
+        {/* Fixed width and tabular digits: "9%" → "10%" → "100%" must not nudge the bar. */}
+        <span className="w-9 text-right text-xs tabular-nums text-muted-foreground">
+          {percent != null && `${percent}%`}
+        </span>
       </button>
     );
   }
@@ -58,7 +61,9 @@ export function TaskProgress({ runningTasks }: TaskProgressProps) {
               >
                 <div className="flex items-center justify-between text-sm">
                   <span className="truncate">{taskLabel(task, t)}</span>
-                  {percent != null && <span className="text-muted-foreground">{percent}%</span>}
+                  {percent != null && (
+                    <span className="tabular-nums text-muted-foreground">{percent}%</span>
+                  )}
                 </div>
                 <Progress value={percent} className="h-2" />
               </button>
