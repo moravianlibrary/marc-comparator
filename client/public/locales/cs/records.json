@@ -64,12 +64,21 @@
     "active-filters": "Aktivní filtry",
     "clear-all": "Zrušit vše",
     "sections": {
-      "context": "Kontext",
       "records": "Stav záznamů",
+      "linking": "Propojování",
       "comparison": "Analýza porovnání",
       "validation": "Analýza validací"
     },
-    "section-config": "Nastavení sekcí"
+    "section-config": "Nastavení sekcí",
+    "pill-group": {
+      "search": "Hledat hodnotu…",
+      "clear-search": "Zrušit hledání",
+      "no-match": "Žádná hodnota neodpovídá",
+      "show-more_one": "Zobrazit o {{count}} další",
+      "show-more_few": "Zobrazit o {{count}} další",
+      "show-more_many": "Zobrazit o {{count}} dalších",
+      "show-more_other": "Zobrazit o {{count}} dalších"
+    }
   },
   "table": {
     "columns": {

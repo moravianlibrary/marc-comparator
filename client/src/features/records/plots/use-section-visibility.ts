@@ -3,25 +3,36 @@ import { useCallback, useEffect, useMemo } from 'react';
 
 const STORAGE_KEY = 'plots:hiddenCharts';
 
-/** All chart IDs that can be toggled, grouped by section. */
+/**
+ * All chart IDs that can be toggled, grouped by section.
+ *
+ * There used to be a fifth section called "context" holding eleven facets.
+ * It was not a subject the way the other three are — it was where anything
+ * went that had no section, and eight of its eleven were about linking,
+ * which is the one thing this tool does and the one section the dashboard
+ * did not have. Its contents are now in the section that owns them and
+ * `linking` exists, so a facet has exactly one place it can be.
+ *
+ * Order inside a section is display order. Each list leads with its pill
+ * rows and then its charts.
+ */
 export const SECTION_GROUPS = {
-  context: [
-    'base',
-    'validators',
-    'authority_link_linkers',
-    'authority_link_bases',
+  records: ['base', 'record_status', 'type_of_record', 'bibliographic_level'],
+  linking: [
     'link_outcomes',
+    'authority_link_linkers',
+    'has_alternatives',
     'link_agencies',
     'link_identifiers',
-    'has_alternatives',
+    'authority_link_bases',
     'has_claim',
     'claim_needs_review',
-    'comparison_bases',
   ],
-  records: ['record_status', 'type_of_record', 'bibliographic_level'],
-  comparison: ['match_quality', 'overall_score', 'field_explanations'],
-  validation: ['validation_status', 'validation_reasons'],
+  comparison: ['comparison_bases', 'match_quality', 'overall_score', 'field_explanations'],
+  validation: ['validators', 'validation_status', 'validation_reasons'],
 } as const;
+
+export type SectionKey = keyof typeof SECTION_GROUPS;
 
 export type ChartId = (typeof SECTION_GROUPS)[keyof typeof SECTION_GROUPS][number];
 

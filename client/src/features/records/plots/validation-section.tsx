@@ -4,6 +4,7 @@ import type { FacetBucket } from '../types';
 import { stripPrefix } from '../utils';
 import { BarFacet } from './bar-facet';
 import { FacetChart } from './facet-chart';
+import { FacetPillRows, type PillGroup } from './facet-pills';
 import { RadialValidation, STATUS_COLORS } from './radial-validation';
 import type { ChartId } from './use-section-visibility';
 
@@ -39,6 +40,7 @@ interface ValidatorData {
 }
 
 interface ValidationSectionProps {
+  pillGroups: PillGroup[];
   isVisible: (chart: ChartId) => boolean;
   getActiveValues: (field: string) => string[];
   getPreviewBuckets: (field: string) => FacetBucket[] | undefined;
@@ -51,6 +53,7 @@ interface ValidationSectionProps {
 }
 
 export function ValidationSection({
+  pillGroups,
   isVisible,
   getActiveValues,
   getPreviewBuckets,
@@ -64,6 +67,7 @@ export function ValidationSection({
       <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
         {t('plots.sections.validation')}
       </h3>
+      <FacetPillRows groups={pillGroups} />
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {perValidatorData.map(({ validator, statuses, reasons }) =>
           statuses.length > 0 ? (

@@ -1,7 +1,7 @@
 import { cn } from '@/lib/utils';
 import type { FacetBucket } from '../types';
 
-interface ContextPillsProps {
+interface PillListProps {
   buckets: FacetBucket[];
   previewBuckets?: FacetBucket[];
   activeValues: string[];
@@ -11,7 +11,7 @@ interface ContextPillsProps {
   formatLabel?: (key: string) => string;
 }
 
-export function ContextPills({
+export function PillList({
   buckets,
   previewBuckets,
   activeValues,
@@ -19,7 +19,7 @@ export function ContextPills({
   onHover,
   onLeave,
   formatLabel,
-}: ContextPillsProps) {
+}: PillListProps) {
   const isShowingPreview = previewBuckets != null;
 
   return (

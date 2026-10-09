@@ -320,6 +320,21 @@ class FacetsResponse(BaseModel):
 class FacetsPreviewRequest(BaseModel):
     filters: RecordFilter = RecordFilter()
     target_field: str
+    #: Which values of ``target_field`` to cross-tabulate, or every one of
+    #: them when absent.
+    #:
+    #: A preview is what the dashboard would look like if this one value were
+    #: filtered on, so it costs a pass over the analytics table per value. For
+    #: a field with four values that is free and asking for all of them is
+    #: right. ``link_agencies`` has 263 and most of them name fewer than ten
+    #: records: previewing the whole field meant two queries per value — about
+    #: eighty seconds of database time — to answer a hover over one pill, and
+    #: all but a dozen of those values were not even on screen.
+    #:
+    #: The client sends the values it is showing. It is a bound on work, not a
+    #: filter on the answer: the response is keyed by target value, so a path
+    #: where narrowing saves nothing may return more than was asked for.
+    target_values: list[str] | None = None
 
 
 class FacetsPreviewEntry(BaseModel):

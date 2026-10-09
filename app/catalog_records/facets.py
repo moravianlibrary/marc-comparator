@@ -239,17 +239,28 @@ def _facets_live(where: str, params: dict, db: Session) -> FacetsResponse:
 
 
 def get_facets_preview(request: FacetsPreviewRequest, db: Session) -> FacetsPreviewResponse:
+    """Cross-tabulate the other facets against each value of one field.
+
+    ``request.target_values`` bounds that to the values the caller can
+    actually use — see the field for why. It reaches the two paths where a
+    value costs something: the cube read, where it saves bandwidth, and the
+    per-value live path, where it saves a pair of sequential scans each.
+    The grouped path answers for every value in one query, so there is
+    nothing there to narrow.
+    """
+
     target = request.target_field
     if target not in ALL_FACET_FIELDS:
         return FacetsPreviewResponse(target_field=target, previews=[])
 
+    scope = set(request.target_values) if request.target_values is not None else None
     conditions = parse_filters(request.filters)
     if not conditions:
-        return _preview_from_cube(target, db)
+        return _preview_from_cube(target, scope, db)
 
     where, params = compile_conditions(conditions)
     if target in ARRAY_FACETS:
-        return _preview_live_per_value(target, where, params, db)
+        return _preview_live_per_value(target, scope, where, params, db)
     return _preview_live_grouped(target, where, params, db)
 
 
@@ -258,14 +269,21 @@ def get_facets_preview(request: FacetsPreviewRequest, db: Session) -> FacetsPrev
 # ---------------------------------------------------------------------------
 
 
-def _preview_from_cube(target: str, db: Session) -> FacetsPreviewResponse:
+def _preview_from_cube(target: str, scope: set[str] | None, db: Session) -> FacetsPreviewResponse:
+    # The cube has the answer for every value already, so narrowing saves no
+    # query time here — it saves sending 263 cross-tabs to render twelve.
+    narrow = " AND target_value = ANY(:tvs)" if scope else ""
+    params: dict[str, object] = {"tf": target}
+    if scope:
+        params["tvs"] = list(scope)
+
     rows = (
         db.execute(
             text(
                 f"SELECT target_value, facet_field, facet_value, cnt "
-                f"FROM {CUBE_TABLE} WHERE target_field = :tf"
+                f"FROM {CUBE_TABLE} WHERE target_field = :tf{narrow}"
             ),
-            {"tf": target},
+            params,
         )
         .mappings()
         .all()
@@ -275,9 +293,9 @@ def _preview_from_cube(target: str, db: Session) -> FacetsPreviewResponse:
         db.execute(
             text(
                 f"SELECT target_value, bucket_min, bucket_max, cnt "
-                f"FROM {CUBE_HIST_TABLE} WHERE target_field = :tf"
+                f"FROM {CUBE_HIST_TABLE} WHERE target_field = :tf{narrow}"
             ),
-            {"tf": target},
+            params,
         )
         .mappings()
         .all()
@@ -445,11 +463,16 @@ def _preview_live_grouped(
 
 
 def _preview_live_per_value(
-    target: str, where: str, params: dict, db: Session
+    target: str, scope: set[str] | None, where: str, params: dict, db: Session
 ) -> FacetsPreviewResponse:
     """Array targets with filters: use WHERE val = ANY(target) per value.
 
     Eliminates double unnest — each query does single unnest at most.
+
+    This is the path ``scope`` exists for. Each value costs two scans of the
+    analytics table, measured at 2.4 s for one agency against 344k records,
+    and eight run at a time; for ``link_agencies`` unscoped that is 526
+    queries and over a minute to answer one hover.
     """
     other_gs_cols = [c for c in _GS_COLUMNS if c != target]
     gs_sets = ", ".join(f"({col})" for col in other_gs_cols)
@@ -458,12 +481,21 @@ def _preview_live_per_value(
 
     # Q1: scalar/bool facets + totals via single unnest of target (fast)
     q1_sql = (
-        f"SELECT target_val AS target_value, {col_list}, count(*) AS cnt "
+        f"SELECT target_val AS target_value, {col_list}, "
+        # The flags are not optional decoration: `_extract_totals_and_targets`
+        # and `_parse_preview_grouping_rows` both read them to tell the grand
+        # total from a row grouped on a column that happens to be NULL. This
+        # was the one of the three GROUPING SETS queries that did not select
+        # them, so every filtered preview of an array facet — hovering any
+        # pill with a filter in force — answered with a NoSuchColumnError.
+        f"{_grouping_flags_sql(other_gs_cols)}, count(*) AS cnt "
         f"FROM {TABLE}, unnest({target}) AS t(target_val) {where} "
         f"GROUP BY target_val, GROUPING SETS ({gs_sets}, ())"
     )
     scalar_rows = db.execute(text(q1_sql), params).mappings().all()
     total_by_target, target_values = _extract_totals_and_targets(scalar_rows, other_gs_cols)
+    if scope is not None:
+        target_values &= scope
 
     if not target_values:
         return FacetsPreviewResponse(target_field=target, previews=[])

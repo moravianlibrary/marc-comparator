@@ -3,12 +3,14 @@ import { useTranslation } from 'react-i18next';
 import type { FacetBucket, HistogramBucket } from '../types';
 import { BarFacet } from './bar-facet';
 import { FacetChart } from './facet-chart';
+import { FacetPillRows, type PillGroup } from './facet-pills';
 import { HistogramFacet } from './histogram-facet';
 import { RadialQuality } from './radial-quality';
 import { ScoreRangeInputs } from './score-range-inputs';
 import type { ChartId } from './use-section-visibility';
 
 interface ComparisonSectionProps {
+  pillGroups: PillGroup[];
   isVisible: (chart: ChartId) => boolean;
   getBuckets: (field: string) => FacetBucket[];
   getActiveValues: (field: string) => string[];
@@ -27,6 +29,7 @@ interface ComparisonSectionProps {
 }
 
 export function ComparisonSection({
+  pillGroups,
   isVisible,
   getBuckets,
   getActiveValues,
@@ -51,6 +54,7 @@ export function ComparisonSection({
       <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
         {t('plots.sections.comparison')}
       </h3>
+      <FacetPillRows groups={pillGroups} />
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {isVisible('match_quality') && getBuckets('match_qualities').length > 0 && (
           <FacetChart

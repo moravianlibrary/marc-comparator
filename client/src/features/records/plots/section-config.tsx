@@ -56,34 +56,30 @@ export function SectionConfig({
             Object.entries(SECTION_GROUPS) as [keyof typeof SECTION_GROUPS, readonly ChartId[]][]
           ).map(([section, chartIds]) => (
             <div key={section}>
-              {section === 'context' ? (
-                <label className="flex items-center gap-2">
-                  <Checkbox
-                    checked={isSectionVisible('context')}
-                    onCheckedChange={() => toggleSection('context')}
-                  />
-                  <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                    {t(`plots.sections.${section}`)}
-                  </span>
-                </label>
-              ) : (
-                <>
-                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1">
-                    {t(`plots.sections.${section}`)}
-                  </p>
-                  <div className="space-y-1">
-                    {chartIds.map(chartId => (
-                      <label key={chartId} className="flex items-center gap-2">
-                        <Checkbox
-                          checked={isVisible(chartId)}
-                          onCheckedChange={() => toggleChart(chartId)}
-                        />
-                        <span className="text-sm">{t(CHART_LABEL_KEYS[chartId])}</span>
-                      </label>
-                    ))}
-                  </div>
-                </>
-              )}
+              {/* The section's own checkbox turns all of its charts off at
+                  once; the ones below pick them out individually. "context"
+                  used to be the one section without a chart list, because it
+                  was not a subject — it is gone and every section is alike. */}
+              <label className="flex items-center gap-2 mb-1">
+                <Checkbox
+                  checked={isSectionVisible(section)}
+                  onCheckedChange={() => toggleSection(section)}
+                />
+                <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  {t(`plots.sections.${section}`)}
+                </span>
+              </label>
+              <div className="space-y-1 pl-6">
+                {chartIds.map(chartId => (
+                  <label key={chartId} className="flex items-center gap-2">
+                    <Checkbox
+                      checked={isVisible(chartId)}
+                      onCheckedChange={() => toggleChart(chartId)}
+                    />
+                    <span className="text-sm">{t(CHART_LABEL_KEYS[chartId])}</span>
+                  </label>
+                ))}
+              </div>
             </div>
           ))}
         </div>

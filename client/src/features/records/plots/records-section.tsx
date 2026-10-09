@@ -5,10 +5,12 @@ import type { FacetBucket } from '../types';
 import { BarFacet } from './bar-facet';
 import { DonutFacet } from './donut-facet';
 import { FacetChart } from './facet-chart';
+import { FacetPillRows, type PillGroup } from './facet-pills';
 import { StatusTripleFacet } from './status-triple-facet';
 import type { ChartId } from './use-section-visibility';
 
 interface RecordsSectionProps {
+  pillGroups: PillGroup[];
   isVisible: (chart: ChartId) => boolean;
   getBuckets: (field: string) => FacetBucket[];
   getActiveValues: (field: string) => string[];
@@ -25,6 +27,7 @@ interface RecordsSectionProps {
 }
 
 export function RecordsSection({
+  pillGroups,
   isVisible,
   getBuckets,
   getActiveValues,
@@ -42,6 +45,7 @@ export function RecordsSection({
       <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">
         {t('plots.sections.records')}
       </h3>
+      <FacetPillRows groups={pillGroups} />
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
         {isVisible('record_status') && (
           <Card

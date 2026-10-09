@@ -19,39 +19,42 @@ export function useFacets() {
   });
 }
 
-export function useFacetPreview(targetField: string) {
-  const { buildRecordFilter } = useRecordFilters();
-  const recordFilter = buildRecordFilter();
+/**
+ * The values a preview was asked for, as a stable part of the cache key.
+ *
+ * Two requests for the same field differ if they cover different values, and
+ * a collapsed pill group covers a different set from an expanded one. Sorted
+ * so that the key does not change when only the display order does.
+ */
+function scopeKey(targetValues?: string[]): string | null {
+  return targetValues && targetValues.length > 0 ? [...targetValues].sort().join('\u0000') : null;
+}
 
-  return useQuery<FacetsPreviewResponse>({
-    queryKey: ['catalog-records', 'facets-preview', targetField, recordFilter],
-    queryFn: () =>
-      apiClient
-        .post<FacetsPreviewResponse>('/catalog-records/facets-preview', {
-          filters: recordFilter,
-          target_field: targetField,
-        })
-        .then(r => r.data),
-    enabled: false,
-    staleTime: 30_000,
-  });
+function previewQueryKey(targetField: string, recordFilter: unknown, targetValues?: string[]) {
+  return ['catalog-records', 'facets-preview', targetField, recordFilter, scopeKey(targetValues)];
+}
+
+function fetchPreview(targetField: string, recordFilter: unknown, targetValues?: string[]) {
+  return apiClient
+    .post<FacetsPreviewResponse>('/catalog-records/facets-preview', {
+      filters: recordFilter,
+      target_field: targetField,
+      // Omitted rather than sent empty: the server reads an absent list as
+      // "every value", which is what a caller that names none wants.
+      ...(targetValues && targetValues.length > 0 ? { target_values: targetValues } : {}),
+    })
+    .then(r => r.data);
 }
 
 export function usePrefetchFacetPreview() {
   const queryClient = useQueryClient();
   const { buildRecordFilter } = useRecordFilters();
 
-  return (targetField: string) => {
+  return (targetField: string, targetValues?: string[]) => {
     const recordFilter = buildRecordFilter();
     queryClient.prefetchQuery({
-      queryKey: ['catalog-records', 'facets-preview', targetField, recordFilter],
-      queryFn: () =>
-        apiClient
-          .post<FacetsPreviewResponse>('/catalog-records/facets-preview', {
-            filters: recordFilter,
-            target_field: targetField,
-          })
-          .then(r => r.data),
+      queryKey: previewQueryKey(targetField, recordFilter, targetValues),
+      queryFn: () => fetchPreview(targetField, recordFilter, targetValues),
       staleTime: 30_000,
     });
   };
@@ -60,12 +63,15 @@ export function usePrefetchFacetPreview() {
 export function usePreviewForValue(
   targetField: string,
   targetValue: string | null,
+  targetValues?: string[],
 ): FacetsResponse | undefined {
   const { buildRecordFilter } = useRecordFilters();
   const recordFilter = buildRecordFilter();
 
+  // Reads what the hover already prefetched, so the scope has to be the same
+  // one it was fetched under or this looks at an empty slot forever.
   const { data } = useQuery({
-    queryKey: ['catalog-records', 'facets-preview', targetField, recordFilter] as const,
+    queryKey: previewQueryKey(targetField, recordFilter, targetValues),
     queryFn: skipToken,
   });
 
@@ -101,14 +107,8 @@ export function usePerValidatorData():
   const recordFilter = buildRecordFilter();
 
   const { data } = useQuery<FacetsPreviewResponse>({
-    queryKey: ['catalog-records', 'facets-preview', 'validators', recordFilter],
-    queryFn: () =>
-      apiClient
-        .post<FacetsPreviewResponse>('/catalog-records/facets-preview', {
-          filters: recordFilter,
-          target_field: 'validators',
-        })
-        .then(r => r.data),
+    queryKey: previewQueryKey('validators', recordFilter),
+    queryFn: () => fetchPreview('validators', recordFilter),
     staleTime: 30_000,
     placeholderData: keepPreviousData,
   });
