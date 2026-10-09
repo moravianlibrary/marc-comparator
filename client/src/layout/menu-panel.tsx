@@ -1,4 +1,13 @@
-import { Info, ListTodo, Menu, Settings, Shield, Wrench } from 'lucide-react';
+import {
+  CalendarClock,
+  Database,
+  Info,
+  ListTodo,
+  Menu,
+  Settings,
+  Shield,
+  Wrench,
+} from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
@@ -26,6 +35,18 @@ const menuItems = [
     path: '/settings',
     icon: Settings,
     permission: { any: [Permission.ManageAppSettings, Permission.ManageTaskSettings] } as const,
+  },
+  {
+    labelKey: 'common:menu.periodic-sync',
+    path: '/periodic-sync',
+    icon: CalendarClock,
+    permission: Permission.ManageAppSettings,
+  },
+  {
+    labelKey: 'common:menu.plugin-harvest',
+    path: '/plugin-harvest',
+    icon: Database,
+    permission: Permission.ManageAppSettings,
   },
   {
     labelKey: 'common:menu.access-control',

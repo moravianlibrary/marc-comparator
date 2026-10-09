@@ -124,13 +124,16 @@
   },
   "maintenance": {
     "task-cleanup": {
-      "title": "Automatické čištění úkolů"
+      "title": "Automatické čištění úkolů",
+      "description": "Pravidelně maže dokončené, neúspěšné a zrušené úkoly starší než zadaný počet dní."
     },
     "sector-compaction": {
-      "title": "Automatická kompaktace sektorů"
+      "title": "Automatická kompaktace sektorů",
+      "description": "Pravidelně přepisuje MARC sektory a odstraňuje mezery po smazaných záznamech."
     },
     "orphan-reaper": {
-      "title": "Uvolnění zaseknutých úkolů"
+      "title": "Uvolnění zaseknutých úkolů",
+      "description": "Označí jako selhané úkoly, které zůstaly ve stavu Spuštěno poté, co jejich worker přestal běžet."
     },
     "enabled": "Aktivní",
     "max-age-days": "Maximální stáří (dny)"

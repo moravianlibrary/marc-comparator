@@ -47,6 +47,20 @@ export const router = createBrowserRouter([
         },
       },
       {
+        path: 'periodic-sync',
+        lazy: async () => {
+          const { PeriodicSyncPage } = await import('@/features/settings/periodic-sync-page');
+          return { Component: PeriodicSyncPage };
+        },
+      },
+      {
+        path: 'plugin-harvest',
+        lazy: async () => {
+          const { PluginHarvestPage } = await import('@/features/settings/plugin-harvest-page');
+          return { Component: PluginHarvestPage };
+        },
+      },
+      {
         path: 'access-control',
         element: <AccessControlPage />,
       },

@@ -30,5 +30,9 @@
   },
   "run": "Spustit",
   "running": "Spouští se...",
-  "started": "Úkol byl úspěšně spuštěn."
+  "started": "Úkol byl úspěšně spuštěn.",
+  "sections": {
+    "actions": "Ruční spuštění",
+    "schedules": "Automatické spouštění"
+  }
 }

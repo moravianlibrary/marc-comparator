@@ -20,7 +20,9 @@
     "access-control": "Přístupová práva",
     "maintenance": "Údržba",
     "system": "Informace o systému",
-    "help": "Nápověda"
+    "help": "Nápověda",
+    "periodic-sync": "Plánované úkoly nad záznamy",
+    "plugin-harvest": "Lokální kopie dat pro rozšíření"
   },
   "lock-banner": {
     "catalog-sync": "Probíhá synchronizace katalogu pro bázi {{base}}",
@@ -144,8 +146,7 @@
         "Propojení autorit — konfigurace služby Knihovny.cz pro automatické dohledávání autoritních záznamů.",
         "Porovnávání — nastavení porovnávače MARC záznamů včetně prahů validity a volitelného LLM modelu.",
         "Validátory — nastavení validátoru odkazů na Kramerius (vzory URL, adresa serveru).",
-        "Zpracování záznamů — výběr cílových bází a nástrojů pro hromadné zpracování.",
-        "Údržba — automatické čištění úkolů a kompaktace sektorů."
+        "Zpracování záznamů — výběr cílových bází a nástrojů pro hromadné zpracování."
       ]
     },
     "access-control": {
@@ -154,7 +155,7 @@
     },
     "maintenance": {
       "title": "Údržba",
-      "description": "Jednorázové údržbové operace pro správu systému:",
+      "description": "Jednorázové údržbové operace pro správu systému. Pod nimi se nastavuje jejich automatické spouštění. Operace:",
       "actions": [
         "Vyčistit úkoly — smaže staré záznamy úkolů, volitelně starší než zadaný počet dní.",
         "Obnovit analytiku — přepočítá analytická data pro grafy a filtry.",

@@ -17,7 +17,7 @@ import {
 } from '@/components/ui/alert-dialog';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Form, FormControl, FormField, FormItem, FormLabel } from '@/components/ui/form';
 import { Progress } from '@/components/ui/progress';
 import { Switch } from '@/components/ui/switch';
@@ -68,17 +68,15 @@ export function PluginHarvestSettingsForm({ data, onDirtyChange, onFormRef, onSu
   return (
     <Form {...form}>
       <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center gap-2">
-            <CardTitle className="text-base">{t('types.plugin-harvest')}</CardTitle>
-            <HelpDialog titleKey="types.plugin-harvest">
-              <PluginHarvestHelp />
-            </HelpDialog>
-          </CardHeader>
-          <CardContent>
-            <CardDescription>{t('plugin-harvest.description')}</CardDescription>
-          </CardContent>
-        </Card>
+        {/* The page is titled after this scope, so the intro needs no card of its own. */}
+        <div className="flex items-start gap-2">
+          <p className="max-w-3xl text-sm text-muted-foreground">
+            {t('plugin-harvest.description')}
+          </p>
+          <HelpDialog titleKey="types.plugin-harvest">
+            <PluginHarvestHelp />
+          </HelpDialog>
+        </div>
 
         {names.length === 0 ? (
           <p className="text-sm text-muted-foreground">{t('plugin-harvest.no-plugins')}</p>

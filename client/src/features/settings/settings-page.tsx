@@ -1,7 +1,5 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { toast } from 'sonner';
 import { SkeletonForm } from '@/components/skeletons/skeleton-form';
 import {
   AlertDialog,
@@ -13,7 +11,6 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
-import { Button } from '@/components/ui/button';
 import {
   Select,
   SelectContent,
@@ -21,80 +18,39 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import apiClient from '@/lib/api-client';
 import type { SettingsScope } from '@/types/settings';
 import { AuthorityLinkingSettingsForm } from './authority-linking-settings-form';
 import { CatalogSettingsForm } from './catalog-settings-form';
 import { ComparisonSettingsForm } from './comparison-settings-form';
-import { MaintenanceSettingsForm } from './maintenance-settings-form';
-import { PeriodicSyncSettingsForm } from './periodic-sync-settings-form';
-import { PluginHarvestSettingsForm } from './plugin-harvest-settings-form';
 import { ProcessRecordsSettingsForm } from './process-records-settings-form';
+import { SettingsActions } from './settings-actions';
 import { TaskSettingsForm } from './task-settings-form';
+import { useScopedSettings } from './use-scoped-settings';
 import { ValidationSettingsForm } from './validation-settings-form';
 
-const SETTINGS_SCOPES: SettingsScope[] = [
+// Maintenance, the record schedules and the plugin copies have pages of their
+// own (see the menu); this page holds what configures the tools themselves.
+const SETTINGS_SCOPES = [
   'catalog',
   'tasks',
   'authority-linkers',
   'comparators',
   'validators',
   'process-records',
-  'maintenance',
-  'periodic-sync',
-  'plugin-harvest',
-];
+] as const satisfies readonly SettingsScope[];
 
-const SETTINGS_ENDPOINTS: Record<SettingsScope, string> = {
-  catalog: '/settings/system/catalog',
-  tasks: '/settings/system/tasks',
-  'authority-linkers': '/settings/record-tools/authority-linkers',
-  comparators: '/settings/record-tools/comparators',
-  validators: '/settings/record-tools/validators',
-  'process-records': '/settings/record-tools/process-records',
-  maintenance: '/settings/system/maintenance',
-  'periodic-sync': '/settings/system/periodic-sync',
-  'plugin-harvest': '/settings/system/plugin-harvest',
-};
+type PageScope = (typeof SETTINGS_SCOPES)[number];
 
 export function SettingsPage() {
   const { t } = useTranslation('settings');
-  const queryClient = useQueryClient();
 
-  const [activeScope, setActiveScope] = useState<SettingsScope>('catalog');
-  const [isDirty, setIsDirty] = useState(false);
-  const [pendingScope, setPendingScope] = useState<SettingsScope | null>(null);
-  const formRef = useRef<{
-    submit: () => void;
-    reset: () => void;
-  } | null>(null);
-  const setFormRef = useCallback((ref: { submit: () => void; reset: () => void }) => {
-    formRef.current = ref;
-  }, []);
-
-  const endpoint = SETTINGS_ENDPOINTS[activeScope];
-
-  const { data: settings, isLoading } = useQuery({
-    queryKey: ['settings', activeScope],
-    queryFn: () => apiClient.get(endpoint).then(r => r.data),
-  });
-
-  const saveMutation = useMutation({
-    mutationFn: (data: unknown) => apiClient.post(endpoint, data),
-    onSuccess: () => {
-      // The refetched data becomes the form's new baseline (values prop in
-      // useSettingsForm), which flips isDirty back to false — no manual
-      // setIsDirty here, it would desync from the form's own dirty state.
-      queryClient.invalidateQueries({ queryKey: ['settings', activeScope] });
-      toast.success(t('common:saved'));
-    },
-    onError: () => {
-      toast.error(t('common:save-failed'));
-    },
-  });
+  const [activeScope, setActiveScope] = useState<PageScope>('catalog');
+  const [pendingScope, setPendingScope] = useState<PageScope | null>(null);
+  const { settings, isLoading, isDirty, isSaving, save, discard, formProps } =
+    useScopedSettings(activeScope);
 
   const handleScopeChange = useCallback(
-    (newScope: SettingsScope) => {
+    (newScope: PageScope) => {
       if (isDirty) {
         setPendingScope(newScope);
       } else {
@@ -106,24 +62,18 @@ export function SettingsPage() {
 
   const handleDiscardAndSwitch = useCallback(() => {
     if (pendingScope) {
-      formRef.current?.reset();
-      setIsDirty(false);
+      discard();
       setActiveScope(pendingScope);
       setPendingScope(null);
     }
-  }, [pendingScope]);
+  }, [pendingScope, discard]);
 
   function renderForm() {
     if (isLoading || !settings) {
       return <SkeletonForm fields={6} />;
     }
 
-    const commonProps = {
-      data: settings,
-      onDirtyChange: setIsDirty,
-      onFormRef: setFormRef,
-      onSubmit: (data: unknown) => saveMutation.mutate(data),
-    };
+    const commonProps = { ...formProps, data: settings };
 
     let form: React.ReactNode;
     switch (activeScope) {
@@ -145,15 +95,6 @@ export function SettingsPage() {
       case 'process-records':
         form = <ProcessRecordsSettingsForm {...commonProps} />;
         break;
-      case 'maintenance':
-        form = <MaintenanceSettingsForm {...commonProps} />;
-        break;
-      case 'periodic-sync':
-        form = <PeriodicSyncSettingsForm {...commonProps} />;
-        break;
-      case 'plugin-harvest':
-        form = <PluginHarvestSettingsForm {...commonProps} />;
-        break;
     }
     return <div className="animate-fade-in">{form}</div>;
   }
@@ -165,7 +106,7 @@ export function SettingsPage() {
       </div>
 
       <div className="flex items-center gap-4">
-        <Select value={activeScope} onValueChange={handleScopeChange}>
+        <Select value={activeScope} onValueChange={v => handleScopeChange(v as PageScope)}>
           <SelectTrigger className="w-[320px]">
             <SelectValue />
           </SelectTrigger>
@@ -178,22 +119,7 @@ export function SettingsPage() {
           </SelectContent>
         </Select>
 
-        <Button
-          onClick={() => formRef.current?.submit()}
-          disabled={!isDirty || saveMutation.isPending}
-        >
-          {t('common:save')}
-        </Button>
-        <Button
-          variant="outline"
-          onClick={() => {
-            formRef.current?.reset();
-            setIsDirty(false);
-          }}
-          disabled={!isDirty}
-        >
-          {t('common:discard')}
-        </Button>
+        <SettingsActions isDirty={isDirty} isSaving={isSaving} onSave={save} onDiscard={discard} />
       </div>
 
       {renderForm()}
