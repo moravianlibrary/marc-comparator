@@ -7,11 +7,19 @@ metadata:
 spec:
   instances: {{ .Values.cnpg.instances }}
 
-  {{- if .Values.cnpg.pgStatStatements }}
   postgresql:
-    shared_preload_libraries:
-      - pg_stat_statements
-  {{- end }}
+    parameters:
+      {{- range $name, $value := .Values.cnpg.parameters }}
+      {{ $name }}: {{ $value | quote }}
+      {{- end }}
+      {{- if .Values.cnpg.pgStatStatements }}
+      # Setting any pg_stat_statements.* parameter makes CNPG manage the
+      # extension: it preloads the library and creates the extension in
+      # every database, which listing it in shared_preload_libraries alone
+      # did not.
+      pg_stat_statements.max: "10000"
+      pg_stat_statements.track: "top"
+      {{- end }}
 
   bootstrap:
     initdb:

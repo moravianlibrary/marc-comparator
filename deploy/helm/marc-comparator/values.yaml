@@ -120,6 +120,63 @@ cnpg:
     limits:
       cpu: "1"
       memory: 1Gi
+  # -- postgresql.conf settings, sized for the 1Gi limit above. Postgres's own
+  # defaults assume a 128 MB machine and size nothing for this workload. When
+  # you raise the resources, raise these with them; the table below gives
+  # values per catalogue size. Changing shared_buffers restarts the instance.
+  #
+  # jit is off because the live facet and preview queries are expensive
+  # enough to trigger it but too short to repay it: compilation added
+  # 0.3–0.6 s to queries that otherwise take 0.2–1 s.
+  parameters:
+    jit: "off"
+    # ~25% of the memory limit. The analytics table the facets scan is
+    # ~110 MB per 345k records.
+    shared_buffers: 256MB
+    # ~70% of the memory limit: shared_buffers plus what the kernel caches.
+    effective_cache_size: 704MB
+    # Per sort or hash, per query, so a busy instance holds several. The
+    # record search's hash spilled to disk at the default 4MB.
+    work_mem: 16MB
+    maintenance_work_mem: 128MB
+    # For SSD-backed volumes. The default 4.0 assumes spinning disks and
+    # steers the planner away from index scans it should take; set it back
+    # on rotational storage.
+    random_page_cost: "1.1"
+    # Parallel workers share the CPU limit with their leader, so at one
+    # CPU they add overhead and CFS throttling.
+    max_parallel_workers_per_gather: "0"
+  #
+  # Sizing by number of catalogue records. Measured at 345k records on k3d:
+  # the core schema takes ~1.15 GB (catalog_records 285 MB, analytics
+  # 176 MB, validations 92 MB, authority_links 72 MB), so ~3.3 GB per 1M
+  # records. Of that, the tables the searches and facets read take about
+  # 1.8 GB per 1M.
+  #
+  #   records   cpu req/lim  mem req/lim  shared_buffers  effective_cache_size  work_mem  maintenance_work_mem  parallel/gather  storage
+  #   100k      250m / 1     512Mi / 1Gi  256MB           704MB                 16MB      128MB                 0                10Gi
+  #   500k      500m / 2     1Gi / 2Gi    512MB           1408MB                16MB      256MB                 1                15Gi
+  #   1M        1 / 2        2Gi / 4Gi    1GB             2816MB                32MB      512MB                 1                20Gi
+  #   2M        2 / 4        4Gi / 8Gi    2GB             5632MB                32MB      1GB                   2                30Gi
+  #   5M        4 / 8        8Gi / 16Gi   4GB             11GB                  64MB      2GB                   4                60Gi
+  #   10M       4 / 8        16Gi / 32Gi  8GB             22GB                  64MB      2GB                   4                120Gi
+  #
+  # - Storage is ~3x the core schema, to leave room for WAL (up to
+  #   max_wal_size, 1 GB by default), for dead rows between vacuums, and for
+  #   the analytics rebuild. The rebuild truncates and refills the table in
+  #   one transaction, so the old files stay on disk until it commits.
+  # - Add ~15Gi for the plugins' local data copies if any are enabled. That
+  #   size depends on the external sources, not the catalogue: at 9M
+  #   national records the MARCXML dump is 10 GB and Kramerius 1.1 GB.
+  # - Filtered facets scan the analytics table and grow with it: ~1 s per
+  #   345k records on one core for a filter that matches half of them.
+  #   Parallel workers divide that, so from 2M records give the database
+  #   the CPUs to run them.
+  # - Keep work_mem modest and add memory instead. The limit applies to each
+  #   sort and hash in each query on each connection (hashes may use twice
+  #   that, by hash_mem_multiplier), so many concurrent queries multiply it.
+  # - For more than one instance, size each replica the same as the
+  #   primary.
 
 # -- Ollama (optional LLM for comparison)
 ollama:
