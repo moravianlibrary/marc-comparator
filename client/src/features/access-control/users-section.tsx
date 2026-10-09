@@ -20,7 +20,7 @@ import {
 import { useGetMe } from '@/hooks/use-auth';
 import apiClient from '@/lib/api-client';
 import type { Role } from '@/types/role';
-import type { User } from '@/types/user';
+import { SYSTEM_USER_ID, type User } from '@/types/user';
 
 export function UsersSection() {
   const { t } = useTranslation('access-control');
@@ -89,7 +89,9 @@ export function UsersSection() {
           </TableHeader>
           <TableBody>
             {users.map(user => {
-              const isSelf = me?.id === user.id;
+              // Your own roles are not yours to change, and the system account
+              // runs the scheduled jobs: taking its roles away breaks them.
+              const isLocked = me?.id === user.id || user.id === SYSTEM_USER_ID;
               const userRoleIds = user.roles.map(r => r.id);
               const availableRoles = roles.filter(r => !userRoleIds.includes(r.id));
 
@@ -103,10 +105,10 @@ export function UsersSection() {
                       {user.roles.map(role => (
                         <Badge
                           key={role.id}
-                          variant={isSelf ? 'outline' : 'secondary'}
-                          className={isSelf ? '' : 'cursor-pointer'}
+                          variant={isLocked ? 'outline' : 'secondary'}
+                          className={isLocked ? '' : 'cursor-pointer'}
                           onClick={
-                            isSelf
+                            isLocked
                               ? undefined
                               : () =>
                                   unassignMutation.mutate({
@@ -116,13 +118,13 @@ export function UsersSection() {
                           }
                         >
                           {role.name}
-                          {!isSelf && ' ×'}
+                          {!isLocked && ' ×'}
                         </Badge>
                       ))}
                     </div>
                   </TableCell>
                   <TableCell>
-                    {!isSelf && availableRoles.length > 0 && (
+                    {!isLocked && availableRoles.length > 0 && (
                       <Select
                         onValueChange={roleId =>
                           assignMutation.mutate({
