@@ -217,7 +217,7 @@ class TestAClaimIsFindableAndVisible:
     noticed, into an indexed column, and then read by nothing at all.
     """
 
-    def _flags(self, db_session, record: CatalogRecord) -> tuple[bool, bool]:
+    def _flags(self, db_session, record: CatalogRecord) -> tuple[bool, bool | None]:
         from sqlalchemy import text
 
         from catalog_records.analytics import TABLE, upsert_records
@@ -229,13 +229,23 @@ class TestAClaimIsFindableAndVisible:
         ).one()
         return row[0], row[1]
 
-    def test_a_record_nobody_ruled_on_is_a_machine_answer(self, db_session):
+    def test_a_record_nobody_ruled_on_has_no_ruling_to_hold(self, db_session):
+        """`has_claim` is false; `claim_needs_review` is neither.
+
+        Whether a cataloguer has ruled is a fair question about any record,
+        so that one stays two-valued. Whether their ruling still holds is
+        not: there is no ruling. Answering False put every unruled record in
+        the "ruling holds" bucket and buried the few that genuinely need a
+        second look under the whole catalogue.
+        """
+
         record = _record(db_session, "000000831")
         _write(db_session, record, _decision(_candidate("000000931", 13.0)))
         db_session.commit()
 
-        assert self._flags(db_session, record) == (False, False)
+        assert self._flags(db_session, record) == (False, None)
         assert build_filtered_query(db_session, RecordFilter(has_claim=True)).all() == []
+        assert build_filtered_query(db_session, RecordFilter(claim_needs_review=False)).all() == []
 
     def test_a_claimed_record_says_so_and_is_filterable(self, db_session):
         record = _record(db_session, "000000832")

@@ -69,16 +69,28 @@ def _compile_one(query, c: FilterCondition):
         case FilterField.HasAlternatives:
             # `link_candidates` is already scoped to rank > 0, so this asks
             # the relationship rather than repeating the rank here.
+            #
+            # False is deliberately narrower than "not true": it means the
+            # record was linked and kept nothing behind its answer, not that
+            # linking never ran. The analytics column is NULL for the latter
+            # and `has_alternatives = false` excludes it, so this path has to
+            # exclude it too or the two disagree on the same question.
             has_alternatives = CatalogRecord.link_candidates.any()
-            return query.filter(has_alternatives if c.value else ~has_alternatives)
+            if c.value:
+                return query.filter(has_alternatives)
+            return query.filter(CatalogRecord.link_attempts.any(), ~has_alternatives)
 
         case FilterField.HasClaim:
             has_claim = CatalogRecord.claims.any()
             return query.filter(has_claim if c.value else ~has_claim)
 
         case FilterField.ClaimNeedsReview:
+            # Same narrowing as above: a claim nobody made is not a claim
+            # that holds, so false means "ruled on, and the ruling stands".
             needs_review = CatalogRecord.claims.any(LinkClaim.needs_review)
-            return query.filter(needs_review if c.value else ~needs_review)
+            if c.value:
+                return query.filter(needs_review)
+            return query.filter(CatalogRecord.claims.any(), ~needs_review)
 
         case FilterField.ReviewStatuses:
             has_current = CatalogRecord.reviews.any(RecordReview.status == ReviewStatus.Current)

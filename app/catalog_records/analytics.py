@@ -19,9 +19,15 @@ CREATE TABLE IF NOT EXISTS catalog_records_analytics (
     is_deleted      BOOLEAN NOT NULL DEFAULT FALSE,
     is_processed    BOOLEAN NOT NULL DEFAULT FALSE,
     is_broken       BOOLEAN NOT NULL DEFAULT FALSE,
-    has_alternatives BOOLEAN NOT NULL DEFAULT FALSE,
+    -- Nullable on purpose, unlike every other boolean here: NULL is "the
+    -- question does not arise yet". A record linking has never touched has
+    -- no candidates at all, which is not the same as having exactly one,
+    -- and no ruling to hold or to doubt. Written as FALSE they claimed
+    -- both, and a freshly synced catalogue read as 148k records with a
+    -- single candidate each that the machine had decided.
+    has_alternatives BOOLEAN,
     has_claim       BOOLEAN NOT NULL DEFAULT FALSE,
-    claim_needs_review BOOLEAN NOT NULL DEFAULT FALSE,
+    claim_needs_review BOOLEAN,
 
     authority_link_linkers  TEXT[],
     authority_link_bases    TEXT[],
@@ -116,10 +122,15 @@ _ANALYTICS_SELECT = """
         -- the whole reason the candidates are stored, and until now the
         -- only way to the records that have one was to read the rows one
         -- at a time: `rank` is on the link, not on the record.
-        EXISTS (
+        --
+        -- NULL where linking has not run: no rows means no candidates,
+        -- and "no candidates" must not be reported as "one candidate".
+        CASE WHEN EXISTS (
+            SELECT 1 FROM authority_links any_al WHERE any_al.main_record_id = cr.id
+        ) THEN EXISTS (
             SELECT 1 FROM authority_links alt
             WHERE alt.main_record_id = cr.id AND alt.rank > 0
-        ) AS has_alternatives,
+        ) END AS has_alternatives,
 
         -- Whether a cataloguer has ruled on this record. The answer a
         -- person asserted and the answer a linker computed are not the
@@ -133,10 +144,16 @@ _ANALYTICS_SELECT = """
         -- since it was made. The claim still decides the answer; this
         -- only asks for a second look, and it is the one worklist the
         -- claim feature exists to produce.
-        EXISTS (
+        --
+        -- NULL where there is no ruling: a claim nobody made cannot be
+        -- holding, and counting it as holding buried the handful that
+        -- genuinely do under the whole catalogue.
+        CASE WHEN EXISTS (
+            SELECT 1 FROM link_claims lc3 WHERE lc3.main_record_id = cr.id
+        ) THEN EXISTS (
             SELECT 1 FROM link_claims lc2
             WHERE lc2.main_record_id = cr.id AND lc2.needs_review
-        ) AS claim_needs_review,
+        ) END AS claim_needs_review,
 
         array_agg(DISTINCT al.linker)
             FILTER (WHERE al.linker IS NOT NULL)            AS authority_link_linkers,
@@ -301,12 +318,28 @@ ADD_COLUMNS_SQL = [
     "ALTER TABLE catalog_records_analytics ADD COLUMN IF NOT EXISTS link_outcomes TEXT[]",
     "ALTER TABLE catalog_records_analytics ADD COLUMN IF NOT EXISTS link_agencies TEXT[]",
     "ALTER TABLE catalog_records_analytics ADD COLUMN IF NOT EXISTS link_identifiers TEXT[]",
-    "ALTER TABLE catalog_records_analytics "
-    "ADD COLUMN IF NOT EXISTS has_alternatives BOOLEAN NOT NULL DEFAULT FALSE",
+    "ALTER TABLE catalog_records_analytics ADD COLUMN IF NOT EXISTS has_alternatives BOOLEAN",
     "ALTER TABLE catalog_records_analytics "
     "ADD COLUMN IF NOT EXISTS has_claim BOOLEAN NOT NULL DEFAULT FALSE",
-    "ALTER TABLE catalog_records_analytics "
-    "ADD COLUMN IF NOT EXISTS claim_needs_review BOOLEAN NOT NULL DEFAULT FALSE",
+    "ALTER TABLE catalog_records_analytics ADD COLUMN IF NOT EXISTS claim_needs_review BOOLEAN",
+]
+
+#: Changes to columns that already exist, as opposed to columns that do not.
+#:
+#: Kept apart from ``ADD_COLUMNS_SQL`` because that list means one thing —
+#: "this column was added after the table" — and a test derives the table's
+#: older shape by subtracting it from ``CREATE_TABLE_SQL``. An ALTER that
+#: changes a column in place would make that derivation nonsense.
+#:
+#: ``has_alternatives`` and ``claim_needs_review`` shipped NOT NULL DEFAULT
+#: FALSE, which made them claim "no" for records the question does not arise
+#: for. New tables get them nullable from ``CREATE_TABLE_SQL``; these relax
+#: the ones already out there. Repeating them is a no-op.
+ALTER_COLUMNS_SQL = [
+    "ALTER TABLE catalog_records_analytics ALTER COLUMN has_alternatives DROP NOT NULL",
+    "ALTER TABLE catalog_records_analytics ALTER COLUMN has_alternatives DROP DEFAULT",
+    "ALTER TABLE catalog_records_analytics ALTER COLUMN claim_needs_review DROP NOT NULL",
+    "ALTER TABLE catalog_records_analytics ALTER COLUMN claim_needs_review DROP DEFAULT",
 ]
 
 
@@ -314,6 +347,8 @@ def init_analytics_table(db: Session) -> None:
     """Create the analytics table, cube tables, and indexes if they don't exist."""
     db.execute(text(CREATE_TABLE_SQL))
     for alter_sql in ADD_COLUMNS_SQL:
+        db.execute(text(alter_sql))
+    for alter_sql in ALTER_COLUMNS_SQL:
         db.execute(text(alter_sql))
     for idx_sql in CREATE_INDEXES_SQL:
         db.execute(text(idx_sql))
@@ -399,14 +434,29 @@ def rebuild_all(db: Session) -> None:
 #: almost everybody opens first.
 SCALAR_FACETS = ["base", "type_of_record", "bibliographic_level", "review_status"]
 
-#: Boolean columns, mapped to the labels their two buckets carry.
+#: Boolean columns, mapped to the labels their false and true buckets carry.
 BOOL_FACETS = {
     "is_deleted": ("Active", "Deleted"),
     "is_processed": ("Unprocessed", "Processed"),
     "is_broken": ("Readable", "Broken"),
     "has_alternatives": ("Single candidate", "Has alternatives"),
-    "has_claim": ("Machine answer", "Cataloguer's answer"),
+    # Was "Machine answer", which asserted an answer existed. For a record
+    # linking has never run on, nobody has answered at all — but it remains
+    # true that no cataloguer has ruled, so this one stays two-valued.
+    "has_claim": ("No cataloguer ruling", "Cataloguer's answer"),
     "claim_needs_review": ("Claim holds", "Claim needs review"),
+}
+
+#: The third bucket, for the columns where false and true do not cover it.
+#:
+#: Both of these describe something that only comes into existence once
+#: linking has run or a cataloguer has ruled. Before that the honest answer
+#: is neither bucket, so the column is NULL and lands here instead of being
+#: counted as a "no" — which is what made a synced-but-unlinked catalogue
+#: read as having been decided.
+UNDEFINED_BOOL_LABELS = {
+    "has_alternatives": "Not linked",
+    "claim_needs_review": "No ruling",
 }
 ARRAY_FACETS = [
     "authority_link_linkers",
@@ -437,13 +487,26 @@ def _quoted(label: str) -> str:
     return "'" + label.replace("'", "''") + "'"
 
 
+def _bool_case(field: str) -> str:
+    """The bucket label for a boolean column, NULL included where it has one.
+
+    The NULL branch comes first because NULL is not false: without it the
+    ``ELSE`` would swallow the undefined rows into the "no" bucket, which is
+    the bug this exists to prevent.
+    """
+
+    false_label, true_label = BOOL_FACETS[field]
+    undefined = UNDEFINED_BOOL_LABELS.get(field)
+    prefix = f"WHEN {field} IS NULL THEN {_quoted(undefined)} " if undefined else ""
+    return f"CASE {prefix}WHEN {field} THEN {_quoted(true_label)} ELSE {_quoted(false_label)} END"
+
+
 def _target_sql(field: str) -> tuple[str, str, str]:
     """Return (select_expr, from_extra, group_col) for a target field."""
     if field in ARRAY_FACETS:
         return "tv::text", f", unnest({field}) AS _t(tv)", "tv"
     if field in BOOL_FACETS:
-        fl, tl = BOOL_FACETS[field]
-        return f"CASE WHEN {field} THEN {_quoted(tl)} ELSE {_quoted(fl)} END", "", field
+        return _bool_case(field), "", field
     return f"{field}::text", "", field
 
 
@@ -452,8 +515,7 @@ def _facet_sql(field: str) -> tuple[str, str, str]:
     if field in ARRAY_FACETS:
         return "fv::text", f", unnest({field}) AS _f(fv)", "fv"
     if field in BOOL_FACETS:
-        fl, tl = BOOL_FACETS[field]
-        return f"CASE WHEN {field} THEN {_quoted(tl)} ELSE {_quoted(fl)} END", "", field
+        return _bool_case(field), "", field
     return f"{field}::text", "", field
 
 
@@ -462,7 +524,9 @@ def _build_cube_sql_for_target(target: str) -> str:
     t_expr, t_from, t_group = _target_sql(target)
     t_lit = f"'{target}'"
 
-    # NULL filter for scalar targets (array/bool can't be NULL in practice)
+    # NULL filter for scalar targets only. A boolean target may now be NULL,
+    # and must not be filtered out: `_bool_case` turns it into a bucket of
+    # its own, which is the whole point of letting it be NULL.
     t_where = f" WHERE {target} IS NOT NULL" if target in SCALAR_FACETS else ""
 
     branches = []
@@ -535,6 +599,12 @@ def _build_pairs_sql() -> str:
     scalar its value unless null, a boolean its label, an array one row per
     element — repeats included, so a value appearing twice in one record counts
     twice, exactly as unnesting in place does.
+
+    The boolean label comes from ``_bool_case`` rather than being spelled out
+    again. This was the third copy of that expression and the one the cube
+    actually runs, so when the other two learned about NULL and this did not,
+    the cube went on reporting "no" for records the question does not arise
+    for — which is the bug the NULL was introduced to fix.
     """
 
     branches = []
@@ -545,12 +615,8 @@ def _build_pairs_sql() -> str:
                 f"FROM {TABLE}, unnest({field}) AS _u(v)"
             )
         elif field in BOOL_FACETS:
-            false_label, true_label = BOOL_FACETS[field]
             branches.append(
-                f"SELECT id, '{field}' AS field, "
-                f"CASE WHEN {field} THEN {_quoted(true_label)} "
-                f"ELSE {_quoted(false_label)} END AS value "
-                f"FROM {TABLE}"
+                f"SELECT id, '{field}' AS field, {_bool_case(field)} AS value FROM {TABLE}"
             )
         else:
             branches.append(

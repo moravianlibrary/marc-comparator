@@ -922,7 +922,7 @@ class TestTheRecordsWithAChoiceAreFindable:
     opinion is worth somebody's afternoon.
     """
 
-    def _has_alternatives(self, db_session, record: CatalogRecord) -> bool:
+    def _has_alternatives(self, db_session, record: CatalogRecord) -> bool | None:
         from sqlalchemy import text
 
         from catalog_records.analytics import TABLE, upsert_records
@@ -961,6 +961,26 @@ class TestTheRecordsWithAChoiceAreFindable:
         assert build_filtered_query(db_session, RecordFilter(has_alternatives=True)).all() == [
             record
         ]
+        assert build_filtered_query(db_session, RecordFilter(has_alternatives=False)).all() == []
+
+    def test_a_record_linking_never_touched_answers_neither_way(self, db_session):
+        """No candidates is not one candidate.
+
+        Reported as False this read as "a single candidate, and the machine
+        picked it" for every record in a freshly synced catalogue — 148k of
+        them on the deployment that caught it. The question does not arise
+        until linking has run, so until then the column says nothing.
+        """
+
+        record = _record(db_session, "000000156")
+        db_session.commit()
+
+        assert self._has_alternatives(db_session, record) is None
+
+        # And it must stay out of both filtered views, not just the true
+        # one: `has_alternatives = false` means "linked, and nothing was
+        # kept behind the answer", which this record has not earned either.
+        assert build_filtered_query(db_session, RecordFilter(has_alternatives=True)).all() == []
         assert build_filtered_query(db_session, RecordFilter(has_alternatives=False)).all() == []
 
 

@@ -12,6 +12,7 @@ from .analytics import (
     CUBE_TABLE,
     SCALAR_FACETS,
     SCORE_BUCKET,
+    UNDEFINED_BOOL_LABELS,
 )
 from .filter_spec import parse_filters
 from .filter_sql import compile_conditions
@@ -31,6 +32,47 @@ TABLE = "catalog_records_analytics"
 
 # ---- GROUPING SETS column list for scalar + bool facets ----
 _GS_COLUMNS = SCALAR_FACETS + list(BOOL_FACETS.keys())
+
+
+def _grouping_flags_sql(cols: list[str]) -> str:
+    """``GROUPING(col)`` for each dimension, aliased by position.
+
+    GROUPING SETS fills the columns a row is *not* grouped by with NULL, so a
+    column whose value is genuinely NULL is indistinguishable from one that is
+    simply absent from this row's set. That was harmless while every grouped
+    column was NOT NULL and became wrong the moment `has_alternatives` and
+    `claim_needs_review` started saying "the question does not arise".
+
+    ``GROUPING`` is the only thing that tells the two apart: it returns 1 for a
+    column the row is not grouped by and 0 for one it is, whatever the value.
+    """
+
+    return ", ".join(f"GROUPING({col}) AS g_{i}" for i, col in enumerate(cols))
+
+
+def _grouped_col(row: RowMapping, cols: list[str]) -> str | None:
+    """Which dimension this row is grouped by, or None for the grand total."""
+
+    for i, col in enumerate(cols):
+        if row[f"g_{i}"] == 0:
+            return col
+    return None
+
+
+def _bucket_label(col: str, value: object) -> str:
+    """The bucket a dimension value belongs in, as the cube would label it.
+
+    Kept in step with ``analytics._bool_case`` by reading the same two
+    mappings: the live path and the cube answer the same question and a test
+    asserts they agree, so the labels cannot be written out twice.
+    """
+
+    if col in BOOL_FACETS:
+        if value is None:
+            return UNDEFINED_BOOL_LABELS[col]
+        false_label, true_label = BOOL_FACETS[col]
+        return true_label if value else false_label
+    return str(value)
 
 
 def get_facets(request: FacetsRequest, db: Session) -> FacetsResponse:
@@ -127,7 +169,7 @@ def _facets_live(where: str, params: dict, db: Session) -> FacetsResponse:
     gs_sets = ", ".join(f"({col})" for col in _GS_COLUMNS)
     col_list = ", ".join(_GS_COLUMNS)
     gs_sql = (
-        f"SELECT {col_list}, count(*) AS cnt "
+        f"SELECT {col_list}, {_grouping_flags_sql(_GS_COLUMNS)}, count(*) AS cnt "
         f"FROM {TABLE} {where} "
         f"GROUP BY GROUPING SETS ({gs_sets}, ())"
     )
@@ -184,10 +226,12 @@ def _facets_live(where: str, params: dict, db: Session) -> FacetsResponse:
             )
         )
 
-    # Total count (from the empty () grouping set)
+    # Total count (from the empty () grouping set). Identified by the
+    # grouping flags, not by every column being NULL: a row grouped on a
+    # nullable boolean whose value is NULL looks exactly like that one.
     total = 0
     for row in rows:
-        if all(row[col] is None for col in _GS_COLUMNS):
+        if _grouped_col(row, _GS_COLUMNS) is None:
             total = row["cnt"]
             break
 
@@ -302,7 +346,8 @@ def _preview_live_grouped(
     array_fields = [f for f in ARRAY_FACETS if f != target]
 
     q1_sql = (
-        f"SELECT {target_col} AS target_value, {col_list}, count(*) AS cnt "
+        f"SELECT {target_col} AS target_value, {col_list}, "
+        f"{_grouping_flags_sql(other_gs_cols)}, count(*) AS cnt "
         f"FROM {TABLE} {where} "
         f"GROUP BY {target_col}, GROUPING SETS ({gs_sets}, ())"
     )
@@ -375,8 +420,10 @@ def _preview_live_grouped(
             tv_histograms.append(HistogramResult(field="overall_score", buckets=hist_by_target[tv]))
 
         if target in BOOL_FACETS:
-            false_label, true_label = BOOL_FACETS[target]
-            label = true_label if tv == "True" else false_label
+            # `tv` is the stringified column value, so a NULL target arrives
+            # as "None" and has to reach its own bucket rather than "false".
+            raw = None if tv == "None" else tv == "True"
+            label = _bucket_label(target, raw)
         else:
             label = tv
 
@@ -521,8 +568,9 @@ def _extract_totals_and_targets(
     for row in rows:
         tv = str(row["target_value"])
         target_values.add(tv)
-        # The empty () grouping set produces rows where all facet columns are NULL
-        if all(row[col] is None for col in gs_columns):
+        # The empty () grouping set, named by its flags rather than by every
+        # facet column being NULL — a nullable boolean makes those differ.
+        if _grouped_col(row, gs_columns) is None:
             total_by_target[tv] = row["cnt"]
 
     return total_by_target, target_values
@@ -531,22 +579,22 @@ def _extract_totals_and_targets(
 def _parse_grouping_sets_rows(rows: Sequence[RowMapping]) -> list[FacetResult]:
     """Parse GROUPING SETS result rows into FacetResult list.
 
-    Each row has exactly one non-NULL dimension column (the one being grouped).
+    Each row is grouped by exactly one dimension, named by its grouping flag
+    rather than by being the only non-NULL column — see ``_grouping_flags_sql``.
     """
     buckets_by_field: dict[str, list[FacetBucket]] = {}
 
     for row in rows:
-        for col in _GS_COLUMNS:
-            if row[col] is not None:
-                if col in BOOL_FACETS:
-                    false_label, true_label = BOOL_FACETS[col]
-                    label = true_label if row[col] else false_label
-                else:
-                    label = str(row[col])
-                buckets_by_field.setdefault(col, []).append(
-                    FacetBucket(key=label, count=row["cnt"])
-                )
-                break  # only one column is non-NULL per GROUPING SETS row
+        col = _grouped_col(row, _GS_COLUMNS)
+        if col is None:
+            continue  # the grand total row, counted by the caller
+        # A scalar dimension that is NULL is absence of a value, not a value;
+        # the cube filters those out, so this drops them to match.
+        if row[col] is None and col not in BOOL_FACETS:
+            continue
+        buckets_by_field.setdefault(col, []).append(
+            FacetBucket(key=_bucket_label(col, row[col]), count=row["cnt"])
+        )
 
     result = []
     for field in SCALAR_FACETS:
@@ -575,17 +623,14 @@ def _parse_preview_grouping_rows(
     for row in rows:
         if str(row["target_value"]) != target_value:
             continue
-        for col in gs_columns:
-            if row[col] is not None:
-                if col in BOOL_FACETS:
-                    false_label, true_label = BOOL_FACETS[col]
-                    label = true_label if row[col] else false_label
-                else:
-                    label = str(row[col])
-                buckets_by_field.setdefault(col, []).append(
-                    FacetBucket(key=label, count=row["cnt"])
-                )
-                break
+        col = _grouped_col(row, gs_columns)
+        if col is None:
+            continue  # the per-target total, read by _extract_totals_and_targets
+        if row[col] is None and col not in BOOL_FACETS:
+            continue
+        buckets_by_field.setdefault(col, []).append(
+            FacetBucket(key=_bucket_label(col, row[col]), count=row["cnt"])
+        )
 
     result = []
     for field in SCALAR_FACETS:

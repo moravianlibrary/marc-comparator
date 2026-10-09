@@ -276,6 +276,47 @@ class TestTheTableSurvivesGainingAColumn:
             unlinked.system_number: (False, ["NoCandidate"]),
         }
 
+    def test_a_column_that_shipped_not_null_is_relaxed_in_place(self, db_session):
+        """The two tri-state columns went out NOT NULL DEFAULT FALSE.
+
+        On those deployments the column already exists, so `ADD COLUMN IF NOT
+        EXISTS` cannot change it and the table would keep answering "no" for
+        records the question does not arise for. ALTER_COLUMNS_SQL is what
+        relaxes them, and it has to be safe to run over and over.
+        """
+
+        db_session.execute(text(f"DROP TABLE IF EXISTS {TABLE} CASCADE"))
+        db_session.execute(text(_create_table_sql_without_added_columns()))
+        db_session.execute(
+            text(
+                f"ALTER TABLE {TABLE} "
+                f"ADD COLUMN has_alternatives BOOLEAN NOT NULL DEFAULT FALSE, "
+                f"ADD COLUMN claim_needs_review BOOLEAN NOT NULL DEFAULT FALSE"
+            )
+        )
+        db_session.commit()
+
+        init_analytics_table(db_session)
+        init_analytics_table(db_session)  # repeating it must stay a no-op
+
+        shape = {
+            row[0]: (row[1], row[2])
+            for row in db_session.execute(
+                text(
+                    "SELECT column_name, is_nullable, column_default "
+                    "FROM information_schema.columns WHERE table_name = :t "
+                    "AND column_name IN "
+                    "('has_alternatives', 'has_claim', 'claim_needs_review')"
+                ),
+                {"t": TABLE},
+            ).all()
+        }
+
+        assert shape["has_alternatives"] == ("YES", None)
+        assert shape["claim_needs_review"] == ("YES", None)
+        # `has_claim` is a fair question about any record, so it stays as it is.
+        assert shape["has_claim"] == ("NO", "false")
+
     def test_every_named_column_exists_on_the_table(self, db_session):
         init_analytics_table(db_session)
 

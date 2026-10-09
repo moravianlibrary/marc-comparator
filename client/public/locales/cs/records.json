@@ -375,15 +375,17 @@
     "uuid": "UUID"
   },
   "alternatives": {
-    "Has alternatives": "Má další kandidáty",
-    "Single candidate": "Jediný kandidát"
+    "Not linked": "Nelinkováno",
+    "Single candidate": "Jediný kandidát",
+    "Has alternatives": "Má další kandidáty"
   },
   "claim-presence": {
-    "Cataloguer's answer": "Rozhodl katalogizátor",
-    "Machine answer": "Rozhodl stroj"
+    "No cataloguer ruling": "Bez rozhodnutí katalogizátora",
+    "Cataloguer's answer": "Rozhodl katalogizátor"
   },
   "claim-review": {
-    "Claim needs review": "Vyžaduje přehodnocení",
-    "Claim holds": "Rozhodnutí platí"
+    "No ruling": "Bez rozhodnutí",
+    "Claim holds": "Rozhodnutí platí",
+    "Claim needs review": "Vyžaduje přehodnocení"
   }
 }
