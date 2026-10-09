@@ -37,7 +37,10 @@ export function LockBanner() {
   }
 
   return (
-    <div className="bg-amber-50 border-b border-amber-200 px-6 py-2 dark:bg-amber-950/30 dark:border-amber-800">
+    // The banner is sticky, so its background has to be opaque or the page
+    // scrolls through it. The dark tint mixes into the page background rather
+    // than into transparency, which keeps the colour and loses the leak.
+    <div className="bg-amber-50 border-b border-amber-200 px-6 py-2 dark:bg-[color-mix(in_oklch,var(--color-amber-950)_30%,var(--background))] dark:border-amber-800">
       {locks.map(lock => (
         <div key={lock} className="text-sm text-amber-700 dark:text-amber-400">
           {formatLockName(lock, t)}
