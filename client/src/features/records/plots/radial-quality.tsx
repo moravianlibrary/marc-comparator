@@ -74,7 +74,13 @@ export function RadialQuality({
 
   return (
     <div className="flex flex-col items-center">
-      <div className="relative w-full" style={{ height: 160 }}>
+      {/* The donut is a half circle drawn at full height, so the box is half
+          as tall to crop the unused bottom. `overflow-hidden` is what makes
+          that a crop rather than an overhang: recharts puts the chart in a
+          positioned wrapper (`z-10` below), so the empty lower half would
+          otherwise paint over whatever follows and swallow its clicks — it
+          was covering the validator pill two sections down. */}
+      <div className="relative w-full overflow-hidden" style={{ height: 160 }}>
         <ChartContainer
           config={chartConfig}
           className="w-full [&_.recharts-wrapper]:z-10 [&_.recharts-pie]:transition-opacity [&_.recharts-pie]:duration-300"
