@@ -4,6 +4,7 @@ import { Bar, BarChart, Rectangle, type RectangleProps, XAxis, YAxis } from 'rec
 type ScoreBarProps = RectangleProps & { payload?: { min: number } };
 
 import { type ChartConfig, ChartContainer, ChartTooltip } from '@/components/ui/chart';
+import { EXCELLENT_MATCH, MATCH_SCALE_MAX, MODERATE_MATCH } from '../score';
 import type { HistogramBucket } from '../types';
 import { FacetTooltip } from './facet-tooltip';
 
@@ -17,36 +18,48 @@ const chartConfig = {
   remainder: { label: 'Remainder', color: 'var(--chart-1)' },
 } satisfies ChartConfig;
 
+/**
+ * Bucket width, mirroring `SCORE_BUCKET` in `catalog_records/analytics.py`.
+ *
+ * The server buckets the score itself and this only re-bins what it sends, so
+ * the two have to agree: a narrower width here would leave visible gaps, a
+ * wider one would silently merge pairs of the server's buckets.
+ */
+const BUCKET_WIDTH = 0.5;
+const BUCKET_COUNT = MATCH_SCALE_MAX / BUCKET_WIDTH;
+
 function getScoreColor(min: number): string {
-  if (min >= 0.9) {
+  if (min >= EXCELLENT_MATCH) {
     return 'var(--status-success)';
   }
-  if (min >= 0.7) {
+  if (min >= MODERATE_MATCH) {
     return 'var(--status-warning)';
   }
   return 'var(--status-danger)';
 }
 
+/**
+ * The server's buckets laid onto the full 0-15 scale, empties included.
+ *
+ * Only the occupied buckets come back, so without this the bars would close
+ * up and a gap in the distribution would read as a score that does not exist.
+ */
 function normalizeBuckets(raw: HistogramBucket[]): HistogramBucket[] {
   const countByMin = new Map<number, number>();
   for (const b of raw) {
-    if (b.min >= 1.0) {
-      countByMin.set(1.0, (countByMin.get(1.0) ?? 0) + b.count);
-    } else {
-      const key = Math.round(b.min * 100) / 100;
-      countByMin.set(key, (countByMin.get(key) ?? 0) + b.count);
-    }
+    // A perfect 15 is the top bucket's upper edge rather than a bucket of its
+    // own, so it folds into the last one instead of falling off the end.
+    const index = Math.min(Math.floor(b.min / BUCKET_WIDTH), BUCKET_COUNT - 1);
+    const min = index * BUCKET_WIDTH;
+    countByMin.set(min, (countByMin.get(min) ?? 0) + b.count);
   }
 
   const buckets: HistogramBucket[] = [];
-  for (let i = 0; i < 19; i++) {
-    const min = Math.round(i * 5) / 100;
-    const max = Math.round((i + 1) * 5) / 100;
-    buckets.push({ min, max, count: countByMin.get(min) ?? 0 });
+  for (let i = 0; i < BUCKET_COUNT; i++) {
+    // `BUCKET_WIDTH` is a power of two, so these are exact and safe as keys.
+    const min = i * BUCKET_WIDTH;
+    buckets.push({ min, max: min + BUCKET_WIDTH, count: countByMin.get(min) ?? 0 });
   }
-  buckets.push({ min: 0.95, max: 1.0, count: countByMin.get(0.95) ?? 0 });
-  buckets.push({ min: 1.0, max: 1.0, count: countByMin.get(1.0) ?? 0 });
-
   return buckets;
 }
 
@@ -56,14 +69,7 @@ export function HistogramFacet({ data, previewData }: HistogramFacetProps) {
   const isShowingPreview = normalizedPreview != null;
 
   const chartData = normalized.map((bucket, index) => {
-    let range: string;
-    if (bucket.min === 1.0) {
-      range = '100%';
-    } else if (bucket.min === 0.95) {
-      range = '95–<100%';
-    } else {
-      range = `${bucket.min.toFixed(1)}–${bucket.max.toFixed(1)}`;
-    }
+    const range = `${bucket.min.toFixed(1)}–${bucket.max.toFixed(1)}`;
     const pCount = normalizedPreview?.[index]?.count ?? 0;
     return {
       range,
@@ -81,7 +87,19 @@ export function HistogramFacet({ data, previewData }: HistogramFacetProps) {
   return (
     <ChartContainer config={chartConfig} className="w-full" style={{ height: 200 }}>
       <BarChart data={chartData} stackOffset="none">
-        <XAxis dataKey="range" tick={{ fontSize: 10 }} />
+        {/* Keyed on the range, which is unique — duplicate category values
+            make recharts stack bars on top of each other. Thirty bars will
+            not carry thirty readable labels either, so only the whole points
+            are written and the half-steps sit unlabelled between them; the
+            tooltip still names the exact range under the pointer. */}
+        <XAxis
+          dataKey="range"
+          interval={0}
+          tick={{ fontSize: 10 }}
+          tickFormatter={(_range: string, index: number) =>
+            Number.isInteger(index * BUCKET_WIDTH) ? (index * BUCKET_WIDTH).toFixed(0) : ''
+          }
+        />
         <YAxis hide />
         <ChartTooltip
           cursor={false}

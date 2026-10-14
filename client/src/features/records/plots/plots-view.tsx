@@ -6,6 +6,7 @@ import {
   SkeletonValidationSection,
 } from '@/components/skeletons/skeleton-plots-section';
 import type { FacetBucket, FacetResult, HistogramBucket } from '../types';
+import { MATCH_SCALE_MAX } from '../score';
 import type { ArrayFilterKey, BoolFilterKey } from '../use-record-filters';
 import { isBoolFilterKey, useRecordFilters } from '../use-record-filters';
 import { type ActiveFilter, ActiveFiltersBar } from './active-filters-bar';
@@ -127,7 +128,7 @@ export function PlotsView() {
   const previewIsLive =
     Object.keys(FACET_TO_URL_PARAM).some(f => getActiveValues(f).length > 0) ||
     filters.scoreMin > 0 ||
-    filters.scoreMax < 1 ||
+    filters.scoreMax < MATCH_SCALE_MAX ||
     !!filters.recordId;
 
   /**
@@ -330,7 +331,7 @@ export function PlotsView() {
       });
     }
   }
-  const hasScoreFilter = filters.scoreMin > 0 || filters.scoreMax < 1;
+  const hasScoreFilter = filters.scoreMin > 0 || filters.scoreMax < MATCH_SCALE_MAX;
   const hasRecordIdFilter = !!filters.recordId;
   const hasAnyFilter = activeFilters.length > 0 || hasScoreFilter || hasRecordIdFilter;
 

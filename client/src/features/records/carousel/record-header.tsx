@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils';
 import { Permission } from '@/types/permission';
 import { confidenceLabel } from '../authority-links';
 import { linkGaps, scoreLabel } from '../link-attempts';
+import { formatScore } from '../score';
 import { AdvancedTaskActions, RecordTaskActions } from '../record-task-actions';
 import { LINK_OUTCOME_COLORS, type RecordSummary, STATE_COLORS } from '../types';
 import { COMPARISON_BADGE_CLASS, groupValidations, VALIDATION_BADGE_CLASS } from '../utils';
@@ -138,7 +139,7 @@ export function RecordHeader({ record, onSelectView }: RecordHeaderProps) {
               )}
               onClick={onSelectView ? () => onSelectView(viewKey) : undefined}
             >
-              {c.base}: {(c.overall_score * 100).toFixed(0)}%
+              {c.base}: {formatScore(c.overall_score)}
             </Badge>
           );
         })}

@@ -2,6 +2,7 @@ import { X } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { formatScore, formatScoreShort } from '../score';
 
 export interface ActiveFilter {
   facetField: string;
@@ -62,7 +63,7 @@ export function ActiveFiltersBar({
       {hasScoreFilter && (
         <Badge variant="secondary" className="gap-1 cursor-pointer" onClick={onClearScore}>
           <span className="text-muted-foreground">{t('facet-fields.overall_score')}:</span>{' '}
-          {(scoreMin * 100).toFixed(0)}–{(scoreMax * 100).toFixed(0)}%
+          {formatScoreShort(scoreMin)}–{formatScore(scoreMax)}
           <X className="h-3 w-3" />
         </Badge>
       )}
