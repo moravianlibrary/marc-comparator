@@ -17,20 +17,18 @@ import type { ChartId } from './use-section-visibility';
  * failing, so it has to be extended whenever the validator gains a reason.
  */
 const REASON_TO_STATUS: Record<string, string> = {
-  identifier_matches_multiple_documents: 'ForReview',
-  foreign_digital_library: 'AdditionalInfo',
-  missing_link_text: 'ForReview',
-  invalid_link_format: 'Invalid',
   no_links_found_or_expected: 'Valid',
-  non_top_level_document: 'Invalid',
-  non_linkable_model: 'AdditionalInfo',
   valid_link: 'Valid',
-  link_not_found: 'Invalid',
   missing_link_in_marc: 'Invalid',
-  wrong_path_found: 'AdditionalInfo',
-  wrong_path_not_found: 'AdditionalInfo',
-  wrong_server_found: 'Invalid',
-  wrong_server_not_found: 'Invalid',
+  non_top_level_document: 'Invalid',
+  link_not_found: 'Invalid',
+  non_canonical_url_not_found: 'Invalid',
+  non_canonical_url_found: 'ForReview',
+  missing_link_text: 'ForReview',
+  identifier_matches_multiple_documents: 'ForReview',
+  non_linkable_model: 'ForReview',
+  invalid_link_format: 'ForReview',
+  foreign_digital_library: 'AdditionalInfo',
 };
 
 interface ValidatorData {

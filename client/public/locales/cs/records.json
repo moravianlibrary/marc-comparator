@@ -317,10 +317,8 @@
     "non_linkable_model": "Nalezen dokument Kramerius s neočekávaným modelem",
     "non_top_level_document": "Odkaz Kramerius vede na dokument nižší úrovně",
     "valid_link": "Platný odkaz na Kramerius",
-    "wrong_path_found": "Nestandardní cesta v URL, PID nalezen",
-    "wrong_path_not_found": "Nestandardní cesta v URL, PID nenalezen",
-    "wrong_server_found": "Nesprávný server v odkazu, PID nalezen",
-    "wrong_server_not_found": "Nesprávný server v odkazu, PID nenalezen",
+    "non_canonical_url_found": "Neobvyklý tvar odkazu, dokument nalezen",
+    "non_canonical_url_not_found": "Neobvyklý tvar odkazu, dokument nenalezen",
     "foreign_digital_library": "Odkaz do digitální knihovny jiné instituce"
   },
   "validation-detail": {
@@ -333,10 +331,8 @@
     "non_linkable_model": "V Kramerius nalezen dokument s PID '{{pid}}' a modelem '{{model}}'. Tento typ modelu se neočekává jako odkaz z katalogového záznamu.",
     "non_top_level_document": "Dokument s PID '{{pid}}' a modelem '{{model}}' je na úrovni {{level}} a není dokumentem nejvyšší úrovně. Nejvyšším dokumentem téže hierarchie je '{{top_level_pid}}'.",
     "valid_link": "PID '{{pid}}' odpovídá existujícímu dokumentu v Kramerius.",
-    "wrong_path_found": "Odkaz '{{value}}' používá nestandardní cestu (očekáváno /uuid/), ale PID '{{pid}}' byl nalezen v Kramerius.",
-    "wrong_path_not_found": "Odkaz '{{value}}' používá nestandardní cestu (očekáváno /uuid/) a PID '{{pid}}' nebyl nalezen v Kramerius.",
-    "wrong_server_found": "Odkaz '{{value}}' vede na jiný server než očekávaný, ale PID '{{pid}}' byl nalezen v Kramerius.",
-    "wrong_server_not_found": "Odkaz '{{value}}' vede na jiný server než očekávaný a PID '{{pid}}' nebyl nalezen v Kramerius.",
+    "non_canonical_url_found": "Odkaz '{{value}}' není v očekávaném tvaru, ale PID '{{pid}}' byl nalezen v Kramerius.",
+    "non_canonical_url_not_found": "Odkaz '{{value}}' není v očekávaném tvaru a PID '{{pid}}' nebyl nalezen v Kramerius.",
     "foreign_digital_library": "Odkaz {{value}} vede do digitální knihovny jiné instituce. Tentýž dokument bývá dostupný ve více knihovnách, takže nejde o chybu — odkaz se needituje ani neověřuje proti našemu Krameriu."
   },
   "validation-hint": {
@@ -347,10 +343,8 @@
     "missing_link_text": "Přidejte odpovídající text odkazu do podpole $y.",
     "non_linkable_model": "Zkontrolujte integritu dat v Kramerius.",
     "non_top_level_document": "Odkaz lze opravit na nejvyšší dokument téže hierarchie: '{{top_level_pid}}'.",
-    "wrong_path_found": "Aktualizujte odkaz na standardní formát: {{url}}",
-    "wrong_path_not_found": "Aktualizujte odkaz na standardní formát: {{url}}",
-    "wrong_server_found": "Aktualizujte odkaz tak, aby vedl na správný server: {{url}}",
-    "wrong_server_not_found": "Aktualizujte odkaz tak, aby vedl na správný server: {{url}}",
+    "non_canonical_url_found": "Aktualizujte odkaz na standardní formát: {{url}}",
+    "non_canonical_url_not_found": "Odkaz nikam nevede, bude odstraněn.",
     "foreign_digital_library": "Není třeba nic měnit. Pokud dokument máte i ve svém Krameriu, doplňte vedle tohoto odkazu ještě odkaz vlastní."
   },
   "link-outcome": {

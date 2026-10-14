@@ -1,4 +1,5 @@
 import asyncio
+import csv
 import hashlib
 import json
 import logging
@@ -7,6 +8,7 @@ from collections import defaultdict
 from collections.abc import Iterable, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
+from io import StringIO
 from typing import Any
 
 from kramerius import KrameriusClient, KrameriusConfig, KrameriusField, Model
@@ -15,7 +17,9 @@ from marcdantic import MarcRecord
 from marcdantic.fields import VariableField
 from marcdantic.selectors import IsbnActiveJq, IssnActiveJq, NbnActiveJq
 from pydantic import BaseModel, HttpUrl
+from requests.adapters import HTTPAdapter
 from solrify import F, G
+from urllib3.util.retry import Retry
 
 from ..harvest import HarvestContext, HarvestResult, HarvestStorageUnavailable
 from ..reports import ReportFile
@@ -27,40 +31,105 @@ from ._base import (
     ValidityStatus,
 )
 
+#: A Kramerius PID, written as the index writes it.
+#:
+#: The full 8-4-4-4-12 shape is demanded rather than a loose run of hex and
+#: dashes, because a loose match reads a typo as a document: MZK's catalogue
+#: holds `uuid:...827e52D` and `uuid:29ac5300-...-005056827e`, one with a
+#: stray character and one truncated. Both parse under a loose pattern, fail
+#: the index lookup, and are reported as a link whose document is gone — and
+#: a link whose document is gone has its 856 removed. A one-character slip
+#: would delete a cataloguer's work. Demanding the real shape sends them to
+#: `invalid_link_format` and a human instead.
+_PID = (
+    r"(?P<pid>uuid:[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}"
+    r"-[0-9a-fA-F]{4}-[0-9a-fA-F]{12})"
+)
+
 
 class KrameriusLinksValidatorConfig(BaseModel):
-    url_to_pid_pattern: str = (
-        r"https?://(?:www\.)?digitalniknihovna\.cz/mzk/uuid/(?P<pid>uuid:[0-9a-fA-F-]+)(?:\?.*)?"
-    )
-    url_to_pid_wrong_path_pattern: str = (
-        r"https?://(?:www\.)?digitalniknihovna\.cz/mzk/[^/]+/(?P<pid>uuid:[0-9a-fA-F-]+)(?:\?.*)?"
-    )
-    url_to_pid_fallback_pattern: str = r"https?://[^/]+/.*?(?P<pid>uuid:[0-9a-fA-F-]+)(?:\?.*)?"
-    link_text_pattern: str = r"Digitalizovaný dokument"
-
-    #: Which hosts are this library's own digital library, including any legacy
-    #: address still in circulation.
+    #: The one place this library's own digital library is named.
     #:
-    #: A record may legitimately link to another institution's Kramerius — the
-    #: same document is often held by several — and such a link is not ours to
-    #: correct. Only a URL on one of these hosts is judged against our expected
-    #: format or looked up in our index; anything else is reported as an
-    #: observation and left alone.
-    own_host_pattern: str = r"^https?://(?:www\.)?(?:digitalniknihovna\.cz/mzk|kramerius\.mzk\.cz)"
+    #: The two path patterns below match only what follows this prefix, so a
+    #: host that moves is changed here and nowhere else. It names the
+    #: library's own *section* of the shared portal: the other sections of
+    #: `digitalniknihovna.cz` are other institutions, and a link into one of
+    #: them is not ours to correct.
+    #:
+    #: The lookahead is what stops a lookalike matching by prefix —
+    #: `kramerius.mzk.cz.example.com` is somebody else.
+    own_host_pattern: str = (
+        r"^https?://(?:www\.)?(?:digitalniknihovna\.cz/mzk|kramerius\.mzk\.cz)(?=[/?#]|$)"
+    )
+
+    #: The form every link of ours is expected to take, matched against the
+    #: path left once `own_host_pattern` has been stripped.
+    canonical_path_pattern: str = rf"^/uuid/{_PID}(?:[/?#].*)?$"
+
+    #: One of ours that is not in canonical form — an old route such as
+    #: `/view/`, or the legacy server's `/search/handle/`. One or two path
+    #: segments covers both; the PID must be a whole segment of its own, so a
+    #: `uuid:` sitting in a query string (`/mzk/search?fq=uuid:...`) is not
+    #: mistaken for a link to that document and then "normalised" into one.
+    #:
+    #: A trailing `?page=...` is matched and dropped. It is not a cataloguer
+    #: pointing at a page: Kramerius redirects an opened document to its first
+    #: page, and the address bar is what got pasted.
+    non_canonical_path_pattern: str = rf"^/(?:[^/?#]+/){{1,2}}{_PID}(?:[/?#].*)?$"
+
+    link_text_pattern: str = r"Digitalizovaný dokument"
 
     kramerius_host: str = "https://api.kramerius.mzk.cz/search"
     kramerius_client_url: str = "https://www.digitalniknihovna.cz/mzk/uuid/{pid}"
     solr_cloud: bool = True
     search_page_size: int = 10
 
-    #: Seconds to wait for one Solr response.
+    #: How many times a failed Solr search is retried in total.
     #:
-    #: The client library defaults to 30, which is tuned for the per-record
-    #: lookups the validator makes. A harvest page asks for a thousand documents
-    #: at once, and on a loaded Kramerius that does not come back inside half a
-    #: minute: every page times out, the retries exhaust, and an hours-long
-    #: harvest dies on its first request having reported no progress at all.
-    search_timeout: int = 180
+    #: Solrify defaults to ten retries with a backoff factor of four, and the
+    #: Kramerius client builds its search client without passing either, so
+    #: those defaults were what ran. Against the 180 s timeout then used for
+    #: every request, that is eleven attempts plus twelve minutes of backoff: a
+    #: single unreachable PID stopped a validation run for forty-five minutes,
+    #: measured five times in one night's log. `KrameriusConfig.max_retries`
+    #: does not reach the search client, so the policy is re-mounted instead.
+    search_retries: int = 3
+
+    #: Retries for a read that timed out, counted inside `search_retries`.
+    #:
+    #: Kept lower than the rest on purpose. A 503 is a moment of load worth
+    #: waiting out; a read timeout means the request was accepted and never
+    #: answered, and asking ten more times costs the full timeout each and
+    #: almost never changes the answer.
+    search_read_retries: int = 1
+
+    #: Growth of the wait between retries, in the usual urllib3 sense.
+    search_retry_backoff: float = 1.0
+
+    #: Seconds to wait for one document lookup.
+    #:
+    #: Asks about one PID, or the identifiers of one window of records, and
+    #: normally answers in milliseconds. The wait only matters when Kramerius
+    #: does not answer at all, and then it is paid in full: this is the unit
+    #: the retry policy above multiplies.
+    #:
+    #: A timeout here is not mistaken for a missing document. The exception
+    #: ends that record's validation, the transaction rolls back and nothing
+    #: is written, so the record is simply picked up again by a later pass —
+    #: which is what makes a short wait safe rather than destructive.
+    lookup_timeout: int = 15
+
+    #: Seconds to wait for one harvest page.
+    #:
+    #: A page asks for a thousand documents at once, and on a loaded Kramerius
+    #: that does not come back inside half a minute: every page times out, the
+    #: retries exhaust, and an hours-long harvest dies on its first request
+    #: having reported no progress at all.
+    #:
+    #: Separate from `lookup_timeout` because the two requests are nothing
+    #: alike. One number served both until a wait sized for a thousand
+    #: documents was being spent, eleven times over, on a single dead PID.
+    harvest_timeout: int = 180
 
     #: An identifier should resolve to one document. When it resolves to more, the
     #: extra matches are almost always wrong metadata in Kramerius — MZK's index has
@@ -70,6 +139,89 @@ class KrameriusLinksValidatorConfig(BaseModel):
 
 
 VALIDATION_FIELD = ValidationTarget(tag="856", codes=["u", "y"])
+
+#: What each finding means for a cataloguer, named once.
+#:
+#: The status used to be written at every call site, which let one kind of
+#: defect be graded two ways: a non-canonical path was an observation while a
+#: non-canonical host was an error, though a reader could not tell them apart
+#: and the repair was the same. Keeping it a pure function of the reason is
+#: also what lets stored results be re-graded by a migration rather than by
+#: re-validating every record against Kramerius.
+REASON_STATUS: dict[str, ValidityStatus] = {
+    "no_links_found_or_expected": ValidityStatus.Valid,
+    "valid_link": ValidityStatus.Valid,
+    # Known to be wrong, and we know the one correct answer.
+    "missing_link_in_marc": ValidityStatus.Invalid,
+    "non_top_level_document": ValidityStatus.Invalid,
+    "link_not_found": ValidityStatus.Invalid,
+    "non_canonical_url_not_found": ValidityStatus.Invalid,
+    # A person has to decide; nothing here is applied without one.
+    "non_canonical_url_found": ValidityStatus.ForReview,
+    "missing_link_text": ValidityStatus.ForReview,
+    "identifier_matches_multiple_documents": ValidityStatus.ForReview,
+    "non_linkable_model": ValidityStatus.ForReview,
+    "invalid_link_format": ValidityStatus.ForReview,
+    # Real, recognised, and not ours to touch.
+    "foreign_digital_library": ValidityStatus.AdditionalInfo,
+}
+
+#: Findings whose fix mends a link that is wrong.
+REPAIR_REASONS = frozenset(
+    {
+        "missing_link_in_marc",
+        "non_top_level_document",
+        "link_not_found",
+        "non_canonical_url_not_found",
+    }
+)
+
+#: Findings whose fix tidies a link that already works.
+#:
+#: Kept apart from the repairs so a run that mends broken records does not
+#: also rewrite every record written in an older URL form. That churn is a
+#: cataloguer's decision, not a side effect of fixing something else.
+NORMALIZATION_REASONS = frozenset({"non_canonical_url_found", "missing_link_text"})
+
+
+def _replace_u(field: VariableField, match_pid: str | None, new_u: str) -> None:
+    """Point one $u at `new_u`, leaving the field's other values alone.
+
+    A repair is raised against one link, but an 856 may carry more than one
+    $u. Overwriting the list would silently drop the others, so the value
+    naming this PID is the only one rewritten; if none does, the field is
+    taken to have a single $u and that one is replaced.
+    """
+
+    values = field.subfields.get("u", [])
+    if match_pid:
+        for i, value in enumerate(values):
+            if match_pid in value:
+                field.subfields["u"] = [*values[:i], new_u, *values[i + 1 :]]
+                return
+    field.subfields["u"] = [new_u]
+
+
+def _set_after(field: VariableField, code: str, values: list[str], after: str) -> None:
+    """Add a subfield directly behind another, rather than at the end.
+
+    Assigning a new key would leave it last, so a field gains `$u $x $y`
+    where a catalogue writes `$u $y $x`. The record is rebuilt in order
+    instead; MARC itself does not care, but a person reading the .seq does.
+    """
+
+    if code in field.subfields:
+        field.subfields[code] = values
+        return
+
+    rebuilt: dict[str, list[str]] = {}
+    for key, existing in field.subfields.items():
+        rebuilt[key] = existing
+        if key == after:
+            rebuilt[code] = values
+    rebuilt.setdefault(code, values)
+    field.subfields = rebuilt
+
 
 TARGET_MODELS = [
     Model.Monograph,
@@ -318,11 +470,36 @@ class KrameriusLinksValidator(BaseValidator):
     def __init__(self, config: KrameriusLinksValidatorConfig):
         self.config = config
 
-        self.url_to_pid_regex = re.compile(config.url_to_pid_pattern)
-        self.url_to_pid_wrong_path_regex = re.compile(config.url_to_pid_wrong_path_pattern)
-        self.url_to_pid_fallback_regex = re.compile(config.url_to_pid_fallback_pattern)
-        self.link_text_regex = re.compile(config.link_text_pattern)
         self.own_host_regex = re.compile(config.own_host_pattern)
+        self.canonical_path_regex = re.compile(config.canonical_path_pattern)
+        self.non_canonical_path_regex = re.compile(config.non_canonical_path_pattern)
+        self.link_text_regex = re.compile(config.link_text_pattern)
+
+        # What we write has to be what we call canonical, or every repair
+        # emits a link the next pass flags as non-canonical and rewrites
+        # again — the same records churning through a normalisation file
+        # forever. The settings are edited independently, so their agreement
+        # is checked rather than assumed.
+        #
+        # Noted here and refused in `generate_report`, not raised here: a
+        # validator is also built to harvest, and a reader URL that does not
+        # match our own host is harmless until something writes a link with
+        # it. Refusing at construction would take the whole app down over a
+        # setting only report generation reads.
+        sample = self._make_url({"pid": "uuid:00000000-0000-0000-0000-000000000000"})
+        kind, _pid = self._classify_url(sample)
+        self._canonical_url_mismatch: str | None = (
+            None
+            if kind == "canonical"
+            else (
+                f"kramerius_client_url builds {sample!r}, which own_host_pattern and "
+                f"canonical_path_pattern read as {kind!r} rather than canonical. A link "
+                "this validator writes must be one it accepts, or every repair will be "
+                "re-reported as non-canonical and rewritten again."
+            )
+        )
+        if self._canonical_url_mismatch:
+            logger.warning("%s", self._canonical_url_mismatch)
 
         self.client = KrameriusClient(
             KrameriusConfig(
@@ -333,9 +510,11 @@ class KrameriusLinksValidator(BaseValidator):
                 host=HttpUrl(config.kramerius_host),
                 solr_cloud=config.solr_cloud,
                 search_page_size=config.search_page_size,
-                timeout=config.search_timeout,
+                # Lookups only. A harvest page asks for its own, longer wait.
+                timeout=config.lookup_timeout,
             )
         )
+        self._tighten_search_retries()
 
         #: Documents for the window the host last announced, keyed by what each
         #: record searches on. Replaced wholesale by each prefetch, so it holds
@@ -465,7 +644,7 @@ class KrameriusLinksValidator(BaseValidator):
                     "sort": "compositeId asc",
                     "cursorMark": cursor,
                 },
-                timeout=search._timeout,
+                timeout=self.config.harvest_timeout,
             )
             response.raise_for_status()
             payload = response.json()
@@ -826,6 +1005,71 @@ class KrameriusLinksValidator(BaseValidator):
 
         return list(links.values()), ambiguous
 
+    def _tighten_search_retries(self) -> None:
+        """Replace the search session's retry policy with a bounded one.
+
+        Solrify mounts ten retries at a backoff factor of four and the
+        Kramerius client never overrides them, so one unreachable PID cost
+        eleven attempts at the full read timeout plus twelve minutes of
+        sleeping — forty-five minutes, during which the run does nothing.
+
+        Reaching into the session is the only place this can be changed from
+        here: the retry policy is not part of `KrameriusConfig`, and
+        `max_retries` there configures the other sub-clients. If a future
+        version of the client stops exposing a session, the default policy is
+        slow rather than wrong, so this warns and leaves it alone.
+        """
+
+        session = getattr(self.client.Search, "_session", None)
+        if session is None:  # pragma: no cover - depends on the client's internals
+            logger.warning(
+                "Kramerius search client exposes no session; leaving solrify's retry "
+                "policy in place, where one unreachable PID can stall a run for minutes"
+            )
+            return
+
+        retry = Retry(
+            total=self.config.search_retries,
+            read=self.config.search_read_retries,
+            connect=self.config.search_retries,
+            status=self.config.search_retries,
+            backoff_factor=self.config.search_retry_backoff,
+            status_forcelist=[500, 502, 503, 504],
+            allowed_methods=["HEAD", "GET", "OPTIONS", "POST"],
+        )
+        adapter = HTTPAdapter(max_retries=retry)
+        session.mount("http://", adapter)
+        session.mount("https://", adapter)
+
+    def _classify_url(self, value: str) -> tuple[str, str | None]:
+        """What one 856 $u is, and which document it names.
+
+        The host is matched and stripped first; the path patterns judge only
+        what follows. That order is what keeps another library out — the
+        shared portal gives each one a section, so `digitalniknihovna.cz/nkp`
+        is somebody else's and never reaches a path pattern — and it is why
+        the host is named in one setting instead of in every pattern.
+
+        Returns one of `canonical`, `non_canonical`, `foreign` or
+        `unparseable`, with the PID for the first two.
+        """
+
+        url = value.strip()
+        host = self.own_host_regex.match(url)
+        if not host:
+            return "foreign", None
+
+        path = url[host.end() :]
+        canonical = self.canonical_path_regex.match(path)
+        if canonical:
+            return "canonical", canonical.group("pid")
+
+        non_canonical = self.non_canonical_path_regex.match(path)
+        if non_canonical:
+            return "non_canonical", non_canonical.group("pid")
+
+        return "unparseable", None
+
     async def run(self, record: MarcRecord) -> list[ValidationResult]:
         current_kramerius_pids: list[str] = []
         pid_field_index: dict[str, int] = {}
@@ -834,14 +1078,13 @@ class KrameriusLinksValidator(BaseValidator):
         results: list[ValidationResult] = []
 
         def add_result(
-            status: ValidityStatus = ValidityStatus.Invalid,
-            reason: str | None = None,
+            reason: str,
             params: dict | None = None,
             field_index: int | None = None,
         ):
             results.append(
                 ValidationResult(
-                    status=status,
+                    status=REASON_STATUS[reason],
                     target=ValidationTarget(
                         tag=VALIDATION_FIELD.tag,
                         codes=VALIDATION_FIELD.codes,
@@ -853,73 +1096,50 @@ class KrameriusLinksValidator(BaseValidator):
             )
 
         for field_idx, vf in enumerate(self._queries_for(record).elocation_fields):
+            classified = [(v, *self._classify_url(v)) for v in vf.subfields.get("u", [])]
+
             if not any(self.link_text_regex.match(v) for v in vf.subfields.get("y", [])):
-                if not any(self.url_to_pid_regex.match(v) for v in vf.subfields.get("u", [])):
+                if not any(kind == "canonical" for _v, kind, _pid in classified):
                     continue
 
                 add_result(
-                    status=ValidityStatus.ForReview,
                     reason="missing_link_text",
                     params={"pattern": self.config.link_text_pattern},
                     field_index=field_idx,
                 )
 
-            for v in vf.subfields.get("u", []):
-                match = self.url_to_pid_regex.search(v)
-
-                if match:
-                    pid = match.group("pid")
+            for v, kind, pid in classified:
+                if kind in ("canonical", "non_canonical"):
+                    assert pid is not None
                     current_kramerius_pids.append(pid)
                     pid_field_index.setdefault(pid, field_idx)
-                    continue
+                    if kind == "non_canonical":
+                        # Held until the lookup says whether the document is
+                        # there: the same odd URL is a tidy-up when it
+                        # resolves and a dead link when it does not.
+                        url_issue_pids[pid] = {"value": v, "field_index": field_idx}
 
-                if not self.own_host_regex.match(v.strip()):
+                elif kind == "foreign":
                     # Another institution's digital library. Its PID is not ours
                     # to look up — the same uuid existing in our index does not
                     # make their link wrong — and its URL format is their
                     # business, so the link is recorded and left alone.
                     add_result(
-                        status=ValidityStatus.AdditionalInfo,
                         reason="foreign_digital_library",
                         params={"value": v},
                         field_index=field_idx,
                     )
-                    continue
 
-                wrong_path_match = self.url_to_pid_wrong_path_regex.search(v)
-
-                if wrong_path_match:
-                    pid = wrong_path_match.group("pid")
-                    current_kramerius_pids.append(pid)
-                    pid_field_index.setdefault(pid, field_idx)
-                    url_issue_pids[pid] = {
-                        "type": "wrong_path",
-                        "value": v,
-                        "field_index": field_idx,
-                    }
-                    continue
-
-                fallback_match = self.url_to_pid_fallback_regex.search(v)
-
-                if fallback_match:
-                    pid = fallback_match.group("pid")
-                    current_kramerius_pids.append(pid)
-                    pid_field_index.setdefault(pid, field_idx)
-                    url_issue_pids[pid] = {
-                        "type": "wrong_server",
-                        "value": v,
-                        "field_index": field_idx,
-                    }
-                    continue
-
-                add_result(
-                    reason="invalid_link_format",
-                    params={
-                        "value": v,
-                        "url": self.config.kramerius_client_url,
-                    },
-                    field_index=field_idx,
-                )
+                else:
+                    # One of ours that names no document we can read.
+                    add_result(
+                        reason="invalid_link_format",
+                        params={
+                            "value": v,
+                            "url": self.config.kramerius_client_url,
+                        },
+                        field_index=field_idx,
+                    )
 
         found_kramerius_links, ambiguous_identifiers = await self.find_kramerius_links(
             record, current_kramerius_pids
@@ -927,7 +1147,6 @@ class KrameriusLinksValidator(BaseValidator):
 
         for ambiguous in ambiguous_identifiers:
             add_result(
-                status=ValidityStatus.ForReview,
                 reason="identifier_matches_multiple_documents",
                 params={
                     "identifier": ambiguous.field.value if ambiguous.field else "-",
@@ -940,7 +1159,6 @@ class KrameriusLinksValidator(BaseValidator):
         if not current_kramerius_pids and not found_kramerius_links:
             if not results:
                 add_result(
-                    status=ValidityStatus.Valid,
                     reason="no_links_found_or_expected",
                 )
 
@@ -968,7 +1186,6 @@ class KrameriusLinksValidator(BaseValidator):
 
             elif link.has_wrong_model:
                 add_result(
-                    status=ValidityStatus.AdditionalInfo,
                     reason="non_linkable_model",
                     field_index=pid_field_index.get(link.pid),
                     params={
@@ -987,15 +1204,8 @@ class KrameriusLinksValidator(BaseValidator):
         for pid in current_set & valid_set:
             issue = url_issue_pids.get(pid)
             if issue:
-                if issue["type"] == "wrong_path":
-                    reason = "wrong_path_found"
-                    status = ValidityStatus.AdditionalInfo
-                else:
-                    reason = "wrong_server_found"
-                    status = ValidityStatus.Invalid
                 add_result(
-                    status=status,
-                    reason=reason,
+                    reason="non_canonical_url_found",
                     params={
                         "pid": pid,
                         "value": issue["value"],
@@ -1005,7 +1215,6 @@ class KrameriusLinksValidator(BaseValidator):
                 )
             else:
                 add_result(
-                    status=ValidityStatus.Valid,
                     reason="valid_link",
                     params={"pid": pid},
                     field_index=pid_field_index.get(pid),
@@ -1014,15 +1223,8 @@ class KrameriusLinksValidator(BaseValidator):
         for pid in current_set - found_set:
             issue = url_issue_pids.get(pid)
             if issue:
-                if issue["type"] == "wrong_path":
-                    reason = "wrong_path_not_found"
-                    status = ValidityStatus.AdditionalInfo
-                else:
-                    reason = "wrong_server_not_found"
-                    status = ValidityStatus.Invalid
                 add_result(
-                    status=status,
-                    reason=reason,
+                    reason="non_canonical_url_not_found",
                     params={
                         "pid": pid,
                         "value": issue["value"],
@@ -1044,54 +1246,79 @@ class KrameriusLinksValidator(BaseValidator):
 
     # ── report generation ──────────────────────────────────────────────────
     #
-    # Turn the stored not-valid results into Aleph sequential (.seq) repair
-    # files (REPLACE-ALL mode: every 856 for a sysno is wiped and reloaded from
-    # the emitted lines) plus a delete list for sysnos left with no 856 fields.
-    # All changes for one record are grouped and applied in a single pass so
-    # conflicting edits to the same 856 set do not overwrite each other.
+    # Turns the stored not-valid results into Aleph sequential (.seq) files in
+    # REPLACE-ALL mode: every 856 for a sysno is wiped and reloaded from the
+    # emitted lines. That is why an untouched 856 is re-emitted too — leaving
+    # it out would delete it — and why a record is only ever written whole.
     #
-    # reason → action:
-    #   missing_link_in_marc  → add a new correct 856
-    #   wrong_server_found    → replace $u at field_index with the correct URL
-    #   wrong_path_found      → replace $u at field_index with the correct URL
-    #   wrong_path_not_found  → replace $u at field_index with the correct URL
-    #   missing_link_text     → add $y (standard link text) at field_index
-    #   link_not_found        → remove the broken field at field_index
-    #   non_top_level_document → replace $u with the document's own top level
+    # Two .seq files, not one. A repair mends a link that is wrong; a
+    # normalisation tidies one that already works. Running them together
+    # would mean a batch that fixes broken records also rewrites every record
+    # merely written in an older URL form, which is a decision for a
+    # cataloguer rather than a side effect.
     #
-    # The URL fixes rewrite $u in place rather than dropping the field and adding a
-    # replacement, so a cataloguer's $x (digitisation project) and $z (volume) survive
-    # the repair. Neither is written for a *new* link: the project is recorded nowhere in
-    # the Kramerius index, and a volume designation exists only inside the document title,
-    # where parsing it would risk writing a wrong $z into the catalogue.
-    # Non-repairable reasons (invalid_link_format, wrong_server_not_found,
-    # non_linkable_model, foreign_digital_library,
-    # identifier_matches_multiple_documents) are left untouched. A link into
-    # another institution's digital library is deliberately among them: it is
-    # not addressed to our Kramerius and is none of our business to rewrite.
+    #   repair         missing_link_in_marc        → add a correct 856
+    #                  non_top_level_document      → $u to the top of the hierarchy
+    #                  link_not_found              → remove the field
+    #                  non_canonical_url_not_found → remove the field
+    #
+    #   normalization  non_canonical_url_found     → $u to the canonical URL
+    #                  missing_link_text           → add the standard $y
+    #
+    # A repair changes only the subfield it targets: the $u naming its PID,
+    # or a $y that is absent. Every other subfield, both indicators and every
+    # other 856 are re-emitted unchanged, so a cataloguer's $x (digitisation
+    # project) and $z (volume) survive. Neither is written for a *new* link:
+    # the project is recorded nowhere in the Kramerius index, and a volume
+    # designation exists only inside the document title, where parsing it
+    # would risk writing a wrong $z into the catalogue.
+    #
+    # A sysno reaches the delete list only when a repair has emptied it of
+    # 856 fields entirely — a normalisation never removes one.
+    #
+    # The remaining reasons produce a CSV apiece instead. Three cannot be
+    # repaired (invalid_link_format, non_linkable_model,
+    # identifier_matches_multiple_documents) and one must not be: a link into
+    # another institution's digital library is real, recognised, and not ours
+    # to rewrite. The two normalisable reasons get a CSV as well, because
+    # their .seq is a proposal somebody has to approve.
 
     def _make_url(self, params: dict[str, str]) -> str:
         pid = params.get("pid", "")
         template = params.get("url") or self.config.kramerius_client_url
         return template.replace("{pid}", pid)
 
-    def _build_changes(self, results: Iterable[ValidationResult]) -> dict:
+    def _build_changes(self, results: Iterable[ValidationResult], reasons: frozenset[str]) -> dict:
+        """The edits one record needs, restricted to one family of reasons.
+
+        Called once per output: the repair pass and the normalisation pass
+        read the same results and each takes only its own. Keeping them apart
+        is what stops a record being rewritten for tidiness on the back of an
+        unrelated repair.
+        """
+
         changes: dict = {"modifications": [], "removals": set(), "additions": []}
         for result in results:
             reason = result.reason
+            if reason not in reasons:
+                continue
+
             params = result.params or {}
             field_index = result.target.field_index
 
             if reason == "missing_link_in_marc":
                 changes["additions"].append({"u": self._make_url(params), "y": STANDARD_LINK_TEXT})
-            elif reason in ("wrong_server_found", "wrong_path_found", "wrong_path_not_found"):
+
+            elif reason == "non_canonical_url_found":
                 changes["modifications"].append(
                     {
                         "field_index": field_index,
                         "action": "replace_u",
+                        "match_pid": params.get("pid"),
                         "new_u": self._make_url(params),
                     }
                 )
+
             elif reason == "non_top_level_document" and params.get("top_level_pid"):
                 # The link resolves, just to a page or a volume inside the
                 # document. Point it at the top of that same hierarchy rather
@@ -1100,16 +1327,24 @@ class KrameriusLinksValidator(BaseValidator):
                     {
                         "field_index": field_index,
                         "action": "replace_u",
+                        "match_pid": params.get("pid"),
                         "new_u": self._make_url({**params, "pid": params["top_level_pid"]}),
                     }
                 )
+
             elif reason == "missing_link_text":
                 changes["modifications"].append(
                     {"field_index": field_index, "action": "add_y", "new_y": STANDARD_LINK_TEXT}
                 )
-            elif reason == "link_not_found" and field_index is not None:
+
+            # Nothing in our index answers to this PID. Canonicalising the
+            # URL would only make a dead link tidy, so the field goes.
+            elif (
+                reason in ("link_not_found", "non_canonical_url_not_found")
+                and field_index is not None
+            ):
                 changes["removals"].add(field_index)
-            # other reasons are not auto-repairable — leave the field as-is
+
         return changes
 
     def _apply_changes(
@@ -1134,9 +1369,12 @@ class KrameriusLinksValidator(BaseValidator):
                 )
                 continue
             if mod["action"] == "replace_u":
-                fields[idx].subfields["u"] = [mod["new_u"]]
-            elif mod["action"] == "add_y":
-                fields[idx].subfields["y"] = [mod["new_y"]]
+                _replace_u(fields[idx], mod.get("match_pid"), mod["new_u"])
+            # `add_y` only ever fills a gap. The reason is raised for a field
+            # with no link text, but an unguarded assignment here would
+            # overwrite a cataloguer's own wording the day that changes.
+            elif mod["action"] == "add_y" and not fields[idx].subfields.get("y"):
+                _set_after(fields[idx], "y", [mod["new_y"]], after="u")
 
         # Step 2 — drop removed fields (by original index).
         removals = changes["removals"]
@@ -1164,10 +1402,55 @@ class KrameriusLinksValidator(BaseValidator):
         )
         return f"{sysno} {VALIDATION_FIELD.tag}{ind1}{ind2} L {subfields}"
 
+    #: Columns every review CSV carries, before its reason-specific ones.
+    _CSV_COMMON = ("catalog_record_id", "base", "sysno", "field_index")
+
+    #: What each reported reason adds, in column order. A reason listed here
+    #: gets a file; one that does not is either repaired automatically or
+    #: says nothing a person could act on.
+    _CSV_COLUMNS: dict[str, tuple[str, ...]] = {
+        "non_canonical_url_found": ("value", "pid", "suggested_url"),
+        "missing_link_text": ("value", "suggested_text"),
+        "identifier_matches_multiple_documents": ("identifier", "values", "count", "pids"),
+        "non_linkable_model": ("pid", "model"),
+        "invalid_link_format": ("value",),
+        "foreign_digital_library": ("value", "mzk_copy_available"),
+    }
+
+    def _csv_row(self, record: ReportInput, sysno: str, result: ValidationResult) -> dict:
+        params = result.params or {}
+        row = {
+            "catalog_record_id": record.catalog_record_id,
+            "base": record.base,
+            "sysno": sysno,
+            "field_index": result.target.field_index,
+        }
+        for column in self._CSV_COLUMNS[result.reason or ""]:
+            if column == "suggested_url":
+                row[column] = self._make_url(params) if params.get("pid") else ""
+            elif column == "suggested_text":
+                row[column] = STANDARD_LINK_TEXT
+            elif column == "mzk_copy_available":
+                # The one thing a cataloguer wants to know about a link into
+                # another library: whether we hold a scan of our own. When we
+                # do, the repair file is already adding it alongside.
+                row[column] = any(
+                    other.reason == "missing_link_in_marc" for other in record.results
+                )
+            else:
+                row[column] = params.get(column, "")
+        return row
+
     def generate_report(self, records: Iterable[ReportInput]) -> list[ReportFile]:
-        seq_lines_by_base: dict[str, list[str]] = defaultdict(list)
+        if self._canonical_url_mismatch:
+            raise ValueError(self._canonical_url_mismatch)
+
+        seq_lines_by_base: dict[tuple[str, str], list[str]] = defaultdict(list)
         delete_sysnos_by_base: dict[str, list[str]] = defaultdict(list)
+        csv_rows: dict[str, list[dict]] = defaultdict(list)
         errors: list[dict] = []
+
+        passes = (("repair", REPAIR_REASONS), ("normalization", NORMALIZATION_REASONS))
 
         for record in records:
             try:
@@ -1175,30 +1458,41 @@ class KrameriusLinksValidator(BaseValidator):
                 doc_number = record.catalog_record_id.split("-", 1)[-1]
                 sysno = doc_number.zfill(9)
 
-                changes = self._build_changes(record.results)
-                if not (changes["modifications"] or changes["removals"] or changes["additions"]):
-                    # No repairable results for this record — leave it alone.
-                    continue
+                for result in record.results:
+                    if result.reason in self._CSV_COLUMNS:
+                        csv_rows[result.reason].append(self._csv_row(record, sysno, result))
 
-                fields = record.marc.variable_fields.query_fields('.["856"][]?')
-                final_fields = self._apply_changes(
-                    list(fields), changes, errors, record.catalog_record_id
-                )
+                for kind, reasons in passes:
+                    changes = self._build_changes(record.results, reasons)
+                    if not (
+                        changes["modifications"] or changes["removals"] or changes["additions"]
+                    ):
+                        continue
 
-                if final_fields:
-                    for field in final_fields:
-                        seq_lines_by_base[record.base].append(self._field_to_seq_line(sysno, field))
-                else:
-                    # Every 856 removed, none added — needs deletion.
-                    delete_sysnos_by_base[record.base].append(sysno)
+                    # Re-read per pass: each rewrites the whole 856 block of
+                    # its own file, so they must not edit one shared copy.
+                    fields = record.marc.variable_fields.query_fields('.["856"][]?')
+                    final_fields = self._apply_changes(
+                        list(fields), changes, errors, record.catalog_record_id
+                    )
+
+                    if final_fields:
+                        for field in final_fields:
+                            seq_lines_by_base[(kind, record.base)].append(
+                                self._field_to_seq_line(sysno, field)
+                            )
+                    elif kind == "repair":
+                        # Every 856 removed and none added. Only a repair can
+                        # empty a record; a normalisation never removes.
+                        delete_sysnos_by_base[record.base].append(sysno)
             except Exception as exc:  # noqa: BLE001 - report, don't abort the batch
                 errors.append({"catalog_record_id": record.catalog_record_id, "error": str(exc)})
 
         report_files: list[ReportFile] = []
-        for base, lines in sorted(seq_lines_by_base.items()):
+        for (kind, base), lines in sorted(seq_lines_by_base.items()):
             report_files.append(
                 ReportFile(
-                    filename=f"aleph_seq_{base}.seq",
+                    filename=f"aleph_{kind}_{base}.seq",
                     content=("\n".join(lines) + "\n").encode("utf-8"),
                     content_type="text/plain",
                 )
@@ -1209,6 +1503,19 @@ class KrameriusLinksValidator(BaseValidator):
                     filename=f"aleph_delete_856_{base}.txt",
                     content=("\n".join(sorted(sysnos)) + "\n").encode("utf-8"),
                     content_type="text/plain",
+                )
+            )
+        for reason in sorted(csv_rows):
+            columns = [*self._CSV_COMMON, *self._CSV_COLUMNS[reason]]
+            buffer = StringIO()
+            writer = csv.DictWriter(buffer, fieldnames=columns, extrasaction="ignore")
+            writer.writeheader()
+            writer.writerows(csv_rows[reason])
+            report_files.append(
+                ReportFile(
+                    filename=f"review_{reason}.csv",
+                    content=buffer.getvalue().encode("utf-8"),
+                    content_type="text/csv",
                 )
             )
         if errors:

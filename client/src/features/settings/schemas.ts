@@ -82,9 +82,9 @@ export const comparisonSettingsSchema = z.object({
 export type ComparisonSettingsFormValues = z.infer<typeof comparisonSettingsSchema>;
 
 export const krameriusLinksConfigSchema = z.object({
-  url_to_pid_pattern: z.string().min(1),
-  url_to_pid_wrong_path_pattern: z.string().min(1),
-  url_to_pid_fallback_pattern: z.string().min(1),
+  own_host_pattern: z.string().min(1),
+  canonical_path_pattern: z.string().min(1),
+  non_canonical_path_pattern: z.string().min(1),
   link_text_pattern: z.string().min(1),
   kramerius_host: z.url(),
   kramerius_client_url: z.string().min(1),

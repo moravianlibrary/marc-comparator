@@ -105,9 +105,9 @@
     "kramerius-links": {
       "title": "Odkazy na Kramerius",
       "enabled": "Aktivní",
-      "url-to-pid-pattern": "Vzor URL na PID",
-      "url-to-pid-wrong-path-pattern": "Vzor URL s nesprávnou cestou",
-      "url-to-pid-fallback-pattern": "Záložní vzor URL na PID",
+      "own-host-pattern": "Vlastní digitální knihovna (host)",
+      "canonical-path-pattern": "Očekávaný tvar cesty",
+      "non-canonical-path-pattern": "Cesta k rozpoznání neočekávaného tvaru",
       "link-text-pattern": "Vzor textu odkazu",
       "kramerius-host": "Adresa serveru Kramerius",
       "kramerius-client-url": "URL klienta Kramerius (výchozí)",

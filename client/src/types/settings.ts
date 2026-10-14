@@ -75,9 +75,9 @@ export interface ComparisonSettings {
 }
 
 export interface KrameriusLinksValidatorConfig {
-  url_to_pid_pattern: string;
-  url_to_pid_wrong_path_pattern: string;
-  url_to_pid_fallback_pattern: string;
+  own_host_pattern: string;
+  canonical_path_pattern: string;
+  non_canonical_path_pattern: string;
   link_text_pattern: string;
   kramerius_host: string;
   kramerius_client_url: string;

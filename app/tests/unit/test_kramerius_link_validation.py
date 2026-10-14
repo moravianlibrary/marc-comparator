@@ -4,6 +4,7 @@ import pytest
 from kramerius.schemas import KrameriusDocument
 from marc_comparator.validators import ValidationResult, ValidityStatus
 from marc_comparator.validators.kramerius_links import (
+    REPAIR_REASONS,
     KrameriusLinksValidator,
     KrameriusLinksValidatorConfig,
 )
@@ -79,8 +80,8 @@ class TestForeignDigitalLibraries:
         # Reported against the field it came from, not floating free.
         assert found["foreign_digital_library"].target.field_index == 0
         # And never judged as our own link gone wrong.
-        assert "wrong_server_found" not in found
-        assert "wrong_server_not_found" not in found
+        assert "non_canonical_url_found" not in found
+        assert "non_canonical_url_not_found" not in found
 
     @pytest.mark.asyncio
     async def test_a_foreign_url_is_not_measured_against_our_format(self):
@@ -103,11 +104,47 @@ class TestForeignDigitalLibraries:
     async def test_a_legacy_address_of_ours_is_still_a_link_to_repoint(self):
         # kramerius.mzk.cz is our own former address, so a link there really is
         # our document reached the wrong way — unlike another library's host.
-        legacy = f"https://kramerius.mzk.cz/uuid/{PID}"
+        legacy = f"https://kramerius.mzk.cz/search/handle/{PID}"
         results = await validator([doc(PID)]).run(record_with_links(legacy))
 
-        assert "foreign_digital_library" not in by_reason(results)
-        assert {"wrong_server_found", "wrong_server_not_found"} & set(by_reason(results))
+        found = by_reason(results)
+        assert "foreign_digital_library" not in found
+        assert {"non_canonical_url_found", "non_canonical_url_not_found"} & set(found)
+
+    @pytest.mark.asyncio
+    async def test_another_library_on_the_shared_portal_is_not_ours(self):
+        # digitalniknihovna.cz is shared: each library has its own section, so
+        # the host alone does not make a link ours. Matching on the host and
+        # then on the path is what keeps /nkp/ out.
+        theirs = f"https://www.digitalniknihovna.cz/nkp/view/{PID}"
+        results = await validator([doc(PID)]).run(record_with_links(theirs))
+
+        found = by_reason(results)
+        assert "foreign_digital_library" in found
+        assert "non_canonical_url_found" not in found
+
+    @pytest.mark.asyncio
+    async def test_a_lookalike_host_is_not_ours(self):
+        results = await validator([doc(PID)]).run(
+            record_with_links(f"https://kramerius.mzk.cz.example.com/search/handle/{PID}")
+        )
+
+        assert "foreign_digital_library" in by_reason(results)
+
+    @pytest.mark.asyncio
+    async def test_a_mistyped_pid_is_a_bad_url_not_a_missing_document(self):
+        # A loose PID pattern reads the typo as a document, fails to find it,
+        # and reports link_not_found — which removes the 856. A typo must not
+        # cost a cataloguer their link.
+        typo = (
+            "https://www.digitalniknihovna.cz/mzk/view/uuid:6caa5af0-07a9-11e6-a5b6-005056827e52D"
+        )
+        results = await validator().run(record_with_links(typo))
+
+        found = by_reason(results)
+        assert "invalid_link_format" in found
+        assert "link_not_found" not in found
+        assert not REPAIR_REASONS & set(found)
 
     @pytest.mark.asyncio
     async def test_the_owned_hosts_are_configurable(self):
@@ -146,11 +183,12 @@ class TestNonTopLevelDocuments:
         plugin = validator([deep])
         results = await plugin.run(record_with_links(OURS.format(pid=PID)))
 
-        changes = plugin._build_changes(results)
+        changes = plugin._build_changes(results, REPAIR_REASONS)
 
         assert {
             "field_index": 0,
             "action": "replace_u",
+            "match_pid": PID,
             "new_u": OURS.format(pid=ROOT_PID),
         } in changes["modifications"]
         assert 0 not in changes["removals"]

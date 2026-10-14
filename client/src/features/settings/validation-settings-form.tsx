@@ -30,9 +30,9 @@ export function ValidationSettingsForm({ data, onDirtyChange, onFormRef, onSubmi
   const defaultValues = useMemo<ValidationSettingsFormValues>(
     () => ({
       'kramerius-links': data['kramerius-links'] ?? {
-        url_to_pid_pattern: '',
-        url_to_pid_wrong_path_pattern: '',
-        url_to_pid_fallback_pattern: '',
+        own_host_pattern: '',
+        canonical_path_pattern: '',
+        non_canonical_path_pattern: '',
         link_text_pattern: '',
         kramerius_host: '',
         kramerius_client_url: '',
@@ -63,10 +63,10 @@ export function ValidationSettingsForm({ data, onDirtyChange, onFormRef, onSubmi
           <CardContent className="max-w-xl space-y-4">
             <FormField
               control={form.control}
-              name="kramerius-links.url_to_pid_pattern"
+              name="kramerius-links.own_host_pattern"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>{t('validators.kramerius-links.url-to-pid-pattern')}</FormLabel>
+                  <FormLabel>{t('validators.kramerius-links.own-host-pattern')}</FormLabel>
                   <FormControl>
                     <Input {...field} />
                   </FormControl>
@@ -76,12 +76,10 @@ export function ValidationSettingsForm({ data, onDirtyChange, onFormRef, onSubmi
             />
             <FormField
               control={form.control}
-              name="kramerius-links.url_to_pid_wrong_path_pattern"
+              name="kramerius-links.canonical_path_pattern"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>
-                    {t('validators.kramerius-links.url-to-pid-wrong-path-pattern')}
-                  </FormLabel>
+                  <FormLabel>{t('validators.kramerius-links.canonical-path-pattern')}</FormLabel>
                   <FormControl>
                     <Input {...field} />
                   </FormControl>
@@ -91,11 +89,11 @@ export function ValidationSettingsForm({ data, onDirtyChange, onFormRef, onSubmi
             />
             <FormField
               control={form.control}
-              name="kramerius-links.url_to_pid_fallback_pattern"
+              name="kramerius-links.non_canonical_path_pattern"
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>
-                    {t('validators.kramerius-links.url-to-pid-fallback-pattern')}
+                    {t('validators.kramerius-links.non-canonical-path-pattern')}
                   </FormLabel>
                   <FormControl>
                     <Input {...field} />
