@@ -16,6 +16,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   workspace with separate scrolling regions and a single-pane narrow view.
 - CI checks code quality, the application suite and browser flows for task
   detail, report download and candidate review.
+- `make audit` runs the three security scans CI runs — gitleaks over the
+  working tree, `pip-audit` over the app environment and `bun audit` over the
+  client's — so a developer sees what the pipeline will say before pushing.
+  The one advisory with no upgrade available is exempted in the Makefile with
+  its reason beside it.
 - New `kramerius-links` review category `identifier_matches_multiple_documents`. When one
   identifier resolves to several Kramerius documents the extra matches are almost always
   wrong metadata on the Kramerius side, so rather than guessing, the validator reports the
@@ -80,6 +85,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `BaseValidator`, `BaseComparator`, and `BaseAuthorityLinker` declare
   `__init__(self, config=None)`, making the config contract explicit.
 
+### Security
+
+- Every parser the SDK reads somebody else's XML through — the knihovny.cz
+  response, the published MARCXML dump, a stored candidate record — now
+  refuses entity declarations and will not reach the network to resolve one.
+  lxml does not load a document's internal subset by default, so these call
+  sites were not exposed; that was a default rather than a decision, and one
+  upstream has already changed once (CVE-2026-41066).
+- Dependency upgrades the advisory scans call for: PyJWT 2.13.0 to 2.15.1 and
+  urllib3 2.7.0 to 2.8.0 in the shipped images, httpx2 and httpcore2 2.9.1 to
+  2.14.0 in the test environment, and axios, i18next-http-backend, nanoid and
+  source-map-js in the client.
+
 ### Removed
 
 - `MarcXmlDumpLinkerConfig.minimum_confidence`, superseded by the two per-route floors.
@@ -87,6 +105,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   pick up the new defaults; set the replacements to restore a floor of your own.
 - `deploy/docker-compose/app.env` and `app.oidc.env` are no longer tracked; copy them
   from `app.env.example` instead.
+- The shadcn CLI is no longer a client dependency. Nothing imports it, and it
+  pulled a web server and an MCP SDK into the install for a generator that is
+  run by hand; `bunx shadcn@latest add <name>` still works and
+  `components.json` still configures it.
 
 ### Fixed
 

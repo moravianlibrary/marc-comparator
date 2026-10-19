@@ -106,6 +106,16 @@ services; inspect the test fixtures before running those suites against a new
 environment. Verify one Alembic head after adding a migration. Do not assume
 historical test counts or local deployment results describe the current tree.
 
+`make audit` runs the three security scans CI runs: gitleaks over the working
+tree, `pip-audit` over the app environment and `bun audit` over the client's.
+`deps-audit` reads `app/.venv`, so run `make app-env` first. An advisory with
+no upgrade available is exempted in the Makefile with the reason written next
+to it, never silenced at the call site. The shadcn CLI is deliberately not a
+dependency — it drags a web server and an MCP SDK into the tree for a
+generator nothing imports — so add a component with
+`cd client && bunx shadcn@latest add <name>`; `components.json` still
+configures it.
+
 ### Local migration recovery check (2026-10-16)
 
 The working local database was 13 GB and already at `c4d5e6f7a8b9`. For a
