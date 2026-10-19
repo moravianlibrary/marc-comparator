@@ -20,7 +20,6 @@ const REASON_TO_STATUS: Record<string, string> = {
   no_links_found_or_expected: 'Valid',
   valid_link: 'Valid',
   missing_link_in_marc: 'Invalid',
-  non_top_level_document: 'Invalid',
   link_not_found: 'Invalid',
   non_canonical_url_not_found: 'Invalid',
   non_canonical_url_found: 'ForReview',
@@ -28,7 +27,8 @@ const REASON_TO_STATUS: Record<string, string> = {
   identifier_matches_multiple_documents: 'ForReview',
   non_linkable_model: 'ForReview',
   invalid_link_format: 'ForReview',
-  foreign_digital_library: 'AdditionalInfo',
+  non_top_level_document: 'ForReview',
+  other_online_resource: 'AdditionalInfo',
 };
 
 interface ValidatorData {

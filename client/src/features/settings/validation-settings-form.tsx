@@ -34,6 +34,7 @@ export function ValidationSettingsForm({ data, onDirtyChange, onFormRef, onSubmi
         canonical_path_pattern: '',
         non_canonical_path_pattern: '',
         link_text_pattern: '',
+        link_text: '',
         kramerius_host: '',
         kramerius_client_url: '',
         solr_cloud: true,
@@ -108,6 +109,19 @@ export function ValidationSettingsForm({ data, onDirtyChange, onFormRef, onSubmi
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>{t('validators.kramerius-links.link-text-pattern')}</FormLabel>
+                  <FormControl>
+                    <Input {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+            <FormField
+              control={form.control}
+              name="kramerius-links.link_text"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>{t('validators.kramerius-links.link-text')}</FormLabel>
                   <FormControl>
                     <Input {...field} />
                   </FormControl>

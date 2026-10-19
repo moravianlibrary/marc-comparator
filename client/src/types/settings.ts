@@ -79,6 +79,7 @@ export interface KrameriusLinksValidatorConfig {
   canonical_path_pattern: string;
   non_canonical_path_pattern: string;
   link_text_pattern: string;
+  link_text: string;
   kramerius_host: string;
   kramerius_client_url: string;
   solr_cloud: boolean;

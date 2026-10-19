@@ -86,6 +86,7 @@ export const krameriusLinksConfigSchema = z.object({
   canonical_path_pattern: z.string().min(1),
   non_canonical_path_pattern: z.string().min(1),
   link_text_pattern: z.string().min(1),
+  link_text: z.string().min(1),
   kramerius_host: z.url(),
   kramerius_client_url: z.string().min(1),
   solr_cloud: z.boolean(),

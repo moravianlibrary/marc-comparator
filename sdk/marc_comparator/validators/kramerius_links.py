@@ -47,6 +47,13 @@ _PID = (
 )
 
 
+#: The same PID, found anywhere in a string rather than read out of our own
+#: URL shape. What marks a foreign link as a digital library's — an 856 is
+#: also where a publisher homepage and an e-journal landing page live, and
+#: those are nobody's digitised copy.
+_ANY_PID = re.compile(_PID)
+
+
 class KrameriusLinksValidatorConfig(BaseModel):
     #: The one place this library's own digital library is named.
     #:
@@ -77,7 +84,23 @@ class KrameriusLinksValidatorConfig(BaseModel):
     #: page, and the address bar is what got pasted.
     non_canonical_path_pattern: str = rf"^/(?:[^/?#]+/){{1,2}}{_PID}(?:[/?#].*)?$"
 
+    #: What a link of ours is expected to say.
+    #:
+    #: Matched with `re.match`, so this is a case-sensitive *prefix* test and
+    #: a cataloguer's elaboration survives it: 9,126 fields in MZK's catalogue
+    #: read `Digitalizovaný dokument (klikněte pro zobrazení)`, and a few
+    #: credit a partner institution. Anchoring the end would flag every one of
+    #: them, and a flagged `$y` is now rewritten rather than merely reported.
     link_text_pattern: str = r"Digitalizovaný dokument"
+
+    #: What is written into `$y` when a link is added or its text repaired.
+    #:
+    #: Separate from the pattern above because one reads and the other writes,
+    #: but the two are not independent: a text this validator writes has to be
+    #: one its own pattern accepts, or every record it repairs is flagged
+    #: again on the next pass and rewritten forever. `__init__` checks that
+    #: rather than trusting it, because both are edited from the settings UI.
+    link_text: str = "Digitalizovaný dokument"
 
     kramerius_host: str = "https://api.kramerius.mzk.cz/search"
     kramerius_client_url: str = "https://www.digitalniknihovna.cz/mzk/uuid/{pid}"
@@ -153,7 +176,6 @@ REASON_STATUS: dict[str, ValidityStatus] = {
     "valid_link": ValidityStatus.Valid,
     # Known to be wrong, and we know the one correct answer.
     "missing_link_in_marc": ValidityStatus.Invalid,
-    "non_top_level_document": ValidityStatus.Invalid,
     "link_not_found": ValidityStatus.Invalid,
     "non_canonical_url_not_found": ValidityStatus.Invalid,
     # A person has to decide; nothing here is applied without one.
@@ -162,15 +184,25 @@ REASON_STATUS: dict[str, ValidityStatus] = {
     "identifier_matches_multiple_documents": ValidityStatus.ForReview,
     "non_linkable_model": ValidityStatus.ForReview,
     "invalid_link_format": ValidityStatus.ForReview,
+    # A link to a volume, an issue or a page rather than to the whole
+    # document. Once repaired automatically by pointing it at the top of its
+    # hierarchy, which was right for the 21 page links and wrong for the 361
+    # others: a `$z Svazek 2` naming a volume is a cataloguer's deliberate
+    # choice, and rewriting it both discarded that choice and, where several
+    # volumes shared a parent, left the record holding the same link twice
+    # under different volume labels.
+    "non_top_level_document": ValidityStatus.ForReview,
     # Real, recognised, and not ours to touch.
-    "foreign_digital_library": ValidityStatus.AdditionalInfo,
+    "other_online_resource": ValidityStatus.AdditionalInfo,
 }
 
 #: Findings whose fix mends a link that is wrong.
+#:
+#: `non_top_level_document` is deliberately absent: see `REASON_STATUS`. It is
+#: reported for a person now rather than repaired.
 REPAIR_REASONS = frozenset(
     {
         "missing_link_in_marc",
-        "non_top_level_document",
         "link_not_found",
         "non_canonical_url_not_found",
     }
@@ -289,9 +321,6 @@ IDENTIFIER_DOC_ATTR = {
 PIDS_IN_REVIEW_SAMPLE = 10
 
 logger = logging.getLogger(__name__)
-
-#: Standard 856 $y link text written for added/replaced links.
-STANDARD_LINK_TEXT = "Digitalizovaný dokument"
 
 
 def _solr_timestamp(value: datetime) -> str:
@@ -475,31 +504,38 @@ class KrameriusLinksValidator(BaseValidator):
         self.non_canonical_path_regex = re.compile(config.non_canonical_path_pattern)
         self.link_text_regex = re.compile(config.link_text_pattern)
 
-        # What we write has to be what we call canonical, or every repair
-        # emits a link the next pass flags as non-canonical and rewrites
-        # again — the same records churning through a normalisation file
-        # forever. The settings are edited independently, so their agreement
+        # What we write has to be what we call correct, or every repair
+        # emits something the next pass flags and rewrites again — the same
+        # records churning through a file forever. Both halves of what a
+        # repair writes, the URL and the link text, have a setting that reads
+        # them back, and all four are edited independently, so their agreement
         # is checked rather than assumed.
         #
         # Noted here and refused in `generate_report`, not raised here: a
-        # validator is also built to harvest, and a reader URL that does not
-        # match our own host is harmless until something writes a link with
-        # it. Refusing at construction would take the whole app down over a
-        # setting only report generation reads.
+        # validator is also built to harvest, and a reader URL or link text
+        # that disagrees with its pattern is harmless until something writes
+        # a link with it. Refusing at construction would take the whole app
+        # down over a setting only report generation reads.
+        self._config_conflicts: list[str] = []
+
         sample = self._make_url({"pid": "uuid:00000000-0000-0000-0000-000000000000"})
         kind, _pid = self._classify_url(sample)
-        self._canonical_url_mismatch: str | None = (
-            None
-            if kind == "canonical"
-            else (
+        if kind != "canonical":
+            self._config_conflicts.append(
                 f"kramerius_client_url builds {sample!r}, which own_host_pattern and "
                 f"canonical_path_pattern read as {kind!r} rather than canonical. A link "
                 "this validator writes must be one it accepts, or every repair will be "
                 "re-reported as non-canonical and rewritten again."
             )
-        )
-        if self._canonical_url_mismatch:
-            logger.warning("%s", self._canonical_url_mismatch)
+        if not self.link_text_regex.match(config.link_text):
+            self._config_conflicts.append(
+                f"link_text is {config.link_text!r}, which link_text_pattern "
+                f"({config.link_text_pattern!r}) does not accept. A link text this "
+                "validator writes must be one it accepts, or every repair will be "
+                "re-reported as missing its link text and rewritten again."
+            )
+        for conflict in self._config_conflicts:
+            logger.warning("%s", conflict)
 
         self.client = KrameriusClient(
             KrameriusConfig(
@@ -1057,6 +1093,19 @@ class KrameriusLinksValidator(BaseValidator):
         url = value.strip()
         host = self.own_host_regex.match(url)
         if not host:
+            # A value carrying our host somewhere other than the start is a
+            # typo in one of our own links, not another institution's: a
+            # subfield delimiter typed as text (`|u https://...`) or the
+            # scheme pasted twice (`https://https://...`). Matching only the
+            # start would file both under somebody else's digital library,
+            # where nobody would ever go looking for them.
+            schemes = list(re.finditer(r"[a-z][a-z0-9+.\-]*://", url, re.IGNORECASE))
+            if (
+                schemes
+                and schemes[-1].start() > 0
+                and self.own_host_regex.match(url[schemes[-1].start() :])
+            ):
+                return "unparseable", None
             return "foreign", None
 
         path = url[host.end() :]
@@ -1097,14 +1146,22 @@ class KrameriusLinksValidator(BaseValidator):
 
         for field_idx, vf in enumerate(self._queries_for(record).elocation_fields):
             classified = [(v, *self._classify_url(v)) for v in vf.subfields.get("u", [])]
+            has_canonical = any(kind == "canonical" for _v, kind, _pid in classified)
+            has_link_text = any(self.link_text_regex.match(v) for v in vf.subfields.get("y", []))
 
-            if not any(self.link_text_regex.match(v) for v in vf.subfields.get("y", [])):
-                if not any(kind == "canonical" for _v, kind, _pid in classified):
-                    continue
-
+            # Only this one finding depends on the link text. Letting it gate
+            # the classification below used to cost the whole field: a link of
+            # ours in an older URL form, or one with a typo in it, whose `$y`
+            # was merely misspelled never registered as a link at all — so the
+            # document looked absent from the record and a second link to it
+            # was proposed beside the first.
+            if has_canonical and not has_link_text:
                 add_result(
                     reason="missing_link_text",
-                    params={"pattern": self.config.link_text_pattern},
+                    params={
+                        "pattern": self.config.link_text_pattern,
+                        "value": next(v for v, kind, _pid in classified if kind == "canonical"),
+                    },
                     field_index=field_idx,
                 )
 
@@ -1120,15 +1177,22 @@ class KrameriusLinksValidator(BaseValidator):
                         url_issue_pids[pid] = {"value": v, "field_index": field_idx}
 
                 elif kind == "foreign":
-                    # Another institution's digital library. Its PID is not ours
-                    # to look up — the same uuid existing in our index does not
-                    # make their link wrong — and its URL format is their
-                    # business, so the link is recorded and left alone.
-                    add_result(
-                        reason="foreign_digital_library",
-                        params={"value": v},
-                        field_index=field_idx,
-                    )
+                    # A digitised copy that is not in our Kramerius — another
+                    # institution's, or something that is no Kramerius at all.
+                    # Not ours to look up (the same uuid existing in our index
+                    # does not make their link wrong) and not ours to reformat,
+                    # so it is recorded and left alone.
+                    #
+                    # Recognised by carrying a PID, or by the field saying it
+                    # is a digitised document. Without that test every 856
+                    # would qualify, and an 856 is also where a publisher's
+                    # homepage and an e-journal's landing page live.
+                    if _ANY_PID.search(v) or has_link_text:
+                        add_result(
+                            reason="other_online_resource",
+                            params={"value": v},
+                            field_index=field_idx,
+                        )
 
                 else:
                     # One of ours that names no document we can read.
@@ -1258,30 +1322,40 @@ class KrameriusLinksValidator(BaseValidator):
     # cataloguer rather than a side effect.
     #
     #   repair         missing_link_in_marc        → add a correct 856
-    #                  non_top_level_document      → $u to the top of the hierarchy
     #                  link_not_found              → remove the field
     #                  non_canonical_url_not_found → remove the field
     #
     #   normalization  non_canonical_url_found     → $u to the canonical URL
-    #                  missing_link_text           → add the standard $y
+    #                  missing_link_text           → rewrite the $y
+    #
+    # A record is written to at most one of the two. When it qualifies for
+    # both, the repair takes it and the tidy-up waits for a later run: each
+    # file rewrites the whole 856 block from the record as it stands today,
+    # so a sysno appearing in both means whichever is loaded second silently
+    # reverts the other. Disjointness is asserted below rather than hoped for.
     #
     # A repair changes only the subfield it targets: the $u naming its PID,
-    # or a $y that is absent. Every other subfield, both indicators and every
-    # other 856 are re-emitted unchanged, so a cataloguer's $x (digitisation
-    # project) and $z (volume) survive. Neither is written for a *new* link:
-    # the project is recorded nowhere in the Kramerius index, and a volume
+    # or the $y. Every other subfield, both indicators and every other 856
+    # are re-emitted unchanged, so a cataloguer's $x (digitisation project)
+    # and $z (volume) survive. Neither is written for a *new* link: the
+    # project is recorded nowhere in the Kramerius index, and a volume
     # designation exists only inside the document title, where parsing it
     # would risk writing a wrong $z into the catalogue.
+    #
+    # Links are compared by the document they name, not by their text, both
+    # when a new one is added and after a rewrite: `/view/uuid:X` and
+    # `/uuid/uuid:X` are one link to one document, and a record that has the
+    # first must not be handed the second as well.
     #
     # A sysno reaches the delete list only when a repair has emptied it of
     # 856 fields entirely — a normalisation never removes one.
     #
-    # The remaining reasons produce a CSV apiece instead. Three cannot be
-    # repaired (invalid_link_format, non_linkable_model,
-    # identifier_matches_multiple_documents) and one must not be: a link into
-    # another institution's digital library is real, recognised, and not ours
-    # to rewrite. The two normalisable reasons get a CSV as well, because
-    # their .seq is a proposal somebody has to approve.
+    # The remaining reasons produce a CSV apiece instead. Four cannot be
+    # repaired safely (invalid_link_format, non_linkable_model,
+    # identifier_matches_multiple_documents, non_top_level_document) and one
+    # must not be: a digitised copy held somewhere else is real, recognised,
+    # and not ours to rewrite. The two normalisable reasons get a CSV as
+    # well, because their .seq is a proposal somebody has to approve.
 
     def _make_url(self, params: dict[str, str]) -> str:
         pid = params.get("pid", "")
@@ -1307,7 +1381,9 @@ class KrameriusLinksValidator(BaseValidator):
             field_index = result.target.field_index
 
             if reason == "missing_link_in_marc":
-                changes["additions"].append({"u": self._make_url(params), "y": STANDARD_LINK_TEXT})
+                changes["additions"].append(
+                    {"u": self._make_url(params), "y": self.config.link_text}
+                )
 
             elif reason == "non_canonical_url_found":
                 changes["modifications"].append(
@@ -1319,22 +1395,13 @@ class KrameriusLinksValidator(BaseValidator):
                     }
                 )
 
-            elif reason == "non_top_level_document" and params.get("top_level_pid"):
-                # The link resolves, just to a page or a volume inside the
-                # document. Point it at the top of that same hierarchy rather
-                # than dropping it: the cataloguer found the right object.
+            elif reason == "missing_link_text":
                 changes["modifications"].append(
                     {
                         "field_index": field_index,
-                        "action": "replace_u",
-                        "match_pid": params.get("pid"),
-                        "new_u": self._make_url({**params, "pid": params["top_level_pid"]}),
+                        "action": "add_y",
+                        "new_y": self.config.link_text,
                     }
-                )
-
-            elif reason == "missing_link_text":
-                changes["modifications"].append(
-                    {"field_index": field_index, "action": "add_y", "new_y": STANDARD_LINK_TEXT}
                 )
 
             # Nothing in our index answers to this PID. Canonicalising the
@@ -1370,27 +1437,92 @@ class KrameriusLinksValidator(BaseValidator):
                 continue
             if mod["action"] == "replace_u":
                 _replace_u(fields[idx], mod.get("match_pid"), mod["new_u"])
-            # `add_y` only ever fills a gap. The reason is raised for a field
-            # with no link text, but an unguarded assignment here would
-            # overwrite a cataloguer's own wording the day that changes.
-            elif mod["action"] == "add_y" and not fields[idx].subfields.get("y"):
+            # The whole $y, not just an absent one. The reason fires when no
+            # $y matches the configured text, so a field whose link text is
+            # merely misspelled is one of these — and filling only an empty
+            # $y left 1,742 findings of 1,758 unrepaired while still emitting
+            # the record, which is how a .seq full of no-op rewrites went
+            # unnoticed.
+            elif mod["action"] == "add_y":
                 _set_after(fields[idx], "y", [mod["new_y"]], after="u")
 
         # Step 2 — drop removed fields (by original index).
         removals = changes["removals"]
         kept = [f for i, f in enumerate(fields) if i not in removals]
 
-        # Step 3 — append additions, skipping any $u already present (Aleph
-        # replaces all 856, so a duplicate $u would commit a duplicate link).
+        # Step 2b — a rewrite above can land a field on a document another
+        # field already names.
+        kept = self._drop_redundant(kept)
+
+        # Step 3 — append additions, skipping any that name a document this
+        # record already links to. Compared by document and not by URL text:
+        # `/view/uuid:X` and `/uuid/uuid:X` are one link to one place, and
+        # Aleph replaces all 856, so emitting both would commit the duplicate.
+        #
+        # A foreign URL carrying the same uuid does not count — `_classify_url`
+        # gives it no PID — because a copy in another library is not ours and
+        # adding our own beside it is the point.
         existing_us = {u for f in kept for u in f.subfields.get("u", [])}
+        existing_pids = {pid for f in kept for pid in self._linked_documents(f)}
         for add in changes["additions"]:
-            if add["u"] in existing_us:
+            _kind, pid = self._classify_url(add["u"])
+            if add["u"] in existing_us or (pid is not None and pid in existing_pids):
                 continue
             kept.append(
                 VariableField(ind1="4", ind2="1", subfields={"u": [add["u"]], "y": [add["y"]]})
             )
             existing_us.add(add["u"])
+            if pid is not None:
+                existing_pids.add(pid)
 
+        return kept
+
+    def _linked_documents(self, field: VariableField) -> set[str]:
+        """Which of our documents one 856 names, by PID."""
+
+        return {
+            pid
+            for u in field.subfields.get("u", [])
+            for pid in [self._classify_url(u)[1]]
+            if pid is not None
+        }
+
+    @staticmethod
+    def _subfield_pairs(field: VariableField) -> set[tuple[str, str]]:
+        return {(code, value) for code, values in field.subfields.items() for value in values}
+
+    def _drop_redundant(self, fields: list[VariableField]) -> list[VariableField]:
+        """Collapse fields that a rewrite has made say the same thing.
+
+        Only a field another one says everything of is dropped. Two links to
+        one document carrying different `$z` are two labelled links — a
+        multi-volume record legitimately has those — and which of them to
+        keep is a cataloguer's call, not this function's. The survivor is
+        whichever carries more, so order in the record does not decide it.
+        """
+
+        kept: list[VariableField] = []
+        for field in fields:
+            documents = self._linked_documents(field)
+            if not documents:
+                kept.append(field)
+                continue
+
+            mine = self._subfield_pairs(field)
+            resolved = False
+            for i, other in enumerate(kept):
+                if not (documents & self._linked_documents(other)):
+                    continue
+                theirs = self._subfield_pairs(other)
+                if mine <= theirs:
+                    resolved = True
+                    break
+                if theirs <= mine:
+                    kept[i] = field
+                    resolved = True
+                    break
+            if not resolved:
+                kept.append(field)
         return kept
 
     @staticmethod
@@ -1414,7 +1546,8 @@ class KrameriusLinksValidator(BaseValidator):
         "identifier_matches_multiple_documents": ("identifier", "values", "count", "pids"),
         "non_linkable_model": ("pid", "model"),
         "invalid_link_format": ("value",),
-        "foreign_digital_library": ("value", "mzk_copy_available"),
+        "non_top_level_document": ("pid", "model", "level", "top_level_pid"),
+        "other_online_resource": ("value", "mzk_copy_available"),
     }
 
     def _csv_row(self, record: ReportInput, sysno: str, result: ValidationResult) -> dict:
@@ -1429,7 +1562,7 @@ class KrameriusLinksValidator(BaseValidator):
             if column == "suggested_url":
                 row[column] = self._make_url(params) if params.get("pid") else ""
             elif column == "suggested_text":
-                row[column] = STANDARD_LINK_TEXT
+                row[column] = self.config.link_text
             elif column == "mzk_copy_available":
                 # The one thing a cataloguer wants to know about a link into
                 # another library: whether we hold a scan of our own. When we
@@ -1437,20 +1570,84 @@ class KrameriusLinksValidator(BaseValidator):
                 row[column] = any(
                     other.reason == "missing_link_in_marc" for other in record.results
                 )
+            elif column == "value" and not params.get("value"):
+                # Not every reason records the URL it was raised against —
+                # `missing_link_text` names only the pattern — and findings
+                # written before a param was added never will. The record is
+                # already in hand, so the column is filled from the field the
+                # finding points at rather than left blank in front of the
+                # person who has to judge it.
+                row[column] = self._field_url(record, result.target.field_index)
             else:
                 row[column] = params.get(column, "")
         return row
 
+    @staticmethod
+    def _field_url(record: ReportInput, field_index: int | None) -> str:
+        if field_index is None:
+            return ""
+        fields = record.marc.variable_fields.query_fields('.["856"][]?')
+        if field_index >= len(fields):
+            return ""
+        return next(iter(fields[field_index].subfields.get("u", [])), "")
+
+    @staticmethod
+    def _refuse_overlap(
+        seq_lines_by_base: dict[tuple[str, str], list[str]],
+        delete_sysnos_by_base: dict[str, list[str]],
+    ) -> None:
+        """Refuse to hand over files that would undo each other.
+
+        The two .seq files are only independent while no record is in both:
+        each rewrites the whole 856 block of every sysno it names, so a record
+        in both means whichever Aleph loads second silently reverts the
+        other's work. The repair-wins rule in `generate_report` is what keeps
+        them apart; this is what notices the day a change stops doing so,
+        before the files reach anyone. The failure is invisible in either file
+        on its own, which is why it is checked rather than reviewed.
+        """
+
+        for base in {base for _kind, base in seq_lines_by_base}:
+            emitted = {
+                kind: {line.split(" ", 1)[0] for line in seq_lines_by_base.get((kind, base), [])}
+                for kind in ("repair", "normalization")
+            }
+            deleted = set(delete_sysnos_by_base.get(base, []))
+            overlap = (emitted["repair"] & emitted["normalization"]) | (
+                (emitted["repair"] | emitted["normalization"]) & deleted
+            )
+            if overlap:
+                raise ValueError(
+                    f"{len(overlap)} {base} record(s) would be written to more than one "
+                    "Aleph file. In REPLACE-ALL mode that means one load silently reverts "
+                    f"the other: {', '.join(sorted(overlap)[:5])}"
+                )
+
     def generate_report(self, records: Iterable[ReportInput]) -> list[ReportFile]:
-        if self._canonical_url_mismatch:
-            raise ValueError(self._canonical_url_mismatch)
+        if self._config_conflicts:
+            raise ValueError(" ".join(self._config_conflicts))
 
         seq_lines_by_base: dict[tuple[str, str], list[str]] = defaultdict(list)
         delete_sysnos_by_base: dict[str, list[str]] = defaultdict(list)
         csv_rows: dict[str, list[dict]] = defaultdict(list)
         errors: list[dict] = []
+        #: Sysnos the repair pass has claimed, per base, so the normalisation
+        #: pass can leave them alone.
+        written_by_repair: dict[str, set[str]] = defaultdict(set)
 
-        passes = (("repair", REPAIR_REASONS), ("normalization", NORMALIZATION_REASONS))
+        # A repair carries the record's tidying with it. Both files rewrite
+        # the whole 856 block, so a record being mended is rewritten either
+        # way and normalising it in the same pass costs nothing — while
+        # leaving it out emits a block whose freshly added `$y` reads
+        # `Digitalizovaný dokument` beside an untouched one still reading
+        # `Digitalizovan dokument`. What the split protects is the record
+        # that needs *only* tidying: that one still waits for the
+        # normalisation file, so repairing a batch never drags along a mass
+        # rewrite of every record written in an older URL form.
+        passes = (
+            ("repair", REPAIR_REASONS | NORMALIZATION_REASONS),
+            ("normalization", NORMALIZATION_REASONS),
+        )
 
         for record in records:
             try:
@@ -1462,7 +1659,21 @@ class KrameriusLinksValidator(BaseValidator):
                     if result.reason in self._CSV_COLUMNS:
                         csv_rows[result.reason].append(self._csv_row(record, sysno, result))
 
+                needs_repair = any(result.reason in REPAIR_REASONS for result in record.results)
+
                 for kind, reasons in passes:
+                    # The repair pass reads normalisation reasons too, so
+                    # without this a record that only needs tidying would be
+                    # written to the repair file.
+                    if kind == "repair" and not needs_repair:
+                        continue
+
+                    # Repair wins. Both files rewrite the whole 856 block, so
+                    # a sysno in both means whichever Aleph loads second
+                    # reverts the other.
+                    if kind == "normalization" and sysno in written_by_repair[record.base]:
+                        continue
+
                     changes = self._build_changes(record.results, reasons)
                     if not (
                         changes["modifications"] or changes["removals"] or changes["additions"]
@@ -1472,21 +1683,34 @@ class KrameriusLinksValidator(BaseValidator):
                     # Re-read per pass: each rewrites the whole 856 block of
                     # its own file, so they must not edit one shared copy.
                     fields = record.marc.variable_fields.query_fields('.["856"][]?')
+                    original = [self._field_to_seq_line(sysno, f) for f in fields]
                     final_fields = self._apply_changes(
                         list(fields), changes, errors, record.catalog_record_id
                     )
+                    lines = [self._field_to_seq_line(sysno, f) for f in final_fields]
 
-                    if final_fields:
-                        for field in final_fields:
-                            seq_lines_by_base[(kind, record.base)].append(
-                                self._field_to_seq_line(sysno, field)
-                            )
+                    # A change that applied to nothing. `add_y` used to skip
+                    # any field that already had one, so most of the
+                    # normalisation file was records being rewritten to
+                    # exactly what they already said. Loading that is not
+                    # free — it is a full REPLACE-ALL per record — and it
+                    # hides the findings that did nothing.
+                    if lines == original:
+                        continue
+
+                    if lines:
+                        seq_lines_by_base[(kind, record.base)].extend(lines)
+                        if kind == "repair":
+                            written_by_repair[record.base].add(sysno)
                     elif kind == "repair":
                         # Every 856 removed and none added. Only a repair can
                         # empty a record; a normalisation never removes.
                         delete_sysnos_by_base[record.base].append(sysno)
+                        written_by_repair[record.base].add(sysno)
             except Exception as exc:  # noqa: BLE001 - report, don't abort the batch
                 errors.append({"catalog_record_id": record.catalog_record_id, "error": str(exc)})
+
+        self._refuse_overlap(seq_lines_by_base, delete_sysnos_by_base)
 
         report_files: list[ReportFile] = []
         for (kind, base), lines in sorted(seq_lines_by_base.items()):

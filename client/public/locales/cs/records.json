@@ -180,6 +180,8 @@
       "alternative": "Alternativa",
       "candidates": "Zvažované záznamy",
       "no-stored-marc": "Kopii tohoto záznamu neuchováváme. Doplní se při dalším průchodu propojování.",
+      "on-demand-score": "Porovnání se záznamem: {{score}}",
+      "comparison-unavailable": "Porovnání se nepodařilo vypočítat. Zobrazuje se uložený záznam kandidáta.",
       "matched-by": "podle {{route}}",
       "not-in-this-pass": "poslední průchod tento záznam nenašel",
       "decide": "Rozhodnout",
@@ -319,7 +321,7 @@
     "valid_link": "Platný odkaz na Kramerius",
     "non_canonical_url_found": "Neobvyklý tvar odkazu, dokument nalezen",
     "non_canonical_url_not_found": "Neobvyklý tvar odkazu, dokument nenalezen",
-    "foreign_digital_library": "Odkaz do digitální knihovny jiné instituce"
+    "other_online_resource": "Odkaz na digitalizát mimo náš Kramerius"
   },
   "validation-detail": {
     "identifier_matches_multiple_documents": "Identifikátor {{identifier}} '{{values}}' odpovídá {{count}} různým dokumentům v Kramerius: {{pids}}. Jednomu záznamu by měl odpovídat nejvýše jeden dokument, takže jde pravděpodobně o chybu v metadatech Kramerius.",
@@ -333,7 +335,7 @@
     "valid_link": "PID '{{pid}}' odpovídá existujícímu dokumentu v Kramerius.",
     "non_canonical_url_found": "Odkaz '{{value}}' není v očekávaném tvaru, ale PID '{{pid}}' byl nalezen v Kramerius.",
     "non_canonical_url_not_found": "Odkaz '{{value}}' není v očekávaném tvaru a PID '{{pid}}' nebyl nalezen v Kramerius.",
-    "foreign_digital_library": "Odkaz {{value}} vede do digitální knihovny jiné instituce. Tentýž dokument bývá dostupný ve více knihovnách, takže nejde o chybu — odkaz se needituje ani neověřuje proti našemu Krameriu."
+    "other_online_resource": "Odkaz {{value}} vede na digitalizovaný dokument, který není v našem Krameriu — může jít o digitální knihovnu jiné instituce i o jiný zdroj. Nejde o chybu: odkaz neopravujeme ani neověřujeme proti našemu Krameriu."
   },
   "validation-hint": {
     "identifier_matches_multiple_documents": "Odkazy nebyly automaticky navrženy. Zkontrolujte dokumenty ručně a pokud mají nesprávný identifikátor, nahlaste to zpracovatelům digitalizace.",
@@ -342,10 +344,10 @@
     "missing_link_in_marc": "Přidejte odpovídající 856$u pro tento PID.",
     "missing_link_text": "Přidejte odpovídající text odkazu do podpole $y.",
     "non_linkable_model": "Zkontrolujte integritu dat v Kramerius.",
-    "non_top_level_document": "Odkaz lze opravit na nejvyšší dokument téže hierarchie: '{{top_level_pid}}'.",
+    "non_top_level_document": "Odkaz se automaticky neopravuje. U vícesvazkových záznamů bývá odkaz na svazek nebo číslo záměrný, proto posuďte, zda má vést sem, nebo na dokument nejvyšší úrovně: '{{top_level_pid}}'.",
     "non_canonical_url_found": "Aktualizujte odkaz na standardní formát: {{url}}",
     "non_canonical_url_not_found": "Odkaz nikam nevede, bude odstraněn.",
-    "foreign_digital_library": "Není třeba nic měnit. Pokud dokument máte i ve svém Krameriu, doplňte vedle tohoto odkazu ještě odkaz vlastní."
+    "other_online_resource": "Není třeba nic měnit. Pokud dokument máte i ve svém Krameriu, doplňte vedle tohoto odkazu ještě odkaz vlastní."
   },
   "link-outcome": {
     "Linked": "Propojeno ({{base}})",
