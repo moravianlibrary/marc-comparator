@@ -84,6 +84,7 @@ CNPG_MANIFEST := https://github.com/cloudnative-pg/cloudnative-pg/releases/downl
         app-env app-env-clean app-env-reset \
         deps-export deps-check \
         format format-check lint lint-fix typecheck version-check check \
+        audit secret-scan deps-audit client-audit \
         set-version tag-version tag-latest release \
         k3d-up k3d-down k3d-load k3d-env \
         k3d-port-forward-up k3d-port-forward-down \
@@ -150,6 +151,39 @@ deps-check: ## Fail if requirements*.txt drifted from uv.lock
 	exit $$fail
 
 check: version-check deps-check format-check lint typecheck helm-lint ## Run the full quality gate
+
+# ─── Security ────────────────────────────────────────────────────────────────
+
+# Pinned like every other tool the gate runs, so a new release of the scanner
+# cannot turn a green branch red on its own.
+GITLEAKS_IMAGE ?= ghcr.io/gitleaks/gitleaks:v8.21.2
+PIP_AUDIT ?= pip-audit==2.10.1
+
+# PYSEC-2026-87 is lxml's external-entity file read, fixed in 6.1.0. marcdantic
+# 0.3.14 pins lxml==6.0.0, so taking the fix is upstream work in another
+# repository. What the advisory asks for is done here instead: every parser the
+# SDK reads somebody else's XML through refuses entities outright, and says so
+# (sdk/marc_comparator/authority_linkers/_base.py). Drop this the moment
+# marcdantic lets lxml move.
+PIP_AUDIT_IGNORE := --ignore-vuln PYSEC-2026-87
+
+secret-scan: ## Scan the working tree for committed secrets
+	$(DOCKER) run --rm --volume "$(CURDIR):/repo" $(GITLEAKS_IMAGE) \
+		detect --source /repo --no-git --no-banner --redact
+
+# pip-audit reads a requirements file by resolving it with pip, and pip cannot
+# resolve this one: the four git dependencies pin each other's commits and only
+# uv's resolver reconciles them. Audit the environment uv has already built —
+# the same versions, resolved once.
+deps-audit: ## Audit the Python environment for known advisories
+	@site=$$(echo $(APP_VENV)/lib/python*/site-packages); \
+	[ -d "$$site" ] || { echo "No app environment at $(APP_VENV) — run 'make app-env'"; exit 1; }; \
+	$(UV) tool run $(PIP_AUDIT) --path "$$site" $(PIP_AUDIT_IGNORE)
+
+client-audit: ## Audit the client dependencies for known advisories
+	cd client && $(BUN) audit
+
+audit: secret-scan deps-audit client-audit ## Run every security scan
 
 # ─── Release ─────────────────────────────────────────────────────────────────
 
