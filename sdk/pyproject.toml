@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "marc-comparator-sdk"
-version = "1.0.0rc6"
+version = "1.0.0-rc6"
 authors = [
     {name = "Robert Randiak", email = "randiak@protonmail.com"}
 ]
