@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.12"
 
 [[package]]
@@ -263,7 +263,7 @@ wheels = [
 
 [[package]]
 name = "marc-comparator-sdk"
-version = "1.0.0rc3"
+version = "1.0.0rc6"
 source = { editable = "." }
 dependencies = [
     { name = "aleph-nought" },

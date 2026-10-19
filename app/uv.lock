@@ -902,7 +902,7 @@ dev = [
 
 [[package]]
 name = "marc-comparator-sdk"
-version = "1.0.0rc3"
+version = "1.0.0rc6"
 source = { editable = "../sdk" }
 dependencies = [
     { name = "aleph-nought" },

@@ -128,10 +128,13 @@ typecheck: ## Type-check Python (basedpyright) and client (tsc)
 
 version-check: ## Fail if VERSION drifted from the manifests that embed it
 	@app_v=$$(grep -m1 '^version = ' app/pyproject.toml | sed 's/.*"\(.*\)".*/\1/'); \
+	sdk_v=$$(grep -m1 '^version = ' sdk/pyproject.toml | sed 's/.*"\(.*\)".*/\1/'); \
 	chart_v=$$(grep -m1 '^appVersion:' $(CHART_DIR)/Chart.yaml | sed 's/.*"\(.*\)".*/\1/'); \
 	fail=0; \
 	if [ "$$app_v" != "$(PY_VERSION)" ]; then \
 		echo "VERSION drift: app/pyproject.toml is $$app_v, expected $(PY_VERSION)"; fail=1; fi; \
+	if [ "$$sdk_v" != "$(PY_VERSION)" ]; then \
+		echo "VERSION drift: sdk/pyproject.toml is $$sdk_v, expected $(PY_VERSION)"; fail=1; fi; \
 	if [ "$$chart_v" != "$(VERSION)" ]; then \
 		echo "VERSION drift: Chart.yaml appVersion is $$chart_v, expected $(VERSION)"; fail=1; fi; \
 	[ $$fail -eq 0 ] && echo "VERSION $(VERSION) consistent across manifests"; \
@@ -191,6 +194,7 @@ set-version: ## Set the version everywhere (usage: make set-version VERSION=1.2.
 	$(if $(VERSION),,$(error VERSION is required))
 	@echo "$(VERSION)" > VERSION
 	@sed -i 's/^version = ".*"/version = "$(PY_VERSION)"/' app/pyproject.toml
+	@sed -i 's/^version = ".*"/version = "$(PY_VERSION)"/' sdk/pyproject.toml
 	@sed -i 's/^appVersion: .*/appVersion: "$(VERSION)"/' $(CHART_DIR)/Chart.yaml
 	@echo "Version set to $(VERSION) (Python manifests: $(PY_VERSION))"
 
