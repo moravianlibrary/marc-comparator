@@ -10,7 +10,7 @@ from adapters.marc_sectors import describe_marc_errors, read_marc, read_stored_m
 from adapters.tasks import enqueue_task
 from catalog_records.models import ProcessRecordsSettings, RecordFilter
 from catalog_records.service import get_marc_record
-from comparison.tasks import load_gate_comparator
+from comparison.comparator_loader import load_gate_comparator
 from config import config
 from entities.authority_link import AuthorityLink
 from entities.catalog_record import CatalogRecord

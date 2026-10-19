@@ -253,7 +253,7 @@ def load_authority_linkers(
             f"None of the configured linkers could be initialized: "
             f"{', '.join(linker.value for linker in linkers)}."
         )
-    from comparison.tasks import load_gate_comparator
+    from comparison.comparator_loader import load_gate_comparator
     from harvest.storage import bind_plugin_storage
 
     # Ranking candidates on the configured scale rather than on whatever the
@@ -1293,7 +1293,7 @@ async def authority_linking(task_id: str) -> None:
         authority_linkers = load_authority_linkers(ctx.db_session, data.linkers)
         # The same comparator the linkers rank with, so a candidate rebuilt
         # from a claim scores on the scale everything else is on.
-        from comparison.tasks import load_gate_comparator
+        from comparison.comparator_loader import load_gate_comparator
 
         gate_comparator, _ = load_gate_comparator(ctx.db_session)
         confident_threshold = load_confident_threshold(ctx.db_session)

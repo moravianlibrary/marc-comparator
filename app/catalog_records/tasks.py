@@ -39,11 +39,8 @@ from catalog_records.models import (
     SyncRecordsData,
 )
 from catalog_records.search import build_filtered_query
-from comparison.tasks import (
-    handle_catalog_record_comparison,
-    load_comparator,
-    load_gate_comparator,
-)
+from comparison.comparator_loader import load_gate_comparator
+from comparison.tasks import handle_catalog_record_comparison, load_comparator
 from config import config
 from entities.authority_link import ANSWER_RANK, AuthorityLink, LinkOutcome
 from entities.catalog_record import CatalogRecord

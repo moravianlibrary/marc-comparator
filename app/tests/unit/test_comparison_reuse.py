@@ -8,8 +8,8 @@ from marc_comparator.comparators import RecordComparisonResult
 
 from adapters.database import DatabaseSession
 from comparison import UsedComparatorConfig
+from comparison.comparator_loader import load_gate_comparator
 from comparison.models import ComparisonSettings
-from comparison.tasks import load_gate_comparator
 
 #: The functions under test never touch the session; the settings are faked.
 NO_SESSION = cast(DatabaseSession, object())
@@ -27,7 +27,9 @@ class FakeSettings:
 def stored(monkeypatch):
     def store(**comparator):
         settings = ComparisonSettings.model_validate({"comparator": comparator})
-        monkeypatch.setattr("comparison.tasks.Settings", FakeSettings(settings), raising=False)
+        monkeypatch.setattr(
+            "comparison.comparator_loader.Settings", FakeSettings(settings), raising=False
+        )
         return settings
 
     return store
