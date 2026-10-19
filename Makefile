@@ -92,7 +92,7 @@ CNPG_MANIFEST := https://github.com/cloudnative-pg/cloudnative-pg/releases/downl
         profile-db-init profile-db-reset profile-db-report \
         profile-worker profile-worker-dump \
         benchmark \
-        test test-integration test-integration-verbose coverage-report \
+        test test-integration test-integration-verbose e2e coverage-report \
         dev-sdk dev-app dev-worker dev-beat \
         db-migrate db-upgrade db-downgrade db-history \
         clean clean-images clean-volumes clean-all
@@ -259,8 +259,19 @@ k3d-down: ## Delete the local k3s cluster
 k3d-env: ## Print the local cluster's kubeconfig path (for $KUBECONFIG)
 	@echo "$(K3D_KUBECONFIG)"
 
+# k3d 5.8.3 can log "tar: no such file" for every node and still exit zero.
+# Stream each image archive straight into containerd instead, and fail the
+# target when any node cannot import it. Include server and agent nodes since
+# a workload can move between them on a later rollout.
 k3d-load: build ## Build images and import them into the k3d cluster
-	k3d image import -c $(K3D_CLUSTER) $(APP_IMAGE) $(WORKER_IMAGE) $(CLIENT_IMAGE)
+	@nodes=$$(docker ps --filter label=k3d.cluster=$(K3D_CLUSTER) --format '{{.Names}}' | \
+		grep -E '^k3d-$(K3D_CLUSTER)-(server|agent)-[0-9]+$$'); \
+	[ -n "$$nodes" ] || { echo "No k3d server/agent nodes for $(K3D_CLUSTER)"; exit 1; }; \
+	for node in $$nodes; do \
+		echo "→ importing images into $$node"; \
+		bash -o pipefail -c 'docker save "$$1" "$$2" "$$3" | docker exec -i "$$4" ctr -n k8s.io images import -' \
+			_ "$(APP_IMAGE)" "$(WORKER_IMAGE)" "$(CLIENT_IMAGE)" "$$node" || exit 1; \
+	done
 
 # $(call pf_start,name,service,local port,remote port) — backgrounded, PID recorded
 define pf_start
@@ -322,19 +333,30 @@ helm-uninstall: ## Remove the release from the cluster
 	$(require_cluster)
 	$(KUBE) helm uninstall $(HELM_RELEASE) --namespace $(HELM_NAMESPACE)
 
-helm-test: k3d-up k3d-load cnpg-install helm-install ## Full local test: cluster + operator + images + install
+# The steps below are recipe lines rather than prerequisites on purpose.
+# Make is free to satisfy prerequisites in any order, and under -j it will
+# run them at once — which installs the chart before the images are in the
+# cluster, or restarts workloads onto images that are still building. Each
+# $(MAKE) line finishes before the next begins.
+helm-test: k3d-up ## Full local test: cluster + operator + images + install
+	$(MAKE) k3d-load
+	$(MAKE) cnpg-install
+	$(MAKE) helm-install
 
 # Rebuilding under an unchanged VERSION renders a pod spec identical to the
 # running one, so `helm upgrade` reports success and leaves the old containers
 # in place — with pullPolicy IfNotPresent the new image is never picked up.
 # The restart is what makes the rebuild take effect. Nothing here touches the
 # CNPG cluster or its volume, so harvested data survives.
-helm-reload: k3d-load helm-install ## Rebuild images and restart the workloads (keeps the database)
+# `helm-install` is a recipe line, not a prerequisite, for the ordering
+# reason given above `helm-test`.
+helm-reload: k3d-load ## Rebuild images and restart the workloads (keeps the database)
+	$(MAKE) helm-install
 	@for w in $(HELM_WORKLOADS); do \
-		$(KUBE) kubectl --namespace $(HELM_NAMESPACE) rollout restart deploy/$(HELM_RELEASE)-$$w; \
+		$(KUBE) kubectl --namespace $(HELM_NAMESPACE) rollout restart deploy/$(HELM_RELEASE)-$$w || exit 1; \
 	done
 	@for w in $(HELM_WORKLOADS); do \
-		$(KUBE) kubectl --namespace $(HELM_NAMESPACE) rollout status deploy/$(HELM_RELEASE)-$$w --timeout=5m; \
+		$(KUBE) kubectl --namespace $(HELM_NAMESPACE) rollout status deploy/$(HELM_RELEASE)-$$w --timeout=5m || exit 1; \
 	done
 
 # ─── Profiling ───────────────────────────────────────────────────────────────
@@ -353,9 +375,11 @@ PROFILE_OUT ?= $(CURDIR)/.profile
 PROFILE_FORMAT ?= flamegraph
 PROFILE_EXT = $(if $(filter flamegraph,$(PROFILE_FORMAT)),svg,txt)
 
-worker_pod = $$($(KUBE) kubectl --namespace $(HELM_NAMESPACE) get pod \
-	-l app.kubernetes.io/component=worker \
-	-o jsonpath='{.items[0].metadata.name}')
+worker_pod = $$($(KUBE) kubectl --namespace $(HELM_NAMESPACE) rollout status \
+	deploy/$(HELM_RELEASE)-worker --timeout=5m >/dev/null && \
+	$(KUBE) kubectl --namespace $(HELM_NAMESPACE) get pod \
+	-l app.kubernetes.io/component=worker,app.kubernetes.io/instance=$(HELM_RELEASE) \
+	--sort-by=.metadata.creationTimestamp -o jsonpath='{.items[-1].metadata.name}')
 
 db_pod = $$($(KUBE) kubectl --namespace $(HELM_NAMESPACE) get pod \
 	-l cnpg.io/cluster=$(CNPG_CLUSTER),cnpg.io/instanceRole=primary \
@@ -432,6 +456,7 @@ profile-worker: $(PY_SPY_BIN) ## Record a py-spy flamegraph of the worker (PROFI
 	$(require_cluster)
 	@mkdir -p $(PROFILE_OUT)
 	@pod=$(worker_pod); \
+	test -n "$$pod" || exit 1; \
 	out=worker-$$(date +%Y%m%d-%H%M%S).$(PROFILE_EXT); \
 	echo "→ sampling $$pod for $(PROFILE_SECONDS)s"; \
 	$(py_spy_present); \
@@ -445,6 +470,7 @@ profile-worker: $(PY_SPY_BIN) ## Record a py-spy flamegraph of the worker (PROFI
 profile-worker-dump: $(PY_SPY_BIN) ## Print what every worker process is doing right now
 	$(require_cluster)
 	@pod=$(worker_pod); \
+	test -n "$$pod" || exit 1; \
 	$(py_spy_present); \
 	$(KUBE) kubectl --namespace $(HELM_NAMESPACE) exec $$pod -- \
 		/tmp/py-spy dump --pid 1 --subprocesses
@@ -521,6 +547,11 @@ test-integration: ## Run integration tests (filter with APP_TEST_TARGET=...)
 
 test-integration-verbose: ## Run integration tests with verbose output
 	cd app && PYTHONPATH=. $(UV) run pytest -s -vv tests/integration -k "$(APP_TEST_TARGET)"
+
+# Playwright builds the client and serves the bundle itself, so this needs
+# no running stack beyond whatever the specs stub out.
+e2e: ## Run the browser tests against the built client
+	cd client && bun run test:browser
 
 coverage-report: ## Open coverage report in browser
 	xdg-open app/htmlcov/index.html &
