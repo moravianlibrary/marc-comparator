@@ -9,6 +9,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- Reviewers can request a field-level comparison of a retained authority
+  candidate against its main record. The comparison is calculated on demand
+  from stored MARC and does not create a persistent comparison row.
+- The task page now opens a selected task in a toggleable master/detail
+  workspace with separate scrolling regions and a single-pane narrow view.
+- CI checks code quality, the application suite and browser flows for task
+  detail, report download and candidate review.
 - New `kramerius-links` review category `identifier_matches_multiple_documents`. When one
   identifier resolves to several Kramerius documents the extra matches are almost always
   wrong metadata on the Kramerius side, so rather than guessing, the validator reports the
@@ -83,6 +90,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- Scheduled tasks created by the reserved system user now serialize through
+  `TaskSchema`; the system UUID is valid but is not a version-4 UUID.
+- Local `helm-reload` now imports images into each k3d node and waits for
+  rollouts, so a failed image import cannot leave stale pods looking current.
 - The system user's roles can no longer be edited. Taking Admin from
   `system@marc-comparator.local` left every scheduled task without permission to do
   anything until the next restart, which put the role back — making the damage
