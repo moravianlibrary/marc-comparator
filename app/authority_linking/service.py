@@ -1,6 +1,7 @@
 from collections.abc import Sequence
 from uuid import UUID
 
+from marc_comparator.comparators import RecordComparisonResult
 from marcdantic import MarcRecord
 from pydantic import ValidationError
 
@@ -8,6 +9,8 @@ from adapters.database import DatabaseSession
 from adapters.marc_sectors import describe_marc_errors, read_marc, read_stored_marc
 from adapters.tasks import enqueue_task
 from catalog_records.models import ProcessRecordsSettings, RecordFilter
+from catalog_records.service import get_marc_record
+from comparison.tasks import load_gate_comparator
 from config import config
 from entities.authority_link import AuthorityLink
 from entities.catalog_record import CatalogRecord
@@ -19,6 +22,7 @@ from settings.service import get_settings_part
 from .exceptions import (
     CandidateMarcNotStoredException,
     CandidateMarcUnreadableException,
+    ComparatorUnavailableException,
 )
 from .models import (
     AuthorityLinkingTaskData,
@@ -260,3 +264,28 @@ def get_candidate_marc(
         ) from e
     except ValueError as e:
         raise CandidateMarcUnreadableException(authority_base, authority_sysno, str(e)) from e
+
+
+async def compare_candidate(
+    main_base: str,
+    main_sysno: str,
+    authority_base: str,
+    authority_sysno: str,
+    db_session: DatabaseSession,
+) -> RecordComparisonResult:
+    """Compare one retained candidate on demand, without creating a comparison row."""
+
+    main = get_marc_record(main_base, main_sysno, db_session)
+    candidate = get_candidate_marc(authority_base, authority_sysno, db_session)
+
+    # The gate comparator rather than the configured one, for two reasons
+    # that happen to agree. It is the arithmetic that ranked these candidates
+    # in the first place, so it is the score the reviewer is being asked
+    # about; and it is the one that cannot reach an LLM. This endpoint is a
+    # plain GET any reader may repeat at will, and the configured comparator
+    # would let that call out to a model once per click.
+    comparator, _is_pipeline_verdict = load_gate_comparator(db_session)
+    if comparator is None:
+        raise ComparatorUnavailableException
+
+    return await comparator.run(main, candidate)

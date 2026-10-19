@@ -18,8 +18,10 @@ import {
 import apiClient from '@/lib/api-client';
 import type { SystemInfo } from '@/types/settings';
 import { buildCandidateKey, decisionsByBase, hasCandidate } from '../link-decisions';
+import { formatScore } from '../score';
 import type {
   ComparisonDetail,
+  ComparisonResult,
   FieldComparisonResult,
   MarcRecordData,
   RecordSummary,
@@ -194,6 +196,33 @@ function RecordDetail({
     retry: false,
   });
 
+  const {
+    data: candidateComparison,
+    isLoading: candidateComparisonLoading,
+    isError: candidateComparisonError,
+  } = useQuery<ComparisonResult>({
+    queryKey: [
+      'catalog-records',
+      'candidate-comparison',
+      base,
+      systemNumber,
+      candidateBase,
+      candidateSysno,
+    ],
+    queryFn: () =>
+      apiClient
+        .get<ComparisonResult>(
+          `/authority-linking/candidates/${candidateBase}/${candidateSysno}/comparison`,
+          {
+            params: { main_base: base, main_sysno: systemNumber },
+            suppressErrorToast: true,
+          },
+        )
+        .then(r => r.data),
+    enabled: !!candidateMarcData && !!candidateBase && !!candidateSysno,
+    retry: false,
+  });
+
   // When switching records, keep selection if available, otherwise try to find
   // a matching view by base/comparator before falling back to "marc"
   const prevRecordId = useRef(record.id);
@@ -281,6 +310,9 @@ function RecordDetail({
   if (matchedComparison) {
     annotationType = 'comparison';
     comparisonAnnotations = matchedComparison.result.field_results ?? undefined;
+  } else if (viewOpt.kind === 'candidate' && candidateComparison) {
+    annotationType = 'comparison';
+    comparisonAnnotations = candidateComparison.field_results ?? undefined;
   } else if (viewOpt.kind === 'validation' && validations) {
     annotationType = 'validation';
     validationAnnotations = validations
@@ -290,16 +322,25 @@ function RecordDetail({
 
   const isAuthority = viewOpt.kind === 'authority';
   const isCandidate = viewOpt.kind === 'candidate';
-  const displayMarc = isCandidate ? candidateMarcData : isAuthority ? authorityMarcData : marcData;
+  const displayMarc = isCandidate
+    ? candidateComparison
+      ? marcData
+      : candidateMarcData
+    : isAuthority
+      ? authorityMarcData
+      : marcData;
   const annotationLoading =
     (viewOpt.kind === 'comparison' && comparisonsFetching) ||
-    (viewOpt.kind === 'validation' && validationsFetching);
+    (viewOpt.kind === 'validation' && validationsFetching) ||
+    (isCandidate && candidateMarcLoading) ||
+    (isCandidate && !!candidateMarcData && candidateComparisonLoading);
   const ownMarcLoading = isCandidate
     ? candidateMarcLoading
     : isAuthority
       ? authorityMarcLoading
       : marcLoading;
-  const displayLoading = ownMarcLoading || annotationLoading;
+  const displayLoading =
+    ownMarcLoading || annotationLoading || (isCandidate && !!candidateComparison && marcLoading);
 
   const hasAnnotation = annotationType !== undefined;
   const targetTags = new Set<string>();
@@ -424,6 +465,19 @@ function RecordDetail({
           />
         )}
       </div>
+
+      {isCandidate && candidateComparison && (
+        <p className="text-sm text-muted-foreground">
+          {t('carousel.decisions.on-demand-score', {
+            score: formatScore(candidateComparison.overall_score),
+          })}
+        </p>
+      )}
+      {isCandidate && candidateComparisonError && !candidateMarcMissing && (
+        <p className="text-sm text-muted-foreground">
+          {t('carousel.decisions.comparison-unavailable')}
+        </p>
+      )}
 
       {displayLoading ? (
         <SkeletonMarcTable showAnnotationColumn={viewOpt.kind !== 'marc'} />

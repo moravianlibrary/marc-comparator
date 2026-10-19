@@ -127,12 +127,11 @@ class AuthorityLinkerUnavailable(RuntimeError):
 
 
 def _confidence_of(link: SdkAuthorityLink) -> float:
-    """A linker that reports no confidence is treated as the least certain.
+    """Rank the linkers' scores on the configured 0–15 comparator scale.
 
-    Confidences are not comparable across linkers in general: one may measure a
-    match while another asserts a constant for every hit. Ranking them is only
-    meaningful as a tie-break of last resort, which is all the second stage
-    uses it for.
+    A linker that reports no confidence is treated as the least certain. Both
+    built-in linkers use the bound gate comparator when configured; third-party
+    linkers must use the same scale for cross-linker ranking to be meaningful.
     """
 
     return link.confidence if link.confidence is not None else 0.0
@@ -329,14 +328,9 @@ def _merge_candidates(
 
     Both linkers run for every record and can propose the same authority
     record, and the interface has to show a cataloguer one list. Ordering
-    across linkers is not sound — ``_confidence_of`` says why — but it happens
-    either way, and doing it here does it once, recorded, rather than
-    implicitly on every read. Each row keeps its linker so a reader can see
-    when an ordering crossed them.
-
-    The higher confidence wins a duplicate. Between two linkers that is a
-    coin toss dressed as a comparison; between the same record proposed twice
-    it is the only answer available, and both name the same record either way.
+    uses the configured comparator's 0–15 score. Doing it here records one
+    ordering rather than re-sorting on every read. Each row keeps its linker
+    so a reader can see who proposed it. The higher score wins a duplicate.
     """
 
     best_by_record: dict[tuple[str, str], Candidate] = {}

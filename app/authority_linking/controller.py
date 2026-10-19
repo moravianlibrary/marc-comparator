@@ -1,6 +1,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Body, HTTPException, status
+from marc_comparator.comparators import RecordComparisonResult
 from marcdantic import MarcRecord
 
 from adapters.dependencies import DatabaseSessionDep, WithPermission
@@ -109,3 +110,21 @@ def get_candidate_marc(
     """The MARC of a proposed record, so a verdict can be given on the record."""
 
     return service.get_candidate_marc(authority_base, authority_sysno, db_session)
+
+
+@candidates_router.get(
+    "/candidates/{authority_base}/{authority_sysno}/comparison",
+    response_model=RecordComparisonResult,
+)
+async def compare_candidate(
+    authority_base: str,
+    authority_sysno: str,
+    main_base: str,
+    main_sysno: str,
+    db_session: DatabaseSessionDep,
+):
+    """Field comparison for a retained candidate, calculated only when requested."""
+
+    return await service.compare_candidate(
+        main_base, main_sysno, authority_base, authority_sysno, db_session
+    )

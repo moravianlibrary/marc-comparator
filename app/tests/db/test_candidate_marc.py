@@ -13,10 +13,14 @@ catalogue; this is the read path that was missing.
 
 import pytest
 from httpx import AsyncClient
+from marc_comparator.comparators import RecordComparisonResult
 
 from adapters.marc_sectors import marc_bytes_of, upsert_record_in_sector
+from comparison.models import ComparisonSettings
 from entities.catalog_record import CatalogRecord
-from tests.conftest import load_test_record
+from entities.comparison import Comparison
+from entities.settings import Settings, SettingsScope
+from tests.conftest import create_catalog_record, load_test_record
 
 pytestmark = pytest.mark.db
 
@@ -106,3 +110,48 @@ class TestWhatIsNotThere:
 
         assert response.status_code == 422
         assert "cannot be read" in response.json()["detail"]
+
+
+class TestCandidateComparison:
+    @pytest.mark.asyncio
+    async def test_uses_retained_marc_without_persisting_a_comparison(
+        self, db_session, user, client: AsyncClient, mocker
+    ):
+        main_marc = load_test_record("MZK01-001217709.mrc")
+        candidate_marc = load_test_record("MZK01-001217729.mrc")
+        main = create_catalog_record(db_session, "MZK01", "000999001", main_marc)
+        _store_candidate(db_session, marc_bytes_of(candidate_marc))
+        Settings.upsert(
+            db_session, SettingsScope.Comparison, ComparisonSettings(), ComparisonSettings
+        )
+        run = mocker.AsyncMock(
+            return_value=RecordComparisonResult(overall_score=11, field_results=[])
+        )
+        mocker.patch(
+            "authority_linking.service.load_gate_comparator",
+            return_value=(mocker.Mock(run=run), True),
+        )
+
+        response = await client.get(
+            f"/authority-linking/candidates/{CANDIDATE_BASE}/{CANDIDATE_SYSNO}/comparison",
+            params={"main_base": main.base, "main_sysno": main.system_number},
+        )
+
+        assert response.status_code == 200
+        assert response.json()["overall_score"] == 11
+        assert response.json()["field_results"] == []
+        assert run.await_count == 1
+        assert run.await_args.args[0].leader == main_marc.leader
+        assert run.await_args.args[1].leader == candidate_marc.leader
+        assert db_session.query(Comparison).count() == 0
+
+    @pytest.mark.asyncio
+    async def test_missing_retained_marc_returns_404(self, db_session, user, client: AsyncClient):
+        main = create_catalog_record(
+            db_session, "MZK01", "000999001", load_test_record("MZK01-001217709.mrc")
+        )
+        response = await client.get(
+            f"/authority-linking/candidates/{CANDIDATE_BASE}/{CANDIDATE_SYSNO}/comparison",
+            params={"main_base": main.base, "main_sysno": main.system_number},
+        )
+        assert response.status_code == 404

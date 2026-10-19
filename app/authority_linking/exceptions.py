@@ -34,3 +34,19 @@ class CandidateMarcUnreadableException(HTTPException):
             status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"Stored MARC for candidate {base}-{system_number} cannot be read: {reason}",
         )
+
+
+class ComparatorUnavailableException(HTTPException):
+    """Nothing is configured to compare with.
+
+    Either the comparison settings row is absent or what it stores will not
+    construct. Both are an operator's problem rather than the caller's, which
+    is why this is a 503 and not a 400: the request was well formed, the
+    service is not in a state to answer it.
+    """
+
+    def __init__(self) -> None:
+        super().__init__(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="No comparator is configured, so candidates cannot be compared.",
+        )
