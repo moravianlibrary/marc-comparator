@@ -43,7 +43,7 @@ loop per record
     Worker -> Redis: publish TaskProgressEvent
 end
 
-Worker -> PG: REFRESH MATERIALIZED VIEW\nCONCURRENTLY catalog_records_analytics
+Worker -> PG: update catalog_records_analytics and facet cubes
 Worker -> PG: update task status = Success
 Worker -> Redis: publish TaskStatusEvent(Success)
 @enduml

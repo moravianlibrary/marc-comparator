@@ -112,14 +112,9 @@ The only comparator. Compares two MARC records through a multi-stage pipeline:
 
 #### Configuration
 
-```python
-class DefaultComparatorConfig(BaseModel):
-    ollama_url: str = "http://localhost:11434"
-    llm_enabled: bool = False
-    nonstandard_llm_enabled: bool = False
-    excellent_threshold: int = 6  # score below this -> Excellent (0.9-1.0)
-    moderate_threshold: int = 12  # score below this -> Moderate (0.7-0.9)
-```
+`DefaultComparatorConfig` in `marc_comparator/comparators/default.py` defines
+LLM options and quality cutoffs on the 0–15 match scale. Its defaults are
+`excellent_threshold = 12.0` and `moderate_threshold = 9.0`.
 
 #### Pipeline
 
@@ -157,13 +152,13 @@ Record A + Record B
           │
           ▼
    ┌─────────────┐
-   │  Normalize   │  Piecewise logistic: raw score → 0.0-1.0
-   │  Score       │  0→1.0, excellent_threshold→0.9, moderate→0.7, cap→0.0
+   │  Match Score │  Penalty 0–30 → match = 15 - penalty / 2
+   │              │  15 is best; 0 is worst
    └──────┬──────┘
           │
           ▼
    RecordComparisonResult
-     ├── overall_score: float (0.0 - 1.0)
+     ├── overall_score: float (0.0 - 15.0)
      └── field_results: List[FieldComparisonResult]
            ├── tag, score, explanation
            └── subfield_results: List[SubfieldComparisonResult]
@@ -189,9 +184,9 @@ Comparison results use enums defined in `_base.py` so they are consistent across
 
 | Value | Score Range |
 |---|---|
-| `Excellent` | 0.9 - 1.0 |
-| `Moderate` | 0.7 - 0.9 |
-| `Poor` | 0.0 - 0.7 |
+| `Excellent` | 12.0 - 15.0 |
+| `Moderate` | 9.0 - <12.0 |
+| `Poor` | 0.0 - <9.0 |
 
 Both are `StrEnum` values, so they serialize to plain strings in JSON.
 
@@ -221,9 +216,9 @@ Every `(tag, subfield_code)` pair is mapped to a semantic role in `config.py` (`
 
 | Overall Score | Match Quality | Meaning |
 |---|---|---|
-| 0.9 - 1.0 | Excellent | Records are essentially the same |
-| 0.7 - 0.9 | Moderate | Notable differences but same work |
-| 0.0 - 0.7 | Poor | Significant differences |
+| 12.0 - 15.0 | Excellent | Close match under current comparator |
+| 9.0 - <12.0 | Moderate | Intermediate match under current comparator |
+| 0.0 - <9.0 | Poor | Large differences under current comparator |
 
 ---
 
@@ -235,21 +230,11 @@ Validates MARC field 856 (Electronic Location) for Kramerius digital library lin
 
 #### Configuration
 
-```python
-class KrameriusLinksValidatorConfig(BaseModel):
-    url_to_pid_pattern: str = (
-        r"https?://(?:www\.)?digitalniknihovna\.cz/mzk/uuid/(?P<pid>uuid:[0-9a-fA-F-]+)(?:\?.*)?"
-    )
-    url_to_pid_wrong_path_pattern: str = (
-        r"https?://(?:www\.)?digitalniknihovna\.cz/mzk/[^/]+/(?P<pid>uuid:[0-9a-fA-F-]+)(?:\?.*)?"
-    )
-    url_to_pid_fallback_pattern: str = r"https?://[^/]+/.*?(?P<pid>uuid:[0-9a-fA-F-]+)(?:\?.*)?"
-    link_text_pattern: str = r"Digitalizovaný dokument"
-    kramerius_host: str = "https://api.kramerius.mzk.cz/search"
-    kramerius_client_url: str = "https://www.digitalniknihovna.cz/mzk/uuid/{pid}"
-    solr_cloud: bool = True
-    search_page_size: int = 10
-```
+`KrameriusLinksValidatorConfig` in
+`marc_comparator/validators/kramerius_links.py` defines the own-host and
+canonical-path patterns, link text pattern and value, and Kramerius service
+settings. The own-host pattern scopes automatic edits to MZK's library section;
+`link_text_pattern` is an unanchored case-sensitive prefix match.
 
 #### Checks Performed
 
@@ -277,12 +262,10 @@ Links catalog records to authority records via the knihovny.cz deduplication API
 
 #### Configuration
 
-```python
-class KnihovnyCZLinkerConfig(BaseModel):
-    api_url: str = "https://www.knihovny.cz/api/v1"
-    minimum_confidence: float = 0.7  # lowest comparator score worth reporting
-    base_mappings: dict  # Maps source bases to target base patterns
-```
+`KnihovnyCZLinkerConfig` in
+`marc_comparator/authority_linkers/knihovny_cz_linker.py` defines the API URL,
+source-base mappings and `minimum_confidence`. The default confidence floor
+is 9.0 on the 0–15 match scale.
 
 #### Process
 
@@ -319,7 +302,7 @@ class MarcXmlDumpLinkerConfig(BaseModel):
     system_number_padding: int = 9  # 0 stores the number verbatim
     # One floor per retrieval path — see "Two floors, not one" below.
     identifier_minimum_confidence: float = 0.0
-    title_minimum_confidence: float = 0.55
+    title_minimum_confidence: float = 7.0
     candidate_limit: int = 10
 ```
 
@@ -336,19 +319,16 @@ Retrieval never decides a link on its own — it only proposes candidates for th
 
 #### Two floors, not one
 
-Retrieval and scoring answer different questions. Retrieval answers "is this the
-same work"; scoring answers "how far apart are these two records". A single
+Retrieval and scoring answer different questions. Retrieval proposes plausible candidates; scoring measures how closely their descriptions match. A single
 floor conflates them, and the conflation is not symmetric between the two paths:
 
 - **Identifier.** Both catalogues gave the record the same ČNB, ISBN, ISSN, OCLC
-  number or UUID, so they are describing the same work before the comparator
-  runs. A low score here measures how far the two descriptions have drifted —
-  which is the finding, not a reason to withhold it. The default floor of `0.0`
-  keeps all of them.
+  number or UUID. This is strong retrieval evidence, but identifiers can be
+  reused or miscatalogued. The default floor of `0.0` keeps all such proposals;
+  cataloguers must judge doubtful matches.
 - **Title.** Nothing has established the two records are the same work, and
   generic titles produce plausible-looking candidates in quantity. The score is
-  the only evidence there is, so the floor stays at `0.55` — what two unrelated
-  records score.
+  decisive evidence, so the default floor is `7.0` on the match scale.
 
 Raise `identifier_minimum_confidence` to hide the noisy tail; the floor is a
 display choice, not a correctness one.

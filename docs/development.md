@@ -48,7 +48,7 @@ feature/
 
   * `aleph_client_registry.py` – Aleph OAI client handling.
   * `database.py` – session creation and queries.
-  * `indexer.py` – Elasticsearch indexing abstraction.
+  * `indexer.py` – Record indexing support.
   * `logger.py` – structured logging setup.
 
 * **Entities**
@@ -77,14 +77,64 @@ sdk/marc_comparator/
 
 ## Development Environment
 
+### Local safety and reproducible checks
+
+The default `KUBECONFIG` on this workstation can target production. For local
+cluster commands, use Makefile k3d targets without `ALLOW_REMOTE`, or pass
+`--kubeconfig .k3d-kubeconfig.yaml` to `kubectl` and `helm`. Check the target
+context before any manual cluster mutation. Never drop the working database or
+its harvested plugin schemas to troubleshoot an application task. The
+`make benchmark` target clears record and task tables; run it only in a
+disposable environment.
+
+The local reload sequence is `make helm-reload`. Image import is slow even when
+an identical image is already present, so duration does not establish which
+code a pod runs. `k3d-load` now imports into every local server and agent node
+and fails if any import fails; k3d 5.8.3's helper was observed logging a
+missing tar file while returning success. The reload waits for each workload
+rollout and leaves the database volume untouched. Check the newest pod and
+its image rather than taking `.items[0]` from an unsorted list.
+
+Use `uv run --directory app ...` for app/SDK checks. Do not run bare `uv run`
+from sdk/: on this workstation it can select Python 3.14, and lxml then fails
+to install. If working directly in sdk/, select Python 3.12 explicitly.
+
+`make check` runs the repository quality gate. A focused unit loop is
+`uv run --directory app pytest tests/unit -q`. The full app test suite includes
+database and integration tests that need disposable PostgreSQL/Redis test
+services; inspect the test fixtures before running those suites against a new
+environment. Verify one Alembic head after adding a migration. Do not assume
+historical test counts or local deployment results describe the current tree.
+
+### Local migration recovery check (2026-10-16)
+
+The working local database was 13 GB and already at `c4d5e6f7a8b9`. For a
+bounded migration check, a separate database held 30 copied validation rows:
+10 each with `other_online_resource`, `non_top_level_document`, and
+`valid_link`. Only the copy was changed to the preceding revision's values.
+`alembic upgrade head` renamed the first reason and moved the second status
+to `ForReview`; `alembic downgrade b2c3d4e5f6a7` restored both values; a
+second upgrade passed. A `pg_dump -Fc` archive of the sample was restored with
+`pg_restore --exit-on-error` into another separate database, where the head
+and all 30 rows matched. The local working database was not downgraded or
+restored. This checks migration and archive mechanics on representative rows;
+it does not measure the time or disk needed to restore a full 13 GB database.
+
+The app pod's `/tmp` is read-only. Stream an archive to the workstation's
+`/tmp` with `kubectl --kubeconfig .k3d-kubeconfig.yaml exec ... -- pg_dump
+-Fc > /tmp/name.dump`, and stream it back to a *separate empty database* with
+`kubectl --kubeconfig .k3d-kubeconfig.yaml exec -i ... -- pg_restore
+--exit-on-error < /tmp/name.dump`. Verify the target database name and
+revision before running Alembic. Do not restore over the working database.
+
 * Python >= 3.12
-* Node.js (for client development)
+* Bun (for client development and builds)
 * Virtual environments: `app/.venv/` and `sdk/.venv/`
 * Install dependencies:
 
 ```bash
 make app-env    # Create app virtualenv and install dependencies
-make sdk-env    # Create SDK virtualenv and install dependencies
+UV_PYTHON=python3.12 make sdk-env    # Create SDK virtualenv on Python 3.12
 ```
 
 * Run app locally (requires infrastructure services):

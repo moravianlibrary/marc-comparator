@@ -37,7 +37,8 @@ async def run(self, record: MarcRecord) -> List[ValidationResult]
 **Implementation Notes:**
 
 * Always include meaningful `reason` and, if possible, a `hint` to aid in automated or manual fixing.
-* `reason` should be ideally drawn from a predefined set of standard values. This ensures that validation results can be efficiently indexed, searched, and aggregated in Elasticsearch.
+* Use stable reason codes so validation results can be searched, grouped and
+  reported consistently by the application.
 * Can define `config_model` (`pydantic.BaseModel`) to allow configurable parameters for the validator.
 
 ---
@@ -77,12 +78,17 @@ async def run(
     * `base` – Authority base.
     * `system_number` – Authority system number.
     * `record` – Linked MARC authority record.
-    * `confidence` (optional) – Numeric confidence score (0–1).
+    * `confidence` (optional) – Numeric match score on the 0–15 scale; higher means a closer match.
   * Return `None` if no suitable link is found.
 
 **Implementation Notes:**
 
-* Confidence scores should be **normalized between 0 and 1**.
+* Linker confidence uses the comparator's **0–15 match scale**. The built-in
+  linkers report `comparison.overall_score`; a custom linker should use a
+  comparable score because candidates from different linkers can be ranked
+  together. Retrieval route and matched identifier should accompany the score
+  so a reviewer can interpret it. Score thresholds need offline validation
+  against cataloguer judgments before they are changed.
 * Consider caching or batching lookups for efficiency when querying external authority sources.
 * Can define `config_model` (`pydantic.BaseModel`) for adjustable parameters (e.g., matching thresholds, endpoints).
 

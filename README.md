@@ -85,7 +85,8 @@ The **application** allows users to:
 
 The backend handles all data processing and task orchestration, while the **React client** provides a user-friendly interface for visualizing results and managing records.
 
-> Detailed API reference is available [here](docs/api.md).
+> The current API schema is served at `/docs` and `/openapi.json` by the running
+> app; see the [API guide](docs/api-endpoints.md) for route groups and behavior.
 
 ---
 

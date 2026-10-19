@@ -50,6 +50,10 @@ every database it manages — check before running it anywhere but k3d.
 
 ## Install
 
+The examples below install into the caller's current Kubernetes context.
+Check that context explicitly before running them; this workstation's default
+`KUBECONFIG` can point to production. Use the local Makefile targets for k3d.
+
 ```bash
 helm install marc-comparator ./deploy/helm/marc-comparator \
   --set secrets.postgresPassword=<password> \

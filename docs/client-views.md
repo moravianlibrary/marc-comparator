@@ -29,7 +29,7 @@ All record filters live in URL params, making them shareable, bookmarkable, and 
 | `validationStatuses` | string[] | Valid, ForReview, Invalid, AdditionalInfo |
 | `validationTargetTags` | string[] | Validated MARC field tags |
 | `validationReasons` | string[] | Validation reason codes |
-| `scoreMin`, `scoreMax` | float | Score range (0-1) |
+| `scoreMin`, `scoreMax` | float | Match score range (0–15) |
 | `recordId` | string | Direct record ID filter |
 | `recordIndex` | int | Position within current page |
 | `carouselView` | string | Active carousel sub-view |
@@ -159,7 +159,10 @@ Three forms for importing records into the system:
 
 ## Tasks Page (`tasks/tasks-page.tsx`)
 
-Split layout: task table (left) + task detail panel (right).
+The current page has a conditional two-column desktop layout and a stacked
+small-screen layout. It does not yet provide a finished toggleable master/detail
+workspace with independent pane scrolling; this is release work tracked in
+the [execution plan](../completion-plan.md).
 
 **Task Table** (`task-table.tsx`):
 - Columns: Type (translated), Status (badge), Severity, Run Time, Created By (if ManageAllTasks), Actions
@@ -223,7 +226,7 @@ Grid of action cards (`maintenance-action-card.tsx`), each triggering a maintena
 | Action | Endpoint | Description |
 |--------|----------|-------------|
 | Delete Tasks | `POST /maintenance/delete-tasks` | Remove old completed/failed/revoked tasks |
-| Refresh Analytics | `POST /maintenance/refresh-analytics` | Refresh the `catalog_records_analytics` materialized view |
+| Refresh Analytics | `POST /maintenance/refresh-analytics` | Rebuild the maintained analytics tables |
 | Cleanup Locks | `POST /maintenance/cleanup-stale-locks` | Remove stale Redis distributed locks |
 | Compact Sectors | `POST /maintenance/compact-sectors` | Recompact MARC sector storage, remove gaps |
 | Rebuild Search Vectors | `POST /maintenance/rebuild-search-vectors` | Rebuild full-text search data for all records |

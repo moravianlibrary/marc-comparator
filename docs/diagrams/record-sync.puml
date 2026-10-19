@@ -38,7 +38,7 @@ loop resumption token
     OAI --> Worker: next batch
 end
 
-Worker -> PG: REFRESH MATERIALIZED VIEW\nCONCURRENTLY catalog_records_analytics
+Worker -> PG: update catalog_records_analytics and facet cubes
 Worker -> Redis: DEL catalog_sync_{base}
 Worker -> Redis: publish LockReleasedEvent
 Worker -> PG: update task status = Success
