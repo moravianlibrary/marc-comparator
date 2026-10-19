@@ -27,6 +27,7 @@ from ._base import (
     LinkProposal,
     LinkRequest,
     MatchRoute,
+    safe_xml_parser,
 )
 from .identity import find_identity_conflicts
 
@@ -75,7 +76,8 @@ def _is_record_not_found(response: httpx.Response) -> bool:
 
 
 def _parse_full_record(xml: str) -> MarcRecord | None:
-    return MarcRecord.from_xml(etree.fromstring(xml.encode("utf-8")), CANDIDATE_MARC_CONTEXT)
+    element = etree.fromstring(xml.encode("utf-8"), safe_xml_parser())
+    return MarcRecord.from_xml(element, CANDIDATE_MARC_CONTEXT)
 
 
 class KnihovnyCZBaseMapping(BaseModel):

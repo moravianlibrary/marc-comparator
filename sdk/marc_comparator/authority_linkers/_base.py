@@ -4,6 +4,7 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import ClassVar
 
+import lxml.etree as etree
 from marcdantic import MarcRecord
 from marcdantic.context import MarcContext
 from pydantic import BaseModel
@@ -46,6 +47,32 @@ class MatchRoute(StrEnum):
 #: fixed-length data elements. Neither says anything about whether two records
 #: describe the same book, which is the only question asked of a candidate.
 CANDIDATE_MARC_CONTEXT = MarcContext(mandatory_fields=["001"])
+
+
+# XML arriving from another system is input, not a document to be trusted.
+# An `<!ENTITY>` pointing at a local path is how a stranger's MARCXML reads a
+# file on this host (CVE-2026-41066, fixed in lxml 6.1.0, which marcdantic's
+# `lxml==6.0.0` pin keeps us off). lxml does not load a document's internal
+# subset unless asked, so the parsers below were not exposed even before this
+# — but that safety was a default rather than a decision, and `lxml.etree`
+# reads the file the moment anything passes `resolve_entities=True`. Nothing
+# we parse, a union catalogue's response or a library's published dump, has
+# any business declaring an entity or reaching the network to resolve one, so
+# every parse in this package says so outright.
+
+
+def safe_xml_parser() -> etree.XMLParser:
+    """A parser for a whole document somebody else wrote."""
+
+    return etree.XMLParser(resolve_entities=False, no_network=True, load_dtd=False)
+
+
+def safe_xml_pull_parser(events: tuple[str, ...]) -> etree.XMLPullParser:
+    """The same, for a document read as it arrives rather than all at once."""
+
+    return etree.XMLPullParser(
+        events=events, resolve_entities=False, no_network=True, load_dtd=False
+    )
 
 
 @dataclass(slots=True)

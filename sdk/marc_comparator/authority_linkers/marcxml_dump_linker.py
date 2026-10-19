@@ -55,6 +55,8 @@ from ._base import (
     LinkProposal,
     LinkRequest,
     MatchRoute,
+    safe_xml_parser,
+    safe_xml_pull_parser,
 )
 from .identity import find_identity_conflicts
 from .identity import normalize_identifier as _normalize_plain
@@ -665,7 +667,7 @@ class MarcXmlDumpLinker(BaseAuthorityLinker[MarcXmlDumpLinkerConfig]):
             dropped = self._drop_indexes(ctx.connection, metadata)
 
             stream = _DumpStream()
-            parser = etree.XMLPullParser(events=("end",))
+            parser = safe_xml_pull_parser(events=("end",))
             checked_format = False
             read = 0
             pending: list[_ParsedRecord] = []
@@ -987,7 +989,7 @@ class MarcXmlDumpLinker(BaseAuthorityLinker[MarcXmlDumpLinkerConfig]):
         candidates: list[_Candidate] = []
         for row in rows:
             try:
-                element = etree.fromstring(zlib.decompress(row["marc"]))
+                element = etree.fromstring(zlib.decompress(row["marc"]), safe_xml_parser())
                 candidates.append(
                     _Candidate(
                         row["sysno"],
