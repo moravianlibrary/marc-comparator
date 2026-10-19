@@ -1,6 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { type CSSProperties, useEffect, useLayoutEffect, useState } from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, useLocation } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useGetMe } from '@/hooks/use-auth';
 import { useWsEvents } from '@/hooks/use-ws-events';
@@ -9,6 +9,7 @@ import { LockBanner } from './lock-banner';
 import { MainBanner } from './main-banner';
 
 export function AppLayout() {
+  const isTasksPage = useLocation().pathname === '/tasks';
   const { isLoading: isHealthLoading, isError: isHealthError } = useQuery({
     queryKey: ['health'],
     queryFn: () => apiClient.get('/system/health'),
@@ -86,14 +87,16 @@ export function AppLayout() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col animate-fade-in">
+    <div
+      className={`flex flex-col animate-fade-in ${isTasksPage ? 'h-dvh overflow-hidden' : 'min-h-screen'}`}
+    >
       <div ref={setHeader} className="sticky top-0 z-50">
         <LockBanner />
         <MainBanner />
       </div>
 
       <main
-        className="flex-1 p-6"
+        className={`flex-1 p-6 ${isTasksPage ? 'min-h-0 overflow-hidden' : ''}`}
         // `p-6` is 1.5rem top and bottom; subtract both so a page asking for
         // the full content height does not overflow its own padding.
         style={

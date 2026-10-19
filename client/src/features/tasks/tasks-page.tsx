@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { ArrowLeft, X } from 'lucide-react';
+import { X } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
@@ -129,9 +129,8 @@ export function TasksPage() {
   const selectedTask = selectedTaskId ? tasks.find(t => t.task_id === selectedTaskId) : undefined;
 
   return (
-    // `--app-content-height` is what the shell says is left below its
-    // banners; the floor keeps the workspace usable if that is ever tiny.
-    <div className="flex h-[var(--app-content-height)] min-h-80 flex-col gap-4 overflow-hidden">
+    // The shell reserves the viewport below its banners for this workspace.
+    <div className="flex h-[var(--app-content-height)] min-h-0 flex-col gap-4 overflow-hidden">
       <div className="flex items-center justify-between gap-2">
         <h1 className="text-2xl font-semibold">{t('title')}</h1>
         {selectedTaskId && (
@@ -190,11 +189,7 @@ export function TasksPage() {
           </div>
         </div>
         {selectedTaskId && (
-          <div className="flex min-h-0 min-w-0 flex-col gap-2 overflow-hidden">
-            <Button variant="ghost" size="sm" className="w-fit xl:hidden" onClick={closeDetail}>
-              <ArrowLeft className="size-4" />
-              {t('detail.back-to-list')}
-            </Button>
+          <div className="flex min-h-0 min-w-0 flex-col overflow-hidden">
             <div className="min-h-0 flex-1">
               <TaskDetail taskId={selectedTaskId} task={selectedTask} />
             </div>

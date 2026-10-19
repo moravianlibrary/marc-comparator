@@ -1,4 +1,4 @@
-import { expect, test, type Page } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 
 const TASK_ONE = '11111111-1111-4111-8111-111111111111';
 const TASK_TWO = '22222222-2222-4222-8222-222222222222';
@@ -213,12 +213,22 @@ test('task selection is a toggleable master/detail view with a downloadable repo
   await expect(page).toHaveURL(new RegExp(`taskId=${TASK_TWO}`));
 });
 
-test('narrow task view shows one pane and a back control', async ({ page }) => {
+test('narrow task view uses its close control without page scrolling', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 700 });
-  await page.goto(`/tasks?taskId=${TASK_ONE}`);
+  await page.goto('/tasks');
+  await expect(page.locator(`[data-task-id="${TASK_ONE}"]`)).toBeVisible();
+  expect(await page.evaluate(() => document.scrollingElement!.scrollHeight)).toBeLessThanOrEqual(
+    700,
+  );
+
+  await page.locator(`[data-task-id="${TASK_ONE}"]`).click();
   await expect(page.locator(`[data-task-id="${TASK_ONE}"]`)).toBeHidden();
-  await expect(page.getByRole('button', { name: 'Zpět na seznam úkolů' })).toBeVisible();
-  await page.getByRole('button', { name: 'Zpět na seznam úkolů' }).click();
+  await expect(page.getByRole('button', { name: 'Zpět na seznam úkolů' })).toHaveCount(0);
+  expect(await page.evaluate(() => document.scrollingElement!.scrollHeight)).toBeLessThanOrEqual(
+    700,
+  );
+
+  await page.getByRole('button', { name: 'Zavřít podrobnosti' }).click();
   await expect(page.locator(`[data-task-id="${TASK_ONE}"]`)).toBeVisible();
 });
 
