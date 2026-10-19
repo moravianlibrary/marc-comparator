@@ -1,5 +1,5 @@
 import { useQuery } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { type CSSProperties, useEffect, useLayoutEffect, useState } from 'react';
 import { Outlet } from 'react-router-dom';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useGetMe } from '@/hooks/use-auth';
@@ -17,6 +17,31 @@ export function AppLayout() {
 
   const { data: me, isLoading: isMeLoading, isError: isMeError } = useGetMe();
   useWsEvents();
+
+  // The shell owns the banners, so the shell is what can say how much room is
+  // left under them. It publishes that as a custom property instead of each
+  // page measuring the layout from the outside: a page that walks up to
+  // `main` and guesses at its siblings breaks silently the day the shell
+  // changes shape. The banners appear, disappear and wrap, hence the
+  // observer rather than a one-off read, and a callback ref rather than
+  // `useRef` — the banners sit behind the loading and redirect returns
+  // below, so an effect keyed on mount alone would run while they are still
+  // unrendered and never see them arrive.
+  const [header, setHeader] = useState<HTMLDivElement | null>(null);
+  const [headerHeight, setHeaderHeight] = useState(0);
+
+  useLayoutEffect(() => {
+    if (!header) {
+      return;
+    }
+
+    const measure = () => setHeaderHeight(header.getBoundingClientRect().height);
+    measure();
+
+    const observer = new ResizeObserver(measure);
+    observer.observe(header);
+    return () => observer.disconnect();
+  }, [header]);
 
   const [redirecting, setRedirecting] = useState(false);
 
@@ -62,11 +87,21 @@ export function AppLayout() {
 
   return (
     <div className="flex min-h-screen flex-col animate-fade-in">
-      <div className="sticky top-0 z-50">
+      <div ref={setHeader} className="sticky top-0 z-50">
         <LockBanner />
         <MainBanner />
       </div>
-      <main className="flex-1 p-6">
+
+      <main
+        className="flex-1 p-6"
+        // `p-6` is 1.5rem top and bottom; subtract both so a page asking for
+        // the full content height does not overflow its own padding.
+        style={
+          {
+            '--app-content-height': `calc(100dvh - ${headerHeight}px - 3rem)`,
+          } as CSSProperties
+        }
+      >
         <Outlet />
       </main>
     </div>

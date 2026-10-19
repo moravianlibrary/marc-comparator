@@ -54,8 +54,20 @@ export function TaskTable({
         {tasks.map(task => (
           <TableRow
             key={task.task_id}
+            data-task-id={task.task_id}
+            tabIndex={0}
+            aria-selected={selectedTaskId === task.task_id}
             className={`cursor-pointer ${selectedTaskId === task.task_id ? 'bg-muted' : ''}`}
             onClick={() => onSelectTask(task.task_id)}
+            onKeyDown={e => {
+              if (e.target !== e.currentTarget) {
+                return;
+              }
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                onSelectTask(task.task_id);
+              }
+            }}
           >
             <TableCell className="font-medium">{taskLabel(task, t)}</TableCell>
             <TableCell>

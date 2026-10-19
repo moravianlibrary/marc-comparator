@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { useMemo, useState, useSyncExternalStore } from 'react';
+import { ArrowLeft, X } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useSearchParams } from 'react-router-dom';
 import { SkeletonTable } from '@/components/skeletons/skeleton-table';
@@ -35,6 +36,30 @@ export function TasksPage() {
   const isXl = useIsXl();
   const pageSize = isXl ? 20 : 15;
   const [page, setPage] = useState(1);
+  const closeRef = useRef<HTMLButtonElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const previousTaskId = useRef(selectedTaskId);
+
+  useEffect(() => {
+    const previous = previousTaskId.current;
+    previousTaskId.current = selectedTaskId;
+    if (selectedTaskId && !previous && !isXl) {
+      closeRef.current?.focus();
+    } else if (!selectedTaskId && previous) {
+      const row = Array.from(
+        listRef.current?.querySelectorAll<HTMLElement>('[data-task-id]') ?? [],
+      ).find(item => item.dataset.taskId === previous);
+      (row ?? listRef.current)?.focus();
+    }
+  }, [selectedTaskId, isXl]);
+
+  function closeDetail() {
+    setSearchParams(prev => {
+      const next = new URLSearchParams(prev);
+      next.delete('taskId');
+      return next;
+    });
+  }
 
   function handleSelectTask(id: string) {
     setSearchParams(prev => {
@@ -104,58 +129,75 @@ export function TasksPage() {
   const selectedTask = selectedTaskId ? tasks.find(t => t.task_id === selectedTaskId) : undefined;
 
   return (
-    <div className="space-y-4">
-      <h1 className="text-2xl font-semibold">{t('title')}</h1>
+    // `--app-content-height` is what the shell says is left below its
+    // banners; the floor keeps the workspace usable if that is ever tiny.
+    <div className="flex h-[var(--app-content-height)] min-h-80 flex-col gap-4 overflow-hidden">
+      <div className="flex items-center justify-between gap-2">
+        <h1 className="text-2xl font-semibold">{t('title')}</h1>
+        {selectedTaskId && (
+          <Button ref={closeRef} variant="outline" size="sm" onClick={closeDetail}>
+            <X className="size-4" />
+            {t('detail.close')}
+          </Button>
+        )}
+      </div>
 
-      <div
-        className={`grid gap-4 ${selectedTaskId ? 'grid-cols-1 xl:grid-cols-2' : 'grid-cols-1'}`}
-      >
-        <div className="min-w-0 space-y-4">
-          {isLoading ? (
-            <SkeletonTable rows={5} columns={7} />
-          ) : (
-            <div className="animate-fade-in">
-              <TaskTable
-                tasks={tasks}
-                selectedTaskId={selectedTaskId}
-                userNames={userNames}
-                onSelectTask={handleSelectTask}
-                onRevoke={id => revokeMutation.mutate(id)}
-              />
-            </div>
-          )}
-          {totalPages > 1 && (
-            <div className="flex items-center justify-between">
-              <p className="text-sm text-muted-foreground">
-                {t('common:pagination.page', { page, total: totalPages })}
-              </p>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage(page - 1)}
-                  disabled={page <= 1}
-                >
-                  {t('common:pagination.previous')}
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setPage(page + 1)}
-                  disabled={page >= totalPages}
-                >
-                  {t('common:pagination.next')}
-                </Button>
+      <div className={`grid min-h-0 flex-1 gap-4 ${selectedTaskId ? 'xl:grid-cols-2' : ''}`}>
+        <div
+          ref={listRef}
+          tabIndex={-1}
+          className={`min-h-0 min-w-0 overflow-auto ${selectedTaskId ? 'hidden xl:block' : ''}`}
+        >
+          <div className="space-y-4">
+            {isLoading ? (
+              <SkeletonTable rows={5} columns={7} />
+            ) : (
+              <div className="animate-fade-in">
+                <TaskTable
+                  tasks={tasks}
+                  selectedTaskId={selectedTaskId}
+                  userNames={userNames}
+                  onSelectTask={handleSelectTask}
+                  onRevoke={id => revokeMutation.mutate(id)}
+                />
               </div>
-            </div>
-          )}
+            )}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between">
+                <p className="text-sm text-muted-foreground">
+                  {t('common:pagination.page', { page, total: totalPages })}
+                </p>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage(page - 1)}
+                    disabled={page <= 1}
+                  >
+                    {t('common:pagination.previous')}
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setPage(page + 1)}
+                    disabled={page >= totalPages}
+                  >
+                    {t('common:pagination.next')}
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
         {selectedTaskId && (
-          // Fill the viewport below the sticky banner: top-20 clears the banner
-          // plus the page padding, and the extra 1.5rem leaves that same padding
-          // at the bottom.
-          <div className="h-[80vh] min-w-0 xl:sticky xl:top-20 xl:h-[calc(100vh-6.5rem)] xl:self-start">
-            <TaskDetail taskId={selectedTaskId} task={selectedTask} />
+          <div className="flex min-h-0 min-w-0 flex-col gap-2 overflow-hidden">
+            <Button variant="ghost" size="sm" className="w-fit xl:hidden" onClick={closeDetail}>
+              <ArrowLeft className="size-4" />
+              {t('detail.back-to-list')}
+            </Button>
+            <div className="min-h-0 flex-1">
+              <TaskDetail taskId={selectedTaskId} task={selectedTask} />
+            </div>
           </div>
         )}
       </div>
