@@ -78,7 +78,8 @@ class TaskSchema(BaseModel):
     status: TaskStatus
     severity: TaskSeverity
 
-    created_by: UUID4
+    # Scheduled tasks use the reserved system UUID, which is valid but not v4.
+    created_by: uuid.UUID
     created_at: datetime
     started_at: datetime | None = None
     finished_at: datetime | None = None
