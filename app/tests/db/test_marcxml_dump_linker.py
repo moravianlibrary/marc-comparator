@@ -99,7 +99,14 @@ def serve(monkeypatch, body: bytes, *, etag: str = ETAG) -> None:
     """Answer the dump request from memory, leaving the plugin's code untouched."""
 
     def handler(request: httpx.Request) -> httpx.Response:
-        return httpx.Response(200, headers={"etag": etag}, content=body)
+        # As a stream, the way the network delivers it: content= preloads the
+        # body, and the download reads raw bytes, which a loaded body no
+        # longer has.
+        return httpx.Response(
+            200,
+            headers={"etag": etag, "content-length": str(len(body))},
+            stream=httpx.ByteStream(body),
+        )
 
     def factory(**kwargs):
         return REAL_ASYNC_CLIENT(**kwargs, transport=httpx.MockTransport(handler))

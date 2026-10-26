@@ -32,6 +32,9 @@ async def db_session(db_engine, mocker) -> AsyncGenerator[DatabaseSession, None]
     app.dependency_overrides[db_session_generator] = lambda: session
     mocker.patch("adapters.tasks.get_db_session", lambda: session)
     mocker.patch("ws.controller.get_db_session", lambda: session)
+    # The sync's revoke check reads through its own session and closes it,
+    # so it gets a fresh one on the test engine, not the shared one.
+    mocker.patch("catalog_records.tasks.get_db_session", SessionLocal)
 
     yield session
 

@@ -13,6 +13,7 @@ from marc_comparator.authority_linkers.marcxml_dump_linker import (
     MarcXmlDumpLinker,
     MarcXmlDumpLinkerConfig,
     _Candidate,
+    _download_chunks,
     _dump_edition,
     _DumpStream,
     _fold,
@@ -26,6 +27,50 @@ from marc_comparator.authority_linkers.marcxml_dump_linker import (
 from marc_comparator.comparators import RecordComparisonResult
 from marc_comparator.harvest import HarvestStorageUnavailable
 from marcdantic import MarcRecord
+
+
+@pytest.mark.asyncio
+async def test_interrupted_dump_resumes_at_the_last_received_byte(monkeypatch):
+    from marc_comparator.authority_linkers import marcxml_dump_linker as module
+
+    class Interrupted(httpx.AsyncByteStream):
+        async def __aiter__(self):
+            yield b"first"
+            raise httpx.RemoteProtocolError("connection closed")
+
+    class Remainder(httpx.AsyncByteStream):
+        async def __aiter__(self):
+            yield b"second"
+
+    requests = []
+
+    def handler(request):
+        requests.append(request)
+        if len(requests) == 1:
+            return httpx.Response(200, headers={"etag": '"edition"'}, stream=Interrupted())
+        return httpx.Response(
+            206,
+            headers={"etag": '"edition"', "content-range": "bytes 5-10/11"},
+            stream=Remainder(),
+        )
+
+    async def no_wait(_seconds):
+        pass
+
+    monkeypatch.setattr(module.asyncio, "sleep", no_wait)
+    monkeypatch.setattr(module, "DOWNLOAD_CHUNK_SIZE", 5)
+    async with (
+        httpx.AsyncClient(transport=httpx.MockTransport(handler)) as client,
+        client.stream("GET", "https://example.test/dump") as response,
+    ):
+        chunks = [
+            chunk async for chunk in _download_chunks(client, response, "https://example.test/dump")
+        ]
+
+    assert b"".join(chunks) == b"firstsecond"
+    assert requests[1].headers["range"] == "bytes=5-"
+    assert requests[1].headers["if-range"] == '"edition"'
+
 
 MARC_XML = """
 <record xmlns="http://www.loc.gov/MARC21/slim">

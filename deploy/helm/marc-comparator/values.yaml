@@ -146,6 +146,12 @@ cnpg:
     # Parallel workers share the CPU limit with their leader, so at one
     # CPU they add overhead and CFS throttling.
     max_parallel_workers_per_gather: "0"
+    # Probe idle client connections every minute instead of after the
+    # kernel's 2 hours. The cluster network drops quiet TCP flows, and a
+    # session whose client vanished keeps its locks until it is noticed.
+    tcp_keepalives_idle: "60"
+    tcp_keepalives_interval: "10"
+    tcp_keepalives_count: "6"
   #
   # Sizing by number of catalogue records. Measured at 345k records on k3d:
   # the core schema takes ~1.15 GB (catalog_records 285 MB, analytics

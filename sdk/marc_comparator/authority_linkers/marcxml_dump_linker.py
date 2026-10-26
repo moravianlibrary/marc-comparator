@@ -34,7 +34,7 @@ import re
 import unicodedata
 import zlib
 from collections import defaultdict
-from collections.abc import Iterator, Sequence
+from collections.abc import AsyncIterator, Iterator, Sequence
 from dataclasses import dataclass
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any
@@ -81,6 +81,7 @@ _ISO2709_LEADER = re.compile(rb"^\d{5}[a-z ]")
 
 #: Compressed bytes pulled from the network per read.
 DOWNLOAD_CHUNK_SIZE = 1 << 20
+DOWNLOAD_RESUME_ATTEMPTS = 3
 
 #: Decompressed bytes handed to the XML parser per feed. Independent of the
 #: download chunk because the ratio between them is the publisher's choice: this
@@ -303,6 +304,61 @@ def _dump_edition(headers: httpx.Headers) -> str | None:
         return etag.strip()
     last_modified = headers.get("last-modified")
     return last_modified.strip() if last_modified else None
+
+
+async def _download_chunks(
+    client: httpx.AsyncClient, response: httpx.Response, url: str
+) -> AsyncIterator[bytes]:
+    """Resume an interrupted dump without repeating gigabytes of parsed work.
+
+    Raw bytes keep the Range offset in the representation served by HTTP,
+    including when a server labels a .gz file as Content-Encoding: x-gzip.
+    The parser below handles gzip itself. A changed edition or a server that
+    ignores Range is refused rather than combining two different snapshots.
+    """
+    offset = 0
+    validator = response.headers.get("etag") or response.headers.get("last-modified")
+    original_edition = _dump_edition(response.headers)
+    original_encoding = response.headers.get("content-encoding")
+    original_length = response.headers.get("content-length")
+    try:
+        async for chunk in response.aiter_raw(DOWNLOAD_CHUNK_SIZE):
+            offset += len(chunk)
+            yield chunk
+        return
+    except (httpx.RemoteProtocolError, httpx.ReadError, httpx.ReadTimeout):
+        if not validator or offset == 0:
+            raise
+        logger.warning("Dump download interrupted at byte %s; resuming", offset)
+
+    for attempt in range(DOWNLOAD_RESUME_ATTEMPTS):
+        await asyncio.sleep(min(2**attempt, 4))
+        headers = {**_DUMP_REQUEST_HEADERS, "Range": f"bytes={offset}-", "If-Range": validator}
+        async with client.stream("GET", url, headers=headers) as resumed:
+            match = re.fullmatch(
+                r"bytes (\d+)-(\d+)/(\d+|\*)", resumed.headers.get("content-range", "")
+            )
+            if (
+                resumed.status_code != 206
+                or match is None
+                or int(match.group(1)) != offset
+                or (original_length and match.group(3) != original_length)
+                or _dump_edition(resumed.headers) not in (None, original_edition)
+                or resumed.headers.get("content-encoding") not in (None, original_encoding)
+            ):
+                raise RuntimeError(
+                    "Dump download was interrupted and the source could not resume "
+                    "the same edition; retry the harvest."
+                )
+            try:
+                async for chunk in resumed.aiter_raw(DOWNLOAD_CHUNK_SIZE):
+                    offset += len(chunk)
+                    yield chunk
+                return
+            except (httpx.RemoteProtocolError, httpx.ReadError, httpx.ReadTimeout):
+                if attempt + 1 == DOWNLOAD_RESUME_ATTEMPTS:
+                    raise
+                logger.warning("Resumed dump download interrupted at byte %s", offset)
 
 
 def _reject_unreadable_dump(head: bytes) -> None:
@@ -672,7 +728,7 @@ class MarcXmlDumpLinker(BaseAuthorityLinker[MarcXmlDumpLinkerConfig]):
             read = 0
             pending: list[_ParsedRecord] = []
 
-            async for chunk in response.aiter_bytes(DOWNLOAD_CHUNK_SIZE):
+            async for chunk in _download_chunks(client, response, self.config.dump_url):
                 read += len(chunk)
                 document = stream.feed(chunk)
                 if document and not checked_format:

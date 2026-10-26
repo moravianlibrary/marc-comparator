@@ -28,6 +28,13 @@ class PostgresConfig(BaseSettings):
     max_overflow: int = Field(default=0)
     pool_timeout: int = Field(default=30)
     pool_recycle: int = Field(default=1800)
+    # TCP keepalives (seconds, probes). A connection waiting on a long
+    # statement sends nothing, and the cluster network drops quiet flows
+    # within minutes; without probes the client only learns at the kernel's
+    # 2-hour default, while still holding the statement's locks.
+    keepalives_idle: int = Field(default=60)
+    keepalives_interval: int = Field(default=10)
+    keepalives_count: int = Field(default=6)
 
     @property
     def url(self) -> str:

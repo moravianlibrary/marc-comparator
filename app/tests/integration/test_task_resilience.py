@@ -4,6 +4,7 @@ guard (bounded redeliveries under acks_late) and the orphaned-task reaper."""
 from datetime import timedelta
 
 import pytest
+from sqlalchemy import text
 
 from adapters.database import DatabaseSession
 from adapters.tasks import (
@@ -13,6 +14,7 @@ from adapters.tasks import (
     PoisonPillError,
     TaskRevokedError,
     reap_orphaned_tasks,
+    revoke_task,
 )
 from auth.models import TokenData
 from config import config
@@ -206,3 +208,79 @@ class TestRevokedGuard:
                 pass
 
         assert lock_key not in get_active_locks()
+
+    @pytest.mark.asyncio
+    async def test_revoking_a_sync_keeps_its_worker_alive_for_lock_cleanup(
+        self, db_session: DatabaseSession, user: TokenData, mocker
+    ):
+        task = Task(
+            name="Sync cancellation test",
+            created_by=user.user_id,
+            type=TaskType.SyncRecords,
+            status=TaskStatus.Started,
+            data={"base": "TEST"},
+        )
+        db_session.add(task)
+        db_session.commit()
+        revoke = mocker.patch("adapters.tasks.tasks_client.control.revoke")
+
+        await revoke_task(task, db_session)
+
+        assert self.reload(db_session, task.task_id).status == TaskStatus.Revoked
+        revoke.assert_called_once_with(str(task.task_id), terminate=False, signal="SIGTERM")
+
+    @pytest.mark.asyncio
+    async def test_sync_lock_is_released_after_graceful_revoke(
+        self, db_session: DatabaseSession, user: TokenData, lock_server_client, mocker
+    ):
+        from adapters.lock_server import get_active_locks
+
+        task = Task(
+            name="Active sync cancellation test",
+            created_by=user.user_id,
+            type=TaskType.SyncRecords,
+            data={"base": "TEST"},
+        )
+        db_session.add(task)
+        db_session.commit()
+        lock_key = "catalog_sync_TEST"
+        mocker.patch("adapters.tasks.tasks_client.control.revoke")
+
+        async with ManagedTask(task_id=str(task.task_id), lock_key=lock_key):
+            assert lock_key in get_active_locks()
+            db_session.refresh(task)
+            await revoke_task(task, db_session)
+
+        assert lock_key not in get_active_locks()
+        assert self.reload(db_session, task.task_id).status == TaskStatus.Revoked
+
+
+class TestFinalAnalyticsRebuild:
+    @pytest.mark.asyncio
+    async def test_a_failed_rebuild_keeps_the_success(
+        self, db_session: DatabaseSession, user: TokenData, mocker
+    ):
+        # The rebuild runs after the work is done; losing its connection used
+        # to roll the uncommitted Success back, and the reaper then failed a
+        # run that had finished.
+        task = _make_task(db_session, user)
+        task.type = TaskType.ProcessRecords
+        db_session.commit()
+        task_id = task.task_id
+
+        def rebuild_all(session):
+            # Fail the way a dropped connection does: inside the session's
+            # transaction, leaving it unusable until rolled back.
+            session.execute(text("SELECT 1 / 0"))
+
+        rebuild = mocker.patch("catalog_records.analytics.rebuild_all", side_effect=rebuild_all)
+
+        async with ManagedTask(task_id=str(task_id)) as ctx:
+            ctx.total = 1
+
+        rebuild.assert_called_once()
+        db_session.expire_all()
+        reloaded = db_session.get(Task, task_id)
+        assert reloaded is not None
+        assert reloaded.status == TaskStatus.Success
+        assert reloaded.finished_at is not None

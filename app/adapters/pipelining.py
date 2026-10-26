@@ -2,7 +2,7 @@
 
 import logging
 import threading
-from collections.abc import Iterable, Iterator
+from collections.abc import Generator, Iterable, Iterator
 from itertools import islice
 from queue import Queue
 
@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 _DONE = object()
 
 
-def read_ahead[T](source: Iterator[T], ahead: int) -> Iterator[T]:
+def read_ahead[T](source: Iterator[T], ahead: int) -> Generator[T]:
     """Yield from ``source`` while it keeps working on what comes next.
 
     A paged remote source alternates between waiting on a request and being

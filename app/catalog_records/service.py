@@ -217,6 +217,17 @@ def delete_review(
 async def process_records(
     filters: RecordFilter, created_by: str, db_session: DatabaseSession
 ) -> TaskSchema:
+    from authority_linking.tasks import AuthorityLinkerUnavailable, load_authority_linkers
+    from entities.settings import Settings, SettingsScope
+
+    from .models import ProcessRecordsSettings
+
+    settings = Settings.get(db_session, SettingsScope.ProcessRecords, ProcessRecordsSettings)
+    if settings:
+        try:
+            load_authority_linkers(db_session, settings.authority_linkers)
+        except AuthorityLinkerUnavailable as exc:
+            raise HTTPException(status_code=409, detail=str(exc)) from exc
     return await enqueue_task(
         Task(
             name="Process catalog records",

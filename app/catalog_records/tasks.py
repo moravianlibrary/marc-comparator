@@ -6,9 +6,11 @@ from collections.abc import Sequence
 from aleph_nought import RecordStatus
 from marc_comparator.comparators import RecordComparisonResult
 from marcdantic import MarcRecord
+from sqlalchemy import select
 from sqlalchemy.orm import joinedload
 
 from adapters.aleph_client_registry import AlephClientRegistry
+from adapters.database import get_db_session
 from adapters.marc_sectors import SectorBuffer, read_marc_many
 from adapters.pipelining import chunks, read_ahead
 from adapters.tasks import (
@@ -47,6 +49,7 @@ from entities.catalog_record import CatalogRecord
 from entities.record_review import RecordReview
 from entities.result_snapshot import ResultSnapshot
 from entities.settings import Settings, SettingsScope
+from entities.task import Task, TaskStatus
 from entities.validation import stored_results_for
 from validation.tasks import handle_catalog_record_validation, load_validators
 
@@ -385,6 +388,15 @@ async def fetch_batch_of_records_task(task_id: str) -> None:
         )
 
 
+def _sync_was_revoked(task_id: str) -> bool:
+    # The sync's own session may have uncommitted record writes. Read the
+    # cancellation decision through a separate session before the next page.
+    with get_db_session() as session:
+        return (
+            session.scalar(select(Task.status).where(Task.task_id == task_id)) == TaskStatus.Revoked
+        )
+
+
 async def records_sync_task(task_id: str, lock_key: str, lock_blocking_timeout: int):
     from adapters.marc_sectors import SectorBuffer, marc_bytes_of
 
@@ -418,6 +430,10 @@ async def records_sync_task(task_id: str, lock_key: str, lock_blocking_timeout: 
         incoming = read_ahead(client.OAI.list_records(from_date, None), SYNC_READ_AHEAD)
 
         for page in chunks(incoming, SYNC_WINDOW):
+            if _sync_was_revoked(task_id):
+                incoming.close()
+                ctx.db_session.rollback()
+                return
             # One read of the previous MARC for the whole window: its only job
             # is to spot a record that changed, and asked per record it was the
             # largest thing the sync did after waiting for the catalogue. Keyed
@@ -477,6 +493,9 @@ async def records_sync_task(task_id: str, lock_key: str, lock_blocking_timeout: 
                     ctx.logger.error(f"Failed processing record {system_number}:\n{e}")
                     handle_batch_progress_snippet(ctx)
 
+        if _sync_was_revoked(task_id):
+            ctx.db_session.rollback()
+            return
         handle_final_batch_snippet(ctx)
 
         ctx.logger.info(f"Finished catalog sync, total records processed: {ctx.progress}")

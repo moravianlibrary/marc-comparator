@@ -575,15 +575,6 @@ class ManagedTask:
             self.task.finished_at = config.timestamp
             self.save_task()
 
-            # Rebuild analytics after successful data-changing tasks
-            if exc_type is None and self.task.type in ANALYTICS_REBUILD_TASK_TYPES:
-                try:
-                    from catalog_records.analytics import rebuild_all
-
-                    rebuild_all(self.db_session)
-                except Exception as e:
-                    logging.warning(f"Analytics rebuild failed: {e}")
-
             # The handler only writes to the row every FLUSH_INTERVAL entries,
             # so without this the tail of every traceback — the final status
             # line, and the exception on a failure — is dropped.
@@ -594,15 +585,13 @@ class ManagedTask:
                 self.before_commit()
             self.db_session.commit()
 
-            # Publish events AFTER commit so clients refetch committed data
-            publish_event(
+            # Read before the rebuild, while the row is still attached here.
+            events = [
                 TaskProgressEvent(
                     task_id=str(self.task.task_id),
                     progress=self.task.progress,
                     created_by=str(self.task.created_by),
-                )
-            )
-            publish_event(
+                ),
                 TaskStatusEvent(
                     task_id=str(self.task.task_id),
                     task_type=self.task.type.value,
@@ -611,8 +600,28 @@ class ManagedTask:
                     status=self.task.status.value,
                     severity=self.task.severity.value,
                     created_by=str(self.task.created_by),
-                )
-            )
+                ),
+            ]
+
+            # Rebuild analytics after successful data-changing tasks. Only
+            # once the final status is committed, and on its own session: a
+            # rebuild that loses its connection used to roll the Success back
+            # with it, leaving a finished run for the reaper to fail.
+            if exc_type is None and self.task.type in ANALYTICS_REBUILD_TASK_TYPES:
+                from catalog_records.analytics import rebuild_all
+
+                rebuild_session = get_db_session()
+                try:
+                    rebuild_all(rebuild_session)
+                except Exception as e:
+                    logging.warning(f"Analytics rebuild failed: {e}")
+                finally:
+                    rebuild_session.close()
+
+            # Publish events AFTER commit and rebuild so clients refetch
+            # committed data
+            for event in events:
+                publish_event(event)
         finally:
             # --- Release resources ---
             # `logging.getLogger(f"task-{id}")` is cached process-wide, so an
@@ -913,7 +922,8 @@ def periodic_process_records() -> None:
     picks up new and changed records alike and never reprocesses settled ones.
     """
     from adapters.database import SessionLocal
-    from catalog_records.models import RecordFilter
+    from authority_linking.tasks import AuthorityLinkerUnavailable, load_authority_linkers
+    from catalog_records.models import ProcessRecordsSettings, RecordFilter
     from entities.user import SYSTEM_USER_ID
 
     db = SessionLocal()
@@ -935,6 +945,14 @@ def periodic_process_records() -> None:
                 f"{in_flight.status.value}"
             )
             return
+
+        settings = Settings.get(db, SettingsScope.ProcessRecords, ProcessRecordsSettings)
+        if settings:
+            try:
+                load_authority_linkers(db, settings.authority_linkers)
+            except AuthorityLinkerUnavailable as exc:
+                logging.info("Skipping scheduled processing: %s", exc)
+                return
 
         data = RecordFilter(processed=False)
         task = Task(
@@ -1142,12 +1160,20 @@ async def revoke_task(task: Task, db_session: DatabaseSession) -> TaskSchema:
     if task.status not in {TaskStatus.Started, TaskStatus.Pending}:
         raise ValueError(f"Task with status '{task.status}' cannot be revoked.")
 
-    tasks_client.control.revoke(str(task.task_id), terminate=True, signal="SIGTERM")
-
     task.status = TaskStatus.Revoked
     task.finished_at = config.timestamp
 
     task.save(db_session)
+
+    # A sync owns a renewable Redis lock. Killing its worker skips the lock's
+    # finally block and leaves the base locked until the TTL expires. Syncs
+    # observe the durable Revoked row between pages and exit through cleanup.
+    # Persist the row first so the worker can see cancellation immediately.
+    tasks_client.control.revoke(
+        str(task.task_id),
+        terminate=task.type != TaskType.SyncRecords,
+        signal="SIGTERM",
+    )
 
     publish_event(
         TaskStatusEvent(

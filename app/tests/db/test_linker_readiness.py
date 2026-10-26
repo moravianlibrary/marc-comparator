@@ -7,6 +7,7 @@ catalogue holds no counterpart, for records nobody had looked up.
 """
 
 import pytest
+from fastapi import HTTPException
 from marc_comparator.authority_linkers import AuthorityLinker
 
 from authority_linking.models import AuthorityLinkingSettings
@@ -41,6 +42,29 @@ def test_a_linker_whose_dump_was_never_harvested_stops_the_pass(linking_settings
     # The message has to be actionable: an operator reading the failed task
     # needs to know which of the two ways out of this they want.
     assert "Harvest them" in str(caught.value)
+
+
+@pytest.mark.asyncio
+async def test_manual_process_request_refuses_an_unready_dump(linking_settings, monkeypatch):
+    from catalog_records import service
+    from catalog_records.models import RecordFilter
+
+    Settings.upsert(
+        linking_settings,
+        SettingsScope.ProcessRecords,
+        ProcessRecordsSettings(authority_linkers=[AuthorityLinker.MarcXmlDump]),
+        ProcessRecordsSettings,
+    )
+
+    async def unexpected_enqueue(*_args):
+        pytest.fail("processing was queued before its required dataset was ready")
+
+    monkeypatch.setattr(service, "enqueue_task", unexpected_enqueue)
+    with pytest.raises(HTTPException) as caught:
+        await service.process_records(RecordFilter(), "operator", linking_settings)
+
+    assert caught.value.status_code == 409
+    assert "marcxml-dump" in caught.value.detail
 
 
 def test_a_linker_that_needs_no_harvest_runs(linking_settings):

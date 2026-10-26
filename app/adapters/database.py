@@ -16,6 +16,14 @@ engine = create_engine(
     # "SSL SYSCALL error: EOF detected" on first use.
     pool_recycle=config.postgres.pool_recycle,
     pool_pre_ping=True,
+    # Pre-ping only checks a connection when it leaves the pool; keepalives
+    # keep one alive while it waits on a long statement (analytics rebuild).
+    connect_args={
+        "keepalives": 1,
+        "keepalives_idle": config.postgres.keepalives_idle,
+        "keepalives_interval": config.postgres.keepalives_interval,
+        "keepalives_count": config.postgres.keepalives_count,
+    },
 )
 
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
