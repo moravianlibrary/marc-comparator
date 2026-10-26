@@ -3,9 +3,11 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { TypographyList, TypographyP } from '@/components/ui/typography';
 import { useHasPermission } from '@/hooks/use-permissions';
+import { cn } from '@/lib/utils';
 import { Permission } from '@/types/permission';
 import { AdditionView } from './addition/addition-view';
 import { CarouselView } from './carousel/carousel-view';
@@ -14,6 +16,7 @@ import { TableView } from './table/table-view';
 import type { RecordTab } from './types';
 import { useRecordFilters } from './use-record-filters';
 import { useRecordsSearch } from './use-records-query';
+import { useResultsUpdating } from './use-results-updating';
 import { MATCH_SCALE_MAX } from './score';
 
 function countActiveFilters(filters: ReturnType<typeof useRecordFilters>['filters']): number {
@@ -83,6 +86,7 @@ export function RecordsPage() {
 
   const payload = buildSearchPayload();
   const { data: searchData } = useRecordsSearch(payload);
+  const isUpdating = useResultsUpdating();
 
   const activeFilterCount = countActiveFilters(filters);
   const totalResults = searchData?.total;
@@ -97,8 +101,9 @@ export function RecordsPage() {
       value={filters.tab}
       onValueChange={v => setTab(v as RecordTab)}
       className="space-y-4 animate-fade-in"
+      aria-busy={isUpdating}
     >
-      <div className="flex items-center gap-2">
+      <div className="relative flex items-center gap-2">
         <TabsList>
           <TabsTrigger value="plots">
             {t('tabs.plots')}
@@ -135,17 +140,35 @@ export function RecordsPage() {
           <CircleHelp className="h-4 w-4" />
           {t(`help.${filters.tab}.button`)}
         </Button>
+
+        {/* Always laid out, shown after a short delay, so a quick answer does not flash it. Placed
+            under the tabs rather than in the flow, where it would push the page down. */}
+        <Progress
+          aria-label={t('loading-results')}
+          aria-hidden={!isUpdating}
+          className={cn(
+            'absolute inset-x-0 -bottom-2.5 h-0.5 rounded-none transition-opacity',
+            isUpdating ? 'opacity-100 delay-200' : 'opacity-0',
+          )}
+        />
       </div>
 
-      <TabsContent value="plots">
-        <PlotsView />
-      </TabsContent>
-      <TabsContent value="table">
-        <TableView />
-      </TabsContent>
-      <TabsContent value="carousel">
-        <CarouselView />
-      </TabsContent>
+      <div
+        className={cn(
+          'transition-opacity',
+          isUpdating ? 'opacity-60 delay-200 duration-300' : 'opacity-100',
+        )}
+      >
+        <TabsContent value="plots">
+          <PlotsView />
+        </TabsContent>
+        <TabsContent value="table">
+          <TableView />
+        </TabsContent>
+        <TabsContent value="carousel">
+          <CarouselView />
+        </TabsContent>
+      </div>
       {canAddRecords && (
         <TabsContent value="addition">
           <AdditionView />

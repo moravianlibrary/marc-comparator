@@ -262,6 +262,25 @@ test('a compared base is one badge and one card that open its comparison', async
   await expect(page.getByText('Porovnání se záznamem: 11.0 / 15')).toBeVisible();
 });
 
+test('the records page shows it is waiting for results', async ({ page }) => {
+  let releaseSearch = () => {};
+  const searchHeld = new Promise<void>(resolve => {
+    releaseSearch = resolve;
+  });
+  await page.route('**/api/catalog-records/search', async route => {
+    await searchHeld;
+    await route.fulfill({ json: { items: [record], total: 1, page: 1, page_size: 25 } });
+  });
+
+  await page.goto('/?tab=table');
+  const loading = page.getByRole('progressbar', { name: 'Načítání výsledků…' });
+  await expect(loading).toBeVisible();
+
+  releaseSearch();
+
+  await expect(loading).toBeHidden();
+});
+
 test('moving to the next record keeps the compared base without rewriting the view', async ({
   page,
 }) => {
