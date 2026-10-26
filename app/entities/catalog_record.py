@@ -16,6 +16,7 @@ from sqlalchemy import (
     event,
     func,
     select,
+    text,
 )
 from sqlalchemy.dialects.postgresql import ARRAY, TSVECTOR
 from sqlalchemy.orm import Mapped, Session, mapped_column, relationship
@@ -190,6 +191,21 @@ class CatalogRecord(
         Index("idx_catalog_records_updated_at", "updated_at"),
         # The record list sorted newest sync first, within the main source.
         Index("ix_catalog_records_source_type_latest_sync", "source_type", latest_sync.desc()),
+        # The same order filtered by base. Without base in the key, a base whose
+        # records all sorted last was found by walking every other base first.
+        Index(
+            "ix_catalog_records_source_type_base_latest_sync",
+            "source_type",
+            "base",
+            latest_sync.desc(),
+        ),
+        # The same order for the few records still waiting to be processed.
+        Index(
+            "ix_catalog_records_unprocessed_latest_sync",
+            "source_type",
+            latest_sync.desc(),
+            postgresql_where=text("processed_at IS NULL"),
+        ),
     )
 
     @classmethod
