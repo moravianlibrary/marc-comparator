@@ -1,4 +1,5 @@
 import logging
+import threading
 from collections import defaultdict
 from collections.abc import Callable, Sequence
 
@@ -22,8 +23,41 @@ logger = logging.getLogger(__name__)
 
 ZSTD_LEVEL = 7
 
-_compressor = zstd.ZstdCompressor(level=ZSTD_LEVEL)
-_decompressor = zstd.ZstdDecompressor()
+
+class _ThreadLocalCompressor:
+    """A zstd compressor per thread, behind the one interface every caller uses.
+
+    python-zstandard instances must not be used from two threads at once, and
+    sectors are read and written from several: FastAPI runs sync endpoints in a
+    thread pool. One shared instance corrupted concurrent reads ("Data
+    corruption detected") and could crash the process outright.
+    """
+
+    def __init__(self) -> None:
+        self._local = threading.local()
+
+    def compress(self, data: bytes) -> bytes:
+        compressor = getattr(self._local, "compressor", None)
+        if compressor is None:
+            compressor = self._local.compressor = zstd.ZstdCompressor(level=ZSTD_LEVEL)
+        return compressor.compress(data)
+
+
+class _ThreadLocalDecompressor:
+    """A zstd decompressor per thread, for the reason `_ThreadLocalCompressor` gives."""
+
+    def __init__(self) -> None:
+        self._local = threading.local()
+
+    def decompress(self, data: bytes) -> bytes:
+        decompressor = getattr(self._local, "decompressor", None)
+        if decompressor is None:
+            decompressor = self._local.decompressor = zstd.ZstdDecompressor()
+        return decompressor.decompress(data)
+
+
+_compressor = _ThreadLocalCompressor()
+_decompressor = _ThreadLocalDecompressor()
 
 CACHE_PREFIX = "marc:"
 
