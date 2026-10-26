@@ -17,8 +17,9 @@ import {
 } from '@/components/ui/select';
 import apiClient from '@/lib/api-client';
 import type { SystemInfo } from '@/types/settings';
-import { buildCandidateKey, decisionsByBase, hasCandidate } from '../link-decisions';
-import { formatScore } from '../score';
+import { type ComparisonGroup, comparisonGroups } from '../comparison-groups';
+import { hasCandidate } from '../link-decisions';
+import { formatScore, formatScoreShort } from '../score';
 import type {
   ComparisonDetail,
   ComparisonResult,
@@ -38,21 +39,14 @@ import { useRecordReviews } from './use-reviews';
 
 type ViewOption =
   | { kind: 'marc' }
-  | { kind: 'authority'; base: string; systemNumber: string }
-  // A candidate nobody accepted. Its own kind rather than an `authority` with
-  // a different fetch, because the two are not the same record in the two
-  // ways that matter here: one has a catalogue row and one has only the MARC
-  // we kept, and only one of them can be missing entirely.
+  // A record compared with ours that has no stored comparison: the runner-ups, and a linked
+  // record compared before comparisons were stored. Read from the MARC kept when it was
+  // proposed, compared on demand, and possibly missing entirely.
   | { kind: 'candidate'; base: string; systemNumber: string }
   | { kind: 'comparison'; comparator: string; otherRecordId: string }
   | { kind: 'validation'; validatorName: string };
 
 function parseViewKey(key: string): ViewOption {
-  if (key.startsWith('auth:')) {
-    const rest = key.slice(5);
-    const sepIdx = rest.indexOf(':');
-    return { kind: 'authority', base: rest.slice(0, sepIdx), systemNumber: rest.slice(sepIdx + 1) };
-  }
   if (key.startsWith('cand:')) {
     const rest = key.slice(5);
     const sepIdx = rest.indexOf(':');
@@ -73,42 +67,61 @@ function parseViewKey(key: string): ViewOption {
   return { kind: 'marc' };
 }
 
-function buildAuthorityKey(base: string, authorityRecordId: string): string {
-  const systemNumber = authorityRecordId.startsWith(`${base}-`)
-    ? authorityRecordId.slice(base.length + 1)
-    : authorityRecordId;
-  return `auth:${base}:${systemNumber}`;
+/**
+ * The base a view compares against, read from its key alone so it survives a record switch.
+ *
+ * A compared record's id is `<base>-<system number>`, and a candidate key names its base.
+ */
+function comparedBaseOfView(view: ViewOption): string | null {
+  if (view.kind === 'candidate') {
+    return view.base;
+  }
+
+  if (view.kind === 'comparison') {
+    return view.otherRecordId.split('-')[0] ?? null;
+  }
+
+  return null;
 }
 
-function isViewAvailable(
-  key: string,
-  record: RecordSummary,
-  comparisons: ComparisonDetail[] | undefined,
-  validations: ValidationDetail[] | undefined,
-): boolean {
-  if (key === 'marc') {
-    return true;
-  }
+/**
+ * Whether the record has what the view shows, judged from the record's own summary.
+ *
+ * The summary arrives with the search, so a record switch can answer this at once, without
+ * waiting for the detail queries.
+ */
+function isViewAvailable(key: string, record: RecordSummary): boolean {
   const opt = parseViewKey(key);
   switch (opt.kind) {
     case 'marc':
       return true;
-    case 'authority':
-      return record.authority_links.some(
-        al => buildAuthorityKey(al.base, al.authority_record_id) === key,
-      );
     case 'candidate':
       return hasCandidate(record, opt.base, opt.systemNumber);
     case 'comparison':
-      return (
-        !!comparisons &&
-        comparisons.some(
-          c => c.comparator === opt.comparator && c.other_record_id === opt.otherRecordId,
-        )
+      return record.comparisons.some(
+        c => c.comparator === opt.comparator && c.other_record_id === opt.otherRecordId,
       );
     case 'validation':
-      return !!validations && validations.some(v => v.validator === opt.validatorName);
+      return record.validations.some(v => v.validator === opt.validatorName);
   }
+}
+
+/**
+ * The view to show for this record: the selected one where the record has it, else the same
+ * compared base's chosen record, else its MARC.
+ *
+ * Derived on every render rather than written back to the URL when the record changes. That
+ * second write, made right after the one moving to the next record, could be built from the URL
+ * before the move and put the previous record back for a moment.
+ */
+function resolveView(selectedView: string, record: RecordSummary): string {
+  if (isViewAvailable(selectedView, record)) {
+    return selectedView;
+  }
+
+  const base = comparedBaseOfView(parseViewKey(selectedView));
+  const sameBase = comparisonGroups(record).find(g => g.base === base);
+  return sameBase?.records[0]?.viewKey ?? 'marc';
 }
 
 function RecordDetail({
@@ -161,18 +174,8 @@ function RecordDetail({
   });
   const krameriusClientUrl = systemInfo?.kramerius_client_urls?.[record.base] ?? undefined;
 
-  const viewOpt = parseViewKey(selectedView);
-
-  const authorityBase = viewOpt.kind === 'authority' ? viewOpt.base : '';
-  const authoritySystemNumber = viewOpt.kind === 'authority' ? viewOpt.systemNumber : '';
-  const { data: authorityMarcData, isLoading: authorityMarcLoading } = useQuery<MarcRecordData>({
-    queryKey: ['catalog-records', 'marc', authorityBase, authoritySystemNumber],
-    queryFn: () =>
-      apiClient
-        .get<MarcRecordData>(`/catalog-records/${authorityBase}/${authoritySystemNumber}/marc`)
-        .then(r => r.data),
-    enabled: !!authorityBase && !!authoritySystemNumber,
-  });
+  const view = resolveView(selectedView, record);
+  const viewOpt = parseViewKey(view);
 
   const candidateBase = viewOpt.kind === 'candidate' ? viewOpt.base : '';
   const candidateSysno = viewOpt.kind === 'candidate' ? viewOpt.systemNumber : '';
@@ -223,73 +226,7 @@ function RecordDetail({
     retry: false,
   });
 
-  // When switching records, keep selection if available, otherwise try to find
-  // a matching view by base/comparator before falling back to "marc"
-  const prevRecordId = useRef(record.id);
-  useEffect(() => {
-    if (record.id === prevRecordId.current) {
-      return;
-    }
-    if (comparisonsFetching || validationsFetching) {
-      return;
-    }
-    prevRecordId.current = record.id;
-    if (
-      selectedView !== 'marc' &&
-      !isViewAvailable(selectedView, record, comparisons, validations)
-    ) {
-      const opt = parseViewKey(selectedView);
-      // Authority view: find a link to the same base on the new record
-      if (opt.kind === 'authority') {
-        const match = record.authority_links.find(al => al.base === opt.base);
-        if (match) {
-          setSelectedView(buildAuthorityKey(match.base, match.authority_record_id));
-          return;
-        }
-      }
-      // Comparison view: find a comparison with the same comparator on the new record
-      if (opt.kind === 'comparison' && comparisons) {
-        const match = comparisons.find(c => c.comparator === opt.comparator);
-        if (match) {
-          setSelectedView(`comp:${match.comparator}:${match.other_record_id}`);
-          return;
-        }
-      }
-      setSelectedView('marc');
-    }
-  }, [
-    record,
-    comparisons,
-    validations,
-    selectedView,
-    comparisonsFetching,
-    validationsFetching,
-    setSelectedView,
-  ]);
-
-  const authorityOptions = record.authority_links.map(al => ({
-    key: buildAuthorityKey(al.base, al.authority_record_id),
-    label: `${al.base} - ${al.authority_record_id}`,
-  }));
-
-  // Every pair the record names, minus the ones already listed above as
-  // authority records: an accepted link has a catalogue row and reads better
-  // through it, annotations and all.
-  const linkedKeys = new Set(
-    record.authority_links.map(al => buildAuthorityKey(al.base, al.authority_record_id)),
-  );
-  const candidateOptions = decisionsByBase(record)
-    .flatMap(d => d.rows)
-    .filter(row => !linkedKeys.has(`auth:${row.base}:${row.authoritySysno}`))
-    .map(row => ({
-      key: buildCandidateKey(row.authorityBase, row.authoritySysno),
-      label: `${row.authorityBase} - ${row.authoritySysno}`,
-    }));
-
-  const comparisonOptions = (comparisons ?? []).map(c => ({
-    key: `comp:${c.comparator}:${c.other_record_id}`,
-    label: c.base,
-  }));
+  const groups = comparisonGroups(record);
 
   const validatorNames = [...new Set((validations ?? []).map(v => v.validator))];
   const validationOptions = validatorNames.map(name => ({
@@ -320,25 +257,14 @@ function RecordDetail({
       .map(v => v.result);
   }
 
-  const isAuthority = viewOpt.kind === 'authority';
   const isCandidate = viewOpt.kind === 'candidate';
-  const displayMarc = isCandidate
-    ? candidateComparison
-      ? marcData
-      : candidateMarcData
-    : isAuthority
-      ? authorityMarcData
-      : marcData;
+  const displayMarc = isCandidate && !candidateComparison ? candidateMarcData : marcData;
   const annotationLoading =
     (viewOpt.kind === 'comparison' && comparisonsFetching) ||
     (viewOpt.kind === 'validation' && validationsFetching) ||
     (isCandidate && candidateMarcLoading) ||
     (isCandidate && !!candidateMarcData && candidateComparisonLoading);
-  const ownMarcLoading = isCandidate
-    ? candidateMarcLoading
-    : isAuthority
-      ? authorityMarcLoading
-      : marcLoading;
+  const ownMarcLoading = isCandidate ? candidateMarcLoading : marcLoading;
   const displayLoading =
     ownMarcLoading || annotationLoading || (isCandidate && !!candidateComparison && marcLoading);
 
@@ -355,57 +281,19 @@ function RecordDetail({
 
   return (
     <div className="space-y-4">
-      <RecordHeader record={record} onSelectView={setSelectedView} />
+      <RecordHeader record={record} selectedView={view} onSelectView={setSelectedView} />
 
       <div className="flex flex-wrap items-center gap-4">
-        <Select value={selectedView} onValueChange={setSelectedView}>
+        <Select value={view} onValueChange={setSelectedView}>
           <SelectTrigger className="w-full sm:w-[320px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
             <SelectItem value="marc">{t('carousel.marc-record')}</SelectItem>
 
-            {authorityOptions.length > 0 && (
-              <>
-                <SelectSeparator />
-                <SelectGroup>
-                  <SelectLabel>{t('carousel.authority-records')}</SelectLabel>
-                  {authorityOptions.map(opt => (
-                    <SelectItem key={opt.key} value={opt.key}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </>
-            )}
-
-            {candidateOptions.length > 0 && (
-              <>
-                <SelectSeparator />
-                <SelectGroup>
-                  <SelectLabel>{t('carousel.decisions.candidates')}</SelectLabel>
-                  {candidateOptions.map(opt => (
-                    <SelectItem key={opt.key} value={opt.key}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </>
-            )}
-
-            {comparisonOptions.length > 0 && (
-              <>
-                <SelectSeparator />
-                <SelectGroup>
-                  <SelectLabel>{t('carousel.comparisons')}</SelectLabel>
-                  {comparisonOptions.map(opt => (
-                    <SelectItem key={opt.key} value={opt.key}>
-                      {opt.label}
-                    </SelectItem>
-                  ))}
-                </SelectGroup>
-              </>
-            )}
+            {groups.map(group => (
+              <ComparisonOptions key={group.base} group={group} />
+            ))}
 
             {validationOptions.length > 0 && (
               <>
@@ -498,6 +386,39 @@ function RecordDetail({
         <p className="text-muted-foreground">-</p>
       )}
     </div>
+  );
+}
+
+/** One compared base in the view picker: its records, the chosen one first. */
+function ComparisonOptions({ group }: { group: ComparisonGroup }) {
+  const { t } = useTranslation('records');
+
+  if (group.records.length === 0) {
+    return null;
+  }
+
+  return (
+    <>
+      <SelectSeparator />
+      <SelectGroup>
+        <SelectLabel>
+          {t('carousel.comparisons')} · {group.base}
+        </SelectLabel>
+        {group.records.map(compared => (
+          <SelectItem key={compared.viewKey} value={compared.viewKey}>
+            {[
+              compared.recordId,
+              compared.role === 'alternative'
+                ? null
+                : t(`carousel.comparison-role.${compared.role}`),
+              compared.score === null ? null : formatScoreShort(compared.score),
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+          </SelectItem>
+        ))}
+      </SelectGroup>
+    </>
   );
 }
 

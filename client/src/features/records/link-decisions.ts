@@ -44,11 +44,6 @@ function pairKey(base: string, authorityBase: string, authoritySysno: string): s
   return `${base}|${authorityBase}|${authoritySysno}`;
 }
 
-/** The key that identifies a row in a list, and in the mutation it triggers. */
-export function rowKey(row: DecisionRow): string {
-  return pairKey(row.base, row.authorityBase, row.authoritySysno);
-}
-
 /** What the record says about each base it was tried against, best first. */
 export function decisionsByBase(record: RecordSummary): BaseDecision[] {
   const bases = [

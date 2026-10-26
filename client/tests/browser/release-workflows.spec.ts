@@ -249,3 +249,65 @@ test('candidate comparison and claim use the retained candidate key', async ({ p
   });
   await expect(page.getByRole('button', { name: 'Zrušit rozhodnutí' }).first()).toBeVisible();
 });
+
+test('a compared base is one badge and one card that open its comparison', async ({ page }) => {
+  await page.goto('/?tab=carousel');
+  const badge = page.getByText('SKC · nález pod prahem podle ISBN · 10.0 / 15');
+  await expect(badge).toBeVisible();
+  await expect(page.getByText('Nejlepší')).toBeVisible();
+
+  await badge.click();
+
+  await expect(page).toHaveURL(/carouselView=cand:SKC:000000002/);
+  await expect(page.getByText('Porovnání se záznamem: 11.0 / 15')).toBeVisible();
+});
+
+test('moving to the next record keeps the compared base without rewriting the view', async ({
+  page,
+}) => {
+  const linked = (n: number) => ({
+    ...record,
+    id: `MZK01-00000000${n}`,
+    system_number: `00000000${n}`,
+    title: `Title ${n}`,
+    link_attempts: [
+      {
+        ...record.link_attempts[0],
+        outcome: 'Linked',
+        authority_record_id: `SKC-00000001${n}`,
+        authority_sysno: `00000001${n}`,
+      },
+    ],
+    comparisons: [
+      {
+        comparator: 'default',
+        base: 'SKC',
+        other_record_id: `SKC-00000001${n}`,
+        overall_score: 14,
+        match_quality: 'Excellent',
+      },
+    ],
+  });
+  await page.route('**/api/catalog-records/search', route =>
+    route.fulfill({ json: { items: [linked(1), linked(2)], total: 2, page: 1, page_size: 25 } }),
+  );
+  await page.route(/\/api\/catalog-records\/MZK01\/\d+\/(comparisons|validations)$/, route =>
+    route.fulfill({ json: [] }),
+  );
+  await page.route(/\/api\/catalog-records\/MZK01\/\d+\/marc$/, route =>
+    route.fulfill({ json: marc }),
+  );
+  await page.route(/\/api\/catalog-records\/MZK01\/\d+\/reviews$/, route =>
+    route.fulfill({ json: { current: [], history: [] } }),
+  );
+  await page.goto('/?tab=carousel&carouselView=comp%3Adefault%3ASKC-000000011');
+  await expect(page.getByRole('combobox')).toContainText('SKC-000000011');
+
+  await page.getByRole('button', { name: 'Další záznam' }).click();
+
+  await expect(page.getByRole('heading', { name: 'MZK01-000000002' })).toBeVisible();
+  await expect(page.getByRole('combobox')).toContainText('SKC-000000012'); // follows the base
+  // URL writes are throttled; give a rewrite of the view the time it would take to land.
+  await page.waitForTimeout(500);
+  expect(new URL(page.url()).searchParams.get('carouselView')).toBe('comp:default:SKC-000000011');
+});

@@ -1,3 +1,10 @@
+// The record detail's comparison section: one card per compared base, the chosen record first.
+//
+// Each row is one record compared with ours — the linked one with its stored comparison, the
+// runner-ups and the records cataloguers ruled on with a comparison made on demand — together
+// with how it was found and what a cataloguer said about it. Grouping comes from
+// `../comparison-groups`.
+
 import { Gavel, Link2Off, TriangleAlert, UserCheck, X } from 'lucide-react';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -8,37 +15,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { useHasPermission } from '@/hooks/use-permissions';
 import { cn } from '@/lib/utils';
 import { Permission } from '@/types/permission';
-import {
-  type BaseDecision,
-  buildCandidateKey,
-  type DecisionRow,
-  decisionsByBase,
-  rowKey,
-} from '../link-decisions';
+import { type ComparedRecord, type ComparisonGroup, comparisonGroups } from '../comparison-groups';
+import type { DecisionRow } from '../link-decisions';
 import { formatScore } from '../score';
 import { LINK_OUTCOME_COLORS, type ClaimVerdict, type RecordSummary } from '../types';
 import { useClaimLink, useWithdrawClaim } from './use-claims';
-
-/** How a pair was found, in words — or nothing where the row does not say. */
-function useRouteLabel() {
-  const { t } = useTranslation('records');
-  return (matchedBy: string | null, matchedIdentifier: string | null): string | null => {
-    if (!matchedBy) {
-      return null;
-    }
-    // An identifier route is only readable once it says *which* identifier:
-    // a shared ČNB number and a shared ISBN are both "found by identifier"
-    // and a low score means opposite things for the two.
-    if (matchedBy === 'identifier' && matchedIdentifier) {
-      return t('carousel.decisions.matched-by', {
-        route: t(`match-identifier.${matchedIdentifier}`, { defaultValue: matchedIdentifier }),
-      });
-    }
-    return t('carousel.decisions.matched-by', {
-      route: t(`match-route.${matchedBy}`, { defaultValue: matchedBy }),
-    });
-  };
-}
+import { useRouteLabel } from './use-route-label';
 
 function ClaimActions({ recordId, row }: { recordId: string; row: DecisionRow }) {
   const { t } = useTranslation('records');
@@ -150,52 +132,55 @@ function ClaimActions({ recordId, row }: { recordId: string; row: DecisionRow })
   );
 }
 
-function DecisionRowView({
-  recordId,
-  row,
-  canReview,
-  onSelectView,
-}: {
+interface ComparedRecordRowProps {
   recordId: string;
-  row: DecisionRow;
+  compared: ComparedRecord;
+  isSelected: boolean;
   canReview: boolean;
   onSelectView?: (viewKey: string) => void;
-}) {
+}
+
+function ComparedRecordRow({
+  recordId,
+  compared,
+  isSelected,
+  canReview,
+  onSelectView,
+}: ComparedRecordRowProps) {
   const { t } = useTranslation('records');
   const routeLabel = useRouteLabel();
-  const attempt = row.attempt;
-  const score = attempt && attempt.confidence !== null ? formatScore(attempt.confidence) : null;
+  const row = compared.decision;
+  const attempt = row?.attempt ?? null;
   const route = attempt ? routeLabel(attempt.matched_by, attempt.matched_identifier) : null;
 
-  // An accepted link is opened through its catalogue record, which carries
-  // the comparisons and validations with it. Everything else is read out of
-  // the MARC we kept when the candidate was proposed — the same bytes, a
-  // different way in, and the only one available without a catalogue row.
-  const viewKey = attempt?.authority_record_id
-    ? `auth:${row.base}:${row.authoritySysno}`
-    : buildCandidateKey(row.authorityBase, row.authoritySysno);
-
   return (
-    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-      {viewKey && onSelectView ? (
+    <div
+      className={cn(
+        'flex flex-wrap items-center gap-x-2 gap-y-1 border-t border-l-2 border-l-transparent px-2 py-1.5 text-xs first:border-t-0',
+        compared.role === 'chosen' && 'border-l-primary bg-muted/40',
+        isSelected && 'bg-accent',
+      )}
+    >
+      <span
+        className={cn(
+          'w-20 shrink-0 text-muted-foreground',
+          compared.role === 'chosen' && 'font-medium text-foreground',
+        )}
+      >
+        {t(`carousel.comparison-role.${compared.role}`)}
+      </span>
+
+      {onSelectView ? (
         <button
           type="button"
           className="font-mono underline-offset-2 hover:underline"
-          onClick={() => onSelectView(viewKey)}
+          onClick={() => onSelectView(compared.viewKey)}
         >
-          {row.authorityBase}-{row.authoritySysno}
+          {compared.recordId}
         </button>
       ) : (
-        <span className="font-mono">
-          {row.authorityBase}-{row.authoritySysno}
-        </span>
+        <span className="font-mono">{compared.recordId}</span>
       )}
-
-      <Badge variant="outline" className="text-[10px] font-normal">
-        {row.isAnswer ? t('carousel.decisions.answer') : t('carousel.decisions.alternative')}
-      </Badge>
-
-      {score && <span className="text-muted-foreground">{score}</span>}
 
       {route && <span className="text-muted-foreground">{route}</span>}
 
@@ -205,60 +190,70 @@ function DecisionRowView({
         </span>
       )}
 
-      {!attempt && (
+      {row && !attempt && (
         <span className="text-muted-foreground italic">
           {t('carousel.decisions.not-in-this-pass')}
         </span>
       )}
 
-      {row.claim && (
-        <Badge
-          variant="outline"
-          className={cn(
-            'text-[10px] gap-1',
-            row.claim.verdict === 'SameWork' ? 'claim-same-work' : 'claim-not-same-work',
-          )}
-          title={row.claim.note ?? undefined}
-        >
-          <UserCheck className="h-3 w-3" />
-          {t(`carousel.decisions.verdict.${row.claim.verdict}`)}
-        </Badge>
-      )}
+      <span className="ml-auto flex flex-wrap items-center gap-2">
+        {compared.score !== null && (
+          <span className="font-medium">{formatScore(compared.score)}</span>
+        )}
 
-      {row.claim?.needs_review && (
-        <Badge
-          variant="outline"
-          className="text-[10px] gap-1 claim-needs-review"
-          title={t('carousel.decisions.needs-review-explained')}
-        >
-          <TriangleAlert className="h-3 w-3" />
-          {t('carousel.decisions.needs-review')}
-        </Badge>
-      )}
+        {row?.claim && (
+          <Badge
+            variant="outline"
+            className={cn(
+              'text-[10px] gap-1',
+              row.claim.verdict === 'SameWork' ? 'claim-same-work' : 'claim-not-same-work',
+            )}
+            title={row.claim.note ?? undefined}
+          >
+            <UserCheck className="h-3 w-3" />
+            {t(`carousel.decisions.verdict.${row.claim.verdict}`)}
+          </Badge>
+        )}
 
-      {canReview && <ClaimActions recordId={recordId} row={row} />}
+        {row?.claim?.needs_review && (
+          <Badge
+            variant="outline"
+            className="text-[10px] gap-1 claim-needs-review"
+            title={t('carousel.decisions.needs-review-explained')}
+          >
+            <TriangleAlert className="h-3 w-3" />
+            {t('carousel.decisions.needs-review')}
+          </Badge>
+        )}
+
+        {canReview && row && <ClaimActions recordId={recordId} row={row} />}
+      </span>
     </div>
   );
 }
 
-function BaseDecisionView({
-  recordId,
-  decision,
-  canReview,
-  onSelectView,
-}: {
+interface ComparisonGroupCardProps {
   recordId: string;
-  decision: BaseDecision;
+  group: ComparisonGroup;
+  selectedView?: string;
   canReview: boolean;
   onSelectView?: (viewKey: string) => void;
-}) {
+}
+
+function ComparisonGroupCard({
+  recordId,
+  group,
+  selectedView,
+  canReview,
+  onSelectView,
+}: ComparisonGroupCardProps) {
   const { t } = useTranslation('records');
-  const answer = decision.answer;
+  const answer = group.answer;
 
   return (
-    <div className="rounded-md border px-2 py-1.5 space-y-1">
-      <div className="flex flex-wrap items-center gap-2 text-xs">
-        <span className="font-medium">{decision.base}</span>
+    <div className="overflow-hidden rounded-md border">
+      <div className="flex flex-wrap items-center gap-2 border-b bg-muted/30 px-2 py-1.5 text-xs">
+        <span className="font-medium">{group.base}</span>
         {answer && (
           <Badge
             variant="outline"
@@ -275,11 +270,12 @@ function BaseDecisionView({
         ) : null}
       </div>
 
-      {decision.rows.map(row => (
-        <DecisionRowView
-          key={rowKey(row)}
+      {group.records.map(compared => (
+        <ComparedRecordRow
+          key={compared.recordId}
           recordId={recordId}
-          row={row}
+          compared={compared}
+          isSelected={compared.viewKey === selectedView}
           canReview={canReview}
           onSelectView={onSelectView}
         />
@@ -288,40 +284,39 @@ function BaseDecisionView({
   );
 }
 
-/**
- * What linking concluded for each base, and what a cataloguer made of it.
- *
- * This is the one place the whole of a link decision is visible: the answer,
- * the runner-ups it was chosen over, how each was found, and the verdicts
- * people have entered against them. Everything here was already arriving on
- * the record summary and was rendered nowhere, which left the claim feature
- * reachable only through the API.
- */
-export function LinkDecisions({
-  record,
-  onSelectView,
-}: {
+interface ComparisonGroupsProps {
   record: RecordSummary;
+  selectedView?: string;
   onSelectView?: (viewKey: string) => void;
-}) {
+}
+
+/**
+ * Every base the record was compared against, and every record compared from it.
+ *
+ * Also the one place a link decision is visible whole — the answer, the runner-ups it was
+ * chosen over, how each was found and the verdicts people entered against them — and where a
+ * cataloguer enters one.
+ */
+export function ComparisonGroups({ record, selectedView, onSelectView }: ComparisonGroupsProps) {
   const { t } = useTranslation('records');
   const { hasPermission } = useHasPermission();
   const canReview = hasPermission(Permission.ReviewRecords) === true;
+  const groups = comparisonGroups(record);
 
-  const decisions = decisionsByBase(record).filter(d => d.rows.length > 0);
-  if (decisions.length === 0) {
+  if (groups.length === 0) {
     return null;
   }
 
   return (
     <div className="space-y-1">
-      <p className="text-xs font-medium text-muted-foreground">{t('carousel.decisions.title')}</p>
-      <div className="space-y-1">
-        {decisions.map(decision => (
-          <BaseDecisionView
-            key={decision.base}
+      <p className="text-xs font-medium text-muted-foreground">{t('carousel.comparisons')}</p>
+      <div className="space-y-2">
+        {groups.map(group => (
+          <ComparisonGroupCard
+            key={group.base}
             recordId={record.id}
-            decision={decision}
+            group={group}
+            selectedView={selectedView}
             canReview={canReview}
             onSelectView={onSelectView}
           />

@@ -1,5 +1,4 @@
 import type { LinkAttemptSummary, RecordSummary } from './types';
-import { formatScore } from './score';
 
 /** The answer for each base: what linking concluded, link or not. */
 function linkAnswers(record: RecordSummary): LinkAttemptSummary[] {
@@ -16,9 +15,4 @@ function linkAnswers(record: RecordSummary): LinkAttemptSummary[] {
  */
 export function linkGaps(record: RecordSummary): LinkAttemptSummary[] {
   return linkAnswers(record).filter(a => a.outcome !== 'Linked');
-}
-
-/** A match score, or null where the linker reported none. */
-export function scoreLabel(attempt: LinkAttemptSummary): string | null {
-  return attempt.confidence === null ? null : formatScore(attempt.confidence);
 }

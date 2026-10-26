@@ -6,20 +6,21 @@ import { Button } from '@/components/ui/button';
 import { useHasPermission } from '@/hooks/use-permissions';
 import { cn } from '@/lib/utils';
 import { Permission } from '@/types/permission';
-import { confidenceLabel } from '../authority-links';
-import { linkGaps, scoreLabel } from '../link-attempts';
+import { type ComparisonGroup, comparisonGroups } from '../comparison-groups';
 import { formatScore } from '../score';
 import { AdvancedTaskActions, RecordTaskActions } from '../record-task-actions';
 import { LINK_OUTCOME_COLORS, type RecordSummary, STATE_COLORS } from '../types';
 import { COMPARISON_BADGE_CLASS, groupValidations, VALIDATION_BADGE_CLASS } from '../utils';
-import { LinkDecisions } from './link-decisions';
+import { ComparisonGroups } from './comparison-groups';
+import { useRouteLabel } from './use-route-label';
 
 interface RecordHeaderProps {
   record: RecordSummary;
+  selectedView?: string;
   onSelectView?: (viewKey: string) => void;
 }
 
-export function RecordHeader({ record, onSelectView }: RecordHeaderProps) {
+export function RecordHeader({ record, selectedView, onSelectView }: RecordHeaderProps) {
   const { t } = useTranslation('records');
   const { hasPermission } = useHasPermission();
   const canProcess = hasPermission(Permission.ProcessRecords) === true;
@@ -86,63 +87,9 @@ export function RecordHeader({ record, onSelectView }: RecordHeaderProps) {
       </div>
 
       <div className="flex flex-wrap gap-2 text-xs">
-        {record.authority_links.map(al => {
-          const systemNumber = al.authority_record_id.startsWith(`${al.base}-`)
-            ? al.authority_record_id.slice(al.base.length + 1)
-            : al.authority_record_id;
-          const viewKey = `auth:${al.base}:${systemNumber}`;
-          return (
-            <Badge
-              key={`${al.linker}-${al.base}`}
-              variant="outline"
-              className={cn('text-xs', onSelectView && 'cursor-pointer hover:bg-accent')}
-              onClick={onSelectView ? () => onSelectView(viewKey) : undefined}
-            >
-              {[
-                t('carousel.authority-linked', { base: al.base }),
-                confidenceLabel(al),
-                al.matched_by
-                  ? t(`match-route.${al.matched_by}`, { defaultValue: al.matched_by })
-                  : null,
-              ]
-                .filter(Boolean)
-                .join(' · ')}
-            </Badge>
-          );
-        })}
-        {linkGaps(record).map(gap => (
-          <Badge
-            key={`gap-${gap.base}`}
-            variant="outline"
-            className={cn('text-xs', LINK_OUTCOME_COLORS[gap.outcome])}
-            title={gap.detail ?? undefined}
-          >
-            {[
-              t(`link-outcome.${gap.outcome}`, { base: gap.base }),
-              scoreLabel(gap),
-              gap.candidate_count ? t('carousel.weighed', { count: gap.candidate_count }) : null,
-            ]
-              .filter(Boolean)
-              .join(' · ')}
-          </Badge>
+        {comparisonGroups(record).map(group => (
+          <ComparisonBadge key={group.base} group={group} onSelectView={onSelectView} />
         ))}
-        {record.comparisons.map(c => {
-          const viewKey = `comp:${c.comparator}:${c.other_record_id}`;
-          return (
-            <Badge
-              key={`${c.comparator}-${c.other_record_id}`}
-              variant="outline"
-              className={cn(
-                'text-xs',
-                COMPARISON_BADGE_CLASS[c.match_quality],
-                onSelectView && 'cursor-pointer hover:bg-accent',
-              )}
-              onClick={onSelectView ? () => onSelectView(viewKey) : undefined}
-            >
-              {c.base}: {formatScore(c.overall_score)}
-            </Badge>
-          );
-        })}
         {groupValidations(record.validations).map(g => {
           const viewKey = `val:${g.validator}`;
           return (
@@ -168,7 +115,7 @@ export function RecordHeader({ record, onSelectView }: RecordHeaderProps) {
         })}
       </div>
 
-      <LinkDecisions record={record} onSelectView={onSelectView} />
+      <ComparisonGroups record={record} selectedView={selectedView} onSelectView={onSelectView} />
 
       <div className="flex gap-4 text-xs text-muted-foreground">
         {record.latest_sync && (
@@ -178,5 +125,44 @@ export function RecordHeader({ record, onSelectView }: RecordHeaderProps) {
         )}
       </div>
     </div>
+  );
+}
+
+interface ComparisonBadgeProps {
+  group: ComparisonGroup;
+  onSelectView?: (viewKey: string) => void;
+}
+
+/**
+ * One base in one badge: what linking concluded and how well the chosen record compares.
+ *
+ * The link and its comparison used to be two badges naming the same base and the same record.
+ * The colour is the comparison's quality where there is one, else the link outcome's.
+ */
+function ComparisonBadge({ group, onSelectView }: ComparisonBadgeProps) {
+  const { t } = useTranslation('records');
+  const routeLabel = useRouteLabel();
+  const answer = group.answer;
+  const headline = group.records.find(r => r.role !== 'alternative') ?? null;
+  const route = answer ? routeLabel(answer.matched_by, answer.matched_identifier) : null;
+  const outcome = answer
+    ? [t(`link-outcome-inline.${answer.outcome}`), route].filter(Boolean).join(' ')
+    : null;
+  const score = headline?.score != null ? formatScore(headline.score) : null;
+  const colorClass = headline?.comparison
+    ? COMPARISON_BADGE_CLASS[headline.comparison.match_quality]
+    : answer && LINK_OUTCOME_COLORS[answer.outcome];
+  const viewKey = headline?.viewKey;
+  const isClickable = !!viewKey && !!onSelectView;
+
+  return (
+    <Badge
+      variant="outline"
+      className={cn('text-xs', colorClass, isClickable && 'cursor-pointer hover:bg-accent')}
+      title={answer?.detail ?? undefined}
+      onClick={isClickable ? () => onSelectView(viewKey) : undefined}
+    >
+      {[group.base, outcome, score].filter(Boolean).join(' · ')}
+    </Badge>
   );
 }

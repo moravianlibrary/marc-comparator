@@ -144,17 +144,20 @@
     "next": "Další záznam",
     "marc-record": "MARC záznam",
     "comparisons": "Porovnání",
+    "comparison-role": {
+      "chosen": "Vybraný",
+      "best": "Nejlepší",
+      "alternative": "Alternativa"
+    },
     "validations": "Validace",
     "no-record": "Vyberte záznam pro zobrazení",
     "no-annotation": "Bez anotací",
-    "authority-records": "Autoritní záznamy",
     "target-fields-only": "Pouze cílová pole",
     "score": "Skóre",
     "match-quality": "Kvalita shody",
     "status": "Stav",
     "reason": "Důvod",
     "hint": "Nápověda",
-    "authority-linked": "Propojeno s autoritou {{base}}",
     "field-score": "Skóre pole",
     "permalink": "Trvalý odkaz na záznam",
     "link-copied": "Odkaz zkopírován do schránky",
@@ -175,10 +178,6 @@
     "processing-error": "Záznam nelze načíst",
     "weighed": "posouzeno {{count}}",
     "decisions": {
-      "title": "Rozhodnutí o propojení",
-      "answer": "Odpověď",
-      "alternative": "Alternativa",
-      "candidates": "Zvažované záznamy",
       "no-stored-marc": "Kopii tohoto záznamu neuchováváme. Doplní se při dalším průchodu propojování.",
       "on-demand-score": "Porovnání se záznamem: {{score}}",
       "comparison-unavailable": "Porovnání se nepodařilo vypočítat. Zobrazuje se uložený záznam kandidáta.",
@@ -366,6 +365,15 @@
     "Refused": "Vyloučeno katalogizátorem",
     "NoCandidate": "Nic nenalezeno",
     "LookupFailed": "Vyhledání selhalo"
+  },
+  "link-outcome-inline": {
+    "Linked": "propojeno",
+    "Rejected": "zamítnuto",
+    "BelowFloor": "nález pod prahem",
+    "Conflicting": "nález v rozporu",
+    "Refused": "vyloučeno katalogizátorem",
+    "NoCandidate": "nic nenalezeno",
+    "LookupFailed": "vyhledání selhalo"
   },
   "match-route": {
     "identifier": "identifikátoru",
